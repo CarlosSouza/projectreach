@@ -732,3 +732,20 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
 - All 14 suites (new: the UI test passes), 16 slices and the unit tests pass; the core still stops at the license.
 
 **Next:** keyboard input into the chat box (Halo's `KsDispatchMessage` and `KsTranslateAccelerator` path), file mapping and DirectInput game controllers, then the core beyond the license once Chris accepts it.
+
+## 2026-09-27 — The runtime builds and passes on the iPad Simulator
+
+- **Split the Apple host.** The shared Metal core is `halopad_metal.m`, and each platform host provides the application, windows, events, the pointer, the clipboard and the screen size:
+  - `halopad_host_macos.m` is the AppKit code moved unchanged;
+  - `halopad_host_ios.m` is new: off-screen `CAMetalLayer` windows, `halopad_host_attach_view` for the coming app shell, `UIPasteboard`, and the main screen's size;
+  - windows present only when their layer is on screen.
+- **Builds.** `run-core.py` gained `--run-prefix` (with `SIMCTL_CHILD_` environment variables) and picks the iOS SDK and UIKit for iOS targets. `vabuild.py` compiles translated modules with that SDK.
+- **The vorbis test** no longer starts tools on iOS. It reads the stream and ffmpeg's decode from the macOS run's fixtures in `/tmp`.
+- **Result on the "HaloPad iPad Pro 13" Simulator:**
+  - all 14 suites pass: Direct3D 9 with 221 checks and Metal readbacks, USER32, DirectInput, DirectSound, threads, Winsock, files, OLE, GDI text, misc, Vorbis, Keystone, MSXML, and the chat UI, whose frame matches the Mac's;
+  - all 16 slices and contract cases pass.
+  - macOS still passes all 14 suites after the split.
+  - The Simulator is shut down again.
+- The first iOS build compiles Halo and the four translated DLLs for the Simulator in about 3.5 minutes.
+
+**Next:** an iPadOS app shell (UIKit scene, the layer in a view, touch/keyboard/pointer into `halopad_input_event`, game controllers) so the chat UI shows on the Simulator's screen; then the physical-device capsule once Chris provides a device.

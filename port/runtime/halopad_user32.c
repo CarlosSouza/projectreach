@@ -64,7 +64,8 @@ void halopad_desktop_size(int32_t *w, int32_t *h)
     *w = (int32_t)CGDisplayPixelsWide(d);
     *h = (int32_t)CGDisplayPixelsHigh(d);
 #else
-    hp_unsupported("GetDesktopWindow", "desktop size on this platform");
+    void halopad_host_screen_size(int32_t *w, int32_t *h);    /* port/apple/halopad_host_ios.m */
+    halopad_host_screen_size(w, h);
 #endif
 }
 

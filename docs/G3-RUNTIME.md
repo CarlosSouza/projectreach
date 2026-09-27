@@ -88,6 +88,22 @@ Keystone draws every character it shows through GDI and copies the coverage into
   - the Keystone test checks Keystone's CRT `floor`/`ceil`;
   - the UI test adds a chat line through Halo's own `0x4ae8a0` and opens the chat input as `0x4ada50` does. It then reads the Metal back buffer (`chat.ppm` in the evidence directory) and checks the text pixels.
 
+## Apple hosts: macOS and iOS
+
+The Metal core behind `IDirect3DDevice9` (`port/apple/halopad_metal.m`: back buffer, clears, draws, present, test readback) is shared. The platform host supplies the application, windows, events, the pointer, the clipboard and the display size (`port/apple/halopad_host.h`):
+
+- **macOS** (`halopad_host_macos.m`): AppKit windows with a `CAMetalLayer`, and AppKit events turned into Windows input (keys with their characters, mouse, wheel, activation, close).
+- **iOS and iPadOS** (`halopad_host_ios.m`): each Windows top-level window is a `CAMetalLayer`. An app shell shows it with `halopad_host_attach_view`; until then the layer is off screen. Direct3D still renders into its back buffer, which tests read, and `Present` shows nothing, as for a window nobody can see.
+  - Input reaches the Windows side through `halopad_input_event` from the shell's UIKit callbacks.
+  - The exclusive mouse and cursor visibility are recorded for the shell to apply with UIKit's pointer lock and hiding.
+  - The clipboard is `UIPasteboard`, and the desktop is the main screen's native size, in landscape.
+- **Builds.** `scripts/run-core.py --target arm64-apple-ios17.0-simulator --run-prefix xcrun simctl spawn <device>` builds against the iOS Simulator SDK and links UIKit. Translated modules are compiled with the same SDK. The `HALOPAD_*` variables reach the process as `SIMCTL_CHILD_*`.
+- **Evidence (2026-09-27).** On the project's "HaloPad iPad Pro 13" Simulator:
+  - all 14 suites pass, including the Direct3D 9 suite's Metal readbacks and the chat UI with its frame (`chat.ppm` matches the Mac's);
+  - all 16 slices and fault cases pass;
+  - the vorbis test reads the fixtures its macOS run leaves in `/tmp`, because iOS cannot start the reference encoder or ffmpeg.
+  - The physical-device row (a 4 GiB reservation on a real device, signing) remains parked.
+
 ## Diagnostics
 
 These are environment switches that only print; none of them changes behavior.
@@ -125,7 +141,7 @@ Protection is tracked per 4 KiB guest page. `VirtualProtect` returns the previou
 
 ## Callbacks and windows
 
-Runtime services call translated Halo code (window procedures) through `halopad_call_guest`, which checks Windows' stdcall callback convention. Windows are host-side records for now: classes, the desktop (the Mac's main display), and `CreateWindowExA` with the documented creation messages (`WM_GETMINMAXINFO`, `WM_NCCREATE`, `WM_NCCALCSIZE`, `WM_CREATE`). `DefWindowProcA` handles those messages and traps on any other message number. Frame metrics are XP classic (caption 19, sizing frame 4). The AppKit/Metal view attaches with the graphics work.
+Runtime services call translated Halo code (window procedures) through `halopad_call_guest`, which checks Windows' stdcall callback convention. Windows are host-side records for now: classes, the desktop (the Mac's main display), and `CreateWindowExA` with the documented creation messages (`WM_GETMINMAXINFO`, `WM_NCCREATE`, `WM_NCCALCSIZE`, `WM_CREATE`). `DefWindowProcA` handles those messages and traps on any other message number. Frame metrics are XP classic (caption 19, sizing frame 4). Host windows are described under "Apple hosts" above.
 
 ## Paths
 

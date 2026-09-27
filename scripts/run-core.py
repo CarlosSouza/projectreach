@@ -33,6 +33,16 @@ def sha(p):
     return hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest()
 
 
+def sdk_path(target):
+    """The SDK for a target: SDKROOT if set, else the iOS Simulator or device SDK from xcrun (macOS uses the default)."""
+    if os.environ.get('SDKROOT'):
+        return os.environ['SDKROOT']
+    if 'ios' not in target:
+        return None
+    sdk = 'iphonesimulator' if 'simulator' in target else 'iphoneos'
+    return subprocess.run(['xcrun', '--sdk', sdk, '--show-sdk-path'], check=True, capture_output=True, text=True).stdout.strip()
+
+
 def build(work, target, main_src):
     va = work / 'va'
     if not (va / 'haloce.va.ll').exists():
@@ -43,7 +53,7 @@ def build(work, target, main_src):
     obj.parent.mkdir(exist_ok=True)
     if not obj.exists() or obj.stat().st_mtime < (va / 'haloce.va.ll').stat().st_mtime:
         print('compiling translated Halo (about 90 s)...', flush=True)
-        subprocess.run(['clang', '-target', target, '-c', '-O1', '-fno-fast-math', '-ffp-contract=off', '-Wno-override-module',
+        subprocess.run(['clang', '-target', target, *(['-isysroot', sdk_path(target)] if sdk_path(target) else []), '-c', '-O1', '-fno-fast-math', '-ffp-contract=off', '-Wno-override-module',
                         str(va / 'haloce.va.ll'), '-o', str(obj)], check=True)
     runtime_ll = sorted(va.glob('halopad-*.ll'))
     mod_objs, mod_lls = vabuild.module_objects(va, target, obj.parent)
@@ -51,11 +61,13 @@ def build(work, target, main_src):
                     str(va / 'dispatch.ll'), *map(str, runtime_ll), *map(str, mod_lls)], check=True, capture_output=True)
     subprocess.run([sys.executable, str(ROOT / 'scripts/gen-nls-tables.py')], check=True, capture_output=True)
     exe = out / ('halopad-core' if main_src.name == 'halopad_core_main.c' else main_src.stem)
-    cmd = ['clang', '-target', target, '-O2', '-fno-fast-math', '-ffp-contract=off', '-w', '-DPTROFS_64BIT=1', '-std=c2x',
+    ios = 'ios' in target
+    sdk = sdk_path(target)
+    cmd = ['clang', '-target', target, *(['-isysroot', sdk] if sdk else []), '-O2', '-fno-fast-math', '-ffp-contract=off', '-w', '-DPTROFS_64BIT=1', '-std=c2x',
            '-Wno-override-module', '-I', str(SUPPORT), '-I', str(ROOT / 'generated' / 'runtime'), *xiph.include_flags(),
            str(main_src), *map(str, sorted((ROOT / 'port/runtime').glob('*.c'))),
            *map(str, sorted(SUPPORT.glob('llasm_*.c'))), str(va / 'dispatch.ll'), *map(str, runtime_ll),
-           str(out / 'stubs.ll'), str(obj), *map(str, mod_objs), *[str(m) for m in sorted((ROOT / 'port/apple').glob('*.m'))], str(xiph.archive(target, os.environ.get('SDKROOT'))), '-fobjc-arc', '-framework', 'CoreGraphics', '-framework', 'CoreText', '-framework', 'Cocoa', '-framework', 'Metal', '-framework', 'QuartzCore', '-framework', 'AudioToolbox', '-o', str(exe)]
+           str(out / 'stubs.ll'), str(obj), *map(str, mod_objs), *[str(m) for m in sorted((ROOT / 'port/apple').glob('*.m'))], str(xiph.archive(target, sdk)), '-fobjc-arc', '-framework', 'CoreGraphics', '-framework', 'CoreText', '-framework', 'UIKit' if ios else 'Cocoa', '-framework', 'Metal', '-framework', 'QuartzCore', '-framework', 'AudioToolbox', '-o', str(exe)]
     link = subprocess.run(cmd, capture_output=True, text=True)
     (out / 'link.log').write_text(' '.join(cmd) + '\n' + link.stdout + link.stderr)
     if link.returncode:
@@ -68,6 +80,7 @@ def main():
     ap.add_argument('--work', type=pathlib.Path)
     ap.add_argument('--target')
     ap.add_argument('--timeout', type=int, default=120)
+    ap.add_argument('--run-prefix', nargs='*', default=[], help='command prefix to run the binary (e.g. xcrun simctl spawn <device>)')
     ap.add_argument('--main', type=pathlib.Path, default=ROOT / 'port/core/halopad_core_main.c',
                     help='program to link in place of the core (e.g. tests/halo_d3d9_test.c)')
     a = ap.parse_args()
@@ -84,7 +97,9 @@ def main():
     if acceptance.exists():
         env['HALOPAD_EULA_ACCEPTANCE'] = str(acceptance)
     try:
-        run = subprocess.run([str(exe)], capture_output=True, text=True, timeout=a.timeout, env=env)
+        if a.run_prefix:                                    # e.g. xcrun simctl spawn <device>: it passes SIMCTL_CHILD_* variables on
+            env.update({'SIMCTL_CHILD_' + k: v for k, v in list(env.items()) if k.startswith('HALOPAD_')})
+        run = subprocess.run([*a.run_prefix, str(exe)], capture_output=True, text=True, timeout=a.timeout, env=env)
         code, out, err = run.returncode, run.stdout, run.stderr
     except subprocess.TimeoutExpired as t:
         code, out, err = 'timeout', (t.stdout or b'').decode(errors='replace'), (t.stderr or b'').decode(errors='replace')

@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <TargetConditionals.h>
 #define PTROFS_64BIT 1
 #include "llasm_cpu.h"
 
@@ -31,6 +32,19 @@ static void check(const char *what, uint32_t got, uint32_t want)
     printf("%-70s %s (got 0x%x, want 0x%x)\n", what, got == want ? "PASS" : "FAIL", got, want);
     failures += got != want;
 }
+static uint8_t *slurp(const char *path, size_t *n)
+{
+    FILE *f = fopen(path, "rb");
+    if (!f) return NULL;
+    fseek(f, 0, SEEK_END);
+    long len = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    uint8_t *b = malloc((size_t)len + 1);
+    *n = fread(b, 1, (size_t)len, f);
+    fclose(f);
+    return b;
+}
+#if TARGET_OS_OSX
 static uint8_t *run(const char *cmd, size_t *n)
 {
     FILE *p = popen(cmd, "r");
@@ -43,6 +57,7 @@ static uint8_t *run(const char *cmd, size_t *n)
     *n = len;
     return b;
 }
+#endif
 static uint32_t ov_open, ov_read, ov_clear, ov_crosslap;
 static uint32_t reader(uint32_t data, uint32_t size)          /* Halo's reader: pos, data, size, eof */
 {
@@ -81,10 +96,20 @@ int main(void)
              "%s/tools/vorbis_encode.c %s/ref/xiph/vorbis/lib/vorbisenc.c %s/generated/xiph/arm64-apple-macosx14.0.0/libhalopad-xiph.a "
              "-o /tmp/halopad-vorbis-encode && /tmp/halopad-vorbis-encode > /tmp/halopad-vorbis-test.ogg",
              root, root, root, root, root, root, root);
-    system(cmd);
     size_t on = 0, rn = 0;
+#if TARGET_OS_OSX
+    system(cmd);
     uint8_t *ogg = run("cat /tmp/halopad-vorbis-test.ogg", &on);
     uint8_t *ref = run("/opt/homebrew/bin/ffmpeg -loglevel error -c:a vorbis -i /tmp/halopad-vorbis-test.ogg -f s16le -", &rn);
+    FILE *keep = fopen("/tmp/halopad-vorbis-test.s16", "wb");     /* ffmpeg's decode, for runs that cannot start tools */
+    if (keep) { fwrite(ref, 1, rn, keep); fclose(keep); }
+#else
+    /* iOS cannot start the encoder or ffmpeg: the Simulator reads the stream and ffmpeg's decode
+       that the macOS run of this test left in /tmp (the Simulator shares the Mac's file system) */
+    (void)cmd;
+    uint8_t *ogg = slurp("/tmp/halopad-vorbis-test.ogg", &on), *ref = slurp("/tmp/halopad-vorbis-test.s16", &rn);
+    if (!ogg || !ref) { printf("run the macOS vorbis test first: it makes the fixtures in /tmp\n"); return 2; }
+#endif
     check("the reference encoder made a stream; ffmpeg decoded it for comparison", on > 1000 && rn > 100000, 1);
 
     uint32_t dll = LoadLibraryA_c(str("vorbisfile.dll"));
