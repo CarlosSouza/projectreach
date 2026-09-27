@@ -294,11 +294,15 @@ uint32_t hpcom_IDirect3DDevice9_Clear_c(uint32_t g, uint32_t count, uint32_t rec
     halopad_metal_clear(d->target, flags & 1, (flags >> 1) & 1, (flags >> 2) & 1, rgba, zf, stencil);
     return D3D_OK;
 }
+/* Test support: called with each device just before it presents (the frame is complete). */
+void (*halopad_d3d9_present_hook)(uint32_t device);
+
 uint32_t hpcom_IDirect3DDevice9_Present_c(uint32_t g, uint32_t src, uint32_t dst, uint32_t window, uint32_t dirty)
 {
     device *d = dev(g);
     if (src || dst || (window && window != d->window) || dirty)
         hp_unsupported("IDirect3DDevice9::Present", "source/destination rectangles, another window or a dirty region");
+    if (halopad_d3d9_present_hook) halopad_d3d9_present_hook(g);
     halopad_metal_present(d->target);
     return D3D_OK;
 }

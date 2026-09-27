@@ -321,7 +321,11 @@ uint32_t CreateFileA_c(uint32_t name, uint32_t access, uint32_t share, uint32_t 
 static uint32_t create_file(uint32_t name, uint32_t access, uint32_t share, uint32_t security, uint32_t disp, uint32_t flags, uint32_t tmpl)
 {
     (void)share;                                                    /* one process: sharing never conflicts */
-    if (security) hp_unsupported("CreateFileA", "security attributes 0x%08x", security);
+    /* SECURITY_ATTRIBUTES: the C runtime's _sopen always passes one (length 12, no descriptor,
+       bInheritHandle from _O_NOINHERIT). Inheritance only matters for child processes, which
+       HaloPad does not create; a security descriptor is not modelled. */
+    if (security && (rd32(security) != 12 || rd32(security + 4)))
+        hp_unsupported("CreateFileA", "security attributes 0x%08x (length %u, descriptor 0x%08x)", security, rd32(security), rd32(security + 4));
     if (tmpl) hp_unsupported("CreateFileA", "a template file");
     if (access & ~0xC0000000u) hp_unsupported("CreateFileA", "access 0x%08x", access);
     if (flags & ~(0x1u | 0x2u | 0x4u | 0x20u | 0x80u | 0x100u | 0x02000000u | 0x04000000u | 0x08000000u | 0x10000000u | 0x20000000u

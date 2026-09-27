@@ -1800,3 +1800,14 @@ uint32_t ShellExecuteA_c(uint32_t hwnd, uint32_t verb, uint32_t file, uint32_t p
     fprintf(stderr, "HALOPAD: ShellExecuteA open %s: %s\n", url, ok ? "opened" : "no handler on this host");
     return ok ? 42 : 31;                                            /* above 32 succeeds; SE_ERR_NOASSOC */
 }
+
+/* TranslateAcceleratorA: Keystone passes a null table (KsTranslateAccelerator, from Halo's
+   message loop); Windows translates nothing then (ERROR_INVALID_ACCEL_HANDLE). HaloPad loads
+   no accelerator tables, so any other table stops. */
+uint32_t TranslateAcceleratorA_c(uint32_t hwnd, uint32_t table, uint32_t msg)
+{
+    (void)hwnd; (void)msg;
+    if (table) hp_unsupported("TranslateAcceleratorA", "accelerator table 0x%08x", table);
+    halopad_last_error = 1403;
+    return 0;
+}

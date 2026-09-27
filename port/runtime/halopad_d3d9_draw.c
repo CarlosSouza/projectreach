@@ -16,6 +16,7 @@
  * (halopad_d3d9_ff.c). States outside this set stop with a message naming them. */
 #include "halopad_win32.h"
 #include "halopad_d3d9_internal.h"
+int halopad_metal_supports_bc(void);
 #include "../apple/halopad_metal.h"
 
 void *halopad_com_state(const char *iface, uint32_t g);
@@ -181,9 +182,10 @@ static void texture_format(uint32_t f, uint32_t *mtl, uint8_t sw[4], int *conver
     case 51: *mtl = 30; sw[1] = 2; sw[2] = 2; sw[3] = 3; return;    /* A8L8: RG8Unorm as (L, L, L, A) */
     case 60: *mtl = 32; sw[2] = 1; sw[3] = 1; return;               /* V8U8: RG8Snorm as (U, V, 1, 1) */
     case 63: *mtl = 72; return;                                     /* Q8W8V8U8: RGBA8Snorm */
-    case 0x31545844u: *mtl = 130; return;                           /* DXT1: BC1_RGBA */
-    case 0x32545844u: case 0x33545844u: *mtl = 132; return;         /* DXT2/3: BC2_RGBA */
-    case 0x34545844u: case 0x35545844u: *mtl = 134; return;         /* DXT4/5: BC3_RGBA */
+    case 0x31545844u: case 0x32545844u: case 0x33545844u: case 0x34545844u: case 0x35545844u:
+        if (!halopad_metal_supports_bc()) { *mtl = 80; *convert = 2; return; }   /* decoded to BGRA8 (dxt_decode) */
+        *mtl = f == 0x31545844u ? 130 : (f == 0x32545844u || f == 0x33545844u) ? 132 : 134;   /* BC1/BC2/BC3_RGBA */
+        return;
     }
     hp_unsupported("draw", "texture format %u", f);
 }
@@ -198,6 +200,59 @@ static void expand16(uint32_t f, const uint16_t *src, uint8_t *dst, uint32_t n)
         else { r = ((p >> 10) & 31) * 255 / 31; g = ((p >> 5) & 31) * 255 / 31; b = (p & 31) * 255 / 31; a = (f == 24 || (p >> 15)) ? 255 : 0; }
         dst[4 * i] = (uint8_t)b; dst[4 * i + 1] = (uint8_t)g; dst[4 * i + 2] = (uint8_t)r; dst[4 * i + 3] = (uint8_t)a;
     }
+}
+
+/* DXT (S3TC) decoding for GPUs without BC textures (the iPad Simulator and iPads before M1;
+   docs/G3-RUNTIME.md): each 4x4 block becomes BGRA8, as the BC1-BC3 formats define it. DXT2
+   and DXT4 (premultiplied) decode as DXT3 and DXT5, as Metal's BC2 and BC3 would read them. */
+static void dxt_color(const uint8_t *b, uint8_t out[16][4], int four_color)
+{
+    uint16_t c0 = (uint16_t)(b[0] | b[1] << 8), c1 = (uint16_t)(b[2] | b[3] << 8);
+    uint32_t idx = (uint32_t)b[4] | (uint32_t)b[5] << 8 | (uint32_t)b[6] << 16 | (uint32_t)b[7] << 24;
+    uint8_t p[4][4];
+    uint32_t r0 = (c0 >> 11) * 255 / 31, g0 = ((c0 >> 5) & 63) * 255 / 63, b0 = (c0 & 31) * 255 / 31;
+    uint32_t r1 = (c1 >> 11) * 255 / 31, g1 = ((c1 >> 5) & 63) * 255 / 63, b1 = (c1 & 31) * 255 / 31;
+    p[0][0] = (uint8_t)b0; p[0][1] = (uint8_t)g0; p[0][2] = (uint8_t)r0; p[0][3] = 255;
+    p[1][0] = (uint8_t)b1; p[1][1] = (uint8_t)g1; p[1][2] = (uint8_t)r1; p[1][3] = 255;
+    if (four_color || c0 > c1) {
+        p[2][0] = (uint8_t)((2 * b0 + b1) / 3); p[2][1] = (uint8_t)((2 * g0 + g1) / 3); p[2][2] = (uint8_t)((2 * r0 + r1) / 3); p[2][3] = 255;
+        p[3][0] = (uint8_t)((b0 + 2 * b1) / 3); p[3][1] = (uint8_t)((g0 + 2 * g1) / 3); p[3][2] = (uint8_t)((r0 + 2 * r1) / 3); p[3][3] = 255;
+    } else {
+        p[2][0] = (uint8_t)((b0 + b1) / 2); p[2][1] = (uint8_t)((g0 + g1) / 2); p[2][2] = (uint8_t)((r0 + r1) / 2); p[2][3] = 255;
+        p[3][0] = p[3][1] = p[3][2] = p[3][3] = 0;                          /* transparent black */
+    }
+    for (int i = 0; i < 16; i++) memcpy(out[i], p[(idx >> (2 * i)) & 3], 4);
+}
+
+static void dxt_block(uint32_t f, const uint8_t *b, uint8_t out[16][4])
+{
+    if (f == 0x31545844u) { dxt_color(b, out, 0); return; }                  /* DXT1 */
+    dxt_color(b + 8, out, 1);
+    if (f == 0x32545844u || f == 0x33545844u) {                              /* DXT2/3: explicit 4-bit alpha */
+        for (int i = 0; i < 16; i++) out[i][3] = (uint8_t)(((b[i / 2] >> (4 * (i & 1))) & 15) * 17);
+        return;
+    }
+    uint32_t a0 = b[0], a1 = b[1], a[8];                                     /* DXT4/5: interpolated alpha */
+    a[0] = a0; a[1] = a1;
+    if (a0 > a1) for (int i = 1; i < 7; i++) a[i + 1] = ((7 - i) * a0 + i * a1) / 7;
+    else { for (int i = 1; i < 5; i++) a[i + 1] = ((5 - i) * a0 + i * a1) / 5; a[6] = 0; a[7] = 255; }
+    uint64_t bits = 0;
+    for (int i = 0; i < 6; i++) bits |= (uint64_t)b[2 + i] << (8 * i);
+    for (int i = 0; i < 16; i++) out[i][3] = (uint8_t)a[(bits >> (3 * i)) & 7];
+}
+
+/* one level's slice of blocks (rows of pitch bytes) into w x h BGRA8 */
+static void dxt_decode(uint32_t f, const uint8_t *src, uint32_t pitch, uint8_t *dst, uint32_t w, uint32_t h)
+{
+    uint32_t bs = f == 0x31545844u ? 8 : 16;
+    for (uint32_t by = 0; by < (h + 3) / 4; by++)
+        for (uint32_t bx = 0; bx < (w + 3) / 4; bx++) {
+            uint8_t px[16][4];
+            dxt_block(f, src + by * pitch + bx * bs, px);
+            for (uint32_t y = 0; y < 4 && 4 * by + y < h; y++)
+                for (uint32_t x = 0; x < 4 && 4 * bx + x < w; x++)
+                    memcpy(dst + 4 * ((4 * by + y) * w + 4 * bx + x), px[4 * y + x], 4);
+        }
 }
 
 static void *upload_texture(res *t)
@@ -216,7 +271,13 @@ static void *upload_texture(res *t)
         uint32_t depth = type == 4 ? t->ld[l] : 1, slice = type == 4 ? t->slice[l] : t->size[l];
         for (uint32_t f = 0; f < faces; f++) {
             const uint8_t *src = (const uint8_t *)G(t->mem[l]) + f * t->size[l];
-            if (convert) {
+            if (convert == 2) {
+                uint32_t n = t->lw[l] * t->lh[l];
+                uint8_t *tmp = malloc(4 * n * depth);
+                for (uint32_t z = 0; z < depth; z++) dxt_decode(t->format, src + z * slice, t->pitch[l], tmp + 4 * n * z, t->lw[l], t->lh[l]);
+                halopad_metal_texture_upload(t->native, l, f, tmp, 4 * t->lw[l], 4 * n, t->lw[l], t->lh[l], depth);
+                free(tmp);
+            } else if (convert) {
                 uint32_t n = t->lw[l] * t->lh[l];
                 uint8_t *tmp = malloc(4 * n * depth);
                 for (uint32_t z = 0; z < depth; z++)

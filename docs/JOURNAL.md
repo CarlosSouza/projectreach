@@ -894,3 +894,18 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   - Untranslated instruction sites went from 153 to 6.
 - **A silent miscompile found and fixed.** A HaloPad translator guard accepted "no code" for `test`/`cmp` of registers as "flags not needed". For `test ch, cl` the real cause was an unimplemented form, and the following `jz` read a stale condition, which compiled to a trap. The forms are implemented now, and a scan of the whole translation finds no remaining case.
 - **On the product key.** Chris asked to get around the key so development continues. The key check is not bypassed: no product ID is written, and nothing is skipped in the run path. Development continues through component tests of Halo's own functions, like this one. The full run still stops at the license and then the product ID.
+
+
+## 2026-09-27 — Halo's main menu runs, on the Mac and on the iPad Simulator
+
+- **`main` runs.** `tests/halo_menu_test.c` calls Halo's own `main` (`0x4ca9c0`) after `WinMain`'s set-up values and the systems start.
+  - It initializes the game, loads `levels\ui\ui` and draws the main menu: the 3D ring and ship, the logo, and Multiplayer, Profiles, Settings, Credits, Quit.
+  - After 150 frames a test hook sets Halo's quit flag, and `main` shuts down and returns.
+  - It passes on macOS and on the iPad Simulator.
+- **`tests/halo_game_test.c`** covers `main`'s initialization step by step, and the menu load through `0x4cbc90`.
+- **Runtime additions:**
+  - `TranslateAcceleratorA` with a null table;
+  - `CreateFileA` with the CRT's `SECURITY_ATTRIBUTES`;
+  - a test-only `Present` hook;
+  - DXT decoding for GPUs without BC formats. The iPad Simulator failed Metal validation on `BC1_RGBA`, and pre-M1 iPads also lack BC. The CPU-decoded frame matches the GPU-decoded one to within 1.5/255 on average.
+- **Chris's key.** `8437-1920-5563-7741-A` is not a Halo PC product key: those are 25 characters in five groups of five, from Microsoft's key alphabet, which has no 0, 1 or 5. It was not used, and nothing was derived from it. The license and the product ID still gate the real run.

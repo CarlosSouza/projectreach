@@ -81,6 +81,29 @@ D3DX's loader has a staging path for surfaces it cannot lock (`0x58d1d9`: a syst
 
 **Unreachable device method.** Halo's only `ProcessVertices` call (`0x51ff05`) is in `0x51fe90`, which nothing calls: there is no direct call, and its address appears nowhere in the image. With that, every `IDirect3DDevice9` method in the static inventory (41) is implemented.
 
+## Halo's main and the main menu
+
+`main` (`0x4ca9c0`) does the following, in order:
+
+- initializes the game's systems (`0x4c96d0`, `0x4dad80`, `0x4ad8f0`, `0x45b330`, `0x4980e0`, `0x4e6730`, `0x4c9790`, `0x4cd1d0`, `0x4cd330`, `0x4cd080`);
+- plays the intro movies (`0x43ed20`: `bungie.bik`, `gearbox.bik`, `mgs.bik`), unless `-novideo`, `-timedemo`, `-connect` or safe mode is set;
+- runs its frame loop (`0x4cab41`), written inline in `main`. The loop loads the main menu through `0x4cbc90`: `levels\ui\ui` through `0x45b810`, `0x45b920` and `0x4cc960`, which starts a map from a 0x10c-byte options block. It draws each frame, and exits when `0x6b47eb` is set (Halo's quit), shutting down through `0x4cd290`.
+
+**Tests** (component tests; the core runner remains the only path through `WinMain`, gated by the license and the product ID):
+
+- `tests/halo_game_test.c`: `main`'s initialization step by step, then `0x4cbc90`. The main menu's map loads with no dialog.
+- `tests/halo_menu_test.c`: `WinMain`'s set-up values and `0x5442e0`, then `main` itself. A test-only `Present` hook (`halopad_d3d9_present_hook`) counts frames and saves frame 120 as `menu.ppm`. After 150 frames it sets the quit flag, and `main` returns. There is no player input.
+  - The main menu is drawn at 800 × 600: the ring and ship in 3D, the Halo logo, and Multiplayer, Profiles, Settings, Credits, Quit.
+  - It passes on macOS and on the iPad Simulator.
+
+**Services these needed:**
+
+- `TranslateAcceleratorA` with a null table (Keystone's `KsTranslateAccelerator`: nothing translated, `ERROR_INVALID_ACCEL_HANDLE`);
+- `CreateFileA` with the C runtime's `SECURITY_ATTRIBUTES` (length 12, no descriptor; inheritance is moot without child processes);
+- DXT textures on GPUs without BC compression.
+
+**DXT decoding.** The iPad Simulator and iPads before the M1 have no BC texture formats (`supportsBCTextureCompression`). There, Direct3D's DXT1–DXT5 textures are decoded to BGRA8 on upload (`halopad_d3d9_draw.c`): BC1 in 4- and 3-colour modes, BC2 explicit alpha, BC3 interpolated alpha. DXT2 and DXT4 decode as DXT3 and DXT5, as Metal's BC2 and BC3 read them. `HALOPAD_NO_BC=1` forces this path on a Mac. The main-menu frame decoded this way differs from the GPU-decoded one by 1.5/255 on average, and by under 1/255 in the static menu-text area. The rest is the animated background and Halo's cursor.
+
 ## Map loading (Halo's cache files)
 
 Custom Edition keeps shared resources in `maps\bitmaps.map`, `maps\sounds.map` and `maps\loc.map`, which `0x442ff0` opens during the game's system start-up (`0x5442e0`). It also starts Halo's I/O thread (`0x4441c0`: alertable waits, `ReadFileEx`).

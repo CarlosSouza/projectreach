@@ -383,6 +383,20 @@ void *halopad_metal_buffer(const void *data, uint32_t length)
 
 void halopad_metal_release(void *o) { if (o) CFRelease(o); }
 
+/* BC (DXT) textures: Apple silicon Macs and M-series iPads; not the iPad Simulator or earlier
+   iPads, where Direct3D's DXT textures are decoded on upload (halopad_d3d9_draw.c).
+   HALOPAD_NO_BC=1 forces the decoding path (tests compare it with the GPU's). */
+int halopad_metal_supports_bc(void)
+{
+    static int v = -1;
+    if (v < 0) {
+        ensure_app();
+        const char *e = getenv("HALOPAD_NO_BC");
+        v = (e && *e == '1') ? 0 : (int)gpu.supportsBCTextureCompression;
+    }
+    return v;
+}
+
 void *halopad_metal_texture(int type, uint32_t format, uint32_t w, uint32_t h, uint32_t d, uint32_t levels, const uint8_t swizzle[4])
 {
     ensure_app();
