@@ -321,7 +321,7 @@ def run_va(a, names, work, target, evid, build):
            '-Wno-override-module', '-I', str(SUPPORT), '-I', str(ROOT / 'generated' / 'runtime'),
            str(ROOT / 'tests/halo_va_harness.c'), *[str(p) for p in sorted((ROOT / 'port/runtime').glob('*.c'))],
            *[str(p) for p in sorted(SUPPORT.glob('llasm_*.c'))], str(va / 'dispatch.ll'),
-           *[str(p) for p in sorted(va.glob('halopad-*.ll'))], str(build / 'stubs.ll'), str(obj), *[str(m) for m in sorted((ROOT / 'port/apple').glob('*.m'))], '-fobjc-arc', '-framework', 'CoreGraphics', '-framework', 'Cocoa', '-framework', 'Metal', '-framework', 'QuartzCore', '-o', str(exe)]
+           *[str(p) for p in sorted(va.glob('halopad-*.ll'))], str(build / 'stubs.ll'), str(obj), *[str(m) for m in sorted((ROOT / 'port/apple').glob('*.m'))], '-fobjc-arc', '-framework', 'CoreGraphics', '-framework', 'Cocoa', '-framework', 'Metal', '-framework', 'QuartzCore', '-framework', 'AudioToolbox', '-o', str(exe)]
     link = subprocess.run(cmd, capture_output=True, text=True)
     (evid / 'link.log').write_text(' '.join(cmd) + '\n' + link.stdout + link.stderr)
     if link.returncode:

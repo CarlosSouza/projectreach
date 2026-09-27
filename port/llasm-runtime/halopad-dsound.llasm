@@ -1,0 +1,12 @@
+;; HaloPad Windows runtime: dsound.dll (port/runtime/halopad_dsound.c).
+;; Pattern and macros from SR's Septerra Core port (asm-calls.llinc).
+
+include llasm.llinc
+include asm-calls.llinc
+
+func DirectSoundCreate8_c a1, a2, a3
+
+proc hpimp_DirectSoundCreate8 public
+        Call_Asm_Stack3 DirectSoundCreate8_c
+        Call_Asm_Return 3
+endp

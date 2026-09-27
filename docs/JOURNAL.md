@@ -373,3 +373,29 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
 - The Direct3D (198) and USER32 (60) tests, 15 slices and the unit tests still pass.
 
 **Next:** DirectSound 8 (buffers, 3D listener and buffers, onto Core Audio), then game controllers, sockets and threads.
+
+## 2026-09-27 — DirectSound 8: software mixer on Core Audio
+
+- **How Halo uses it** (\`0x549270\`):
+  - \`DirectSoundCreate8(NULL)\`, \`SetCooperativeLevel(PRIORITY)\`, \`GetCaps\`.
+  - A primary buffer (\`PRIMARYBUFFER|CTRL3D\`), set to 16-bit stereo PCM at 22,050 or 44,100 Hz by the caps' maximum rate.
+  - The 3D listener from the primary: distance factor 3.048 (Halo's world unit in metres), its rolloff factor, Doppler 0, all immediate.
+  - A probe for hardware 3D voices with \`STATIC|LOCHARDWARE|CTRL3D\` buffers; with fewer than 16 it uses software buffers.
+  - Buffer methods are called through registers (indices 3–20 across \`IDirectSoundBuffer\`, the 3D buffer and the listener), so all four interfaces are implemented in full.
+- **What** (\`port/runtime/halopad_dsound.c\`, \`port/apple/halopad_audio.m\`):
+  - The caps report no hardware voices, as Windows has since Vista, so \`LOCHARDWARE\` fails and Halo takes its software path. EAX (\`IKsPropertySet\`) is \`E_NOINTERFACE\`.
+  - Software mixing at 44,100 Hz stereo float, with Core Audio (the default output unit, or Remote I/O on iOS) converting to the device's rate.
+  - Volume in hundredths of a dB, DirectSound's pan law, 8/16-bit mono/stereo PCM, and frequency changes by linear interpolation. One-shot buffers stop and rewind; looping buffers wrap.
+  - Play and write cursors (the write cursor is 10 ms ahead). \`Lock\` returns two regions across the end and supports \`FROMWRITECURSOR\`/\`ENTIREBUFFER\`. Duplicates share their data.
+  - 3D: listener space (normal and head-relative), min/max distance with the rolloff factor (\`min/(min + rolloff·(d − min))\`), mute at max distance, cones, Doppler with the distance factor, and deferred settings committed by \`CommitDeferredSettings\` (immediate changes also update pending ones).
+  - Buffers without \`GLOBALFOCUS\` are silent but keep playing while the game is not in front.
+  - The COM wrapper generator only reads written-out \`hpcom_*_c\` functions, so the 3D getters and setters are written out.
+- **Test** (\`tests/halo_dsound_test.c\`, 56 checks, all passing). The test mixes by hand and checks samples against the formulas above:
+  - Halo's set-up sequence, cursors, volume, pan both ways, frequency and the cursor, interpolated resampling, one-shot end and rewind, looping, background silence.
+  - 3D: centre, left and right with rolloff, deferred and immediate-during-deferred, head-relative, cone outside and inside, and Doppler at half pitch.
+  - Duplicates, lock wrap-around, and the error codes.
+  - A separate probe showed the Core Audio unit pulling about 309 ms of audio in 300 ms on this Mac.
+- The Direct3D, USER32 and DirectInput tests, 15 slices and the unit tests still pass.
+- **Still open for sound:** the \`DSOUND\` ordinal 9 import (\`GetDeviceID\`, likely Bink's), Ogg Vorbis (\`vorbisfile.dll\`, 4 imports) and Bink (\`binkw32.dll\`, 9) are not done.
+
+**Next:** threads (\`CreateThread\` and friends), sockets (WS2_32/WSOCK32) for network play, the remaining KERNEL32 file and time services, then Vorbis, Bink and game controllers.

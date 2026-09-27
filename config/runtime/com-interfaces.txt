@@ -363,3 +363,86 @@ interface IDirectInputDevice8A
   BuildActionMap
   SetActionMap
   GetImageInfo
+
+interface IDirectSound8
+  QueryInterface
+  AddRef
+  Release
+  CreateSoundBuffer
+  GetCaps
+  DuplicateSoundBuffer
+  SetCooperativeLevel
+  Compact
+  GetSpeakerConfig
+  SetSpeakerConfig
+  Initialize
+  VerifyCertification
+
+interface IDirectSoundBuffer8
+  QueryInterface
+  AddRef
+  Release
+  GetCaps
+  GetCurrentPosition
+  GetFormat
+  GetVolume
+  GetPan
+  GetFrequency
+  GetStatus
+  Initialize
+  Lock
+  Play
+  SetCurrentPosition
+  SetFormat
+  SetVolume
+  SetPan
+  SetFrequency
+  Stop
+  Unlock
+  Restore
+  SetFX
+  AcquireResources
+  GetObjectInPath
+
+interface IDirectSound3DBuffer
+  QueryInterface
+  AddRef
+  Release
+  GetAllParameters
+  GetConeAngles
+  GetConeOrientation
+  GetConeOutsideVolume
+  GetMaxDistance
+  GetMinDistance
+  GetMode
+  GetPosition
+  GetVelocity
+  SetAllParameters
+  SetConeAngles
+  SetConeOrientation
+  SetConeOutsideVolume
+  SetMaxDistance
+  SetMinDistance
+  SetMode
+  SetPosition
+  SetVelocity
+
+interface IDirectSound3DListener
+  QueryInterface
+  AddRef
+  Release
+  GetAllParameters
+  GetDistanceFactor
+  GetDopplerFactor
+  GetOrientation
+  GetPosition
+  GetRolloffFactor
+  GetVelocity
+  SetAllParameters
+  SetDistanceFactor
+  SetDopplerFactor
+  SetOrientation
+  SetPosition
+  SetRolloffFactor
+  SetVelocity
+  CommitDeferredSettings
