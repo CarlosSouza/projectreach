@@ -819,3 +819,110 @@ uint32_t SHGetFolderPathA_c(uint32_t hwnd, uint32_t csidl, uint32_t token, uint3
     snprintf(G(out), 260, "%s", p);
     return 0;
 }
+
+/* ---- INI files (GetPrivateProfileStringA), as Windows XP reads them ----
+ * Controls.dll (Keystone's controls) reads its defaults from controls\controls.ini this way.
+ * A name without a drive or leading backslash is in the Windows directory. Section and key
+ * names match without regard to case, the first match wins, names and values lose leading
+ * and trailing blanks, and a value quoted with the same quote at both ends loses them.
+ * NULL section: every section name; NULL key: every key of the section; each NUL-terminated
+ * with a final second NUL (a list that does not fit is cut and double-terminated, returning
+ * size - 2). A value that does not fit is cut and terminated, returning size - 1. A missing
+ * file, section or key gives the default (NULL: empty) without its trailing blanks. */
+static void ini_trim(const char **s, const char **e)
+{
+    while (*s < *e && (**s == ' ' || **s == '\t')) (*s)++;
+    while (*e > *s && ((*e)[-1] == ' ' || (*e)[-1] == '\t' || (*e)[-1] == '\r')) (*e)--;
+}
+static int ini_eq(const char *s, const char *e, const char *want)
+{
+    size_t n = (size_t)(e - s);
+    return strlen(want) == n && !strncasecmp(s, want, n);
+}
+static uint32_t ini_copy_list(const char *list, size_t len, uint32_t buf, uint32_t size)
+{
+    char *out = G(buf);
+    if (size < 2) { if (size) out[0] = 0; return 0; }
+    if (len + 1 <= size) { memcpy(out, list, len); out[len] = 0; return len ? (uint32_t)len - 1 : 0; }
+    memcpy(out, list, size - 2);
+    out[size - 2] = 0; out[size - 1] = 0;
+    return size - 2;
+}
+uint32_t GetPrivateProfileStringA_c(uint32_t app, uint32_t key, uint32_t def, uint32_t buf, uint32_t size, uint32_t file)
+{
+    pthread_once(&once, init);
+    if (!buf || !size) return 0;
+    char path[1024];
+    const char *f = file ? (const char *)G(file) : "win.ini";
+    int absolute = (f[0] && f[1] == ':') || f[0] == '\\' || f[0] == '/';
+    snprintf(path, sizeof path, absolute ? "%s" : "C:\\WINDOWS\\%s", f);
+    char *text = NULL;
+    size_t tlen = 0;
+    node n;
+    if (lookup(path, &n) && n.where != NONE && !n.isdir) {
+        FILE *fp = fopen(n.host, "rb");
+        if (fp) {
+            fseek(fp, 0, SEEK_END); long sz = ftell(fp); fseek(fp, 0, SEEK_SET);
+            text = malloc((size_t)sz + 1);
+            tlen = fread(text, 1, (size_t)sz, fp);
+            text[tlen] = 0;
+            fclose(fp);
+        }
+    }
+    const char *want_app = app ? (const char *)G(app) : NULL, *want_key = key ? (const char *)G(key) : NULL;
+    char *list = malloc(tlen + 2);
+    size_t llen = 0;
+    int in_section = 0, section_seen = 0, found = 0;
+    const char *vs = NULL, *ve = NULL;
+    for (const char *p = text; p && *p && !found; ) {
+        const char *le = strchr(p, '\n');
+        if (!le) le = p + strlen(p);
+        const char *s = p, *e = le;
+        ini_trim(&s, &e);
+        if (s < e && *s == '[') {
+            const char *ns = s + 1, *ne = memchr(ns, ']', (size_t)(e - ns));
+            if (!ne) ne = e;
+            ini_trim(&ns, &ne);
+            if (!want_app) { memcpy(list + llen, ns, (size_t)(ne - ns)); llen += (size_t)(ne - ns); list[llen++] = 0; in_section = 0; }
+            else {
+                if (in_section) break;                              /* the first matching section only */
+                in_section = !section_seen && ini_eq(ns, ne, want_app);
+                section_seen |= in_section;
+            }
+        } else if (in_section && s < e) {
+            const char *eq = memchr(s, '=', (size_t)(e - s));
+            const char *ks = s, *ke = eq ? eq : e;
+            ini_trim(&ks, &ke);
+            if (!want_key) { memcpy(list + llen, ks, (size_t)(ke - ks)); llen += (size_t)(ke - ks); list[llen++] = 0; }
+            else if (ini_eq(ks, ke, want_key)) {
+                found = 1;
+                vs = eq ? eq + 1 : e; ve = e;
+                ini_trim(&vs, &ve);
+                if (ve - vs >= 2 && (*vs == '"' || *vs == '\'') && ve[-1] == *vs) { vs++; ve--; }
+            }
+        }
+        p = *le ? le + 1 : le;
+    }
+    uint32_t r;
+    if (!want_app || !want_key) {
+        list[llen++] = 0;                                           /* the list's final NUL */
+        r = ini_copy_list(list, llen, buf, size);
+    } else {
+        char *out = G(buf);
+        const char *s = vs, *e = ve;
+        if (!found) {
+            s = def ? (const char *)G(def) : "";
+            e = s + strlen(s);
+            while (e > s && e[-1] == ' ') e--;
+        }
+        size_t len = (size_t)(e - s);
+        if (len > size - 1) len = size - 1;
+        memcpy(out, s, len);
+        out[len] = 0;
+        r = (uint32_t)len;
+    }
+    free(list);
+    free(text);
+    halopad_last_error = 0;
+    return r;
+}

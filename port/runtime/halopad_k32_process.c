@@ -284,6 +284,9 @@ uint32_t InterlockedExchange_c(uint32_t target, uint32_t value)
     return __atomic_exchange_n((uint32_t *)G(target), value, __ATOMIC_SEQ_CST);
 }
 
+uint32_t InterlockedIncrement_c(uint32_t target) { return __atomic_add_fetch((uint32_t *)G(target), 1, __ATOMIC_SEQ_CST); }
+uint32_t InterlockedDecrement_c(uint32_t target) { return __atomic_sub_fetch((uint32_t *)G(target), 1, __ATOMIC_SEQ_CST); }
+
 /* ---- time ---- */
 
 static uint64_t mono_ns(void)

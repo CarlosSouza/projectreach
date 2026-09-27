@@ -5,6 +5,7 @@ include llasm.llinc
 include asm-calls.llinc
 
 func CreateFileA_c a1, a2, a3, a4, a5, a6, a7
+func GetPrivateProfileStringA_c a1, a2, a3, a4, a5, a6
 func ReadFile_c a1, a2, a3, a4, a5
 func WriteFile_c a1, a2, a3, a4, a5
 func ReadFileEx_c a1, a2, a3, a4, a5
@@ -159,4 +160,9 @@ endp
 proc hpimp_SHGetFolderPathA public
         Call_Asm_Stack5 SHGetFolderPathA_c
         Call_Asm_Return 5
+endp
+
+proc hpimp_GetPrivateProfileStringA public
+        Call_Asm_Stack6 GetPrivateProfileStringA_c
+        Call_Asm_Return 6
 endp

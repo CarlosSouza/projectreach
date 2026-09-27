@@ -391,17 +391,12 @@ def main():
                            + [f'proc {redirect[n]} external' for n in sorted(redirect)
                               if not re.search(rf'^proc {re.escape(n)} external', '\n'.join(main_src + kept_extern), re.M)]) + '\n'
     import_vas = {name: IMPORT_VA_BASE + IMPORT_VA_STRIDE * i for i, (_, name, _) in enumerate(imports)}
-    # Export registry for GetProcAddress: every static import, then dynamic exports, each
-    # with its own guest address in the import page. Entry i is at IMPORT_VA_BASE + 16*i.
+    # Export registry for GetProcAddress: the executable's static imports, then the translated
+    # DLLs' static imports (build_modules), then names resolved only at run time, each with its
+    # own guest address in the import page (entry i at IMPORT_VA_BASE + 16*i). Run-time names
+    # come last so adding one changes no translated code, only this table.
     registry = [(dll, name, IMPORT_PREFIX + name) for _, name, dll in imports]
     seen = {(dll, name) for dll, name, _ in registry}
-    for dll, name in dynamic_exports(work / 'haloce.exe'):
-        if (dll, name) not in seen:
-            seen.add((dll, name))
-            registry.append((dll, name, symbol_for(name if not name.startswith('#') else f'{dll.split(".")[0]}_ord{name[1:]}')))
-    if IMPORT_VA_BASE + IMPORT_VA_STRIDE * len(registry) > HOST_RETURN_VA:
-        sys.exit('import address page overflow')
-    a.registry_primary = len(registry)
 
     code, stats = transform_code((work / 'seg01_code.llinc').open(errors='replace'), import_vas)
     (va / 'seg01_code.va.llinc').write_text('\n'.join(code) + '\n')
@@ -499,6 +494,12 @@ def main():
     # own procedures at their own original addresses, own import slots (bound by the
     # runtime's LoadLibraryA like the Windows loader does).
     modules = build_modules(a, va, llasm, triple, registry, seen, table)
+    for dll, name in dynamic_exports(work / 'haloce.exe'):
+        if (dll, name) not in seen:
+            seen.add((dll, name))
+            registry.append((dll, name, symbol_for(name if not name.startswith('#') else f'{dll.split(".")[0]}_ord{name[1:]}')))
+    if IMPORT_VA_BASE + IMPORT_VA_STRIDE * len(registry) > HOST_RETURN_VA:
+        sys.exit('import address page overflow')
     reg_vas = [IMPORT_VA_BASE + IMPORT_VA_STRIDE * i for i in range(len(registry))]
     for iva in reg_vas:
         if iva in table:

@@ -82,6 +82,14 @@ int main(void)
     cpu._st_cw = 0x27F;
     halopad_cpu = &cpu;
 
+    /* Halo's C runtime start-up up to its I/O set-up, as its entry point 0x5ccac7 runs it
+       before WinMain: the chat set-up reaches CRT code that needs the heap and per-thread data */
+    uint32_t crt_arg = 1;
+    check("CRT _heap_init (0x5d6ba6)", halopad_call_guest_ex(0x5d6ba6, 1, &crt_arg, 0, 0) != 0, 1);
+    check("CRT _mtinit (0x5cf966)", halopad_call_guest_ex(0x5cf966, 0, NULL, 0, 0) != 0, 1);
+    halopad_call_guest_ex(0x5d3ac3, 0, NULL, 0, 0);
+    check("CRT _ioinit (0x5cf3f2)", (int32_t)halopad_call_guest_ex(0x5cf3f2, 0, NULL, 0, 0) >= 0, 1);
+
     /* window and device as in tests/halo_d3d9_test.c */
     uint32_t d3d9 = LoadLibraryA_c(str("d3d9.dll")), sdk = 0x1f;
     uint32_t d3d = halopad_call_guest(GetProcAddress_c(d3d9, str("Direct3DCreate9")), 1, &sdk);

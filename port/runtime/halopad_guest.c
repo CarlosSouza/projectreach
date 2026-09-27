@@ -13,6 +13,10 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
+#define PTROFS_64BIT 1
+#include "llasm_cpu.h"
+extern _Thread_local _cpu *halopad_cpu;
+
 #define HOST_RETURN_VA 0xFFFFF000u
 #define GUEST_SPAN ((uint64_t)1 << 32)
 
@@ -133,5 +137,13 @@ void *halopad_lookup(uint32_t va)
         abort();
     }
     fprintf(stderr, "HALOPAD TRAP: indirect transfer to 0x%08x, which has no compiled procedure\n", va);
+    if (halopad_cpu) {
+        /* after a call through a bad pointer the caller's return address is on top */
+        uint32_t sp = halopad_cpu->_esp, words[8];
+        memcpy(words, (void *)(uintptr_t)(halopad_guest_base + sp), sizeof words);
+        fprintf(stderr, "  guest esp=0x%08x ebp=0x%08x ecx=0x%08x eax=0x%08x; stack:", sp, halopad_cpu->_ebp, halopad_cpu->_ecx, halopad_cpu->_eax);
+        for (int k = 0; k < 8; k++) fprintf(stderr, " %08x", words[k]);
+        fprintf(stderr, "\n");
+    }
     abort();
 }

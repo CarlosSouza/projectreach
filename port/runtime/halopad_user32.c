@@ -638,6 +638,9 @@ uint32_t SetFocus_c(uint32_t hwnd)
 uint32_t GetForegroundWindow_c(void) { return app_active ? active : 0; }
 uint32_t GetActiveWindow_c(void) { return active; }
 uint32_t GetFocus_c(void) { return focus; }
+/* Classes are registered only through the A functions (RegisterClassW and the other W forms
+ * stop the program), so every window is an ANSI window. */
+uint32_t IsWindowUnicode_c(uint32_t hwnd) { (void)hwnd; return 0; }
 
 uint32_t SetCapture_c(uint32_t hwnd) { uint32_t old = capture; capture = hwnd; return old; }
 uint32_t ReleaseCapture_c(void)

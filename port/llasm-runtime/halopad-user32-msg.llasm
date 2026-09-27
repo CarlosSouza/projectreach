@@ -13,6 +13,8 @@ func SetActiveWindow_c a1
 func SetFocus_c a1
 func GetForegroundWindow_c
 func GetActiveWindow_c
+func GetFocus_c
+func IsWindowUnicode_c a1
 func SetCapture_c a1
 func ReleaseCapture_c
 func GetCapture_c
@@ -256,4 +258,14 @@ endp
 proc hpimp_wsprintfA public
         Call_Asm_Stack2 wsprintfA_c
         Call_Asm_Return 0
+endp
+
+proc hpimp_GetFocus public
+        Call_Asm_Stack0 GetFocus_c
+        Call_Asm_Return 0
+endp
+
+proc hpimp_IsWindowUnicode public
+        Call_Asm_Stack1 IsWindowUnicode_c
+        Call_Asm_Return 1
 endp

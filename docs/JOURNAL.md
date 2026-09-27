@@ -636,3 +636,20 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
 - All 12 suites, 15 slices and the unit tests pass; the core still stops at the license.
 
 **Next:** `GetPrivateProfileStringA`, OLE BSTRs and GDI text on CoreText, then SEH, until `0x51cdb0` completes and `KsUpdate` draws a chat line.
+
+## 2026-09-27 — Chat set-up: KeystoneCreate and both chat windows succeed; next is MSXML 4
+
+- **New services**, each reached by running Halo's own chat set-up (`0x51cdb0`):
+  - `GetPrivateProfileStringA` with XP's rules for value lookup, the NULL-section and NULL-key lists, trimming, quotes, the default and both truncation cases (11 checks in the files test);
+  - IMM32 as on the reference machine, where IMM is not enabled: no input context, `ImmIsIME` FALSE, calls on the NULL context fail, and any other context stops the program;
+  - `IsWindowUnicode` (every HaloPad window class is ANSI), `GetFocus`'s missing wrapper, and `InterlockedIncrement`/`Decrement`.
+- **Registry order**: names resolved only through GetProcAddress now come after every module's static imports, so adding one no longer changes translated code (a Keystone recompile takes 40 s).
+- **Diagnostics**: a transfer to an address with no procedure now prints the guest registers and the top of the stack, where the caller's return address is.
+- **Test fix**: the UI test now runs Halo's C runtime start-up up to its I/O set-up (`_heap_init`, `_mtinit`, `0x5d3ac3`, `_ioinit`), as the entry point does before WinMain. Without it, `_getptd` called a null `TlsGetValue` pointer; that was a test artifact.
+- **Result**: `KeystoneCreate` succeeds and both `KeystoneEditbox` and `KeystoneChatLog` exist. The controls inside them are not built yet, and the first `KsUpdate` asks for `CoCreateInstance(CLSID_DOMDocument40)`.
+- **MSXML 4 is part of the reference machine**:
+  - Keystone parses its `.ksml` layouts with MSXML 4.0 and has no fallback (a failure at `0x10245906` takes its error path).
+  - Halo's own installer ships `redist/msxmlenu.msi` (MSXML 4.0 SP2). Its `msxml4.dll` is 4.20.9818.0 (SHA-256 `9808f05f…`, the same file for the side-by-side and system32 copies), with preferred base `0x69b10000` and a relocation table.
+  - Plan: translate it like Keystone and add in-process COM servers to `CoCreateInstance` (class → `DllGetClassObject` → `IClassFactory::CreateInstance`).
+- All 12 suites, 15 slices and the unit tests pass; the core still stops at the license.
+

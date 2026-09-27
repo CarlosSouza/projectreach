@@ -50,6 +50,8 @@ funcv EnterCriticalSection_c a1
 funcv LeaveCriticalSection_c a1
 funcv DeleteCriticalSection_c a1
 func InterlockedExchange_c a1, a2
+func InterlockedIncrement_c a1
+func InterlockedDecrement_c a1
 funcv GetSystemTimeAsFileTime_c a1
 func GetTickCount_c
 func QueryPerformanceFrequency_c a1
@@ -528,4 +530,14 @@ endp
 proc hpimp_lstrcmpiA public
         Call_Asm_Stack2 lstrcmpiA_c
         Call_Asm_Return 2
+endp
+
+proc hpimp_InterlockedIncrement public
+        Call_Asm_Stack1 InterlockedIncrement_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_InterlockedDecrement public
+        Call_Asm_Stack1 InterlockedDecrement_c
+        Call_Asm_Return 1
 endp

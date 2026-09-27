@@ -9,3 +9,9 @@ eula.dll!EBUEula
 dsound.dll!DirectSoundCreate8
 dinput8.dll!DirectInput8Create
 shfolder.dll!SHGetFolderPathA
+# ksimeui.dll (Keystone IME support) resolves these at run time
+imm32.dll!ImmLockIMC
+imm32.dll!ImmUnlockIMC
+imm32.dll!ImmLockIMCC
+imm32.dll!ImmUnlockIMCC
+imm32.dll!ImmDisableTextFrameService

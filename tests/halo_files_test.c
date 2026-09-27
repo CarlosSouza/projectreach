@@ -171,6 +171,33 @@ int main(void)
     snprintf(path_buf, sizeof path_buf, "%s\\*.none", mygames);
     check("FindFirstFileA with no match: ERROR_FILE_NOT_FOUND", API("FindFirstFileA", str(path_buf), fd) == 0xFFFFFFFF && LE() == 2, 1);
 
+    /* INI files (Controls.dll reads controls\controls.ini this way) */
+    {
+        static const char ini[] = "[a]\r\nfont=font://Verdana-10-underline\r\ncolor = #FF3399FF \r\n[Body]\r\nx=1\r\nx=2\r\nq=\"quoted value\"\r\nbare\r\n[a]\r\nlate=1\r\n";
+        uint32_t h = API("CreateFileA", in_mg("test.ini"), GW, 0, 0, 2, 0x80, 0);
+        API("WriteFile", h, str(ini), (uint32_t)strlen(ini), n4, 0);
+        API("CloseHandle", h);
+        char inipath[512]; snprintf(inipath, sizeof inipath, "%s\\test.ini", mygames);
+        uint32_t fp = str(inipath), out = halopad_heap_alloc(64, 1);
+        #define GPS(app, key, def, size) API("GetPrivateProfileStringA", app, key, def, out, size, fp)
+        check("GetPrivateProfileStringA: a value", GPS(str("a"), str("font"), 0, 64) == 27 && !strcmp(P(out), "font://Verdana-10-underline"), 1);
+        check("  blanks around key and value are dropped", GPS(str("A"), str("COLOR"), 0, 64) == 9 && !strcmp(P(out), "#FF3399FF"), 1);
+        check("  the first of two equal keys", GPS(str("body"), str("x"), 0, 64) == 1 && !strcmp(P(out), "1"), 1);
+        check("  surrounding quotes are dropped", GPS(str("body"), str("q"), 0, 64) == 12 && !strcmp(P(out), "quoted value"), 1);
+        check("  a key in a repeated section is not seen (first section only)", GPS(str("a"), str("late"), str("dflt  "), 64) == 4 && !strcmp(P(out), "dflt"), 1);
+        check("  missing key, NULL default: empty", GPS(str("a"), str("none"), 0, 64) == 0 && P(out)[0] == 0, 1);
+        check("  a value that does not fit: cut, size - 1", GPS(str("a"), str("font"), 0, 5) == 4 && !strcmp(P(out), "font"), 1);
+        memset(P(out), 'x', 64);
+        uint32_t nsec = GPS(0, str("x"), 0, 64);
+        check("  NULL section: every section name, double-NUL terminated", nsec == 9 && !memcmp(P(out), "a\0Body\0a\0\0", 10), 1);
+        uint32_t nkey = GPS(str("body"), 0, 0, 64);
+        check("  NULL key: every key of the section", nkey == 11 && !memcmp(P(out), "x\0x\0q\0bare\0\0", 12), 1);
+        check("  a list that does not fit: size - 2", GPS(str("body"), 0, 0, 5) == 3 && !memcmp(P(out), "x\0x\0\0", 5), 1);
+        check("  missing file: the default", API("GetPrivateProfileStringA", str("a"), str("b"), str("d"), out, 64, str("C:\\none.ini")) == 1 && !strcmp(P(out), "d"), 1);
+        #undef GPS
+        API("DeleteFileA", in_mg("test.ini"));
+    }
+
     /* read-only, deletion, directories */
     check("SetFileAttributesA(READONLY)", API("SetFileAttributesA", in_mg("copy.txt"), 1) == 1 && (API("GetFileAttributesA", in_mg("copy.txt")) & 1), 1);
     check("  opening it for writing: ERROR_ACCESS_DENIED", API("CreateFileA", in_mg("copy.txt"), GW, 0, 0, 3, 0x80, 0) == 0xFFFFFFFF && LE() == 5, 1);

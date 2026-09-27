@@ -1,0 +1,132 @@
+;; HaloPad Windows runtime: imm32 services (port/runtime/halopad_imm32.c). IMM not enabled, as on
+;; the reference machine. Pattern and macros from SR's Septerra Core port (asm-calls.llinc).
+
+include llasm.llinc
+include asm-calls.llinc
+
+func ImmGetContext_c a1
+func ImmReleaseContext_c a1, a2
+func ImmGetDefaultIMEWnd_c a1
+func ImmIsIME_c a1
+func ImmGetIMEFileNameA_c a1, a2, a3
+func ImmAssociateContext_c a1, a2
+func ImmGetOpenStatus_c a1
+func ImmSetOpenStatus_c a1, a2
+func ImmGetConversionStatus_c a1, a2, a3
+func ImmSetConversionStatus_c a1, a2, a3
+func ImmGetCompositionStringA_c a1, a2, a3, a4
+func ImmGetCompositionStringW_c a1, a2, a3, a4
+func ImmGetCandidateListA_c a1, a2, a3, a4
+func ImmGetCandidateListW_c a1, a2, a3, a4
+func ImmNotifyIME_c a1, a2, a3, a4
+func ImmSimulateHotKey_c a1, a2
+func ImmLockIMC_c a1
+func ImmUnlockIMC_c a1
+func ImmLockIMCC_c a1
+func ImmUnlockIMCC_c a1
+func ImmDisableTextFrameService_c a1
+
+proc hpimp_ImmGetContext public
+        Call_Asm_Stack1 ImmGetContext_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_ImmReleaseContext public
+        Call_Asm_Stack2 ImmReleaseContext_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_ImmGetDefaultIMEWnd public
+        Call_Asm_Stack1 ImmGetDefaultIMEWnd_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_ImmIsIME public
+        Call_Asm_Stack1 ImmIsIME_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_ImmGetIMEFileNameA public
+        Call_Asm_Stack3 ImmGetIMEFileNameA_c
+        Call_Asm_Return 3
+endp
+
+proc hpimp_ImmAssociateContext public
+        Call_Asm_Stack2 ImmAssociateContext_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_ImmGetOpenStatus public
+        Call_Asm_Stack1 ImmGetOpenStatus_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_ImmSetOpenStatus public
+        Call_Asm_Stack2 ImmSetOpenStatus_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_ImmGetConversionStatus public
+        Call_Asm_Stack3 ImmGetConversionStatus_c
+        Call_Asm_Return 3
+endp
+
+proc hpimp_ImmSetConversionStatus public
+        Call_Asm_Stack3 ImmSetConversionStatus_c
+        Call_Asm_Return 3
+endp
+
+proc hpimp_ImmGetCompositionStringA public
+        Call_Asm_Stack4 ImmGetCompositionStringA_c
+        Call_Asm_Return 4
+endp
+
+proc hpimp_ImmGetCompositionStringW public
+        Call_Asm_Stack4 ImmGetCompositionStringW_c
+        Call_Asm_Return 4
+endp
+
+proc hpimp_ImmGetCandidateListA public
+        Call_Asm_Stack4 ImmGetCandidateListA_c
+        Call_Asm_Return 4
+endp
+
+proc hpimp_ImmGetCandidateListW public
+        Call_Asm_Stack4 ImmGetCandidateListW_c
+        Call_Asm_Return 4
+endp
+
+proc hpimp_ImmNotifyIME public
+        Call_Asm_Stack4 ImmNotifyIME_c
+        Call_Asm_Return 4
+endp
+
+proc hpimp_ImmSimulateHotKey public
+        Call_Asm_Stack2 ImmSimulateHotKey_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_ImmLockIMC public
+        Call_Asm_Stack1 ImmLockIMC_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_ImmUnlockIMC public
+        Call_Asm_Stack1 ImmUnlockIMC_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_ImmLockIMCC public
+        Call_Asm_Stack1 ImmLockIMCC_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_ImmUnlockIMCC public
+        Call_Asm_Stack1 ImmUnlockIMCC_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_ImmDisableTextFrameService public
+        Call_Asm_Stack1 ImmDisableTextFrameService_c
+        Call_Asm_Return 1
+endp
