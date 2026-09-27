@@ -48,3 +48,6 @@ uint32_t halopad_call_guest_ex(uint32_t va, uint32_t nargs, const uint32_t *args
     }
     return cpu->_eax;
 }
+
+/* The guest stack pointer inside a service (cdecl variable arguments sit above it). */
+uint32_t halopad_guest_esp(void) { return halopad_cpu->_esp; }

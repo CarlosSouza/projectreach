@@ -12,6 +12,7 @@
 #import <QuartzCore/CAMetalLayer.h>
 #include <stdint.h>
 #include "halopad_metal.h"
+#include "../runtime/halopad_input.h"
 
 typedef struct {
     NSWindow *window;
@@ -47,15 +48,126 @@ static void ensure_app(void)
     if (!gpu || !queue) { fprintf(stderr, "HALOPAD TRAP: no Metal device\n"); abort(); }
 }
 
+/* ---- host input: AppKit events to the Windows side (halopad_input.h) ---- */
+
+int halopad_host_input_off;                        /* tests drive input themselves */
+static NSWindow *input_windows[8];
+
+@interface HPWindowDelegate : NSObject <NSWindowDelegate>
+@end
+@implementation HPWindowDelegate
+- (BOOL)windowShouldClose:(NSWindow *)sender
+{
+    (void)sender;
+    hp_input e = {.kind = HPI_CLOSE};              /* Windows asks the window (WM_SYSCOMMAND SC_CLOSE) */
+    halopad_input_event(&e);
+    return NO;
+}
+@end
+static HPWindowDelegate *window_delegate;
+
+static int is_input_window(NSWindow *w)
+{
+    for (int i = 0; i < 8; i++) if (w && input_windows[i] == w) return 1;
+    return 0;
+}
+
+static void key_event(NSEvent *e, int down)
+{
+    hp_input in = {.kind = HPI_KEY, .down = down};
+    if (!halopad_mac_key(e.keyCode, &in.vk, &in.side_vk, &in.scan, &in.extended)) return;
+    if (down && !(e.modifierFlags & NSEventModifierFlagCommand)) {
+        NSString *s = e.characters;
+        for (NSUInteger i = 0; i < s.length && in.nchars < 4; i++) {
+            unichar c = [s characterAtIndex:i];
+            if (c >= 0xF700 && c <= 0xF8FF) continue;       /* function keys: no character */
+            if (c == 0x7F) c = 0x08;                        /* Delete is Backspace */
+            else if (c == 0x03) c = 0x0D;                   /* keypad Enter */
+            else if (c == 0x19) c = 0x09;                   /* Shift-Tab */
+            in.chars[in.nchars++] = c;
+        }
+    }
+    halopad_input_event(&in);
+}
+
+static void modifier_event(NSEvent *e)
+{
+    static const struct { uint16_t code; NSUInteger bit; } m[] = {
+        {0x38, 0x2}, {0x3C, 0x4}, {0x3B, 0x1}, {0x3E, 0x2000}, {0x3A, 0x20}, {0x3D, 0x40}, {0x37, 0x8}, {0x36, 0x10}};
+    if (e.keyCode == 0x39) { key_event(e, 1); key_event(e, 0); return; }   /* Caps Lock: one press per change */
+    for (size_t i = 0; i < sizeof m / sizeof m[0]; i++)
+        if (m[i].code == e.keyCode) { key_event(e, (e.modifierFlags & m[i].bit) != 0); return; }
+}
+
+static int mouse_event(NSEvent *e, hp_input *in)
+{
+    if (!is_input_window(e.window)) return 0;
+    NSView *v = e.window.contentView;
+    NSPoint p = [v convertPoint:e.locationInWindow fromView:nil];
+    CGFloat s = e.window.backingScaleFactor;
+    in->x = (int32_t)floor(p.x * s);
+    in->y = (int32_t)floor((v.bounds.size.height - p.y) * s);
+    return 1;
+}
+
 /* Process pending host events without blocking (called from the message loop). */
 void halopad_host_pump(void)
 {
     ensure_app();
     @autoreleasepool {
+        static int was_active = -1;
+        int act = NSApp.isActive;
+        if (!halopad_host_input_off && was_active >= 0 && act != was_active) {
+            hp_input e = {.kind = HPI_ACTIVATE, .down = act};
+            halopad_input_event(&e);
+        }
+        was_active = act;
         NSEvent *e;
-        while ((e = [NSApp nextEventMatchingMask:NSEventMaskAny untilDate:nil inMode:NSDefaultRunLoopMode dequeue:YES]))
+        while ((e = [NSApp nextEventMatchingMask:NSEventMaskAny untilDate:nil inMode:NSDefaultRunLoopMode dequeue:YES])) {
+            if (!halopad_host_input_off) {
+                hp_input in = {0};
+                switch (e.type) {
+                case NSEventTypeKeyDown: key_event(e, 1); continue;
+                case NSEventTypeKeyUp: key_event(e, 0); continue;
+                case NSEventTypeFlagsChanged: modifier_event(e); continue;
+                case NSEventTypeMouseMoved: case NSEventTypeLeftMouseDragged: case NSEventTypeRightMouseDragged:
+                case NSEventTypeOtherMouseDragged:
+                    if (mouse_event(e, &in)) { in.kind = HPI_MOUSEMOVE; halopad_input_event(&in); }
+                    break;
+                case NSEventTypeLeftMouseDown: case NSEventTypeLeftMouseUp: case NSEventTypeRightMouseDown:
+                case NSEventTypeRightMouseUp: case NSEventTypeOtherMouseDown: case NSEventTypeOtherMouseUp:
+                    if (mouse_event(e, &in) && e.buttonNumber <= 2) {
+                        in.kind = HPI_BUTTON;
+                        in.button = (int)e.buttonNumber;
+                        in.down = e.type == NSEventTypeLeftMouseDown || e.type == NSEventTypeRightMouseDown
+                               || e.type == NSEventTypeOtherMouseDown;
+                        halopad_input_event(&in);
+                    }
+                    break;
+                case NSEventTypeScrollWheel:
+                    if (mouse_event(e, &in)) {
+                        static double rest;                  /* WHEEL_DELTA (120) per line, fractions kept */
+                        rest += (e.hasPreciseScrollingDeltas ? e.scrollingDeltaY / 10.0 : e.scrollingDeltaY) * 120.0;
+                        in.wheel = (int32_t)rest;
+                        rest -= in.wheel;
+                        if (in.wheel) { in.kind = HPI_WHEEL; halopad_input_event(&in); }
+                    }
+                    break;
+                default: break;
+                }
+            }
             [NSApp sendEvent:e];
+        }
     }
+}
+
+/* Windows' cursor display (ShowCursor count and SetCursor) over the game. */
+void halopad_host_cursor(int visible)
+{
+    static int shown = 1;
+    if (visible == shown) return;
+    shown = visible;
+    if (visible) [NSCursor unhide]; else [NSCursor hide];
 }
 
 /* A host window whose content is a Metal layer of width x height pixels. */
@@ -80,6 +192,10 @@ void *halopad_metal_target_create(uint32_t width, uint32_t height, int depth_ste
         t->layer.contentsScale = scale;
         t->layer.drawableSize = CGSizeMake(width, height);
         view.layer = t->layer;
+        if (!window_delegate) window_delegate = [HPWindowDelegate new];
+        t->window.delegate = window_delegate;
+        t->window.acceptsMouseMovedEvents = YES;
+        for (int i = 0; i < 8; i++) if (!input_windows[i]) { input_windows[i] = t->window; break; }
         [t->window makeKeyAndOrderFront:nil];
         MTLTextureDescriptor *d = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm
                                                                                      width:width height:height mipmapped:NO];
@@ -104,7 +220,8 @@ void *halopad_metal_target_create(uint32_t width, uint32_t height, int depth_ste
 void halopad_metal_target_destroy(void *p)
 {
     hp_target *t = p;
-    @autoreleasepool { [t->window close]; }
+    for (int i = 0; i < 8; i++) if (input_windows[i] == t->window) input_windows[i] = nil;
+    @autoreleasepool { t->window.delegate = nil; [t->window close]; }
     t->window = nil; t->layer = nil; t->back = nil; t->depth = nil; t->color = nil; t->zs = nil;
     free(t);
 }

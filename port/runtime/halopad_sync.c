@@ -161,3 +161,18 @@ void Sleep_c(uint32_t ms)
     if (ms == 0) { sched_yield(); return; }
     while (nanosleep(&t, &t) != 0 && errno == EINTR) {}
 }
+
+/* MsgWaitForMultipleObjects: take the first of n handles (a guest array) that is signaled
+   now; -1 if none is. */
+int halopad_wait_poll(uint32_t n, uint32_t handles)
+{
+    pthread_mutex_lock(&lock);
+    for (uint32_t i = 0; i < n; i++) {
+        uint32_t h = rd32(handles + 4 * i);
+        object *o = obj(h);
+        if (!o) { pthread_mutex_unlock(&lock); hp_unsupported("MsgWaitForMultipleObjects", "handle 0x%08x (not a mutex or event)", h); }
+        if (try_acquire(o)) { pthread_mutex_unlock(&lock); return (int)i; }
+    }
+    pthread_mutex_unlock(&lock);
+    return -1;
+}

@@ -1,0 +1,259 @@
+;; HaloPad Windows runtime: user32 messages, activation, window state and input
+;; (port/runtime/halopad_user32.c, part 2). Pattern and macros from SR's Septerra Core port.
+
+include llasm.llinc
+include asm-calls.llinc
+
+func SetWindowPos_c a1, a2, a3, a4, a5, a6, a7
+func MoveWindow_c a1, a2, a3, a4, a5, a6
+func ShowWindow_c a1, a2
+func DestroyWindow_c a1
+func SetForegroundWindow_c a1
+func SetActiveWindow_c a1
+func SetFocus_c a1
+func GetForegroundWindow_c
+func GetActiveWindow_c
+func SetCapture_c a1
+func ReleaseCapture_c
+func GetCapture_c
+func ShowCursor_c a1
+func SetCursor_c a1
+func GetCursorPos_c a1
+func ClientToScreen_c a1, a2
+func PtInRect_c a1, a2, a3
+func GetDoubleClickTime_c
+func GetSystemMetrics_c a1
+func GetWindowLongA_c a1, a2
+func SetWindowLongA_c a1, a2, a3
+func GetParent_c a1
+func EnableWindow_c a1, a2
+func SetWindowTextA_c a1, a2
+func InvalidateRect_c a1, a2, a3
+func ValidateRect_c a1, a2
+func FindWindowA_c a1, a2
+func GetWindowPlacement_c a1, a2
+func SetPropA_c a1, a2, a3
+func GetPropA_c a1, a2
+func RemovePropA_c a1, a2
+func PeekMessageA_c a1, a2, a3, a4, a5
+func TranslateMessage_c a1
+func DispatchMessageA_c a1
+func PostQuitMessage_c a1
+func SendMessageA_c a1, a2, a3, a4
+func CallWindowProcA_c a1, a2, a3, a4, a5
+func MsgWaitForMultipleObjects_c a1, a2, a3, a4, a5
+func GetAsyncKeyState_c a1
+func GetKeyState_c a1
+func MessageBoxA_c a1, a2, a3, a4
+func wsprintfA_c a1, a2
+
+proc hpimp_SetWindowPos public
+        Call_Asm_Stack7 SetWindowPos_c
+        Call_Asm_Return 7
+endp
+
+proc hpimp_MoveWindow public
+        Call_Asm_Stack6 MoveWindow_c
+        Call_Asm_Return 6
+endp
+
+proc hpimp_ShowWindow public
+        Call_Asm_Stack2 ShowWindow_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_DestroyWindow public
+        Call_Asm_Stack1 DestroyWindow_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_SetForegroundWindow public
+        Call_Asm_Stack1 SetForegroundWindow_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_SetActiveWindow public
+        Call_Asm_Stack1 SetActiveWindow_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_SetFocus public
+        Call_Asm_Stack1 SetFocus_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_GetForegroundWindow public
+        Call_Asm_Stack0 GetForegroundWindow_c
+        Call_Asm_Return 0
+endp
+
+proc hpimp_GetActiveWindow public
+        Call_Asm_Stack0 GetActiveWindow_c
+        Call_Asm_Return 0
+endp
+
+proc hpimp_SetCapture public
+        Call_Asm_Stack1 SetCapture_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_ReleaseCapture public
+        Call_Asm_Stack0 ReleaseCapture_c
+        Call_Asm_Return 0
+endp
+
+proc hpimp_GetCapture public
+        Call_Asm_Stack0 GetCapture_c
+        Call_Asm_Return 0
+endp
+
+proc hpimp_ShowCursor public
+        Call_Asm_Stack1 ShowCursor_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_SetCursor public
+        Call_Asm_Stack1 SetCursor_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_GetCursorPos public
+        Call_Asm_Stack1 GetCursorPos_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_ClientToScreen public
+        Call_Asm_Stack2 ClientToScreen_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_PtInRect public
+        Call_Asm_Stack3 PtInRect_c
+        Call_Asm_Return 3
+endp
+
+proc hpimp_GetDoubleClickTime public
+        Call_Asm_Stack0 GetDoubleClickTime_c
+        Call_Asm_Return 0
+endp
+
+proc hpimp_GetSystemMetrics public
+        Call_Asm_Stack1 GetSystemMetrics_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_GetWindowLongA public
+        Call_Asm_Stack2 GetWindowLongA_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_SetWindowLongA public
+        Call_Asm_Stack3 SetWindowLongA_c
+        Call_Asm_Return 3
+endp
+
+proc hpimp_GetParent public
+        Call_Asm_Stack1 GetParent_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_EnableWindow public
+        Call_Asm_Stack2 EnableWindow_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_SetWindowTextA public
+        Call_Asm_Stack2 SetWindowTextA_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_InvalidateRect public
+        Call_Asm_Stack3 InvalidateRect_c
+        Call_Asm_Return 3
+endp
+
+proc hpimp_ValidateRect public
+        Call_Asm_Stack2 ValidateRect_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_FindWindowA public
+        Call_Asm_Stack2 FindWindowA_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_GetWindowPlacement public
+        Call_Asm_Stack2 GetWindowPlacement_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_SetPropA public
+        Call_Asm_Stack3 SetPropA_c
+        Call_Asm_Return 3
+endp
+
+proc hpimp_GetPropA public
+        Call_Asm_Stack2 GetPropA_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_RemovePropA public
+        Call_Asm_Stack2 RemovePropA_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_PeekMessageA public
+        Call_Asm_Stack5 PeekMessageA_c
+        Call_Asm_Return 5
+endp
+
+proc hpimp_TranslateMessage public
+        Call_Asm_Stack1 TranslateMessage_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_DispatchMessageA public
+        Call_Asm_Stack1 DispatchMessageA_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_PostQuitMessage public
+        Call_Asm_Stack1 PostQuitMessage_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_SendMessageA public
+        Call_Asm_Stack4 SendMessageA_c
+        Call_Asm_Return 4
+endp
+
+proc hpimp_CallWindowProcA public
+        Call_Asm_Stack5 CallWindowProcA_c
+        Call_Asm_Return 5
+endp
+
+proc hpimp_MsgWaitForMultipleObjects public
+        Call_Asm_Stack5 MsgWaitForMultipleObjects_c
+        Call_Asm_Return 5
+endp
+
+proc hpimp_GetAsyncKeyState public
+        Call_Asm_Stack1 GetAsyncKeyState_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_GetKeyState public
+        Call_Asm_Stack1 GetKeyState_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_MessageBoxA public
+        Call_Asm_Stack4 MessageBoxA_c
+        Call_Asm_Return 4
+endp
+
+;; cdecl with variable arguments: the caller pops; wsprintfA_c reads them from the guest stack
+proc hpimp_wsprintfA public
+        Call_Asm_Stack2 wsprintfA_c
+        Call_Asm_Return 0
+endp

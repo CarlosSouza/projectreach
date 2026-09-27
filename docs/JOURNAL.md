@@ -328,3 +328,24 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   - The invalid cases.
 
 **Next:** scissor if Halo uses it, then the USER32 message loop, DirectInput and DirectSound.
+
+## 2026-09-27 — USER32 message loop, activation, window state and host input
+
+- **How Halo uses them.**
+  - The main loop (\`0x544e30\`) is \`PeekMessageA(PM_REMOVE)\`, \`TranslateMessage\`, \`DispatchMessageA\`.
+  - The window procedure (\`0x544f40\`, a jump table) handles \`WM_DESTROY\`/\`WM_CLOSE\` (it posts quit), \`WM_SETCURSOR\` (it compares \`GetForegroundWindow\`), \`WM_PAINT\` (\`ValidateRect\`), \`WM_SIZE\`, \`WM_ACTIVATEAPP\`, \`WM_DISPLAYCHANGE\`, focus, \`WM_ERASEBKGND\`, \`WM_INPUTLANGCHANGE\`, \`WM_NCHITTEST\`, \`WM_SYSCOMMAND\` (it blocks move, size and the screen saver) and keys. Everything else goes to \`DefWindowProcA\`.
+  - \`MsgWaitForMultipleObjects(0, NULL, FALSE, 20/100, QS_ALLINPUT)\` is a sleep that input wakes (\`0x4cb5ce\`).
+  - It reads \`SM_SWAPBUTTON\`, activates an existing instance with \`FindWindowA\`/\`GetWindowPlacement\`/\`SetForegroundWindow\` (\`0x546180\`), and subclasses a dialog control with props and capture (\`0x581890\`–\`0x581b90\`).
+- **What** (\`port/runtime/halopad_user32.c\` part 2, \`halopad_keys.c\`, \`halopad_input.h\`; AppKit side in \`halopad_metal.m\`):
+  - A message queue: posted messages and input in arrival order, then WM_QUIT, then WM_PAINT for invalid windows. It handles filters, \`PM_NOREMOVE\` and mouse-move coalescing.
+  - \`TranslateMessage\` puts the host's typed characters (Windows-1252) ahead of the queue.
+  - Activation follows Windows' order: \`WM_ACTIVATEAPP\`, \`WM_NCACTIVATE\`, \`WM_ACTIVATE\`, then \`DefWindowProcA\`'s \`SetFocus\`. A first \`ShowWindow\` sends \`WM_SHOWWINDOW\`, the position-change pair, and \`WM_SIZE\`/\`WM_MOVE\`.
+  - Other services: \`SetWindowPos\`/\`MoveWindow\`, minimise/restore, \`DestroyWindow\`, \`Get\`/\`SetWindowLongA\` (subclassing, styles with \`WM_STYLECHANGING\`/\`CHANGED\`), props, \`FindWindowA\`, \`GetWindowPlacement\`, capture, \`ShowCursor\`/\`SetCursor\` (host cursor), \`GetCursorPos\`/\`ClientToScreen\`, \`GetSystemMetrics\`, \`GetAsyncKeyState\`/\`GetKeyState\` (as input arrives, and as messages are retrieved, with toggles), \`MsgWaitForMultipleObjects\`, \`SendMessageA\`/\`CallWindowProcA\`, \`wsprintfA\` (cdecl; reads its arguments from the guest stack).
+  - \`DefWindowProcA\` now covers what these produce: close, \`SC_CLOSE\`/\`SC_MINIMIZE\`/\`SC_RESTORE\`, Alt+F4, activation, the size/move reply, paint validation, hit testing, cursor, text.
+  - Host input: AppKit keys (Mac key codes to Windows virtual keys and set-1 scan codes, left/right modifiers, Caps Lock), mouse in client pixels, the wheel in WHEEL_DELTA units, app activation, and the close button (asks the window with \`WM_SYSCOMMAND(SC_CLOSE)\`).
+  - \`MessageBoxA\` stops and shows its caption and text; dialogs, GDI and the clipboard are not done yet.
+- **Test** (\`tests/halo_user32_test.c\`, 60 checks, all passing):
+  - DefWindowProcA is the window procedure, so default processing runs for real, and a trace hook records every delivery.
+  - Covered: the first-show order, WM_PAINT until validated, keys with lParam bits and WM_CHAR, autorepeat, Caps Lock toggle, extended keys, mouse coalescing, screen coordinates, double click, wheel, filters, window data, waits, \`wsprintfA\`, deactivation and reactivation order, minimise/restore, Alt+F4 through to \`WM_DESTROY\`, the close button, and \`WM_QUIT\`.
+
+**Next:** DirectInput 8 on the same input stream, then DirectSound 8, sockets and threads.
