@@ -14,7 +14,14 @@
  * Winsock behaviours kept: a datagram longer than the buffer fills it and fails with
  * WSAEMSGSIZE; a non-blocking connect reports WSAEWOULDBLOCK; a failed connect appears
  * in select's exception set. Options, ioctls and address families outside this set stop
- * with their values. */
+ * with their values.
+ *
+ * Network policy (HALOPAD_NET): "lan" models the reference machine on a local network with
+ * no internet. Only loopback, private (RFC 1918), link-local and broadcast destinations are
+ * reachable (others fail with WSAENETUNREACH), and only the machine's own name and
+ * "localhost" resolve (others fail with WSAHOST_NOT_FOUND, as offline). scripts/run-core.py
+ * sets it for every test run: public servers are out of bounds in this phase. Unset: the
+ * host's network as it is. */
 #include "halopad_win32.h"
 #include <arpa/inet.h>
 #include <errno.h>
@@ -26,6 +33,9 @@
 #include <pthread.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
+#include <ifaddrs.h>
+#include <net/if.h>
+#include <strings.h>
 #include <unistd.h>
 
 #define SOCK_BASE 0x2000u
@@ -175,6 +185,40 @@ uint32_t closesocket_c(uint32_t s)
     return 0;
 }
 
+static int lan_only(void)
+{
+    static int v = -1;
+    if (v < 0) { const char *e = getenv("HALOPAD_NET"); v = e && !strcmp(e, "lan"); }
+    return v;
+}
+
+/* Diagnostics: HALOPAD_TRACE_NET=1 prints binds, datagrams and connects (address, port, size,
+   the first bytes). */
+static int trace_net(void)
+{
+    static int v = -1;
+    if (v < 0) v = getenv("HALOPAD_TRACE_NET") != NULL;
+    return v;
+}
+static void trace(const char *what, uint32_t s, const struct sockaddr_in *a, const void *data, long n)
+{
+    if (!trace_net()) return;
+    char ip[32];
+    inet_ntop(AF_INET, &a->sin_addr, ip, sizeof ip);
+    fprintf(stderr, "HALOPAD NET %s socket 0x%x %s:%u %ld bytes:", what, s, ip, ntohs(a->sin_port), n);
+    for (long i = 0; data && i < n && i < 64; i++) fprintf(stderr, " %02x", ((const uint8_t *)data)[i]);
+    fprintf(stderr, "\n");
+}
+
+/* Under the "lan" policy: loopback, 10/8, 172.16/12, 192.168/16, 169.254/16 and broadcast. */
+static int reachable(const struct sockaddr_in *a)
+{
+    if (!lan_only()) return 1;
+    uint32_t h = ntohl(a->sin_addr.s_addr);
+    return (h >> 24) == 127 || (h >> 24) == 10 || (h >> 20) == 0xAC1 || (h >> 16) == 0xC0A8 || (h >> 16) == 0xA9FE
+        || h == 0xFFFFFFFFu;
+}
+
 uint32_t bind_c(uint32_t s, uint32_t name, uint32_t len)
 {
     NEED_STARTED(); NEED_SOCK(k, s);
@@ -182,6 +226,7 @@ uint32_t bind_c(uint32_t s, uint32_t name, uint32_t len)
     int r = to_host(name, len, &a);
     if (r < 0) return fail(10047);
     if (!r) return fail(10014);
+    trace("bind", s, &a, NULL, 0);
     if (bind(k->fd, (struct sockaddr *)&a, sizeof a)) return fail_errno();
     return 0;
 }
@@ -193,6 +238,7 @@ uint32_t connect_c(uint32_t s, uint32_t name, uint32_t len)
     int r = to_host(name, len, &a);
     if (r < 0) return fail(10047);
     if (!r) return fail(10014);
+    if (!reachable(&a)) return fail(10051);                         /* WSAENETUNREACH */
     if (connect(k->fd, (struct sockaddr *)&a, sizeof a)) {
         if (errno == EINPROGRESS) k->connecting = 1;
         return fail_errno();
@@ -240,6 +286,8 @@ uint32_t sendto_c(uint32_t s, uint32_t buf, uint32_t len, uint32_t flags, uint32
     int r = to ? to_host(to, tolen, &a) : 0;
     if (r < 0) return fail(10047);
     if (to && !r) return fail(10014);
+    if (r && !reachable(&a)) return fail(10051);                   /* WSAENETUNREACH */
+    if (r) trace("sendto", s, &a, len ? G(buf) : NULL, len);
     ssize_t n = sendto(k->fd, len ? G(buf) : "", len, flags_of(flags), r ? (struct sockaddr *)&a : NULL, r ? sizeof a : 0);
     if (n < 0) return fail_errno();
     return (uint32_t)n;
@@ -253,6 +301,7 @@ static uint32_t receive(sock *k, uint32_t buf, uint32_t len, uint32_t flags, uin
     if (from && (!fromlen || rd32(fromlen) < 16)) return fail(10014);
     ssize_t n = recvmsg(k->fd, &m, flags_of(flags));
     if (n < 0) return fail_errno();
+    if (m.msg_namelen) trace("recvfrom", (uint32_t)(0x2000 + 4 * (k - socks)), &a, len ? G(buf) : NULL, n);
     if (from && m.msg_namelen) to_guest(&a, from, fromlen);
     if (k->type == 2 && (m.msg_flags & MSG_TRUNC)) return fail(10040);   /* WSAEMSGSIZE: the buffer holds the start */
     return (uint32_t)n;
@@ -432,16 +481,44 @@ uint32_t gethostbyname_c(uint32_t name)
 {
     if (!started) { fail(10093); return 0; }
     if (!name) { fail(10014); return 0; }
+    /* Windows always resolves its own host name, to the addresses of its IPv4 interfaces (Halo's
+       network start-up, 0x4415c0, looks up the name gethostname gave and uses h_addr_list[0]
+       without a check). macOS resolves only the .local form, so answer our own name here. */
+    uint32_t own[16], nown = 0;
+    {
+        char h[256];
+        const char *want = G(name);
+        if (!gethostname(h, sizeof h)) {
+            char *dot = strchr(h, '.');
+            size_t shortlen = dot ? (size_t)(dot - h) : strlen(h);
+            if (!strcasecmp(want, h) || (strlen(want) == shortlen && !strncasecmp(want, h, shortlen))) {
+                struct ifaddrs *ifs = NULL;
+                if (!getifaddrs(&ifs)) {
+                    for (struct ifaddrs *i = ifs; i && nown < 16; i = i->ifa_next)
+                        if (i->ifa_addr && i->ifa_addr->sa_family == AF_INET && (i->ifa_flags & IFF_UP) && !(i->ifa_flags & IFF_LOOPBACK))
+                            own[nown++] = ((struct sockaddr_in *)i->ifa_addr)->sin_addr.s_addr;
+                    freeifaddrs(ifs);
+                }
+                if (!nown) own[nown++] = htonl(0x7F000001);         /* no network: Windows gives the loopback address */
+            }
+        }
+    }
     struct addrinfo hints = {0}, *res = NULL;
     hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_DGRAM;
-    int e = getaddrinfo(G(name), NULL, &hints, &res);
-    if (e || !res) { fail(e == EAI_AGAIN ? 11002 : 11001); return 0; }   /* WSATRY_AGAIN, WSAHOST_NOT_FOUND */
+    if (!nown && lan_only() && strcasecmp(G(name), "localhost")) { fail(11001); return 0; }   /* offline: no DNS */
+    if (!nown) {
+        int e = getaddrinfo(G(name), NULL, &hints, &res);
+        if (e || !res) { fail(e == EAI_AGAIN ? 11002 : 11001); return 0; }   /* WSATRY_AGAIN, WSAHOST_NOT_FOUND */
+    }
     if (!hostent_buf) hostent_buf = halopad_heap_alloc(1024, 1);
     uint32_t b = hostent_buf, addrs = b + 16 + 4, list = b + 16 + 4 + 4 * 16, str = b + 16 + 4 + 4 * 16 + 4 * 17;
     uint32_t n = 0;
-    for (struct addrinfo *r = res; r && n < 16; r = r->ai_next) {
-        uint32_t a = ((struct sockaddr_in *)r->ai_addr)->sin_addr.s_addr;
+    uint32_t found[16], nfound = 0;
+    for (uint32_t k = 0; k < nown; k++) found[nfound++] = own[k];
+    for (struct addrinfo *r = res; r && nfound < 16; r = r->ai_next) found[nfound++] = ((struct sockaddr_in *)r->ai_addr)->sin_addr.s_addr;
+    for (uint32_t k = 0; k < nfound; k++) {
+        uint32_t a = found[k];
         int dup = 0;
         for (uint32_t i = 0; i < n; i++) if (rd32(addrs + 4 * i) == a) dup = 1;
         if (dup) continue;
@@ -450,8 +527,8 @@ uint32_t gethostbyname_c(uint32_t name)
         n++;
     }
     wr32(list + 4 * n, 0);
-    snprintf(G(str), 1024 - (str - b), "%s", res->ai_canonname ? res->ai_canonname : (const char *)G(name));
-    freeaddrinfo(res);
+    snprintf(G(str), 1024 - (str - b), "%s", res && res->ai_canonname ? res->ai_canonname : (const char *)G(name));
+    if (res) freeaddrinfo(res);
     wr32(b + 16, 0);                                                /* h_aliases: an empty list */
     wr32(b, str); wr32(b + 4, b + 16); wr16(b + 8, 2); wr16(b + 10, 4); wr32(b + 12, list);
     return b;

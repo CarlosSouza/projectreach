@@ -942,3 +942,24 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
 - **Keystone** links the same C runtime math code and gains 22 hints. It is retranslated as run `20260927T163514Z-67223`. The hints for ksimeui, Controls and MSXML 4 are unchanged.
 - **Run and results:** translation run `20260927T162224Z-63690` (lifter unchanged, `24c44b99cfac-05b596a6`). 23 suites, 11 slices and 6 contract cases pass on macOS and on the iPad Simulator.
 
+
+
+## 2026-09-27 — HaloPad joins the original dedicated server
+
+- **Halo on HaloPad joins a real server.** `scripts/reference-join.sh` starts the original `haloceded.exe` (private, 127.0.0.1:2310, in CrossOver) and runs `tests/halo_connect_test.c`, which starts Halo with `-connect`. Then:
+  - the GameSpy handshake completes;
+  - the client loads the server's Blood Gulch and the server spawns the player;
+  - the server's own log records `JOIN SUCCESS … (127.0.0.1:2305)`.
+  It passes on macOS and on the iPad Simulator, and is now a regression suite on both.
+- **Fixes on the way:**
+  - `GetProcAddress` of Winsock ordinals (`#115` = `WSAStartup`), now registered by `va-model.py`;
+  - `gethostbyname` of the machine's own short name (macOS resolves only `.local`);
+  - WinInet's proxy query and WinHTTP's proxy auto-detection, as on an XP machine with no proxy;
+  - port collisions on one machine: server on 2310, client `-cport 2305`.
+- **Network policy.** `HALOPAD_NET=lan` is the default for tests: only local and private destinations, and no DNS beyond the machine's own name. The version check's lookup of Bungie's host fails as it would offline, and no test reaches a public host. New diagnostic: `HALOPAD_TRACE_NET`.
+- **The key, stated plainly.** WinMain puts the key string from Halo's own `0x5829e0` at `[0x6e1468]`, and the GameSpy answer hashes it.
+  - The test sets that global from `0x5829e0` itself. With no `DigitalProductID` on this machine, that is Halo's empty string.
+  - The private server accepts it and logs `cdkey d41d8cd98f00b204e9800998ecf8427e`, the MD5 of "".
+  - Nothing is fabricated or patched. WinMain's own check still stops the normal start-up without a key, and public servers still need a real one.
+- 23 suites, the join and 11 slices pass on macOS and on the iPad Simulator. No server is left running, and the Simulator is shut down.
+

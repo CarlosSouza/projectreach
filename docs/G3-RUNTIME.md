@@ -175,6 +175,46 @@ How it was found (the tools stay available):
 - A scan for new NaNs in Halo's data narrowed it to the first-person weapon (`[0x64dcc8]`, 0x1ea0 bytes per player) and the camera globals.
 - A temporary check in the x87 helpers found the first NaN: the 80-bit load in `acos`'s domain-error path.
 
+
+## Joining a server (G5, step 1)
+
+HaloPad's Halo joins the original Custom Edition 1.10 dedicated server and plays on it. The server runs as `haloceded.exe` in the project's CrossOver bottle: private, `sv_public 0`, bound to 127.0.0.1:2310.
+
+`scripts/reference-join.sh` does the whole run:
+
+1. it starts the server and waits for its status answer;
+2. it runs `tests/halo_connect_test.c` on HaloPad;
+3. it checks the server's own log for the join from HaloPad's address;
+4. it stops everything.
+
+It passes on macOS and on the iPad Simulator. A typical server log line is `JOIN SUCCESS "Whicker" player 1 machine 1 (127.0.0.1:2305)`. The client loads the server's Blood Gulch within a few frames, and the server spawns the player at a base with the multiplayer HUD (`join.ppm`).
+
+**Halo's path.** `main`'s `0x4cd080` reads `-connect <address>` (with optional `-name` and `-password`) and calls `0x4cb800`. The network start-up follows:
+
+- `0x4415c0` calls `WSAStartup`, then `gethostname` on a thread, then `gethostbyname` of that name. It uses `h_addr_list[0]` unchecked.
+- GameSpy's transport handshake (`fe fe 01` request, `02` challenge, `03` answer, `04` accept) then game data. In the answer, `0x5bc980` hashes the key string at `[0x6e1468]` into the response.
+
+**What the test sets for WinMain** (as the other component tests do):
+
+- its `-cport` value (`0x544c93`: `[0x6337fc]` and the flag `0x6b7360`). It is 2305, because the server holds 127.0.0.1:2302–2303 on the default ports.
+- `[0x6e1468]`, set from **Halo's own** `0x5829e0`. That reads the installer's `DigitalProductID`. There is none on this machine, so it returns Halo's empty string (`0x5f363c`). WinMain itself would stop at that point with "Your product key is invalid".
+
+Nothing is written to the registry, no key is made up, and nothing in Halo is patched. **The private server accepts a client without a key**: it logs the key hash as `d41d8cd98f00b204e9800998ecf8427e`, the MD5 of "". That is the original server's behaviour on a LAN. Public servers check keys, which is why online play as a real player still needs the key.
+
+**Ports on one machine.** Both processes bind the Halo ports: the client binds 0.0.0.0:2302 and :2303, and the server binds 127.0.0.1:2302 and :2303 by default. Datagrams to 127.0.0.1 then reach the more specific binding. At first HaloPad's join request went to its own socket, and later the server's challenge went to the server's own 2303. Separate ports (server 2310, client 2305) are what two installations on one PC need too.
+
+**Services this needed:**
+
+- **Winsock ordinals.** `WS2_32` and `WSOCK32` are delay-imported by ordinal. `pefile` names well-known ordinals, but the delay-load helper asks `GetProcAddress` for `#115`. `va-model.py` now registers both the name and `#<ordinal>` for ordinal imports of the executable.
+- **Own host name.** `gethostbyname` of the machine's own name (short or full) returns its IPv4 interface addresses, or 127.0.0.1 without a network, as Windows does. macOS resolves only the `.local` form.
+- **WinInet and WinHTTP** (`halopad_wininet.c`, `winhttp.dll` added as loadable). Halo's version check (`0x57a620`, on its own thread) looks for a proxy. The reference machine has none:
+  - `InternetQueryOptionA(NULL, INTERNET_OPTION_PROXY)` reports direct access;
+  - `WinHttpGetProxyForUrl` fails with `ERROR_WINHTTP_AUTODETECTION_FAILED` (no WPAD server).
+- **Network policy** (`HALOPAD_NET`, set to `lan` by `run-core.py` for every test). It models the reference machine on a LAN with no internet:
+  - only loopback, private, link-local and broadcast destinations are reachable, and others fail with `WSAENETUNREACH`;
+  - only the machine's own name and `localhost` resolve, and others fail with `WSAHOST_NOT_FOUND`.
+  So the version check's lookup of `hpcup.bungie.net` fails as it would offline, and no test reaches a public host.
+
 ## Rasterizer initialization (Halo's graphics start-up)
 
 `0x51a240` (reached from `WinMain` through `0x5442e0` and `0x515610`) is Halo's whole graphics start-up. In order:
@@ -310,6 +350,7 @@ These are environment switches that only print; none of them changes behavior.
 - `HALOPAD_WATCH=va[,va…]`: every indirect transfer to those addresses, with the return address, arguments, `eax` and `esp`.
 - `HALOPAD_WATCH_RANGE=to_lo:to_hi:from_lo:from_hi`: indirect calls from one module into another, for example Keystone into msxml4.
 - `HALOPAD_TRACE_LAST=1`: the last 32 indirect transfer targets, printed with any trap or fault. Translated code has no program counter, so this shows where it was.
+- `HALOPAD_TRACE_NET=1`: Winsock binds, datagrams sent and received (address, port, size, first 64 bytes).
 - `HALOPAD_TRACE_DRAWS=first:last`: every Direct3D draw, clear, render-target change and `StretchRect` in those frames (counted by `Present`, from 1). Each line gives the primitive, shaders, blend, depth, alpha test, textures and viewport, depth range, bias, stencil, fog, and the guest return addresses on the stack. Up to four vertices are printed for small `*UP` draws. `HALOPAD_TRACE_DRAWS_VSCONSTS=1` adds vertex shader constants c0–c11, and `HALOPAD_TRACE_DRAWS_CONSTS=1` pixel shader constants c0–c7.
 - A missing import or COM method now prints the guest stack, so its caller and arguments are visible.
 

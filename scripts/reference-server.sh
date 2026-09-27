@@ -61,12 +61,13 @@ stop_all() {
   if pgrep -f 'haloceded.exe' >/dev/null; then pkill -9 -f 'haloceded.exe' || true; fi
 }
 trap stop_all EXIT
+trap 'stop_all; trap - EXIT; exit 143' INT TERM
 
 (cd "$GAME" && WINEDEBUG=-all "$CX/wine" --bottle "$BOTTLE" --no-gui haloceded.exe -port "$PORT" -ip 127.0.0.1 \
    -exec halopad-init.txt -path 'C:\Program Files\Microsoft Games\Halo Custom Edition\halopad-ded' > "$EVID/console.log" 2>&1) &
 SERVER_PID=$!
 
-sleep "$SECONDS_RUN"
+sleep "$SECONDS_RUN" & wait $!                            # (wait: a stop signal takes effect at once)
 "$PY" - "$PORT" "$EVID" <<'EOF'
 import json, socket, sys
 port, evid = int(sys.argv[1]), sys.argv[2]

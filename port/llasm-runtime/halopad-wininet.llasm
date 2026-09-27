@@ -1,0 +1,30 @@
+;; HaloPad Windows runtime: wininet.dll and winhttp.dll (port/runtime/halopad_wininet.c):
+;; the proxy discovery before Halo's version check.
+
+include llasm.llinc
+include asm-calls.llinc
+
+func InternetQueryOptionA_c a1, a2, a3, a4
+func WinHttpOpen_c a1, a2, a3, a4, a5
+func WinHttpGetProxyForUrl_c a1, a2, a3, a4
+func WinHttpCloseHandle_c a1
+
+proc hpimp_InternetQueryOptionA public
+        Call_Asm_Stack4 InternetQueryOptionA_c
+        Call_Asm_Return 4
+endp
+
+proc hpimp_WinHttpOpen public
+        Call_Asm_Stack5 WinHttpOpen_c
+        Call_Asm_Return 5
+endp
+
+proc hpimp_WinHttpGetProxyForUrl public
+        Call_Asm_Stack4 WinHttpGetProxyForUrl_c
+        Call_Asm_Return 4
+endp
+
+proc hpimp_WinHttpCloseHandle public
+        Call_Asm_Stack1 WinHttpCloseHandle_c
+        Call_Asm_Return 1
+endp

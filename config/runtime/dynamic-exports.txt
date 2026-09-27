@@ -33,3 +33,7 @@ user32.dll!GetLastActivePopup
 # DirectDraw: Halo's video memory query (0x580e70)
 ddraw.dll!DirectDrawCreateEx
 ddraw.dll!DirectDrawEnumerateExA
+# Halo's version check looks for a proxy with WinHTTP (0x57a6ca, halopad_wininet.c)
+winhttp.dll!WinHttpGetProxyForUrl
+winhttp.dll!WinHttpOpen
+winhttp.dll!WinHttpCloseHandle

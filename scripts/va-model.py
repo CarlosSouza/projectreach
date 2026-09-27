@@ -120,19 +120,24 @@ def latest_module_run(mod):
 
 def dynamic_exports(exe):
     """Exports reached only through LoadLibraryA/GetProcAddress: the delay-load imports and
-    the names listed in config/runtime/dynamic-exports.txt. Returns [(dll, name)] where an
-    ordinal import is named '#<ordinal>'."""
+    the names listed in config/runtime/dynamic-exports.txt. Returns [(dll, key, service)]: key is
+    what GetProcAddress is asked for (a name, or '#<ordinal>'), service the name it binds to."""
     pe = pefile.PE(str(exe), fast_load=True)
     pe.parse_data_directories(directories=[pefile.DIRECTORY_ENTRY['IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT']])
     out = []
     for e in getattr(pe, 'DIRECTORY_ENTRY_DELAY_IMPORT', []):
         for imp in e.imports:
-            out.append((e.dll.decode().lower(), imp.name.decode() if imp.name else f'#{imp.ordinal}'))
+            name = imp.name.decode() if imp.name else f'#{imp.ordinal}'
+            out.append((e.dll.decode().lower(), name, name))
+            if imp.name and imp.import_by_ordinal:
+                # pefile names well-known ordinals (WS2_32/WSOCK32), but the delay-load helper
+                # asks GetProcAddress for the ordinal ('#115' is WS2_32's WSAStartup)
+                out.append((e.dll.decode().lower(), f'#{imp.ordinal}', name))
     for line in DYNAMIC_EXPORTS.read_text().splitlines():
         line = line.strip()
         if line and not line.startswith('#'):
             dll, name = line.split('!', 1)
-            out.append((dll.lower(), name))
+            out.append((dll.lower(), name, name))
     return out
 
 
@@ -527,10 +532,10 @@ def main():
     # own procedures at their own original addresses, own import slots (bound by the
     # runtime's LoadLibraryA like the Windows loader does).
     modules = build_modules(a, va, llasm, triple, registry, seen, table)
-    for dll, name in dynamic_exports(work / 'haloce.exe'):
+    for dll, name, service in dynamic_exports(work / 'haloce.exe'):
         if (dll, name) not in seen:
             seen.add((dll, name))
-            registry.append((dll, name, symbol_for(name if not name.startswith('#') else f'{dll.split(".")[0]}_ord{name[1:]}')))
+            registry.append((dll, name, symbol_for(service if not service.startswith('#') else f'{dll.split(".")[0]}_ord{service[1:]}')))
     if IMPORT_VA_BASE + IMPORT_VA_STRIDE * len(registry) > HOST_RETURN_VA:
         sys.exit('import address page overflow')
     reg_vas = [IMPORT_VA_BASE + IMPORT_VA_STRIDE * i for i in range(len(registry))]

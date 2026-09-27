@@ -36,6 +36,7 @@ static module modules[] = {
     {"winmm.dll", 0x76B40000, LOADABLE, 0},
     {"shell32.dll", 0x7C9C0000, LOADABLE, 0},
     {"wininet.dll", 0x3D930000, LOADABLE, 0},
+    {"winhttp.dll", 0x4D4F0000, LOADABLE, 0},     /* WinHTTP 5.1: Halo's proxy discovery (halopad_wininet.c) */
     {"version.dll", 0x77C00000, LOADABLE, 0},
     {"shfolder.dll", 0x76780000, LOADABLE, 0},      /* SHGetFolderPathA (My Documents) */
     {"d3d9.dll", 0x4FDD0000, LOADABLE, 0},

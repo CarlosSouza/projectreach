@@ -93,6 +93,7 @@ def main():
     # each run starts from the reference machine's registry; the final state is evidence
     env = dict(os.environ, HALOPAD_IMAGE=str(IMAGE), HALOPAD_MODULE_IMAGES=str(IMAGE.parent / 'modules'), HALOPAD_REFERENCE_ROOT=str(ROOT / 'ref' / 'inputs' / 'reference-machine'), HALOPAD_GAME_ROOT=str(GAME_ROOT), HALOPAD_STATE_ROOT=str(ROOT / 'generated' / 'halopad-disk'), HALOPAD_REPO_ROOT=str(ROOT),
                HALOPAD_REGISTRY=str(evid / 'registry.txt'))
+    env.setdefault('HALOPAD_NET', 'lan')                   # tests never reach public hosts (halopad_winsock.c)
     acceptance = ROOT / 'generated' / 'runtime-state' / 'eula-acceptance.txt'   # written only by scripts/accept-eula.sh
     if acceptance.exists():
         env['HALOPAD_EULA_ACCEPTANCE'] = str(acceptance)
