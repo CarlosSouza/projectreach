@@ -65,6 +65,7 @@ static module modules[] = {
     /* not installed on the reference machine */
     {"mscoree.dll", 0, ABSENT, 0},                 /* no .NET runtime */
     {"nvcpl.dll", 0, ABSENT, 0},                   /* no NVIDIA control panel */
+    {"d3d9d.dll", 0, ABSENT, 0},                   /* the DirectX SDK's debug runtime (D3DX checks for it) */
 };
 #define NMOD (sizeof modules / sizeof modules[0])
 

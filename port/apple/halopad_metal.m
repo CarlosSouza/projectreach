@@ -471,6 +471,20 @@ uint32_t halopad_metal_read_pixel(void *p, uint32_t x, uint32_t y)
     }
 }
 
+/* Test support: the whole back buffer as 0xAARRGGBB rows (top-down), after all submitted work. */
+void halopad_metal_read_image(void *p, uint32_t *out, uint32_t w, uint32_t h)
+{
+    hp_target *t = p;
+    @autoreleasepool {
+        end_encoder(t);
+        id<MTLCommandBuffer> cb = t->cb ? t->cb : [queue commandBuffer];
+        t->cb = nil;
+        [cb commit];
+        [cb waitUntilCompleted];
+        [t->back getBytes:out bytesPerRow:4 * w fromRegion:MTLRegionMake2D(0, 0, w, h) mipmapLevel:0];   /* BGRA8: 0xAARRGGBB in memory order */
+    }
+}
+
 /* ---- frame, pipelines, resources and draws ---- */
 
 static NSMutableDictionary *pipelines, *depth_states, *samplers, *libraries;

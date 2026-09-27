@@ -18,3 +18,5 @@ imm32.dll!ImmDisableTextFrameService
 # msxml4.dll resolves these at run time (they are missing on Windows 95)
 kernel32.dll!InterlockedCompareExchange
 kernel32.dll!InterlockedExchangeAdd
+# D3DX (statically linked in Keystone.dll) mutes the debug runtime
+d3d9.dll!DebugSetMute

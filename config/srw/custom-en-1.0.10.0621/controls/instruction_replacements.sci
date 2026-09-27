@@ -1,0 +1,8 @@
+loc_1033FFC1,5,mov tmp1, loc_10393AE0|and eax, eax, tmp1 ; and eax, offset (neg/sbb/not select: 0 or the string)
+loc_10351603,5,mov tmp1, loc_10393AEC|and eax, eax, tmp1 ; and eax, offset (neg/sbb/not select: 0 or the string)
+loc_1035344B,5,mov tmp1, loc_103936FC|and eax, eax, tmp1 ; and eax, offset (neg/sbb/not select: 0 or the string)
+loc_1035FA43,5,mov tmp1, loc_10393AE0|and eax, eax, tmp1 ; and eax, offset (neg/sbb/not select: 0 or the string)
+loc_103809FD,4,ashr tmp1, eax, 3|add tmpadr, esp, tmp1|load8z tmp2, tmpadr, 1|and tmp3, eax, 7|mov tmp5, 1|shl tmp5, tmp5, tmp3|and tmp4, tmp2, tmp5|cmovz tmp4, tmp6, 0, CF|and eflags, eflags, ~CF|or eflags, eflags, tmp6|or tmp2, tmp2, tmp5|store8 tmp2, tmpadr, 1 ; bts [esp], eax: set bit eax of the bitmap at esp, CF = its old value
+loc_10380A18,4,ashr tmp1, eax, 3|add tmpadr, esp, tmp1|load8z tmp2, tmpadr, 1|and tmp3, eax, 7|lshr tmp2, tmp2, tmp3|and tmp2, tmp2, 1|cmovz tmp2, tmp4, 0, CF|and eflags, eflags, ~CF|or eflags, eflags, tmp4 ; bt [esp], eax: CF = bit eax of the bitmap at esp (CRT strspn family)
+loc_103817BD,4,ashr tmp1, eax, 3|add tmpadr, esp, tmp1|load8z tmp2, tmpadr, 1|and tmp3, eax, 7|mov tmp5, 1|shl tmp5, tmp5, tmp3|and tmp4, tmp2, tmp5|cmovz tmp4, tmp6, 0, CF|and eflags, eflags, ~CF|or eflags, eflags, tmp6|or tmp2, tmp2, tmp5|store8 tmp2, tmpadr, 1 ; bts [esp], eax: set bit eax of the bitmap at esp, CF = its old value
+loc_103817D1,4,ashr tmp1, eax, 3|add tmpadr, esp, tmp1|load8z tmp2, tmpadr, 1|and tmp3, eax, 7|lshr tmp2, tmp2, tmp3|and tmp2, tmp2, 1|cmovz tmp2, tmp4, 0, CF|and eflags, eflags, ~CF|or eflags, eflags, tmp4 ; bt [esp], eax: CF = bit eax of the bitmap at esp (CRT strspn family)

@@ -199,6 +199,8 @@ uint32_t GetLocaleInfoA_c(uint32_t lcid, uint32_t type, uint32_t buf, uint32_t n
 uint32_t GetLocaleInfoW_c(uint32_t lcid, uint32_t type, uint32_t buf, uint32_t n) { return locale_info(lcid, type, buf, n, 1); }
 
 uint32_t GetUserDefaultLCID_c(void) { return LCID_US; }
+uint32_t GetUserDefaultLangID_c(void) { return LCID_US & 0xFFFF; }   /* LANGIDFROMLCID: English (United States) */
+uint32_t GetSystemDefaultLangID_c(void) { return LCID_US & 0xFFFF; }
 static _Thread_local uint32_t thread_locale = LCID_US;
 uint32_t GetThreadLocale_c(void) { return thread_locale; }
 uint32_t SetThreadLocale_c(uint32_t lcid) { need_us("SetThreadLocale", lcid); thread_locale = LCID_US; return 1; }

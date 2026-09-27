@@ -64,6 +64,30 @@ Keystone parses and validates every `.ksml` layout with MSXML 4.0 SP2, and has n
 - **VARIANTs**: `VariantClear` releases `VT_DISPATCH` and `VT_UNKNOWN` and leaves `VT_BYREF` values alone.
 - **Test** (`tests/halo_msxml_test.c`, 18 checks): a DOM from a string (`nodeName`, `text`, `xml`), a malformed document rejected with MSXML's own message ("End tag 'a' does not match the start tag 'b'."), and `content/480editbox.ksml` validated against `KSML.xsd`. It is loaded both as a string and exactly as Keystone loads it: schema cache, `putref_schemas`, `validateOnParse`, no external resolution, and the file's UTF-16 text with its byte-order mark skipped. An element the schema lacks is rejected ("Element content is invalid according to the DTD/Schema. Expecting: font, b, i, …").
 
+## GDI text (Keystone's glyph cache)
+
+Keystone draws every character it shows through GDI and copies the coverage into Direct3D textures (`0x1021a7b5`). The sequence is: a memory DC in `MM_TEXT`, white text on black, `CreateFontA(-MulDiv(points, 96, 72), …, ANTIALIASED_QUALITY, VARIABLE_PITCH, face)`, `GetTextMetricsA` and `GetTextExtentPoint32W(L"?")` for the cell, and a 32-bit top-down DIB section. Each glyph is then drawn with `ExtTextOutW(ETO_OPAQUE)` and read back into A4R4G4B4 texels, which go to a system-memory texture and then to the GPU with `UpdateTexture`. HaloPad implements this in `port/runtime/halopad_gdi.c` on CoreText.
+
+- **Fonts on the reference machine.** The machine has Windows XP SP3's fonts. A face it lacks goes through GDI's mapper: for a variable-pitch or default-pitch request with no particular family and an ANSI or default character set, that is Arial. Keystone's `.ksml` files ask for "Arial Narrow", an Office font that XP does not install, so on XP they render in Arial, and so they do here. Faces are drawn with the host's copy of the same font (`ArialMT` and its bold and italic faces, present on macOS and iOS).
+- **Metrics as GDI reports them, from the font's own tables:**
+  - the em height is `-lfHeight`. For a positive height, it is the largest size whose `VDMX` cell fits;
+  - ascent and descent are the `VDMX` table's hinted values at that size, or else `usWinAscent`/`usWinDescent` scaled and rounded;
+  - external leading is `max(0, lineGap - ((winAscent + winDescent) - (ascender - descender)))`;
+  - `tmAveCharWidth` is `xAvgCharWidth` scaled, and `tmMaxCharWidth` is `advanceWidthMax` scaled;
+  - advances come from `hdmx` (GDI's hinted widths) at that size, or else are the linear advance rounded.
+  - Checked against Windows' own values, as Wine's gdi32 tests record them: Arial 12 gives 12/9/3, Arial −34 gives 39/32/7, and Arial −16 gives 18/15/3.
+- **Drawing.** `ExtTextOutW` supports `ETO_OPAQUE` and `ETO_CLIPPED`, fills the text cell in `OPAQUE` background mode, honors the `TA_*` alignments and `lpDx`, and draws underline and strikeout. Glyphs go through CoreGraphics' grayscale antialiasing at GDI's integer advances, with no subpixel positioning and no smoothing. A DIB section's fourth byte stays 0, as GDI leaves it. Glyph outlines are not hinted, so a pixel's coverage can differ slightly from GDI's; positions and cell sizes follow GDI.
+- **Objects.** `CreateDIBSection` supports 32-bit `BI_RGB` (or 8-8-8 `BI_BITFIELDS`), with top-down bits from `VirtualAlloc`. A new DC has black text on white, `OPAQUE` mode, `TA_TOP | TA_LEFT` and the System font; the System font itself is not provided, and drawing with it stops. Deleting a selected font succeeds and takes effect when the font is released. `DeleteDC` is supported, and so is `MulDiv`, with kernel32's rounding.
+- **Stops:** faces XP has that are not provided yet, other character sets, escapement, explicit widths, `NONANTIALIASED_QUALITY`, bottom-up DIBs, other depths, text on window DCs, palette colors, `TA_UPDATECP`, and right-to-left reading.
+- **Direct3D pieces Keystone needed:**
+  - `UpdateTexture`: system memory to the default pool, level-granular dirty tracking. Default-pool textures now keep a copy of their contents for upload, and they still refuse `LockRect`.
+  - `d3d9.dll!DebugSetMute`, which D3DX looks up.
+  - The SDK debug runtime `d3d9d.dll` is absent.
+- **Tests:**
+  - the GDI test gained 30 checks: metrics, extents, a `?` drawn into a DIB section, and deferred deletion;
+  - the Keystone test checks Keystone's CRT `floor`/`ceil`;
+  - the UI test adds a chat line through Halo's own `0x4ae8a0` and opens the chat input as `0x4ada50` does. It then reads the Metal back buffer (`chat.ppm` in the evidence directory) and checks the text pixels.
+
 ## Diagnostics
 
 These are environment switches that only print; none of them changes behavior.
@@ -72,6 +96,7 @@ These are environment switches that only print; none of them changes behavior.
 - `HALOPAD_TRACE_BSTR=1`: every BSTR allocated.
 - `HALOPAD_WATCH=va[,va…]`: every indirect transfer to those addresses, with the return address, arguments, `eax` and `esp`.
 - `HALOPAD_WATCH_RANGE=to_lo:to_hi:from_lo:from_hi`: indirect calls from one module into another, for example Keystone into msxml4.
+- `HALOPAD_TRACE_LAST=1`: the last 32 indirect transfer targets, printed with any trap or fault. Translated code has no program counter, so this shows where it was.
 - A missing import or COM method now prints the guest stack, so its caller and arguments are visible.
 
 
@@ -79,6 +104,7 @@ These are environment switches that only print; none of them changes behavior.
 
 The backend now implements `fldpi`, `fldl2e`, `fpatan`, `frndint` (by the control word's rounding field), `fscale`, `f2xm1`, `fsincos` and `fxam` (`port/llasm-support/llasm_float.c`). SR's x87 model has no exception flags and no tag word: the status word is the condition codes plus TOP. So `fnclex` and `ffree` change no modelled state, `fnstsw` never reports a pending exception, and `fxam` never reports an empty register. Code that depends on those would diverge. Where a function might, the oracle can check it.
 
+- **Double results (fix, 2026-09-27).** `fst`/`fstp qword` return their double through the per-thread guest slot (`halopad_x87_result`). The first version of that change copied the 64-bit integer scratch field instead of ST0, so every double stored to memory read back as 0. Keystone's CRT `floor`/`ceil` (`fstp qword`, then `fld qword`) exposed it. It is fixed and covered by the Keystone test.
 
 ## Resources
 

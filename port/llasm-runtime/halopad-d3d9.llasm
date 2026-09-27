@@ -10,3 +10,9 @@ proc hpimp_Direct3DCreate9 public
         Call_Asm_Stack1 Direct3DCreate9_c
         Call_Asm_Return 1
 endp
+
+func DebugSetMute_c
+proc hpimp_DebugSetMute public
+        Call_Asm_Stack0 DebugSetMute_c
+        Call_Asm_Return 0
+endp

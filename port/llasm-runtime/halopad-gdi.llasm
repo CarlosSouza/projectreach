@@ -70,3 +70,74 @@ proc hpimp_SetDeviceGammaRamp public
         Call_Asm_Stack2 SetDeviceGammaRamp_c
         Call_Asm_Return 2
 endp
+
+;; text (port/runtime/halopad_gdi.c)
+func DeleteDC_c a1
+func CreateFontA_c a1
+func SetMapMode_c a1, a2
+func SetTextColor_c a1, a2
+func SetBkColor_c a1, a2
+func SetBkMode_c a1, a2
+func SetTextAlign_c a1, a2
+func GetTextMetricsA_c a1, a2
+func GetTextExtentPoint32W_c a1, a2, a3, a4
+func CreateDIBSection_c a1, a2, a3, a4, a5, a6
+func ExtTextOutW_c a1, a2, a3, a4, a5, a6, a7, a8
+
+proc hpimp_DeleteDC public
+        Call_Asm_Stack1 DeleteDC_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_SetMapMode public
+        Call_Asm_Stack2 SetMapMode_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_SetTextColor public
+        Call_Asm_Stack2 SetTextColor_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_SetBkColor public
+        Call_Asm_Stack2 SetBkColor_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_SetBkMode public
+        Call_Asm_Stack2 SetBkMode_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_SetTextAlign public
+        Call_Asm_Stack2 SetTextAlign_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_GetTextMetricsA public
+        Call_Asm_Stack2 GetTextMetricsA_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_GetTextExtentPoint32W public
+        Call_Asm_Stack4 GetTextExtentPoint32W_c
+        Call_Asm_Return 4
+endp
+
+proc hpimp_CreateDIBSection public
+        Call_Asm_Stack6 CreateDIBSection_c
+        Call_Asm_Return 6
+endp
+
+proc hpimp_ExtTextOutW public
+        Call_Asm_Stack8 ExtTextOutW_c
+        Call_Asm_Return 8
+endp
+
+;; CreateFontA has 14 arguments: the service reads them from the guest stack
+proc hpimp_CreateFontA public
+        add tmp0, esp, 4
+        call CreateFontA_c tmp0
+        mov eax, tmp0
+        Call_Asm_Return 14
+endp

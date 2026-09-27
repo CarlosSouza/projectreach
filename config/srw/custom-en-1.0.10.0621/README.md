@@ -36,3 +36,8 @@ Format: `loc_<hex addr>,<name>`. Exports a translated procedure as the C-callabl
 | `keystone/global_aliases.sci` | `loc_102DB232,keystone_entry` | DLL entry point (`_DllMainCRTStartup`); SRW's llasm mode does not root it |
 | `ksimeui/global_aliases.sci` | `loc_1000D2EC,ksimeui_entry` | same |
 | `keystone/instruction_replacements.sci` | `0x102dbabd`, 18 bytes | the same CRT local-unwind helper as the executable's `0x5cce49` (`cmp esi, fs:[0]`) |
+| `keystone/instruction_replacements.sci` | `0x1026bc4d`, 5 bytes | `and eax, offset` (zlib `inflateInit2`: the check function or 0). SRW's backend has no `and` with an address operand; the replacement puts the address in a temporary. The next instruction does not read flags. |
+| `keystone/instruction_replacements.sci` | `0x10263ac7`, 3 bytes | `imul byte [ecx+0x1d]` (libpng's pixel depth = bit depth × channels): `ax = al × m8`, signed. The next instructions do not read flags. |
+| `keystone/instruction_replacements.sci` | `0x102e143d`, `0x102e208d` (4 bytes) | `bts [esp], eax` in the CRT's `strspn`/`strpbrk` family: sets bit `eax` of the 256-bit table on the stack, and CF gets the old bit. |
+| `keystone/instruction_replacements.sci` | `0x102e1458`, `0x102e20a1` (4 bytes) | `bt [esp], eax`: CF = bit `eax` of that table (read by the following `jae`). |
+| `controls/instruction_replacements.sci` | `0x1033ffc1`, `0x10351603`, `0x1035344b`, `0x1035fa43` (5 bytes) | `and eax, offset` after `neg`/`sbb`/`not`: selects 0 or a string address ("true", "false", "vstarget"). Each is followed by `pop esi` and `ret`. |

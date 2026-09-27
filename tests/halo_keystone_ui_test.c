@@ -28,6 +28,8 @@ uint32_t halopad_heap_alloc(uint32_t size, int zero);
 void *halopad_guest_ptr(uint32_t guest);
 uint32_t LoadLibraryA_c(uint32_t name);
 uint32_t GetProcAddress_c(uint32_t module, uint32_t name);
+void *halopad_d3d9_device_target(uint32_t g);
+void halopad_metal_read_image(void *p, uint32_t *out, uint32_t w, uint32_t h);
 
 static int failures;
 static uint32_t rd(uint32_t g) { uint32_t v; memcpy(&v, halopad_guest_ptr(g), 4); return v; }
@@ -163,6 +165,46 @@ int main(void)
     check("frames: BeginScene, KsUpdate, EndScene and Present all succeed", bad, 0);
     check("  edit box control oEditbox (content/480editbox.ksml laid out)", edit != 0, 1);
     check("  list box control oListbox (content/480log.ksml laid out)", list != 0, 1);
+
+    /* a chat line, added the way Halo adds one (0x4ae8a0: LB_ADDSTRING to oListbox, scroll, relayout),
+       then frames; the frame is saved next to the evidence as chat.ppm */
+    wr(0x647828, 10000000); wr(0x64782c, 0);                     /* Halo's QueryPerformanceFrequency copy (start-up sets it) */
+    uint32_t line = wstr("HaloPad: chat through translated Keystone, MSXML 4 and GDI on CoreText");
+    halopad_call_guest_ex(0x4ae8a0, 1, &line, 0, 0);
+    /* and the chat input open, as Halo opens it (0x4ada50): the prompt's and the edit box's text,
+       then KW_ShowWindow(SW_SHOW) on the edit box window */
+    uint32_t prompt = KS(G_GETCONTROL, ew, wstr("oPrompt"));
+    check("  prompt label oPrompt", prompt != 0, 1);
+    KS(G_SETATTR, prompt, wstr("text"), wstr("Say:"));
+    KS(G_SETATTR, edit, wstr("text"), wstr("typed on a Mac"));
+    KS(G_SHOW, ew, 5);
+    for (int i = 0; i < 4; i++) {
+        method(device, 41, 0, NULL);
+        method(device, 43, 6, (uint32_t[]){0, 0, 3, 0xFF203040, onebits, 0});
+        KS(G_UPDATE, k);
+        method(device, 42, 0, NULL);
+        if (i < 3) method(device, 17, 4, (uint32_t[]){0, 0, 0, 0});
+    }
+    uint32_t *img = malloc(640 * 480 * 4);
+    halopad_metal_read_image(halopad_d3d9_device_target(device), img, 640, 480);
+    uint32_t lit = 0, lit_edit = 0;
+    for (int y = 260; y < 390; y++) for (int x = 5; x < 640; x++) if ((img[y * 640 + x] & 0xFF) > 0xC0 && (img[y * 640 + x] >> 16 & 0xFF) > 0xC0) lit++;
+    for (int y = 450; y < 480; y++) for (int x = 0; x < 640; x++) if ((img[y * 640 + x] & 0xFF) > 0xC0 && (img[y * 640 + x] >> 16 & 0xFF) > 0xC0) lit_edit++;
+    const char *reg = getenv("HALOPAD_REGISTRY");
+    if (reg) {
+        char path[1200];
+        snprintf(path, sizeof path, "%.*s/chat.ppm", (int)(strrchr(reg, '/') - reg), reg);
+        FILE *f = fopen(path, "wb");
+        if (f) {
+            fprintf(f, "P6\n640 480\n255\n");
+            for (int i = 0; i < 640 * 480; i++) { uint8_t rgb[3] = {(uint8_t)(img[i] >> 16), (uint8_t)(img[i] >> 8), (uint8_t)img[i]}; fwrite(rgb, 1, 3, f); }
+            fclose(f);
+            fprintf(stderr, "HALOPAD TEST: frame saved to %s\n", path);
+        }
+    }
+    check("the chat line is drawn in the log area (white text pixels)", lit > 100, 1);
+    check("the prompt and the typed text are drawn along the bottom (the edit box image is fully transparent)", lit_edit > 50, 1);
+    free(img);
     printf("%s: %d failure(s)\n", failures ? "FAIL" : "PASS", failures);
     return failures != 0;
 }

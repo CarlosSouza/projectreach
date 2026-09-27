@@ -160,3 +160,15 @@ proc hpimp_FormatMessageW public
         Call_Asm_Stack7 FormatMessageW_c
         Call_Asm_Return 7
 endp
+
+func GetUserDefaultLangID_c
+func GetSystemDefaultLangID_c
+proc hpimp_GetUserDefaultLangID public
+        Call_Asm_Stack0 GetUserDefaultLangID_c
+        Call_Asm_Return 0
+endp
+
+proc hpimp_GetSystemDefaultLangID public
+        Call_Asm_Stack0 GetSystemDefaultLangID_c
+        Call_Asm_Return 0
+endp

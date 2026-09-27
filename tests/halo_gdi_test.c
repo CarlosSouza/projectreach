@@ -34,12 +34,13 @@ static void check(const char *what, uint32_t got, uint32_t want)
     printf("%-66s %s (got 0x%x, want 0x%x)\n", what, got == want ? "PASS" : "FAIL", got, want);
     failures += got != want;
 }
-static uint32_t user32, gdi32;
+static uint32_t user32, gdi32, kernel32;
 static uint32_t api(const char *name, uint32_t n, const uint32_t *args)
 {
     static const char *const g[] = {"CreateCompatibleDC", "SelectObject", "DeleteObject", "GetObjectA", "StretchBlt", "GetDeviceCaps",
-                                    "GetDeviceGammaRamp", "SetDeviceGammaRamp"};
-    uint32_t mod = user32;
+                                    "GetDeviceGammaRamp", "SetDeviceGammaRamp", "SetMapMode", "SetTextColor", "SetBkColor", "SetTextAlign",
+                                    "CreateFontA", "GetTextMetricsA", "GetTextExtentPoint32W", "CreateDIBSection", "ExtTextOutW", "DeleteDC"};
+    uint32_t mod = !strcmp(name, "MulDiv") ? kernel32 : user32;
     for (size_t i = 0; i < sizeof g / sizeof g[0]; i++) if (!strcmp(name, g[i])) mod = gdi32;
     uint32_t va = GetProcAddress_c(mod, str(name));
     if (!va) { printf("no export %s\n", name); exit(2); }
@@ -86,6 +87,7 @@ int main(void)
     halopad_host_input_off = 1;
     user32 = LoadLibraryA_c(str("user32.dll"));
     gdi32 = LoadLibraryA_c(str("gdi32.dll"));
+    kernel32 = LoadLibraryA_c(str("kernel32.dll"));
 
     uint32_t wc = halopad_heap_alloc(48, 1);
     uint32_t wcv[12] = {48, 0, GetProcAddress_c(user32, str("DefWindowProcA")), 0, 0, 0x400000, 0, 0, 0, 0, str("HaloPadGdiTest"), 0};
@@ -139,6 +141,67 @@ int main(void)
     memset(halopad_guest_ptr(ramp), 0, 1536);
     API("GetDeviceGammaRamp", dc, ramp);
     check("  reads back", ((uint16_t *)halopad_guest_ptr(ramp))[300], (300 % 256) * 128);
+
+    /* text, as Keystone.dll's glyph cache draws it (0x1021a7b5): metrics from the font's own
+       tables as GDI reports them (Windows values from Wine's gdi32 tests: Arial 12 is 12/9/3,
+       Arial -34 is 39/32/7), and a glyph drawn into a 32-bit top-down DIB section */
+    uint32_t tdc = API("CreateCompatibleDC", 0);
+    check("CreateCompatibleDC(NULL)", tdc != 0, 1);
+    check("SetMapMode(MM_TEXT) returns the previous mode", API("SetMapMode", tdc, 1), 1);
+    check("SetTextColor(white) returns black", API("SetTextColor", tdc, 0xFFFFFF), 0);
+    check("SetBkColor(black) returns white", API("SetBkColor", tdc, 0), 0xFFFFFF);
+    check("SetTextAlign(TA_TOP | TA_LEFT) returns 0", API("SetTextAlign", tdc, 0), 0);
+    check("GetDeviceCaps(LOGPIXELSY): 96", API("GetDeviceCaps", tdc, 90), 96);
+    check("MulDiv(16, 96, 72) = 21 (rounded)", API("MulDiv", 16, 96, 72), 21);
+    uint32_t tm = halopad_heap_alloc(56, 1);
+    static const struct { int32_t h; uint32_t w; const char *face; int32_t th, ta, td; } fm[] = {
+        {12, 400, "Arial", 12, 9, 3}, {-34, 400, "Arial", 39, 32, 7}, {-16, 400, "Arial", 18, 15, 3},
+        {-21, 700, "Arial Narrow", 24, 19, 5}};
+    uint32_t keep = 0;
+    for (size_t i = 0; i < sizeof fm / sizeof fm[0]; i++) {
+        uint32_t hf = API("CreateFontA", (uint32_t)fm[i].h, 0, 0, 0, fm[i].w, 0, 0, 0, 1, 0, 0, 4, 2, str(fm[i].face));
+        uint32_t old = API("SelectObject", tdc, hf);
+        API("GetTextMetricsA", tdc, tm);
+        char what[96];
+        snprintf(what, sizeof what, "%s %d%s: tmHeight/Ascent/Descent %d/%d/%d", fm[i].face, fm[i].h, fm[i].w > 400 ? " bold" : "", fm[i].th, fm[i].ta, fm[i].td);
+        check(what, rd(tm) == (uint32_t)fm[i].th && rd(tm + 4) == (uint32_t)fm[i].ta && rd(tm + 8) == (uint32_t)fm[i].td, 1);
+        if (i + 1 < sizeof fm / sizeof fm[0]) { API("SelectObject", tdc, old); check("  DeleteObject(font)", API("DeleteObject", hf), 1); }
+        else keep = hf;
+    }
+    check("  Arial Narrow maps to Arial Bold (TMPF: variable, vector, TrueType, FF_SWISS; weight 700)",
+          ((uint8_t *)halopad_guest_ptr(tm))[51] == 0x27 && rd(tm + 28) == 700, 1);
+    check("  internal leading = height - em; external leading 1", rd(tm + 12) == 3 && rd(tm + 16) == 1, 1);
+    uint32_t q = halopad_heap_alloc(4, 1), sz = halopad_heap_alloc(8, 1);
+    ((uint16_t *)halopad_guest_ptr(q))[0] = '?';
+    check("GetTextExtentPoint32W(L\"?\"): the hinted width from hdmx, 13 x 24", API("GetTextExtentPoint32W", tdc, q, 1, sz) && rd(sz) == 13 && rd(sz + 4) == 24, 1);
+    uint32_t bmi = halopad_heap_alloc(44, 1), pbits = halopad_heap_alloc(4, 1);
+    uint32_t dibh[3] = {40, 13, (uint32_t)-24};
+    memcpy(halopad_guest_ptr(bmi), dibh, 12);
+    ((uint16_t *)halopad_guest_ptr(bmi))[6] = 1; ((uint16_t *)halopad_guest_ptr(bmi))[7] = 32;
+    uint32_t dib = API("CreateDIBSection", tdc, bmi, 0, pbits, 0, 0);
+    check("CreateDIBSection(13 x -24, 32-bit)", dib != 0 && rd(pbits) != 0, 1);
+    API("SelectObject", tdc, dib);
+    uint32_t rc = halopad_heap_alloc(16, 1);
+    uint32_t rcv[4] = {0, 0, 13, 24};
+    memcpy(halopad_guest_ptr(rc), rcv, 16);
+    memset(halopad_guest_ptr(rd(pbits)), 0x7F, 13 * 24 * 4);       /* ETO_OPAQUE must clear this */
+    check("ExtTextOutW(0, 0, ETO_OPAQUE, cell, L\"?\")", API("ExtTextOutW", tdc, 0, 0, 2, rc, q, 1, 0), 1);
+    const uint32_t *px = halopad_guest_ptr(rd(pbits));
+    uint32_t ink = 0, ink_top = 99, ink_bottom = 0, fourth = 0, gray = 0;
+    for (int y = 0; y < 24; y++) for (int x = 0; x < 13; x++) {
+        uint32_t p = px[y * 13 + x], b = p & 0xFF;
+        fourth |= p >> 24;
+        if (b != ((p >> 8) & 0xFF) || b != ((p >> 16) & 0xFF)) gray = 1;   /* white on black: gray levels only */
+        if (b > 0x80) { ink++; if (y < (int)ink_top) ink_top = (uint32_t)y; if (y > (int)ink_bottom) ink_bottom = (uint32_t)y; }
+    }
+    check("  ink drawn (pixels over half coverage)", ink > 10, 1);
+    check("  the '?' lies between the cap height and the baseline (rows 4..18)", ink_top >= 3 && ink_top <= 6 && ink_bottom <= 18 && ink_bottom >= 15, 1);
+    check("  antialiased gray levels only (no color fringes)", gray, 0);
+    check("  the fourth byte stays 0, as GDI leaves a DIB section", fourth, 0);
+    check("  corners are background", px[0] == 0 && px[13 * 24 - 1] == 0, 1);
+    check("DeleteObject(font) while selected: TRUE, deferred", API("DeleteObject", keep), 1);
+    check("DeleteDC", API("DeleteDC", tdc), 1);
+    check("  then DeleteObject(DIB section)", API("DeleteObject", dib), 1);
     check("ReleaseDC with the wrong window: fails", API("ReleaseDC", 0, dc), 0);
     check("ReleaseDC", API("ReleaseDC", hwnd, dc), 1);
     API("DestroyWindow", hwnd);

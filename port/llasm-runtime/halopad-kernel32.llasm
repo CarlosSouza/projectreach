@@ -172,3 +172,9 @@ proc hpimp_FindResourceW public
         Call_Asm_Stack3 FindResourceW_c
         Call_Asm_Return 3
 endp
+
+func MulDiv_c a1, a2, a3
+proc hpimp_MulDiv public
+        Call_Asm_Stack3 MulDiv_c
+        Call_Asm_Return 3
+endp

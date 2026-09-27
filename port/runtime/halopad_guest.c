@@ -119,6 +119,12 @@ uint32_t halopad_guest_commit(uint32_t guest, uint32_t size)
     return guest;
 }
 
+/* HALOPAD_TRACE_LAST=1: the last 32 indirect transfer targets on this thread, printed with a trap
+   or fault (translated code has no program counter, so this shows where it was) */
+static int trace_last;
+static _Thread_local uint32_t last_vas[32], last_n;
+__attribute__((constructor)) static void trace_last_init(void) { trace_last = getenv("HALOPAD_TRACE_LAST") != NULL; }
+
 /* For traps: the guest registers and the top of the guest stack. Inside a service the top
    holds the service's return address into the calling guest code, then its arguments. */
 void halopad_trace_guest_stack(void)
@@ -130,9 +136,14 @@ void halopad_trace_guest_stack(void)
     for (int k = 0; k < 8; k++) fprintf(stderr, " %08x", words[k]);
     fprintf(stderr, "\n");
     /* callers through the frame-pointer chain (code built with frame pointers) */
+    if (trace_last) {
+        fprintf(stderr, "  last transfers (oldest first):");
+        for (uint32_t k = last_n > 32 ? last_n - 32 : 0; k < last_n; k++) fprintf(stderr, " %08x", last_vas[k & 31]);
+        fprintf(stderr, "\n");
+    }
     fprintf(stderr, "  frames:");
     uint32_t fp = halopad_cpu->_ebp;
-    for (int k = 0; k < 12 && fp && fp < 0xFFFF0000u && fp >= sp; k++) {
+    for (int k = 0; k < 12 && fp && fp < 0xFFFF0000u && fp >= sp && fp - sp < 0x400000u; k++) {   /* ebp may not be a frame */
         uint32_t link[2];
         memcpy(link, (void *)(uintptr_t)(halopad_guest_base + fp), sizeof link);
         fprintf(stderr, " %08x", link[1]);
@@ -191,6 +202,7 @@ static void watch(uint32_t va)
 void *halopad_lookup(uint32_t va)
 {
     if (__builtin_expect(watch_count != 0, 0)) watch(va);
+    if (__builtin_expect(trace_last, 0)) { last_vas[last_n++ & 31] = va; }
     uint32_t lo = 0, hi = halopad_dispatch_count;
     while (lo < hi) {
         uint32_t mid = lo + (hi - lo) / 2;

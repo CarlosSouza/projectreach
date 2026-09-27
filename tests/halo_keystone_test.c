@@ -25,6 +25,7 @@ uint32_t LoadLibraryA_c(uint32_t name);
 uint32_t GetProcAddress_c(uint32_t module, uint32_t name);
 uint32_t GetModuleHandleA_c(uint32_t name);
 uint32_t FreeLibrary_c(uint32_t module);
+uint32_t halopad_call_guest_ex(uint32_t va, uint32_t nargs, const uint32_t *args, uint32_t entry_ecx, int callee_pops);
 uint32_t GetModuleFileNameA_c(uint32_t module, uint32_t buf, uint32_t size);
 uint32_t VirtualQuery_c(uint32_t address, uint32_t info, uint32_t length);
 uint32_t GetLastError_c(void);
@@ -139,6 +140,26 @@ int main(void)
     uint32_t an = FormatMessageA_c(0x2A00, r4, 0xC00CE30A, 0x400, wbuf, 256, 0);
     check("  FormatMessageA with IGNORE_INSERTS keeps %1", an >= 17 && !strncmp(P(wbuf), "System error: %1.", 17), 1);
     check("  FreeLibrary of the data-file handle", FreeLibrary_c(r4), 1);
+
+    /* Keystone's C runtime floor and ceil (0x102da820, 0x102da950; the x87 path, as the plain-CPU
+       contract selects): each stores a double with fstp qword and reloads it, which exercises the
+       x87 double results that go through a guest slot. Keystone sizes its glyph texture with them. */
+    {
+        uint32_t crt_arg = 1;
+        halopad_call_guest_ex(0x5d6ba6, 1, &crt_arg, 0, 0);          /* Halo's CRT heap, as in the UI test */
+        static const struct { double x, fl, ce; } fc[] = {{10.5, 10, 11}, {11.0, 11, 11}, {-2.25, -3, -2}, {0.5, 0, 1}};
+        int ok = 1;
+        for (size_t i = 0; i < sizeof fc / sizeof fc[0]; i++) {
+            uint32_t a[2];
+            memcpy(a, &fc[i].x, 8);
+            halopad_call_guest_ex(0x102da820, 2, a, 0, 0);
+            double f = cpu._st[cpu._st_top]; cpu._st_top = (cpu._st_top + 1) & 7;
+            halopad_call_guest_ex(0x102da950, 2, a, 0, 0);
+            double c = cpu._st[cpu._st_top]; cpu._st_top = (cpu._st_top + 1) & 7;
+            if (f != fc[i].fl || c != fc[i].ce) { ok = 0; printf("    floor/ceil(%g) = %g/%g\n", fc[i].x, f, c); }
+        }
+        check("Keystone's CRT floor and ceil (10.5, 11, -2.25, 0.5)", ok, 1);
+    }
     printf("%s: %d failure(s)\n", failures ? "FAIL" : "PASS", failures);
     return failures != 0;
 }

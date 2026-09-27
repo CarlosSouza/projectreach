@@ -813,7 +813,7 @@ EXTERNC uint32_t CCALL x87_fst_double(CPU)
     CLEAR_X87_FLAGS;
     presult = &(ST0);
 
-    return X87_RESULT();
+    return halopad_x87_result(cpu, (const int64_t *)presult);   /* ST0's bits, not st_result */
 #endif
 }
 
@@ -851,7 +851,7 @@ EXTERNC uint32_t CCALL x87_fstp_double(CPU)
 
     presult = &(ST0);
     POP_REGS;
-    return X87_RESULT();
+    return halopad_x87_result(cpu, (const int64_t *)presult);   /* copied before a later push reuses the register */
 #endif
 }
 

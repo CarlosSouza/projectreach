@@ -272,3 +272,7 @@ uint32_t hpcom_IDirect3D9_CreateDevice_c(uint32_t g, uint32_t adapter, uint32_t 
     self(g);
     return halopad_d3d9_create_device(g, adapter, type, focus, behavior, pp, out);
 }
+
+/* DebugSetMute: the retail d3d9.dll's debug-output switch, which D3DX looks up at run time. The
+   retail runtime prints nothing, so there is nothing to mute (a stdcall function with no arguments). */
+uint32_t DebugSetMute_c(void) { return 0; }

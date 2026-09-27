@@ -699,3 +699,36 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
 - All 13 suites, 16 slices and the unit tests pass; the core still stops at the license.
 
 **Next:** GDI text on CoreText (fonts, metrics, extents, DIB sections, `ExtTextOutW`) until `KsUpdate` draws the chat box, then file mapping and DirectInput game controllers.
+
+## 2026-09-27 — The chat UI draws: Keystone's layout, GDI text on CoreText, a chat line on screen
+
+- **Result.** Halo's chat set-up (`0x51cdb0`) plus frames with Halo's message pump now lay out both chat windows (`oEditbox`, `oPrompt`, `oListbox`) within 6 frames.
+  - A chat line added through Halo's own `0x4ae8a0` is drawn in the log area by translated Keystone, through Direct3D 9 on Metal.
+  - The chat input opened as `0x4ada50` opens it shows "Say:" and the typed text with a cursor.
+  - The frame is read back from the Metal back buffer and saved as `chat.ppm` in the evidence directory; its text pixels are checked.
+  - The edit box's own background (`gallery/editbox480.png`) is fully transparent, as on Windows.
+- **GDI text on CoreText** (`halopad_gdi.c`):
+  - `CreateFontA` (14 arguments, read from the guest stack), `SetMapMode`, `SetTextColor`, `SetBkColor`, `SetBkMode`, `SetTextAlign`, `GetTextMetricsA`, `GetTextExtentPoint32W`, `CreateDIBSection`, `ExtTextOutW`, `DeleteDC` and deferred deletion of selected fonts, plus kernel32 `MulDiv`.
+  - Fonts: the reference machine has XP SP3's fonts, and GDI's mapper sends "Arial Narrow" (an Office font) to Arial. Arial is drawn with the host's ArialMT faces.
+  - Metrics come from the font's `VDMX`, `hdmx`, OS/2 and hhea tables as GDI computes them. They match Windows' own values: Arial 12 gives 12/9/3, −34 gives 39/32/7, and −16 gives 18/15/3.
+  - The GDI test gained 30 checks.
+- **x87 bug found and fixed.** Since the guest-slot change earlier today, `fst`/`fstp qword` copied the integer scratch field, so every double stored to memory read back as 0.
+  - Keystone's CRT `floor`/`ceil` (used to size its glyph texture) returned 0, and the null texture led to a null access.
+  - A new check in the Keystone test covers `floor`/`ceil` through translated code.
+  - Halo's own code is affected wherever it stores doubles, so this also matters for the core.
+- **Direct3D:**
+  - `UpdateTexture` (system memory to default pool, level-granular dirty tracking; default-pool textures keep a copy of their contents for upload and still refuse `LockRect`);
+  - `d3d9.dll!DebugSetMute` for D3DX;
+  - `d3d9d.dll` absent (D3DX checks for the SDK debug runtime).
+- **Translator gaps closed with hand replacements** (documented in `config/srw/…/README.md`):
+  - Keystone: `and eax, offset` (zlib), 8-bit `imul` (libpng), and `bt`/`bts [esp], eax` (CRT `strspn`/`strpbrk`).
+  - Controls.dll: four `and eax, offset` selects.
+  - The same CRT `bt`/`bts` sites in `haloce.exe` and ksimeui.
+  - Halo's translation is now `run-20260927T110059Z-78970`. It differs from the previous one only at those four sites and the carry flag the following `jae` reads.
+- **Also:**
+  - `GetUserDefaultLangID` and `GetSystemDefaultLangID` (0x0409);
+  - `HALOPAD_TRACE_LAST=1`, which prints the last 32 indirect transfer targets with any trap or fault;
+  - the frame walker no longer follows an `ebp` that is not a frame.
+- All 14 suites (new: the UI test passes), 16 slices and the unit tests pass; the core still stops at the license.
+
+**Next:** keyboard input into the chat box (Halo's `KsDispatchMessage` and `KsTranslateAccelerator` path), file mapping and DirectInput game controllers, then the core beyond the license once Chris accepts it.
