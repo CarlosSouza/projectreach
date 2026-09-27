@@ -167,9 +167,14 @@ class Audit:
         'wait' between): the x87 status idiom compiled code uses to branch on a comparison.
         The CRT's fmod (0x5cdc14, reached only from its _trandisp table at 0x61fac0) loops
         on 'fprem; wait; fnstsw ax; wait; sahf; jp'."""
+        # MSVC also emits 'wait' before a __try state change ('mov dword ptr [ebp-4], n',
+        # C7 45 FC imm32) so pending x87 exceptions are raised in the old scope; the
+        # __except bodies at 0x546a7e and 0x546c28 continue into such sequences.
         o = a - self.base
         if ins.mnemonic in ('wait', 'fwait'):
             if self.img[o - 2:o] == b'\xdf\xe0':                  # after 'fnstsw ax'
+                return True
+            if self.img[o + 1:o + 4] == b'\xc7\x45\xfc':
                 return True
             nxt = self.decode(a + ins.size)
             return nxt is not None and nxt.mnemonic.startswith('f')
@@ -669,7 +674,12 @@ class Audit:
                 if va % 4:
                     self.unaligned_candidates += 1
                     continue
-                if texty(va) and (texty(va - 4) or texty(va + 4)):
+                code_run = self.in_text(v) and (self.in_text(self.dword(va - 4)) or self.in_text(self.dword(va + 4)))
+                if texty(va) and (texty(va - 4) or texty(va + 4)) and not code_run:
+                    # (A run of pointers into .text is a table of code pointers even when its
+                    # bytes read as text: addresses 0x5x2xxx-0x5x7exx are printable, such as
+                    # the callback table holding 0x566d20 at 0x636b18. classify_data_ptrs keeps
+                    # only targets that decode as instruction starts.)
                     # Part of a run of text (ASCII or UTF-16) whose bytes happen to fall in
                     # the image's address range; a string, not a pointer.
                     self.uncertain[va] = (v, 'data-text-like')

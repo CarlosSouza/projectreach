@@ -174,6 +174,19 @@ def oracle_file_handlers(root):
 VECTOR_CALLBACKS = [0x589484, 0x5CC982]
 
 
+def cases_adpcm_step(rng):
+    """0x551d10 (cdecl): (code byte, predictor, step) -> predictor + signed step sum,
+    clamped to int16. Every code byte (upper bits must not matter), edge predictors and
+    steps, then random ones."""
+    out = []
+    for code in range(256):
+        out.append([code, rng.choice([0, 32767, -32768, rng.randrange(-40000, 40000)]) & 0xFFFFFFFF,
+                    rng.choice([7, 8, 16, 1552, 32767, rng.randrange(0, 40000)])])
+    for _ in range(144):
+        out.append([rng.getrandbits(32), rng.getrandbits(32), rng.getrandbits(32)])
+    return out
+
+
 def cases_vector_iterate(rng):
     """0x582d1a (MSVC vector iterator, stdcall): (array, element size, count, fn) calls
     fn once per element, last to first, with ecx = element. The callback is a guest
@@ -205,6 +218,9 @@ SLICES = {
                                 'env': {'HALOPAD_VIA_CALLBACK': '1'}},
     # VA model only: host -> translated guest -> translated guest callback through dispatch
     'vector_iterate': {'address': 0x582D1A, 'conv': 'stdcall', 'cases': cases_vector_iterate, 'x87': False},
+    # VA model only: Halo's ADPCM sample step (0x551d10), which reads the code's bits out of
+    # CF with 'rcl bl, 6' / 'rcl bl, 1' and sbb (byte-register rcl, translator 2026-09-27)
+    'adpcm_step': {'address': 0x551D10, 'conv': 'cdecl', 'cases': cases_adpcm_step, 'x87': False},
 }
 
 # G2e contract runs. Each runs in its own process. 'expect' must appear in stderr and the

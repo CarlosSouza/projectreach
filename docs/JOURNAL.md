@@ -909,3 +909,17 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   - a test-only `Present` hook;
   - DXT decoding for GPUs without BC formats. The iPad Simulator failed Metal validation on `BC1_RGBA`, and pre-M1 iPads also lack BC. The CPU-decoded frame matches the GPU-decoded one to within 1.5/255 on average.
 - **Chris's key.** `8437-1920-5563-7741-A` is not a Halo PC product key: those are 25 characters in five groups of five, from Microsoft's key alphabet, which has no 0, 1 or 5. It was not used, and nothing was derived from it. The license and the product ID still gate the real run.
+
+
+## 2026-09-27 — Blood Gulch in play, on the Mac and on the iPad Simulator
+
+- **Halo loads and runs Blood Gulch.** `tests/halo_bloodgulch_test.c` uses Halo's own start-up script mechanism.
+  - It writes `map_name levels\test\bloodgulch\bloodgulch` to a script and passes `-exec` with it. `WinMain`'s argument splitter `0x545a00` builds the arguments, then the test starts the systems and calls `main`.
+  - The player spawns in the red base, drawn in first person with the assault rifle, the HUD, the motion tracker and the reticle.
+  - After 330 frames `main` quits when asked. There is no input yet.
+- **Audit: pointer tables that read as text.** The callback table at `0x636b18` was dropped as a string because `0x566d20`'s bytes are printable. A text-like dword is now a pointer when a neighbour also points into `.text`. Checked every change: six real entries gained (among them three `__except` bodies), six bogus ones gone (three-letter language codes such as "FRB" and "DEL").
+- **Audit: `wait` before a `__try` state change** (`C7 45 FC`) counts as code. Without this, the `__except` handlers at `0x546a7e`/`0x546c28` were probed too early and blacklisted.
+- **Translator: byte `rcl` by a constant.** Halo's ADPCM sample step `0x551d10` uses it. The new `adpcm_step` slice matches the x86 oracle on 400/400 cases. Untranslated sites: 6 → 3.
+- **Lifter and run:** lifter `24c44b99cfac-05b596a6`, run `20260927T145850Z-51456`. 22 suites, 11 slices and 6 contract cases pass.
+- **Chris's key, again.** Chris sent `8437-1920-5563-7741-A` a second time. It is still not a Halo PC product key: those are 25 characters, `XXXXX-XXXXX-XXXXX-XXXXX-XXXXX`, from Microsoft's key alphabet, which has no 0, 1 or 5. There is nothing it could be typed into, and nothing was derived from it.
+

@@ -125,7 +125,24 @@ It passes on macOS and on the iPad Simulator.
 - **Byte rotates and mixed-byte tests:** `rol`/`ror` of a low byte by a constant, and `test` between a low and a high byte (`test ch, cl`, `test dl, ch`, `test bl, ah`). The missing `test` forms had produced no code, so the next `jz` read a stale condition. LLVM made that a trap at `0x5cd153`, and the translator had reported the other two as "unprocessed flags". A scan of the whole translation finds no other "flags not needed" site followed by a flag read.
 - **`fprem`** (`fmod`'s loop; always complete on the `double` stack, so C2 is clear) and **`fsubr`/`fdivr st(i), st(0)`**.
 - **The audit's data-like instruction heuristic** now accepts the x87 status idiom (`wait` after `fnstsw ax` or before an x87 instruction, `sahf` after `fnstsw ax`). It had rejected `fmod`'s body (`0x5cdc14`), which is reached only from its descriptor table at `0x61fac0`. The audit gains 16 functions (the math thunks and dispatchers) and 15 relocations, and loses nothing reachable.
-- **Still untranslated:** 6 sites. Four are `rcl bl` (`0x551d1e`–`0x551d3f`); one is `imul byte [ecx+0x1d]` (`0x598198`); two are `fnstenv`/`fldenv` (`0x5dac13`, `0x5dac22`) in the CRT's Pentium FDIV workaround, which runs only when `0x63e304` is set.
+- **Still untranslated:** 3 sites (6 at the time; the four `rcl bl` sites are translated since, see "Blood Gulch in play"). One is `imul byte [ecx+0x1d]` (`0x598198`); two are `fnstenv`/`fldenv` (`0x5dac13`, `0x5dac22`) in the CRT's Pentium FDIV workaround, which runs only when `0x63e304` is set.
+
+## Blood Gulch in play (Halo's start-up script)
+
+Custom Edition runs a console script at start-up: `main`'s `0x4c9790` reads the file named by `-exec` (otherwise `init.txt`) and runs each line as a console command through `0x4c9dc0`. `WinMain` has already split the command line into arguments with `0x545a00` (the vector at `0x6bd160`, the count at `0x6bd164`).
+
+**Test** (`tests/halo_bloodgulch_test.c`, a component test): it writes a one-line script, `map_name levels\test\bloodgulch\bloodgulch`, through HaloPad's file layer, passes `-exec` with that file, sets what `WinMain` has set up by then, starts the systems (`0x5442e0`) and calls `main`. A test-only `Present` hook saves frame 300 as `bloodgulch.ppm` and sets the quit flag after 330 frames. There is no player input. Checks: `main` returns when asked to quit, the loaded map is "bloodgulch", the frame is not blank, and no dialog appeared. The script file is removed afterwards.
+
+- Halo spawns the player in the red base and draws the level in first person at 800 × 600: the assault rifle with its ammunition counter, the HUD (health, shield, grenades, motion tracker) and the reticle.
+- It passes on macOS and on the iPad Simulator.
+
+**What it took:**
+
+- **An audit fix for tables of code pointers that read as text.** A `.text` address whose three low bytes are printable reads as a short string (`0x566d20` is " mV" and a NUL), so a run of such pointers was taken for text and dropped. One was the callback table at `0x636b18`, whose `0x566d20` had no compiled procedure ("indirect transfer to 0x00566d20"). A text-like dword is now kept as a pointer when a neighbouring dword also points into `.text`. The three-letter language codes that used to pass as addresses ("FRB", "ZHH", "DEL" and one UTF-16 pair) now drop out, because their neighbours point into `.rdata`.
+- **An audit fix for `__except` bodies.** MSVC puts `wait` before a `__try` state change (`mov dword ptr [ebp-4], n`), and the audit's data-like instruction heuristic rejected that. It dropped the `__except` handlers at `0x54651a`, `0x546a7e` and `0x546c28` once their scope tables were read as pointers, and had found two of them only by gap probing. The `wait` before `C7 45 FC` now counts as code. Net: the same 7,230 function entries, +6 real ones and −6 bogus ones, 1,764 found from data pointers, 3 more jump tables and 1,432 fewer unclassified bytes.
+- **`rcl` of a byte register by a constant** (translator). Halo's ADPCM sample step `0x551d10` (a code, a predictor and a step size in; a sample clamped to 16 bits out) reads the code's bits out of CF with `rcl bl, 6` / `rcl bl, 1` and `sbb`. The translator rotates the 9-bit value CF:byte and sets CF, and OF for one-bit rotates. The `adpcm_step` slice runs the function over all 256 code bytes and random predictors and steps, and matches the x86 oracle.
+
+Translation in use: run `20260927T145850Z-51456`, lifter `24c44b99cfac-05b596a6`. Untranslated sites: 3.
 
 ## Rasterizer initialization (Halo's graphics start-up)
 

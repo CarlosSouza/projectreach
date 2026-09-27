@@ -88,3 +88,7 @@ SR's llasm support (`SR/llasm-support/llasm_float.c`) keeps the x87 stack as C `
 ## Update 2026-09-27: 6 sites left
 
 With lifter `161d2b412a4a-89ccc7fb` the whole-image translation has 6 untranslated instruction sites, down from 153. The 80-bit x87 loads and stores, low-byte rotates, mixed-byte `test`, `fprem` and `fsubr`/`fdivr st(i), st(0)` are now translated. The six left are `rcl bl` ×4 (`0x551d1e`–`0x551d3f`), `imul byte [ecx+0x1d]` (`0x598198`) and `fnstenv`/`fldenv` (`0x5dac13`, `0x5dac22`, the CRT's Pentium FDIV workaround). Each is a named trap. See [G3-RUNTIME.md](G3-RUNTIME.md), "Map loading".
+
+## Update 2026-09-27 (later): 3 sites left
+
+Lifter `24c44b99cfac-05b596a6` translates `rcl` of a byte register by a constant (low or high byte, any count, CF and OF as on x86), which covers the four `rcl bl` sites in Halo's ADPCM sample step `0x551d10`; the `adpcm_step` slice checks it against the x86 oracle. Three sites are left: `imul byte [ecx+0x1d]` (`0x598198`) and `fnstenv`/`fldenv` (`0x5dac13`, `0x5dac22`). See [G3-RUNTIME.md](G3-RUNTIME.md), "Blood Gulch in play".
