@@ -4,3 +4,4 @@ loc_5C88C0,halo_strrchr
 loc_5C88F0,halo_strncmp
 loc_5834D7,halo_vec3_transform_coord
 loc_583B65,halo_vec4_transform
+loc_4434A0,halo_map_header_valid

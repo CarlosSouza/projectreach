@@ -5,6 +5,8 @@
  *   kind 0: u32 value              (integer)
  *   kind 1: u32 len, len bytes     (fresh 16-byte aligned buffer)
  *   kind 2: u32 arg, u32 offset    (pointer into another buffer argument)
+ * Then: u32 nregs and per register u32 reg (0 eax,1 ecx,2 edx,3 ebx,5 ebp,6 esi,7 edi),
+ *   u32 kind (0 value / 2 pointer), then u32 value or u32 arg, u32 offset.
  * Output line: eax esp_delta eax_ref [buffer hex ...]
  *   eax_ref is B<i>+<off> when eax points into buffer argument i, else V<eax>. */
 #include <inttypes.h>
@@ -64,6 +66,16 @@ int main(int argc, char **argv)
             if (ptr_arg[i] >= nargs || kinds[ptr_arg[i]] != 1) return 2;
             values[i] = values[ptr_arg[i]] + ptr_off[i];
         }
+        uint32_t nregs, reg_ids[8], reg_vals[8];
+        if (!rd(f, &nregs) || nregs > 8) return 2;
+        for (uint32_t r = 0; r < nregs; r++) {
+            uint32_t kind, a, b = 0;
+            if (!rd(f, &reg_ids[r]) || !rd(f, &kind) || !rd(f, &a)) return 2;
+            if (kind == 2) {
+                if (!rd(f, &b) || a >= nargs || kinds[a] != 1) return 2;
+                reg_vals[r] = values[a] + b;
+            } else reg_vals[r] = a;
+        }
         uint32_t *sp = &stack_words[8192];
         for (uint32_t i = 0; i < nargs; i++) sp[i] = values[i];
         _cpu state;
@@ -71,6 +83,18 @@ int main(int argc, char **argv)
         state._esp = (uint32_t)((uintptr_t)sp - offset);
         state._pointer_offset = offset;
         state._st_cw = fpcw;
+        for (uint32_t r = 0; r < nregs; r++) {
+            switch (reg_ids[r]) {
+                case 0: state._eax = reg_vals[r]; break;
+                case 1: state._ecx = reg_vals[r]; break;
+                case 2: state._edx = reg_vals[r]; break;
+                case 3: state._ebx = reg_vals[r]; break;
+                case 5: state._ebp = reg_vals[r]; break;
+                case 6: state._esi = reg_vals[r]; break;
+                case 7: state._edi = reg_vals[r]; break;
+                default: return 2;
+            }
+        }
         halopad_slice_fns[fn](&state);
         printf("%08" PRIx32 " %" PRId32, state._eax, (int32_t)(state._esp - (uint32_t)((uintptr_t)sp - offset)));
         int found = 0;

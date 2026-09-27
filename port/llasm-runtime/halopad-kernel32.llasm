@@ -1,0 +1,31 @@
+;; HaloPad Windows runtime: kernel32 file services called from translated Halo code.
+;; Pattern and macros from SR's Septerra Core port (asm-calls.llinc, MIT, Roman Pauer).
+;; Each procedure reads its stdcall arguments from the guest stack, calls a C
+;; implementation (port/runtime/halopad_kernel32.c), sets eax and returns, popping
+;; the arguments.
+
+include llasm.llinc
+include asm-calls.llinc
+
+func CreateFileA_c *lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile
+func ReadFile_c hFile, *lpBuffer, nNumberOfBytesToRead, *lpNumberOfBytesRead, lpOverlapped
+func CloseHandle_c hObject
+
+proc CreateFileA_asm2c public
+; [esp + 7*4] hTemplateFile ... [esp + 4] lpFileName, [esp] return address
+        Call_Asm_Stack7 CreateFileA_c
+        Call_Asm_Return 7
+endp
+
+proc ReadFile_asm2c public
+; [esp + 5*4] lpOverlapped ... [esp + 4] hFile, [esp] return address
+        Call_Asm_Stack5 ReadFile_c
+        Call_Asm_Return 5
+endp
+
+proc CloseHandle_asm2c public
+; [esp + 4] hObject, [esp] return address
+        Call_Asm_Stack1 CloseHandle_c
+        Call_Asm_Return 1
+endp
+

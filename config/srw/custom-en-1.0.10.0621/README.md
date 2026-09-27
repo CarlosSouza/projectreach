@@ -24,3 +24,4 @@ Format: `loc_<hex addr>,<name>`. Exports a translated procedure as the C-callabl
 | `0x5c88f0` | `halo_strncmp` | `scripts/run-slices.py` (CRT strncmp: jecxz, rep cmpsb) |
 | `0x5834d7` | `halo_vec3_transform_coord` | `scripts/run-slices.py` (x87 math, generic D3DX-style transform) |
 | `0x583b65` | `halo_vec4_transform` | `scripts/run-slices.py` (x87 math) |
+| `0x4434a0` | `halo_map_header_valid` | `scripts/run-slices.py` (reads a map file's 0x800-byte header through CreateFileA/ReadFile/CloseHandle and validates it; eax = name, esi = buffer) |

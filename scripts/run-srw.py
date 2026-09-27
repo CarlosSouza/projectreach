@@ -33,13 +33,20 @@ def write_extern_llinc(work, exe):
     import pefile
     header = (work / 'haloce.llasm').read_text()
     declared = set(re.findall(r'^proc (\S+) external', header, re.M))
+    # Imports implemented by HaloPad's llasm runtime (port/llasm-runtime/*.llasm) are
+    # redirected to their <name>_asm2c procedures; everything else stays external.
+    implemented = set()
+    for f in (ROOT / 'port' / 'llasm-runtime').glob('*.llasm'):
+        implemented |= set(re.findall(r'^proc (\S+)_asm2c public', f.read_text(), re.M))
     pe = pefile.PE(str(exe))
     names = sorted({imp.name.decode() for d in getattr(pe, 'DIRECTORY_ENTRY_IMPORT', []) for imp in d.imports if imp.name})
-    lines = [f'proc {n} external' for n in names if n not in declared]
+    lines = [f'define {n} {n}_asm2c' for n in sorted(implemented)]
+    lines += [f'proc {n}_asm2c external' for n in sorted(implemented) if n not in declared]
+    lines += [f'proc {n} external' for n in names if n not in declared and n not in implemented]
     lines += ['funcv halopad_unreachable_simd address', 'funcv halopad_trap_unimplemented address']
     (work / 'extern.llinc').write_text('\n'.join(lines) + '\n')
     (work / 'macros.llinc').touch()
-    return len(lines) - 2
+    return len(lines)
 
 
 def main():

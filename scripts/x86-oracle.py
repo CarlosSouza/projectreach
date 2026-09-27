@@ -176,6 +176,9 @@ class Oracle:
         for slot, target, offset in deferred:
             values[slot] = (values[target] + offset) & 0xFFFFFFFF
         regs = dict(regs or {})
+        for name, v in list(regs.items()):
+            if isinstance(v, tuple) and v and v[0] == 'ptr':
+                regs[name] = (values[v[1]] + v[2]) & 0xFFFFFFFF
         stack_args = list(values)
         if convention == 'thiscall':
             regs.setdefault('ecx', stack_args.pop(0))
