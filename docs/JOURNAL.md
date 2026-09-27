@@ -211,3 +211,17 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
 
 **Next:** resources, meaning textures (Lock/Unlock into Metal textures), vertex and index buffers, and vertex declarations and shaders (bytecode capture), then the first draw calls.
 
+## 2026-09-27 — Direct3D 9 resources and bindings
+
+- **COM.** Objects the device has bound (textures, streams, indices, declarations, shaders) now survive their last public `Release` until they are unbound, as with Direct3D 9's internal references. `HPCOM_FWDn(Interface, Method, impl)` lines generate wrappers for methods shared across interfaces.
+- **Resources** (`port/runtime/halopad_d3d9_resources.c`):
+  - Textures: mip chains; the contract's formats with DXT block pitches; `LockRect`/`UnlockRect` on guest memory with rectangle offsets, lock and flag checks and dirty tracking for upload; `AUTOGENMIPMAP` allowing only 0 or 1 levels; LOD and priority for managed textures.
+  - Level surfaces share the texture's reference count; `GetContainer` returns the texture.
+  - Vertex and index buffers: locks by offset and size, descriptions.
+  - Vertex declarations, validated up to `D3DDECL_END`.
+  - Shaders: the version must be within the contract (vs 1.1/2.0, ps 1.1–1.4/2.0) and the bytecode is walked token by token to its END; `HALOPAD_SHADER_DUMP` writes each shader out for analysis.
+- **Device bindings.** Textures, stream sources (divider 1 only; instancing traps), indices, `SetFVF`/`SetVertexDeclaration` (each replaces the other), vertex and pixel shaders, and shader constants F/I/B with range checks.
+- **Test.** `tests/halo_d3d9_test.c` now covers these through guest dispatch, including a texel written through `LockRect` read back via a rectangle lock, the surface/texture shared count, a texture Released to 0 while bound staying alive until unbound, a real vs_1_1 and ps_2_0 program, and constant range checks: **99 checks pass**.
+
+**Next:** draws, meaning shader bytecode → Metal Shading Language translation, pipeline state from render states, and upload of dirty textures and buffers.
+

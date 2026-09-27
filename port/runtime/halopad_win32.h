@@ -44,4 +44,13 @@ void halopad_heap_free(uint32_t address);
 #define HP_ERROR_INSUFFICIENT_BUFFER 122
 #define HP_INSTALL_DIR "C:\\Program Files\\Microsoft Games\\Halo Custom Edition"
 #define HP_IMAGE_BASE 0x00400000u
+
+/* COM methods shared across interfaces: HPCOM_FWDn(Interface, Method, impl) defines
+ * hpcom_<Interface>_<Method>_c taking 'this' and n more arguments and calling
+ * impl("Interface", this, ...). scripts/gen-com-wrappers.py generates their wrappers. */
+#define HPCOM_FWD0(I, M, impl) uint32_t hpcom_##I##_##M##_c(uint32_t g) { return impl(#I, g); }
+#define HPCOM_FWD1(I, M, impl) uint32_t hpcom_##I##_##M##_c(uint32_t g, uint32_t a) { return impl(#I, g, a); }
+#define HPCOM_FWD2(I, M, impl) uint32_t hpcom_##I##_##M##_c(uint32_t g, uint32_t a, uint32_t b) { return impl(#I, g, a, b); }
+#define HPCOM_FWD3(I, M, impl) uint32_t hpcom_##I##_##M##_c(uint32_t g, uint32_t a, uint32_t b, uint32_t c) { return impl(#I, g, a, b, c); }
+#define HPCOM_FWD4(I, M, impl) uint32_t hpcom_##I##_##M##_c(uint32_t g, uint32_t a, uint32_t b, uint32_t c, uint32_t d) { return impl(#I, g, a, b, c, d); }
 #endif

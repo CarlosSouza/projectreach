@@ -12,7 +12,7 @@ extern const uint32_t halopad_com_base, halopad_com_interface_count;
 extern const uint32_t halopad_com_first[], halopad_com_count[];
 extern const char *const halopad_com_interfaces[];
 
-typedef struct { uint32_t guest; int iface; uint32_t refs; void *state; void (*destroy)(void *); } comobj;
+typedef struct { uint32_t guest; int iface; uint32_t refs, binds; void *state; void (*destroy)(void *); } comobj;
 static comobj objects[4096];
 static uint32_t vtables[64];
 
@@ -41,7 +41,7 @@ uint32_t halopad_com_new(const char *iface, uint32_t size, void *state, void (*d
     uint32_t g = halopad_heap_alloc(size < 4 ? 4 : size, 1);
     wr32(g, halopad_com_vtable(iface));
     for (uint32_t i = 0; i < sizeof objects / sizeof objects[0]; i++)
-        if (!objects[i].guest) { objects[i] = (comobj){g, iface_index(iface), 1, state, destroy}; return g; }
+        if (!objects[i].guest) { objects[i] = (comobj){g, iface_index(iface), 1, 0, state, destroy}; return g; }
     hp_unsupported("COM", "more than %zu live objects", sizeof objects / sizeof objects[0]);
 }
 
@@ -62,12 +62,34 @@ void *halopad_com_state(const char *iface, uint32_t g)
 
 uint32_t halopad_com_addref(uint32_t g) { return ++find("AddRef", g)->refs; }
 
+static void destroy_if_unused(comobj *o)
+{
+    if (o->refs || o->binds) return;
+    if (o->destroy) o->destroy(o->state);
+    halopad_heap_free(o->guest);
+    *o = (comobj){0};
+}
+
+/* Public reference count, as Direct3D reports it. An object the device still has bound
+   (a texture, stream, index buffer, declaration or shader) survives its last Release
+   until it is unbound, as in Direct3D 9, whose device keeps internal references. */
 uint32_t halopad_com_release(uint32_t g)
 {
     comobj *o = find("Release", g);
-    if (--o->refs) return o->refs;
-    if (o->destroy) o->destroy(o->state);
-    halopad_heap_free(g);
-    *o = (comobj){0};
-    return 0;
+    if (!o->refs) hp_unsupported("Release", "object 0x%08x whose reference count is already 0", g);
+    uint32_t n = --o->refs;
+    destroy_if_unused(o);
+    return n;
 }
+
+void halopad_com_bind(uint32_t g) { if (g) find("bind", g)->binds++; }
+void halopad_com_unbind(uint32_t g)
+{
+    if (!g) return;
+    comobj *o = find("unbind", g);
+    o->binds--;
+    destroy_if_unused(o);
+}
+
+/* The interface name of a live object (resource type checks). */
+const char *halopad_com_interface(uint32_t g) { return halopad_com_interfaces[find("interface", g)->iface]; }

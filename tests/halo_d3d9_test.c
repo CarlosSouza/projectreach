@@ -170,6 +170,111 @@ int main(void)
     uint32_t halopad_metal_read_pixel(void *t, uint32_t x, uint32_t y);
     check("  presented pixel (0,0) from Metal", halopad_metal_read_pixel(halopad_d3d9_device_target(device), 0, 0), 0xFF336699);
     check("  presented pixel (639,479) from Metal", halopad_metal_read_pixel(halopad_d3d9_device_target(device), 639, 479), 0xFF336699);
+    /* ---- resources ---- */
+    enum { CreateTexture = 23, CreateVertexBuffer = 26, CreateIndexBuffer = 27, GetTexture = 64, SetTexture = 65,
+           CreateVertexDeclaration = 86, SetVertexDeclaration = 87, GetVertexDeclaration = 88, CreateVertexShader = 91,
+           SetVertexShader = 92, SetVertexShaderConstantF = 94, GetVertexShaderConstantF = 95, SetStreamSource = 100,
+           GetStreamSource = 101, SetIndices = 104, CreatePixelShader = 106 };
+    enum { TAddRef = 1, TRelease = 2, TGetLevelCount = 13, TGetLevelDesc = 17, TGetSurfaceLevel = 18, TLockRect = 19, TUnlockRect = 20 };
+    uint32_t pt = halopad_heap_alloc(4, 1);
+    check("CreateTexture 256x64 A8R8G8B8 managed, full chain",
+          method(device, CreateTexture, 8, (uint32_t[]){256, 64, 0, 0, 21, 1, pt, 0}), 0);
+    uint32_t tex = rd(pt);
+    check("  GetLevelCount", method(tex, TGetLevelCount, 0, NULL), 9);
+    uint32_t desc = halopad_heap_alloc(32, 1);
+    method(tex, TGetLevelDesc, 2, (uint32_t[]){3, desc});
+    check("  level 3 is 32x8", rd(desc + 24) == 32 && rd(desc + 28) == 8, 1);
+    uint32_t lr = halopad_heap_alloc(8, 1);
+    check("  LockRect level 0", method(tex, TLockRect, 4, (uint32_t[]){0, lr, 0, 0}), 0);
+    check("  pitch", rd(lr), 1024);
+    uint32_t bits = rd(lr + 4), px = 0x11223344;
+    memcpy(halopad_guest_ptr(bits + 1024 * 2 + 4 * 5), &px, 4);
+    check("  second LockRect of the same level is invalid", method(tex, TLockRect, 4, (uint32_t[]){0, lr, 0, 0}), 0x8876086C);
+    check("  UnlockRect", method(tex, TUnlockRect, 1, (uint32_t[]){0}), 0);
+    uint32_t rect = halopad_heap_alloc(16, 1);
+    memcpy(halopad_guest_ptr(rect), (uint32_t[]){5, 2, 6, 3}, 16);
+    method(tex, TLockRect, 4, (uint32_t[]){0, lr, rect, 0x10});
+    check("  LockRect of a rectangle points at that texel", rd(rd(lr + 4)), 0x11223344);
+    method(tex, TUnlockRect, 1, (uint32_t[]){0});
+    check("  GetSurfaceLevel", method(tex, TGetSurfaceLevel, 2, (uint32_t[]){1, pt}), 0);
+    uint32_t surf = rd(pt);
+    check("  the surface shares the texture's count (AddRef -> 3)", method(surf, 1, 0, NULL), 3);
+    uint32_t pc = halopad_heap_alloc(4, 1);
+    method(surf, 11 /* GetContainer */, 2, (uint32_t[]){0, pc});
+    check("  GetContainer returns the texture", rd(pc), tex);
+    check("  release the container (-> 3)", method(tex, TRelease, 0, NULL), 3);
+    check("  surface Release (-> 2)", method(surf, 2, 0, NULL), 2);
+    check("  surface Release (-> 1)", method(surf, 2, 0, NULL), 1);
+    check("  CreateTexture with 2 levels + AUTOGENMIPMAP is invalid",
+          method(device, CreateTexture, 8, (uint32_t[]){64, 64, 2, 0x400, 21, 0, pt, 0}), 0x8876086C);
+    check("  DXT1 64x64 texture", method(device, CreateTexture, 8, (uint32_t[]){64, 64, 1, 0, 0x31545844, 1, pt, 0}), 0);
+    uint32_t dxt = rd(pt);
+    method(dxt, TLockRect, 4, (uint32_t[]){0, lr, 0, 0});
+    check("  DXT1 pitch is 16 blocks x 8 bytes", rd(lr), 128);
+    method(dxt, TUnlockRect, 1, (uint32_t[]){0});
+    method(dxt, TRelease, 0, NULL);
+
+    check("SetTexture", method(device, SetTexture, 2, (uint32_t[]){0, tex}), 0);
+    check("  Release the bound texture to 0", method(tex, TRelease, 0, NULL), 0);
+    method(device, GetTexture, 2, (uint32_t[]){0, pt});
+    check("  still bound and alive (GetTexture AddRefs -> 1)", rd(pt) == tex && method(tex, TGetLevelCount, 0, NULL) == 9, 1);
+    method(tex, TRelease, 0, NULL);
+    check("  unbinding frees it", method(device, SetTexture, 2, (uint32_t[]){0, 0}), 0);
+
+    uint32_t pvb = halopad_heap_alloc(4, 1), pib = halopad_heap_alloc(4, 1);
+    check("CreateVertexBuffer 1024 dynamic", method(device, CreateVertexBuffer, 6, (uint32_t[]){1024, 0x208, 0, 0, pvb, 0}), 0);
+    uint32_t vb = rd(pvb), pdata = halopad_heap_alloc(4, 1);
+    check("  Lock 16 bytes at 64", method(vb, 11, 4, (uint32_t[]){64, 16, pdata, 0x2000}), 0);
+    uint32_t vbase = rd(pdata);
+    check("  Lock past the end is invalid", method(vb, 11, 4, (uint32_t[]){1020, 8, pdata, 0}), 0x8876086C);
+    check("  Unlock", method(vb, 12, 0, NULL), 0);
+    method(vb, 13, 1, (uint32_t[]){desc});
+    check("  GetDesc size and type", rd(desc + 16) == 1024 && rd(desc + 4) == 6, 1);
+    check("  lock pointer is offset 64 into the buffer", method(vb, 11, 4, (uint32_t[]){0, 0, pdata, 0}) == 0 && rd(pdata) + 64 == vbase, 1);
+    method(vb, 12, 0, NULL);
+    check("CreateIndexBuffer INDEX16", method(device, CreateIndexBuffer, 6, (uint32_t[]){600, 8, 101, 1, pib, 0}), 0);
+    check("  INDEX8 format is invalid", method(device, CreateIndexBuffer, 6, (uint32_t[]){600, 8, 50, 1, pib, 0}), 0x8876086C);
+    check("SetStreamSource", method(device, SetStreamSource, 4, (uint32_t[]){0, vb, 0, 24}), 0);
+    uint32_t po = halopad_heap_alloc(4, 1), pst = halopad_heap_alloc(4, 1);
+    method(device, GetStreamSource, 4, (uint32_t[]){0, pvb, po, pst});
+    check("  GetStreamSource stride", rd(pst), 24);
+    method(vb, 2, 0, NULL);                                        /* GetStreamSource's reference */
+
+    uint32_t el = halopad_heap_alloc(24, 1);
+    uint8_t elems[24] = {0, 0, 0, 0, 2 /* FLOAT3 */, 0, 0 /* POSITION */, 0,  0, 0, 12, 0, 4 /* D3DCOLOR */, 0, 10 /* COLOR */, 0,
+                         0xFF, 0, 0, 0, 17, 0, 0, 0};
+    memcpy(halopad_guest_ptr(el), elems, 24);
+    uint32_t pd = halopad_heap_alloc(4, 1);
+    check("CreateVertexDeclaration (position, colour)", method(device, CreateVertexDeclaration, 2, (uint32_t[]){el, pd}), 0);
+    uint32_t pn = halopad_heap_alloc(4, 1);
+    method(rd(pd), 4 /* GetDeclaration */, 2, (uint32_t[]){0, pn});
+    check("  GetDeclaration count including END", rd(pn), 3);
+    check("SetVertexDeclaration", method(device, SetVertexDeclaration, 1, (uint32_t[]){rd(pd)}), 0);
+
+    uint32_t vsbc[] = {0xFFFE0101, 0x0000001F, 0x80000000, 0x900F0000, 0x00000001, 0xC00F0000, 0x90E40000, 0x0000FFFF};
+    uint32_t psbc[] = {0xFFFF0200, 0x02000001, 0x800F0800, 0xA0E40000, 0x0000FFFF};
+    uint32_t vsg = halopad_heap_alloc(sizeof vsbc, 0), psg = halopad_heap_alloc(sizeof psbc, 0);
+    memcpy(halopad_guest_ptr(vsg), vsbc, sizeof vsbc);
+    memcpy(halopad_guest_ptr(psg), psbc, sizeof psbc);
+    uint32_t pvs = halopad_heap_alloc(4, 1), pps = halopad_heap_alloc(4, 1), psz = halopad_heap_alloc(4, 1);
+    check("CreateVertexShader vs_1_1 (dcl_position; mov oPos, v0)", method(device, CreateVertexShader, 2, (uint32_t[]){vsg, pvs}), 0);
+    method(rd(pvs), 4 /* GetFunction */, 2, (uint32_t[]){0, psz});
+    check("  GetFunction size", rd(psz), sizeof vsbc);
+    check("CreatePixelShader ps_2_0 (mov oC0, c0)", method(device, CreatePixelShader, 2, (uint32_t[]){psg, pps}), 0);
+    method(rd(pps), 4, 2, (uint32_t[]){0, psz});
+    check("  GetFunction size", rd(psz), sizeof psbc);
+    uint32_t bad = 0xFFFF0300;
+    memcpy(halopad_guest_ptr(psg), &bad, 4);
+    check("CreatePixelShader ps_3_0 is invalid (contract: 2.0)", method(device, CreatePixelShader, 2, (uint32_t[]){psg, pps}), 0x8876086C);
+    check("SetVertexShader", method(device, SetVertexShader, 1, (uint32_t[]){rd(pvs)}), 0);
+    uint32_t cf = halopad_heap_alloc(32, 1), cg = halopad_heap_alloc(32, 1);
+    float consts[8] = {1, 2, 3, 4, 5, 6, 7, 8};
+    memcpy(halopad_guest_ptr(cf), consts, 32);
+    method(device, SetVertexShaderConstantF, 3, (uint32_t[]){254, cf, 2});
+    method(device, GetVertexShaderConstantF, 3, (uint32_t[]){254, cg, 2});
+    check("  vertex shader constants c254..c255 round trip", memcmp(halopad_guest_ptr(cf), halopad_guest_ptr(cg), 32) == 0, 1);
+    check("  c255..c256 is out of range", method(device, SetVertexShaderConstantF, 3, (uint32_t[]){255, cf, 2}), 0x8876086C);
+
     check("Device Release to zero", method(device, DRelease, 0, NULL), 0);
     check("Release to zero", method(d3d, Release, 0, NULL), 0);
 

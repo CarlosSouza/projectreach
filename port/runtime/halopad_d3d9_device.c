@@ -41,7 +41,26 @@ typedef struct {
     int in_scene, software_vp, cursor_shown;
     uint16_t gamma[3][256];
     void *target;
+    /* bindings (each holds a bind on the object) and shader constants */
+    uint32_t texture[16], stream[16], stream_offset[16], stream_stride[16], indices, decl, fvf, vs, ps;
+    float vsf[256][4], psf[224][4];
+    int32_t vsi[16][4], psi[16][4];
+    uint32_t vsb[16], psb[16];
 } device;
+
+void halopad_com_bind(uint32_t g);
+void halopad_com_unbind(uint32_t g);
+const char *halopad_com_interface(uint32_t g);
+
+static void rebind(uint32_t *slot, uint32_t g)
+{
+    if (*slot == g) return;
+    halopad_com_bind(g);
+    halopad_com_unbind(*slot);
+    *slot = g;
+}
+
+static int is(uint32_t g, const char *iface) { return !g || !strcmp(halopad_com_interface(g), iface); }
 
 static device *dev(uint32_t g) { return halopad_com_state("IDirect3DDevice9", g); }
 static uint32_t fbits(float f) { uint32_t u; memcpy(&u, &f, 4); return u; }
@@ -99,6 +118,8 @@ static void default_states(device *d)
 static void destroy(void *p)
 {
     device *d = p;
+    for (int i = 0; i < 16; i++) { rebind(&d->texture[i], 0); rebind(&d->stream[i], 0); }
+    rebind(&d->indices, 0); rebind(&d->decl, 0); rebind(&d->vs, 0); rebind(&d->ps, 0);
     if (d->target) halopad_metal_target_destroy(d->target);
     free(d);
 }
@@ -327,6 +348,137 @@ uint32_t hpcom_IDirect3DDevice9_SetSoftwareVertexProcessing_c(uint32_t g, uint32
     return D3D_OK;
 }
 uint32_t hpcom_IDirect3DDevice9_GetSoftwareVertexProcessing_c(uint32_t g) { return (uint32_t)dev(g)->software_vp; }
+
+/* ---- bindings ---- */
+
+uint32_t hpcom_IDirect3DDevice9_SetTexture_c(uint32_t g, uint32_t stage, uint32_t tex)
+{
+    device *d = dev(g);
+    if (stage >= 16) hp_unsupported("IDirect3DDevice9::SetTexture", "sampler %u (displacement or vertex texture)", stage);
+    if (!is(tex, "IDirect3DTexture9")) hp_unsupported("IDirect3DDevice9::SetTexture", "a %s", halopad_com_interface(tex));
+    rebind(&d->texture[stage], tex);
+    return D3D_OK;
+}
+uint32_t hpcom_IDirect3DDevice9_GetTexture_c(uint32_t g, uint32_t stage, uint32_t out)
+{
+    device *d = dev(g);
+    if (stage >= 16) return D3DERR_INVALIDCALL;
+    if (d->texture[stage]) halopad_com_addref(d->texture[stage]);
+    wr32(out, d->texture[stage]);
+    return D3D_OK;
+}
+uint32_t hpcom_IDirect3DDevice9_SetStreamSource_c(uint32_t g, uint32_t s, uint32_t vb, uint32_t offset, uint32_t stride)
+{
+    device *d = dev(g);
+    if (s >= 16 || !is(vb, "IDirect3DVertexBuffer9") || (offset & 3)) return D3DERR_INVALIDCALL;
+    rebind(&d->stream[s], vb);
+    d->stream_offset[s] = offset;
+    d->stream_stride[s] = stride;
+    return D3D_OK;
+}
+uint32_t hpcom_IDirect3DDevice9_GetStreamSource_c(uint32_t g, uint32_t s, uint32_t out, uint32_t offset, uint32_t stride)
+{
+    device *d = dev(g);
+    if (s >= 16) return D3DERR_INVALIDCALL;
+    if (d->stream[s]) halopad_com_addref(d->stream[s]);
+    wr32(out, d->stream[s]); wr32(offset, d->stream_offset[s]); wr32(stride, d->stream_stride[s]);
+    return D3D_OK;
+}
+uint32_t hpcom_IDirect3DDevice9_SetStreamSourceFreq_c(uint32_t g, uint32_t s, uint32_t div)
+{
+    dev(g);
+    if (s >= 16) return D3DERR_INVALIDCALL;
+    if (div != 1) hp_unsupported("IDirect3DDevice9::SetStreamSourceFreq", "stream %u divider 0x%x (instancing)", s, div);
+    return D3D_OK;
+}
+uint32_t hpcom_IDirect3DDevice9_SetIndices_c(uint32_t g, uint32_t ib)
+{
+    device *d = dev(g);
+    if (!is(ib, "IDirect3DIndexBuffer9")) return D3DERR_INVALIDCALL;
+    rebind(&d->indices, ib);
+    return D3D_OK;
+}
+uint32_t hpcom_IDirect3DDevice9_GetIndices_c(uint32_t g, uint32_t out)
+{
+    device *d = dev(g);
+    if (d->indices) halopad_com_addref(d->indices);
+    wr32(out, d->indices);
+    return D3D_OK;
+}
+/* SetFVF and SetVertexDeclaration each replace the other's input layout. */
+uint32_t hpcom_IDirect3DDevice9_SetVertexDeclaration_c(uint32_t g, uint32_t decl)
+{
+    device *d = dev(g);
+    if (!is(decl, "IDirect3DVertexDeclaration9")) return D3DERR_INVALIDCALL;
+    rebind(&d->decl, decl);
+    d->fvf = 0;
+    return D3D_OK;
+}
+uint32_t hpcom_IDirect3DDevice9_GetVertexDeclaration_c(uint32_t g, uint32_t out)
+{
+    device *d = dev(g);
+    if (d->decl) halopad_com_addref(d->decl);
+    wr32(out, d->decl);
+    return D3D_OK;
+}
+uint32_t hpcom_IDirect3DDevice9_SetFVF_c(uint32_t g, uint32_t fvf)
+{
+    device *d = dev(g);
+    d->fvf = fvf;
+    if (fvf) rebind(&d->decl, 0);
+    return D3D_OK;
+}
+uint32_t hpcom_IDirect3DDevice9_GetFVF_c(uint32_t g, uint32_t out) { wr32(out, dev(g)->fvf); return D3D_OK; }
+uint32_t hpcom_IDirect3DDevice9_SetVertexShader_c(uint32_t g, uint32_t vs)
+{
+    device *d = dev(g);
+    if (!is(vs, "IDirect3DVertexShader9")) return D3DERR_INVALIDCALL;
+    rebind(&d->vs, vs);
+    return D3D_OK;
+}
+uint32_t hpcom_IDirect3DDevice9_GetVertexShader_c(uint32_t g, uint32_t out)
+{
+    device *d = dev(g);
+    if (d->vs) halopad_com_addref(d->vs);
+    wr32(out, d->vs);
+    return D3D_OK;
+}
+uint32_t hpcom_IDirect3DDevice9_SetPixelShader_c(uint32_t g, uint32_t ps)
+{
+    device *d = dev(g);
+    if (!is(ps, "IDirect3DPixelShader9")) return D3DERR_INVALIDCALL;
+    rebind(&d->ps, ps);
+    return D3D_OK;
+}
+uint32_t hpcom_IDirect3DDevice9_GetPixelShader_c(uint32_t g, uint32_t out)
+{
+    device *d = dev(g);
+    if (d->ps) halopad_com_addref(d->ps);
+    wr32(out, d->ps);
+    return D3D_OK;
+}
+
+/* Shader constants: set/get 'count' 4-component registers (Booleans: single values). */
+static uint32_t constants(void *store, uint32_t limit, uint32_t elem, uint32_t start, uint32_t data, uint32_t count, int set)
+{
+    if (start > limit || count > limit - start) return D3DERR_INVALIDCALL;
+    uint8_t *base = (uint8_t *)store + (size_t)start * elem;
+    if (set) memcpy(base, G(data), (size_t)count * elem);
+    else memcpy(G(data), base, (size_t)count * elem);
+    return D3D_OK;
+}
+uint32_t hpcom_IDirect3DDevice9_SetVertexShaderConstantF_c(uint32_t g, uint32_t s, uint32_t p, uint32_t n) { return constants(dev(g)->vsf, 256, 16, s, p, n, 1); }
+uint32_t hpcom_IDirect3DDevice9_GetVertexShaderConstantF_c(uint32_t g, uint32_t s, uint32_t p, uint32_t n) { return constants(dev(g)->vsf, 256, 16, s, p, n, 0); }
+uint32_t hpcom_IDirect3DDevice9_SetVertexShaderConstantI_c(uint32_t g, uint32_t s, uint32_t p, uint32_t n) { return constants(dev(g)->vsi, 16, 16, s, p, n, 1); }
+uint32_t hpcom_IDirect3DDevice9_GetVertexShaderConstantI_c(uint32_t g, uint32_t s, uint32_t p, uint32_t n) { return constants(dev(g)->vsi, 16, 16, s, p, n, 0); }
+uint32_t hpcom_IDirect3DDevice9_SetVertexShaderConstantB_c(uint32_t g, uint32_t s, uint32_t p, uint32_t n) { return constants(dev(g)->vsb, 16, 4, s, p, n, 1); }
+uint32_t hpcom_IDirect3DDevice9_GetVertexShaderConstantB_c(uint32_t g, uint32_t s, uint32_t p, uint32_t n) { return constants(dev(g)->vsb, 16, 4, s, p, n, 0); }
+uint32_t hpcom_IDirect3DDevice9_SetPixelShaderConstantF_c(uint32_t g, uint32_t s, uint32_t p, uint32_t n) { return constants(dev(g)->psf, 224, 16, s, p, n, 1); }
+uint32_t hpcom_IDirect3DDevice9_GetPixelShaderConstantF_c(uint32_t g, uint32_t s, uint32_t p, uint32_t n) { return constants(dev(g)->psf, 224, 16, s, p, n, 0); }
+uint32_t hpcom_IDirect3DDevice9_SetPixelShaderConstantI_c(uint32_t g, uint32_t s, uint32_t p, uint32_t n) { return constants(dev(g)->psi, 16, 16, s, p, n, 1); }
+uint32_t hpcom_IDirect3DDevice9_GetPixelShaderConstantI_c(uint32_t g, uint32_t s, uint32_t p, uint32_t n) { return constants(dev(g)->psi, 16, 16, s, p, n, 0); }
+uint32_t hpcom_IDirect3DDevice9_SetPixelShaderConstantB_c(uint32_t g, uint32_t s, uint32_t p, uint32_t n) { return constants(dev(g)->psb, 16, 4, s, p, n, 1); }
+uint32_t hpcom_IDirect3DDevice9_GetPixelShaderConstantB_c(uint32_t g, uint32_t s, uint32_t p, uint32_t n) { return constants(dev(g)->psb, 16, 4, s, p, n, 0); }
 
 /* Test support: the device's Metal target. */
 void *halopad_d3d9_device_target(uint32_t g) { return dev(g)->target; }

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Generate llasm wrappers for HaloPad's COM methods (G3).
 
-Every C function in port/runtime/*.c named hpcom_<Interface>_<Method>_c(uint32_t ...)
-implements a COM method called by translated code as stdcall with 'this' first. This
+Every C function in port/runtime/*.c named hpcom_<Interface>_<Method>_c(uint32_t ...),
+and every HPCOM_FWDn(Interface, Method, impl) line, implements a COM method called by translated code as stdcall with 'this' first. This
 writes generated/runtime/halopad-com.llasm with one wrapper per function, which passes
 the stack arguments, sets eax and pops them. scripts/va-model.py includes it.
 
@@ -20,7 +20,12 @@ def main():
     out = pathlib.Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / 'generated' / 'runtime' / 'halopad-com.llasm'
     fns = {}
     for src in sorted((ROOT / 'port' / 'runtime').glob('*.c')):
-        for m in re.finditer(r'^uint32_t (hpcom_\w+)_c\(([^)]*)\)\s*\{', src.read_text(), re.M):
+        text = src.read_text()
+        # HPCOM_FWDn(Interface, Method, impl): a method with n arguments after 'this' that
+        # forwards to a shared implementation (halopad_win32.h)
+        for m in re.finditer(r'^HPCOM_FWD(\d)\((\w+),\s*(\w+),', text, re.M):
+            fns[f'hpcom_{m.group(2)}_{m.group(3)}'] = int(m.group(1)) + 1
+        for m in re.finditer(r'^uint32_t (hpcom_\w+)_c\(([^)]*)\)\s*\{', text, re.M):
             params = [p for p in m.group(2).split(',') if p.strip() and p.strip() != 'void']
             if any(not p.strip().startswith('uint32_t') for p in params):
                 sys.exit(f'{src.name}: {m.group(1)}_c takes non-uint32_t parameters')
