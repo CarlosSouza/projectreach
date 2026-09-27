@@ -39,11 +39,11 @@ static uint32_t api(const char *name, uint32_t n, const uint32_t *args)
     uint32_t va = 0;
     for (int i = 0; i < 5 && !va; i++) {
         static const char *const in[5][12] = {
-            {"GetStdHandle", "GetNumberOfConsoleInputEvents", "GetModuleFileNameA", "GetLastError", "SetLastError", "CloseHandle"},
+            {"GetStdHandle", "GetNumberOfConsoleInputEvents", "GetModuleFileNameA", "GetLastError", "SetLastError", "CloseHandle", "IsDBCSLeadByteEx", "GetCPInfoExW"},
             {"GetFileVersionInfoSizeA", "GetFileVersionInfoA", "VerQueryValueA"},
             {"OpenThreadToken", "OpenProcessToken", "DuplicateToken", "AllocateAndInitializeSid", "FreeSid", "GetLengthSid",
              "InitializeSecurityDescriptor", "IsValidSecurityDescriptor", "SetSecurityDescriptorDacl", "InitializeAcl", "AddAccessAllowedAce", "AccessCheck"},
-            {"OpenClipboard", "CloseClipboard", "IsClipboardFormatAvailable"}, {0}};
+            {"OpenClipboard", "CloseClipboard", "IsClipboardFormatAvailable", "GetKeyboardLayout", "CharNextExA"}, {0}};
         for (int k = 0; k < 12 && in[i][k]; k++) if (!strcmp(in[i][k], name)) va = GetProcAddress_c(mods[i], str(name));
     }
     if (!va) { printf("no export %s\n", name); exit(2); }
@@ -143,6 +143,18 @@ int main(void)
     check("OpenClipboard", API("OpenClipboard", 0), 1);
     check("  OpenClipboard again: fails", API("OpenClipboard", 0), 0);
     check("  CloseClipboard", API0("CloseClipboard"), 1);
+
+    /* code pages and the keyboard layout Controls.dll's edit box asks for (1252, US English) */
+    check("GetKeyboardLayout: US English (0x04090409)", API("GetKeyboardLayout", 0), 0x04090409);
+    check("IsDBCSLeadByteEx(CP_ACP, 0x81): FALSE (single-byte)", API("IsDBCSLeadByteEx", 0, 0x81), 0);
+    uint32_t cpx = halopad_heap_alloc(24 + 520, 1);
+    check("GetCPInfoExW(CP_ACP)", API("GetCPInfoExW", 0, 0, cpx), 1);
+    char cpname[40] = {0};
+    for (int i = 0; i < 39; i++) cpname[i] = (char)((uint16_t *)halopad_guest_ptr(cpx + 24))[i];
+    check("  1252, MaxCharSize 1, \"1252  (ANSI - Latin I)\"", rd(cpx + 20) == 1252 && rd(cpx) == 1 && !strcmp(cpname, "1252  (ANSI - Latin I)"), 1);
+    check("GetCPInfoExW(932) on the reference machine: fails", API("GetCPInfoExW", 932, 0, cpx), 0);
+    uint32_t ab = str("ab");
+    check("CharNextExA: the next character, then stays at the end", API("CharNextExA", 0, ab, 0) == ab + 1 && API("CharNextExA", 0, ab + 2, 0) == ab + 2, 1);
     printf("%s: %d failure(s)\n", failures ? "FAIL" : "PASS", failures);
     return failures ? 1 : 0;
 }

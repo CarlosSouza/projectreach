@@ -1220,3 +1220,16 @@ uint32_t MessageBoxA_c(uint32_t hwnd, uint32_t text, uint32_t caption, uint32_t 
     hp_unsupported("MessageBoxA", "a message box (type 0x%x) \"%s\": \"%s\"", type, caption ? (const char *)G(caption) : "Error",
                    text ? (const char *)G(text) : "");
 }
+
+/* The reference machine's only keyboard layout: US English (HKL 0x04090409). */
+uint32_t GetKeyboardLayout_c(uint32_t thread) { (void)thread; return 0x04090409u; }
+
+/* CharNextExA in a single-byte code page: the next character, or the same pointer at the end. */
+uint32_t CharNextExA_c(uint32_t cp, uint32_t p, uint32_t flags)
+{
+    if (flags) hp_unsupported("CharNextExA", "flags 0x%x", flags);
+    uint32_t c = cp == 0 || cp == 3 ? 1252 : cp == 1 ? 437 : cp;
+    if (c != 1252 && c != 437) hp_unsupported("CharNextExA", "code page %u", cp);
+    if (!p) return 0;
+    return *(uint8_t *)G(p) ? p + 1 : p;
+}

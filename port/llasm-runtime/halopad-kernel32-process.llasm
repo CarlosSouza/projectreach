@@ -577,3 +577,15 @@ proc hpimp_ResetEvent public
         Call_Asm_Stack1 ResetEvent_c
         Call_Asm_Return 1
 endp
+
+func IsDBCSLeadByteEx_c a1, a2
+func GetCPInfoExW_c a1, a2, a3
+proc hpimp_IsDBCSLeadByteEx public
+        Call_Asm_Stack2 IsDBCSLeadByteEx_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_GetCPInfoExW public
+        Call_Asm_Stack3 GetCPInfoExW_c
+        Call_Asm_Return 3
+endp

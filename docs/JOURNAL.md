@@ -799,3 +799,9 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
 - **Test** (the D3D9 suite, 10 new checks): refusal with a default-pool vertex buffer alive and with the back buffer held, then `Reset` to 800×600 with the states, viewport and back buffer checked, followed by a `Present` and a pixel read back from the new back buffer.
   - The suite itself had leaked a default-pool vertex buffer, which Windows would also refuse to reset past, so the test now releases it first.
 - **Call sites.** Halo's other device-vtable call sites for `CreateRenderTarget` and `UpdateSurface` (`0x58d167`, `0x58d39c`) are inside its statically linked D3DX texture loader. They will be implemented when the core reaches them, with the caller known.
+
+## 2026-09-27 — Typing into the chat box
+
+- **Path under test.** Halo's window procedure passes messages to Keystone with `KsDispatchMessage(ks, msg, wParam, lParam, &handled)` (`0x545850`), and its message loop first offers them to `KsTranslateAccelerator` (`0x544e40`). The UI test now focuses the edit box as Halo does (`KW_SetFocusControl`, `0x4adad2`), then sends `WM_KEYDOWN`, `WM_CHAR` and `WM_KEYUP` for "gg hf", plus a "!" removed with Backspace.
+- **Result.** Controls.dll's translated edit box holds "gg hf", read back with `KC_GetAttribute(L"text")` as Halo reads it (`0x4adc4d`), and the frame shows it with the cursor (`typed.ppm`).
+- **Services Controls.dll's edit box needed:** `GetKeyboardLayout` (US English, `0x04090409`), `IsDBCSLeadByteEx`, `CharNextExA` and `GetCPInfoExW`. The reference machine's code pages 1252 and 437 are single-byte, and the names match XP's. The misc suite gained 6 checks.

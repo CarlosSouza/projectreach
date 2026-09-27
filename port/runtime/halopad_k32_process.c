@@ -338,3 +338,28 @@ uint32_t GetCPInfo_c(uint32_t cp, uint32_t info)
     ((uint8_t *)G(info))[4] = '?';      /* DefaultChar */
     return 1;
 }
+
+/* code page 0 (CP_ACP) and 3 (CP_THREAD_ACP) are 1252, 1 (CP_OEMCP) is 437; 0 if not one of them */
+static uint32_t single_byte_cp(uint32_t cp) { cp = cp == 0 || cp == 3 ? 1252 : cp == 1 ? 437 : cp; return cp == 1252 || cp == 437 ? cp : 0; }
+
+/* Both code pages are single-byte: no lead bytes. */
+uint32_t IsDBCSLeadByteEx_c(uint32_t cp, uint32_t b)
+{
+    (void)b;
+    if (!single_byte_cp(cp)) { halopad_last_error = HP_ERROR_INVALID_PARAMETER; return 0; }
+    return 0;
+}
+
+uint32_t GetCPInfoExW_c(uint32_t cp, uint32_t flags, uint32_t info)
+{
+    uint32_t c = single_byte_cp(cp);
+    if (flags || !info || !c) { halopad_last_error = HP_ERROR_INVALID_PARAMETER; return 0; }
+    memset(G(info), 0, 24 + 520);
+    wr32(info, 1);                                                  /* MaxCharSize */
+    ((uint8_t *)G(info))[4] = '?';                                  /* DefaultChar */
+    wr16(info + 18, '?');                                           /* UnicodeDefaultChar */
+    wr32(info + 20, c);
+    const char *name = c == 1252 ? "1252  (ANSI - Latin I)" : "437   (OEM - United States)";   /* XP's names */
+    for (size_t i = 0; name[i]; i++) wr16(info + 24 + 2 * (uint32_t)i, (uint8_t)name[i]);
+    return 1;
+}

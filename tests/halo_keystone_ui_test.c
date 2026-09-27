@@ -205,6 +205,51 @@ int main(void)
     check("the chat line is drawn in the log area (white text pixels)", lit > 100, 1);
     check("the prompt and the typed text are drawn along the bottom (the edit box image is fully transparent)", lit_edit > 50, 1);
     free(img);
+
+    /* typing, as Halo's window procedure passes messages to Keystone (0x545850:
+       KsDispatchMessage(ks, msg, wParam, lParam, &handled)) with the edit box focused (0x4adad2) */
+    KS(G_SETATTR, edit, wstr("text"), wstr(""));
+    KS(G_SETFOCUSCONTROL, ew, edit);
+    uint32_t handled = halopad_heap_alloc(4, 1);
+    const char *typed = "gg hf";
+    for (const char *c = typed; *c; c++) {
+        uint32_t vk = *c == ' ' ? 0x20 : (uint32_t)(*c - 32), scan = *c == ' ' ? 0x39 : 0x22;
+        KS(G_DISPATCH, k, 0x100, vk, 1u | scan << 16, handled);                    /* WM_KEYDOWN */
+        KS(G_DISPATCH, k, 0x102, (uint32_t)*c, 1u | scan << 16, handled);          /* WM_CHAR */
+        KS(G_DISPATCH, k, 0x101, vk, 1u | scan << 16 | 3u << 30, handled);        /* WM_KEYUP */
+    }
+    KS(G_DISPATCH, k, 0x102, 0x21, 1u | 0x02u << 16, handled);                     /* '!' */
+    KS(G_DISPATCH, k, 0x100, 0x08, 1u | 0x0Eu << 16, handled);                     /* Backspace removes it */
+    KS(G_DISPATCH, k, 0x102, 0x08, 1u | 0x0Eu << 16, handled);
+    KS(G_DISPATCH, k, 0x101, 0x08, 1u | 0x0Eu << 16 | 3u << 30, handled);
+    uint32_t got = KS(G_GETATTR, edit, wstr("text"));
+    char text[64] = {0};
+    for (int i = 0; got && i < 63; i++) { uint16_t ch = ((uint16_t *)halopad_guest_ptr(got))[i]; if (!ch) break; text[i] = ch < 0x80 ? (char)ch : '?'; }
+    printf("    (edit box text: \"%s\")\n", text);
+    check("typing through KsDispatchMessage: the edit box holds \"gg hf\" (backspace applied)", !strcmp(text, typed), 1);
+    for (int i = 0; i < 3; i++) {
+        method(device, 41, 0, NULL);
+        method(device, 43, 6, (uint32_t[]){0, 0, 3, 0xFF203040, onebits, 0});
+        KS(G_UPDATE, k);
+        method(device, 42, 0, NULL);
+        if (i < 2) method(device, 17, 4, (uint32_t[]){0, 0, 0, 0});
+    }
+    uint32_t *img2 = malloc(640 * 480 * 4);
+    halopad_metal_read_image(halopad_d3d9_device_target(device), img2, 640, 480);
+    uint32_t lit2 = 0;
+    for (int y = 450; y < 480; y++) for (int x = 90; x < 510; x++) if ((img2[y * 640 + x] & 0xFF) > 0xC0 && (img2[y * 640 + x] >> 16 & 0xFF) > 0xC0) lit2++;
+    check("  the typed text is drawn in the edit box", lit2 > 20, 1);
+    if (reg) {
+        char path[1200];
+        snprintf(path, sizeof path, "%.*s/typed.ppm", (int)(strrchr(reg, '/') - reg), reg);
+        FILE *f = fopen(path, "wb");
+        if (f) {
+            fprintf(f, "P6\n640 480\n255\n");
+            for (int i = 0; i < 640 * 480; i++) { uint8_t rgb[3] = {(uint8_t)(img2[i] >> 16), (uint8_t)(img2[i] >> 8), (uint8_t)img2[i]}; fwrite(rgb, 1, 3, f); }
+            fclose(f);
+        }
+    }
+    free(img2);
     printf("%s: %d failure(s)\n", failures ? "FAIL" : "PASS", failures);
     return failures != 0;
 }

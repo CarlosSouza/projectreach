@@ -70,3 +70,15 @@ proc hpimp_LoadStringA public
         Call_Asm_Stack4 LoadStringA_c
         Call_Asm_Return 4
 endp
+
+func GetKeyboardLayout_c a1
+func CharNextExA_c a1, a2, a3
+proc hpimp_GetKeyboardLayout public
+        Call_Asm_Stack1 GetKeyboardLayout_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_CharNextExA public
+        Call_Asm_Stack3 CharNextExA_c
+        Call_Asm_Return 3
+endp
