@@ -554,3 +554,17 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
 - All suites, 15 slices and the unit tests pass; the core still stops at the license.
 
 **Next:** Bink (intro movie and its sound), then SEH, Vorbis, game controllers and file mapping.
+
+## 2026-09-27 — Bink as Custom Edition meets it
+
+- **How Halo uses it.** The movie player is \`0x43ed20\`; the 640×480 offscreen surface and \`StretchRect\` noted earlier belong to it, not to a loading screen.
+  - It calls \`BinkSetSoundSystem(BinkOpenDirectSound, 0)\`, passing the function rather than calling it, then \`BinkOpen(path, 0)\` for bungie.bik, gearbox.bik, mgs.bik and ending.bik.
+  - On NULL the movie is skipped. Otherwise it loops \`BinkWait\`/\`BinkDoFrame\`/\`BinkCopyToBuffer\`/\`BinkNextFrame\`, then \`BinkClose\`.
+- **What** (\`port/runtime/halopad_bink.c\`):
+  - Custom Edition ships none of those movies (checked: no \`.bik\` in the install), so \`BinkOpen\` finds no file through the virtual drive and returns NULL, as RAD's library does.
+  - A movie that exists (the retail game, G7) stops the program: Bink video decoding is not done yet.
+  - The per-frame calls can only receive a handle \`BinkOpen\` never gives out, so they stop with the handle.
+  - Decorated names are mangled as the dispatch does (\`_BinkOpen@8\` → \`hpimp__BinkOpen_408\`).
+- **Test** (added to \`tests/halo_misc_test.c\`, now 26 checks): the sound-system set-up, and \`BinkOpen\` of all four movie names giving NULL.
+
+**Next:** Ogg Vorbis (\`vorbisfile.dll\`: custom map sounds), then SEH, game controllers and file mapping.

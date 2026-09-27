@@ -1,0 +1,69 @@
+;; HaloPad Windows runtime: binkw32.dll (port/runtime/halopad_bink.c). Decorated stdcall names
+;; are mangled as scripts/va-model.py does ('@' is _40). Pattern and macros from SR's Septerra Core port.
+
+include llasm.llinc
+include asm-calls.llinc
+
+func BinkOpenDirectSound_c a1
+func BinkSetSoundSystem_c a1, a2
+func BinkOpen_c a1, a2
+func BinkClose_c a1
+func BinkDoFrame_c a1
+func BinkNextFrame_c a1
+func BinkWait_c a1
+func BinkPause_c a1, a2
+func BinkCopyToBuffer_c a1, a2, a3, a4, a5, a6, a7
+
+;; _BinkOpenDirectSound@4
+proc hpimp__BinkOpenDirectSound_404 public
+        Call_Asm_Stack1 BinkOpenDirectSound_c
+        Call_Asm_Return 1
+endp
+
+;; _BinkSetSoundSystem@8
+proc hpimp__BinkSetSoundSystem_408 public
+        Call_Asm_Stack2 BinkSetSoundSystem_c
+        Call_Asm_Return 2
+endp
+
+;; _BinkOpen@8
+proc hpimp__BinkOpen_408 public
+        Call_Asm_Stack2 BinkOpen_c
+        Call_Asm_Return 2
+endp
+
+;; _BinkClose@4
+proc hpimp__BinkClose_404 public
+        Call_Asm_Stack1 BinkClose_c
+        Call_Asm_Return 1
+endp
+
+;; _BinkDoFrame@4
+proc hpimp__BinkDoFrame_404 public
+        Call_Asm_Stack1 BinkDoFrame_c
+        Call_Asm_Return 1
+endp
+
+;; _BinkNextFrame@4
+proc hpimp__BinkNextFrame_404 public
+        Call_Asm_Stack1 BinkNextFrame_c
+        Call_Asm_Return 1
+endp
+
+;; _BinkWait@4
+proc hpimp__BinkWait_404 public
+        Call_Asm_Stack1 BinkWait_c
+        Call_Asm_Return 1
+endp
+
+;; _BinkPause@8
+proc hpimp__BinkPause_408 public
+        Call_Asm_Stack2 BinkPause_c
+        Call_Asm_Return 2
+endp
+
+;; _BinkCopyToBuffer@28
+proc hpimp__BinkCopyToBuffer_4028 public
+        Call_Asm_Stack7 BinkCopyToBuffer_c
+        Call_Asm_Return 7
+endp

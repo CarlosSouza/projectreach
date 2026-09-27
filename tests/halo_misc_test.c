@@ -1,7 +1,8 @@
 /* Console, version, security and clipboard test (G3): the console calls fail as in a GUI
  * process; the version resource of haloce.exe through GetFileVersionInfoA/VerQueryValueA
  * (1.0.10.621); the security API step by step and then Halo's own "is the player a local
- * administrator" function (0x545c50) run from translated code; clipboard open/close rules.
+ * administrator" function (0x545c50) run from translated code; Bink with no movies; clipboard
+ * open/close rules.
  * Linked in place of the core's main by scripts/run-core.py --main tests/halo_misc_test.c. */
 #include <stdio.h>
 #include <stdlib.h>
@@ -126,6 +127,16 @@ int main(void)
     /* Halo's own check, translated */
     check("Halo's 0x545c50 (is the player a local administrator) returns TRUE", halopad_call_guest_ex(0x545c50, 0, NULL, 0, 0) & 0xFF, 1);
     check("  and records it at 0x6399a8", rd(0x6399a8), 1);
+
+    /* Bink as Custom Edition meets it: no movies are shipped, so BinkOpen gives NULL */
+    uint32_t bink = LoadLibraryA_c(str("binkw32.dll"));
+    uint32_t set = GetProcAddress_c(bink, str("_BinkSetSoundSystem@8")), open = GetProcAddress_c(bink, str("_BinkOpen@8"));
+    uint32_t ods = GetProcAddress_c(bink, str("_BinkOpenDirectSound@4"));
+    check("BinkSetSoundSystem(BinkOpenDirectSound, 0)", halopad_call_guest(set, 2, (uint32_t[]){ods, 0}), 1);
+    static const char *const movies[] = {"bungie.bik", "gearbox.bik", "mgs.bik", "ending.bik"};
+    uint32_t all_null = 1;
+    for (int i = 0; i < 4; i++) all_null &= halopad_call_guest(open, 2, (uint32_t[]){str(movies[i]), 0}) == 0;
+    check("BinkOpen of each movie Halo asks for: NULL (Custom Edition ships none)", all_null, 1);
 
     /* clipboard rules */
     check("CloseClipboard when not open: ERROR_CLIPBOARD_NOT_OPEN", API0("CloseClipboard") == 0 && API0("GetLastError") == 1418, 1);
