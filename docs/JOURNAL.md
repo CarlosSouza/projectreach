@@ -805,3 +805,11 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
 - **Path under test.** Halo's window procedure passes messages to Keystone with `KsDispatchMessage(ks, msg, wParam, lParam, &handled)` (`0x545850`), and its message loop first offers them to `KsTranslateAccelerator` (`0x544e40`). The UI test now focuses the edit box as Halo does (`KW_SetFocusControl`, `0x4adad2`), then sends `WM_KEYDOWN`, `WM_CHAR` and `WM_KEYUP` for "gg hf", plus a "!" removed with Backspace.
 - **Result.** Controls.dll's translated edit box holds "gg hf", read back with `KC_GetAttribute(L"text")` as Halo reads it (`0x4adc4d`), and the frame shows it with the cursor (`typed.ppm`).
 - **Services Controls.dll's edit box needed:** `GetKeyboardLayout` (US English, `0x04090409`), `IsDBCSLeadByteEx`, `CharNextExA` and `GetCPInfoExW`. The reference machine's code pages 1252 and 437 are single-byte, and the names match XP's. The misc suite gained 6 checks.
+
+## 2026-09-27 — G1b step 1: the original dedicated server runs in CrossOver
+
+- **Script.** `scripts/reference-server.sh` creates the project bottle `halopad-reference` (CrossOver 26.3, Windows XP template) and copies the game files into it. It checks `haloceded.exe` against the manifest (SHA-256 `7789c4a0…`), then runs the original server with `-port 2302 -ip 127.0.0.1` and an init file: `sv_public 0` (never listed with the master server), `sv_log_enabled 1`, `sv_map bloodgulch slayer`. It queries the server on its port and stops everything it started.
+- **Result.** After 40 s the server is alive and answers the GameSpy status query with `gamever 01.00.10.0621`, `mapname bloodgulch`, `gametype Slayer`, `gamemode openplaying`, `dedicated 1` and `numplayers 0`. Its own log reads "Log opened" and then "GAMEINFO SETTINGS MAP bloodgulch MODE Slayer". The Wine processes are gone afterwards.
+  - Evidence: `docs/artifacts/2026-09-27/G1b/server-20260927T121035Z/`.
+- **This is the unchanged server G5's match will use.** Public servers were not touched.
+- **The reference client (`haloce.exe`) was not run.** Its first run opens the license dialog, which needs the player's choice, so that row of G1b is parked on the same license as the native core.
