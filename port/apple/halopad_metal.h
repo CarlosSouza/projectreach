@@ -16,6 +16,7 @@ typedef struct {
     uint32_t constant_regs;          /* shader inputs with no element: constant (0, 0, 0, 1) */
     uint8_t blend, src_rgb, dst_rgb, op_rgb, src_a, dst_a, op_a, write_mask;
     uint8_t depth;                   /* the target has a depth/stencil attachment */
+    uint32_t color_format;           /* MTLPixelFormat of the colour attachment (0: BGRA8Unorm) */
 } hp_pipeline_desc;
 
 typedef struct {
@@ -61,4 +62,22 @@ void *halopad_metal_texture(int type, uint32_t format, uint32_t w, uint32_t h, u
 void halopad_metal_texture_upload(void *tex, uint32_t level, uint32_t slice, const void *data, uint32_t bytes_per_row,
                                   uint32_t bytes_per_image, uint32_t w, uint32_t h, uint32_t d);
 void halopad_metal_draw(void *target, const hp_draw_desc *d);
+
+/* Render targets. The back buffer and depth/stencil textures belong to the target (not
+   retained for the caller). set_attachments selects what later clears and draws write:
+   colour texture and mip level, and a depth/stencil texture or NULL. */
+void *halopad_metal_target_back(void *target);
+void *halopad_metal_target_depth(void *target);
+void halopad_metal_set_attachments(void *target, void *color, uint32_t level, void *depth);
+/* A 2D texture Metal can render into and sample (identity swizzle; see texture_view). */
+void *halopad_metal_render_texture(uint32_t format, uint32_t w, uint32_t h, uint32_t levels);
+/* A view of tex that samples with the given swizzle (MTLTextureSwizzle x4). */
+void *halopad_metal_texture_view(void *tex, const uint8_t swizzle[4]);
+/* Copy src level rect to dst level rect (x, y, w, h), scaling with point or linear filtering;
+   opaque writes alpha 1. */
+void halopad_metal_stretch(void *target, void *src, uint32_t slevel, const uint32_t srect[4], void *dst, uint32_t dlevel,
+                           const uint32_t drect[4], int linear, int opaque);
+/* Test support: read a region of a texture after all submitted work. */
+void halopad_metal_read_texture(void *target, void *tex, uint32_t level, uint32_t x, uint32_t y, uint32_t w, uint32_t h,
+                                void *out, uint32_t bytes_per_row);
 #endif

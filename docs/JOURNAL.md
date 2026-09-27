@@ -287,3 +287,26 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
 - **Limit:** checked against my reading of the Direct3D rules, not yet against original-client renders.
 
 **Next:** render targets (\`SetRenderTarget\`, \`GetRenderTarget\`, \`GetBackBuffer\`, \`StretchRect\`, \`CreateOffscreenPlainSurface\`), scissor, cube and volume textures, then the USER32 message loop.
+
+## 2026-09-27 — Render targets and StretchRect on Metal
+
+- **How Halo uses them** (call sites in \`haloce.exe\`):
+  - \`SetRenderTarget(0, ...)\` at 7 sites switches between the back buffer and about nine surfaces kept in a table at \`0x638a1c\` (20-byte entries).
+  - \`GetBackBuffer\` and \`GetRenderTarget\` fetch surfaces for \`StretchRect\` copies (\`0x519112\`–\`0x519154\`).
+  - The loading screen (\`0x43ed48\`) creates a 640×480 X8R8G8B8 offscreen plain surface in the default pool, locks and fills it, and \`StretchRect\`s it onto the render target.
+  - One \`CreateQuery(9)\` (occlusion) at \`0x53a293\`, not done yet.
+- **What** (\`port/runtime/halopad_d3d9_targets.c\`; Metal side in \`halopad_metal.m\`):
+  - The Metal target now has switchable colour and depth attachments. The device owns a back-buffer surface and an automatic depth surface, both backed by the target's textures.
+  - Render-target textures (A8R8G8B8, X8R8G8B8, R5G6B5; default pool, not lockable) are Metal textures that Metal renders into and samples; X8 reads alpha 1 through a swizzled view.
+  - \`GetBackBuffer\`, \`GetRenderTarget\`/\`SetRenderTarget\` (index 0 only, as the contract's NumSimultaneousRTs = 1; the viewport resets to the new target), \`Get\`/\`SetDepthStencilSurface\`.
+  - \`CreateOffscreenPlainSurface\` (lockable guest memory, uploaded when read); stand-alone surfaces answer \`GetDesc\`/\`LockRect\`.
+  - \`StretchRect\` blits same-size, same-format copies and draws a scaled quad otherwise (point or linear).
+  - X8R8G8B8 targets keep alpha at 1 (clears write 1, draws and copies mask it), so destination-alpha blending and copies read it as Direct3D does, even when Halo leaves the X byte 0.
+  - A surface bound as the target keeps its texture alive.
+  - Still stopping with a message: StretchRect of depth surfaces or into non-target surfaces, and a depth clear while a smaller target is bound (Metal would clear the whole depth buffer, Direct3D only the target's area).
+- **Test** (\`tests/halo_d3d9_test.c\`, now 169 checks, all passing, run with Metal's validation layer on):
+  - Render a 64×32 texture (green clear, red left half, with the 640×480 depth buffer still attached, which Metal accepts), then sample it across the screen.
+  - StretchRect it at 2× (the scaled edge falls on the right pixel), copy the back buffer into it and back, and copy a 4×4 offscreen surface whose X bytes are 0 (it reads opaque).
+  - The invalid cases: index 1, NULL, the same surface, a rectangle outside the surface, the managed pool, and locking a render target.
+
+**Next:** cube and volume textures, occlusion queries, scissor, then the USER32 message loop, DirectInput and DirectSound.

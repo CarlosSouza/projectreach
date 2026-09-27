@@ -19,6 +19,7 @@ const char *halopad_com_interface(uint32_t g);
 #define D3D_OK 0u
 #define D3DERR_INVALIDCALL 0x8876086Cu
 #include "halopad_d3d9_internal.h"
+void halopad_metal_release(void *o);
 
 /* bytes per block and block edge for a format; 0 if the contract does not offer it */
 static int fmt(uint32_t f, uint32_t *bytes, uint32_t *block)
@@ -36,12 +37,15 @@ static int fmt(uint32_t f, uint32_t *bytes, uint32_t *block)
     }
     return 0;
 }
+int halopad_d3d9_format_size(uint32_t f, uint32_t *bytes, uint32_t *block) { return fmt(f, bytes, block); }
 
 static void res_destroy(void *p)
 {
     res *r = p;
     for (uint32_t l = 0; l < MAXLEVELS; l++) if (r->mem[l]) halopad_heap_free(r->mem[l]);
     if (r->buf) halopad_heap_free(r->buf);
+    if (!r->borrowed) halopad_metal_release(r->native);
+    halopad_metal_release(r->view);
     free(r->tokens);
     free(r);
 }
@@ -65,6 +69,7 @@ static uint32_t c_release(const char *i, uint32_t g)
     res *r = R(i, g);
     return r->kind == R_SURFACE && r->parent ? halopad_com_release(r->parent) : halopad_com_release(g);
 }
+uint32_t halopad_d3d9_addref(uint32_t g) { return c_addref(halopad_com_interface(g), g); }
 static uint32_t c_getdevice(const char *i, uint32_t g, uint32_t out)
 {
     res *r = R(i, g);
@@ -232,6 +237,7 @@ uint32_t hpcom_IDirect3DDevice9_CreateTexture_c(uint32_t dev, uint32_t w, uint32
     if ((usage & 0x200) && pool == 1) return D3DERR_INVALIDCALL;     /* dynamic textures are not managed */
     if (usage & 0x2) hp_unsupported("IDirect3DDevice9::CreateTexture", "depth-stencil textures");
     if (!fmt(format, &bytes, &block)) hp_unsupported("IDirect3DDevice9::CreateTexture", "format %u", format);
+    if ((usage & 0x1) && format != 21 && format != 22 && format != 23) return D3DERR_INVALIDCALL;   /* the contract's render-target formats */
     uint32_t full = 1;
     while ((w >> full) || (h >> full)) full++;
     if (usage & 0x400) {                                            /* autogen: 0 or 1 levels, one visible level */
@@ -287,15 +293,47 @@ uint32_t hpcom_IDirect3DTexture9_AddDirtyRect_c(uint32_t g, uint32_t rect)
     return D3D_OK;
 }
 
-static void surface_destroy(void *p) { free(p); }
-
 static uint32_t new_surface(res *t, uint32_t level)
 {
     res *s = calloc(1, sizeof *s);
     s->kind = R_SURFACE; s->device = t->device; s->parent = t->guest; s->level = level;
     s->format = t->format; s->usage = t->usage; s->pool = t->pool; s->levels = 1;
     s->lw[0] = t->lw[level]; s->lh[0] = t->lh[level];
-    return halopad_com_new("IDirect3DSurface9", 4, s, surface_destroy);
+    return halopad_com_new("IDirect3DSurface9", 4, s, res_destroy);
+}
+
+/* A stand-alone surface: the back buffer and automatic depth/stencil (borrowed: the Metal
+   target's textures) or an offscreen plain surface (lockable guest memory, uploaded to
+   Metal when a copy reads it). */
+uint32_t halopad_d3d9_surface_new(uint32_t dev, uint32_t w, uint32_t h, uint32_t format, uint32_t usage, uint32_t pool,
+                                  void *borrowed, int lockable)
+{
+    uint32_t bytes = 4, block = 1;
+    res *s = calloc(1, sizeof *s);
+    s->kind = R_SURFACE; s->device = dev; s->format = format; s->usage = usage; s->pool = pool; s->levels = 1;
+    s->width = w; s->height = h; s->lw[0] = w; s->lh[0] = h;
+    if (borrowed) { s->native = borrowed; s->borrowed = 1; }
+    if (lockable) {
+        fmt(format, &bytes, &block);
+        s->pitch[0] = ((w + block - 1) / block) * bytes;
+        s->size[0] = s->pitch[0] * ((h + block - 1) / block);
+        s->mem[0] = halopad_heap_alloc(s->size[0], 1);
+        s->dirty[0] = 1;
+    }
+    s->guest = halopad_com_new("IDirect3DSurface9", 4, s, res_destroy);
+    return s->guest;
+}
+
+uint32_t hpcom_IDirect3DDevice9_CreateOffscreenPlainSurface_c(uint32_t dev, uint32_t w, uint32_t h, uint32_t format, uint32_t pool,
+                                                              uint32_t out, uint32_t shared)
+{
+    halopad_com_state("IDirect3DDevice9", dev);
+    uint32_t bytes, block;
+    if (shared || !w || !h || !out || pool == 1 || pool > 3) return D3DERR_INVALIDCALL;   /* not MANAGED */
+    if (!fmt(format, &bytes, &block)) return D3DERR_INVALIDCALL;
+    if (block > 1 && ((w | h) & 3)) return D3DERR_INVALIDCALL;
+    wr32(out, halopad_d3d9_surface_new(dev, w, h, format, 0, pool, NULL, 1));
+    return D3D_OK;
 }
 
 static res *texture_of(res *s) { return R("IDirect3DTexture9", s->parent); }
@@ -313,19 +351,19 @@ uint32_t hpcom_IDirect3DSurface9_GetDesc_c(uint32_t g, uint32_t d)
 {
     res *s = R("IDirect3DSurface9", g);
     if (s->parent) level_desc(texture_of(s), s->level, d);
-    else hp_unsupported("IDirect3DSurface9::GetDesc", "a stand-alone surface");
+    else level_desc(s, 0, d);
     return D3D_OK;
 }
 uint32_t hpcom_IDirect3DSurface9_LockRect_c(uint32_t g, uint32_t out, uint32_t rect, uint32_t flags)
 {
     res *s = R("IDirect3DSurface9", g);
-    if (!s->parent) hp_unsupported("IDirect3DSurface9::LockRect", "a stand-alone surface");
+    if (!s->parent) return lock_level(s, 0, out, rect, flags);     /* back buffer and depth: no memory, not lockable */
     return lock_level(texture_of(s), s->level, out, rect, flags);
 }
 uint32_t hpcom_IDirect3DSurface9_UnlockRect_c(uint32_t g)
 {
     res *s = R("IDirect3DSurface9", g);
-    if (!s->parent) hp_unsupported("IDirect3DSurface9::UnlockRect", "a stand-alone surface");
+    if (!s->parent) return unlock_level(s, 0);
     return unlock_level(texture_of(s), s->level);
 }
 

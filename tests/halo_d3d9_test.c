@@ -445,6 +445,113 @@ int main(void)
         method(device, EndScene, 0, NULL);
         method(device, Present, 4, (uint32_t[]){0, 0, 0, 0});
         check("  pixel is the texture factor", halopad_metal_read_pixel(tg, 20, 20), 0xFF123456);
+        /* ---- render targets and StretchRect ---- */
+        enum { GetBackBuffer = 18, StretchRect = 34, CreateOffscreenPlainSurface = 36, SetRenderTarget = 37, GetRenderTarget = 38,
+               GetDepthStencilSurface = 40, SGetDesc = 12, SLockRect = 13, SUnlockRect = 14, SRelease = 2 };
+        uint32_t pbb = halopad_heap_alloc(4, 1), prt = halopad_heap_alloc(4, 1), desc = halopad_heap_alloc(32, 1);
+        check("rt: GetBackBuffer(0, 0, MONO)", method(device, GetBackBuffer, 4, (uint32_t[]){0, 0, 0, pbb}), 0);
+        uint32_t bb = rd(pbb);
+        method(bb, SGetDesc, 1, (uint32_t[]){desc});
+        check("  back buffer desc: X8R8G8B8 render target 640x480",
+              rd(desc) == 22 && rd(desc + 8) == 1 && rd(desc + 24) == 640 && rd(desc + 28) == 480, 1);
+        check("rt: GetRenderTarget(0) is the back buffer", method(device, GetRenderTarget, 2, (uint32_t[]){0, prt}) == 0 && rd(prt) == bb, 1);
+        method(bb, SRelease, 0, NULL);
+        check("rt: GetBackBuffer(0, 1) is invalid", method(device, GetBackBuffer, 4, (uint32_t[]){0, 1, 0, pbb}), 0x8876086C);
+        check("rt: GetDepthStencilSurface", method(device, GetDepthStencilSurface, 1, (uint32_t[]){prt}), 0);
+        method(rd(prt), SRelease, 0, NULL);
+
+        /* a 64x32 render-target texture, cleared green with its left half drawn red */
+        check("rt: CreateTexture 64x32 RENDERTARGET", method(device, CreateTexture, 8, (uint32_t[]){64, 32, 1, 1, 21, 0, pt, 0}), 0);
+        uint32_t rtt = rd(pt);
+        method(rtt, TGetSurfaceLevel, 2, (uint32_t[]){0, prt});
+        uint32_t rts = rd(prt);
+        check("rt: LockRect on a render-target texture is invalid", method(rtt, TLockRect, 4, (uint32_t[]){0, lr, 0, 0}), 0x8876086C);
+        check("rt: SetRenderTarget(1, ...) is invalid (one target)", method(device, SetRenderTarget, 2, (uint32_t[]){1, rts}), 0x8876086C);
+        check("rt: SetRenderTarget(0, NULL) is invalid", method(device, SetRenderTarget, 2, (uint32_t[]){0, 0}), 0x8876086C);
+        check("rt: SetRenderTarget(0, texture level 0)", method(device, SetRenderTarget, 2, (uint32_t[]){0, rts}), 0);
+        method(device, GetViewport, 1, (uint32_t[]){v});
+        check("  viewport reset to 64x32", rd(v) == 0 && rd(v + 8) == 64 && rd(v + 12) == 32, 1);
+        struct { float x, y, z, rhw; uint32_t c; } half[4] = {
+            {-0.5f, -0.5f, 0.5f, 1, 0xFFFF0000}, {31.5f, -0.5f, 0.5f, 1, 0xFFFF0000},
+            {-0.5f, 31.5f, 0.5f, 1, 0xFFFF0000}, {31.5f, 31.5f, 0.5f, 1, 0xFFFF0000}};
+        uint32_t ghalf = halopad_heap_alloc(sizeof half, 0);
+        memcpy(halopad_guest_ptr(ghalf), half, sizeof half);
+        method(device, SetFVF, 1, (uint32_t[]){0x44});                     /* XYZRHW | DIFFUSE */
+        method(device, SetTextureStageState, 3, (uint32_t[]){0, 2, 0});     /* ARG1 = DIFFUSE */
+        method(device, BeginScene, 0, NULL);
+        check("rt: Clear the render target green", method(device, Clear, 6, (uint32_t[]){0, 0, 1, 0xFF00FF00, onebits, 0}), 0);
+        check("rt: draw its left half red (depth buffer larger)", method(device, 83, 4, (uint32_t[]){5, 2, ghalf, sizeof half[0]}), 0);
+        method(device, EndScene, 0, NULL);
+
+        /* back on the back buffer, sample the texture across the screen */
+        check("rt: SetRenderTarget(0, back buffer)", method(device, SetRenderTarget, 2, (uint32_t[]){0, bb}), 0);
+        method(device, GetViewport, 1, (uint32_t[]){v});
+        check("  viewport reset to 640x480", rd(v + 8) == 640 && rd(v + 12) == 480, 1);
+        struct { float x, y, z, rhw, u, v; } full[4] = {
+            {-0.5f, -0.5f, 0.5f, 1, 0, 0}, {639.5f, -0.5f, 0.5f, 1, 1, 0}, {-0.5f, 479.5f, 0.5f, 1, 0, 1}, {639.5f, 479.5f, 0.5f, 1, 1, 1}};
+        uint32_t gfull = halopad_heap_alloc(sizeof full, 0);
+        memcpy(halopad_guest_ptr(gfull), full, sizeof full);
+        method(device, SetFVF, 1, (uint32_t[]){0x104});                    /* XYZRHW | TEX1 */
+        method(device, SetTexture, 2, (uint32_t[]){0, rtt});
+        method(device, SetTextureStageState, 3, (uint32_t[]){0, 2, 2});     /* ARG1 = TEXTURE */
+        method(device, BeginScene, 0, NULL);
+        method(device, Clear, 6, (uint32_t[]){0, 0, 3, 0xFF000000, onebits, 0});
+        check("rt: draw the screen with the render-target texture", method(device, 83, 4, (uint32_t[]){5, 2, gfull, sizeof full[0]}), 0);
+        method(device, EndScene, 0, NULL);
+        method(device, Present, 4, (uint32_t[]){0, 0, 0, 0});
+        check("  left half of the screen samples red", halopad_metal_read_pixel(tg, 100, 240), 0xFFFF0000);
+        check("  right half samples green", halopad_metal_read_pixel(tg, 540, 240), 0xFF00FF00);
+        method(device, SetTexture, 2, (uint32_t[]){0, 0});
+
+        /* StretchRect: the texture onto the back buffer at twice the size */
+        uint32_t rc = halopad_heap_alloc(16, 0);
+        memcpy(halopad_guest_ptr(rc), (int32_t[]){0, 0, 128, 64}, 16);
+        method(device, Clear, 6, (uint32_t[]){0, 0, 1, 0xFF000000, onebits, 0});
+        check("rt: StretchRect texture -> back buffer 128x64 (point)", method(device, StretchRect, 5, (uint32_t[]){rts, 0, bb, rc, 1}), 0);
+        method(device, Present, 4, (uint32_t[]){0, 0, 0, 0});
+        check("  (10,10) red", halopad_metal_read_pixel(tg, 10, 10), 0xFFFF0000);
+        check("  (63,63) red, (64,63) green (scaled edge)", halopad_metal_read_pixel(tg, 63, 63) == 0xFFFF0000
+              && halopad_metal_read_pixel(tg, 64, 63) == 0xFF00FF00, 1);
+        check("  (130,10) outside the rectangle untouched", halopad_metal_read_pixel(tg, 130, 10), 0xFF000000);
+        check("rt: StretchRect onto the same surface is invalid", method(device, StretchRect, 5, (uint32_t[]){bb, 0, bb, 0, 0}), 0x8876086C);
+        memcpy(halopad_guest_ptr(rc), (int32_t[]){0, 0, 65, 32}, 16);
+        check("rt: StretchRect with a source rectangle outside is invalid", method(device, StretchRect, 5, (uint32_t[]){rts, rc, bb, 0, 0}), 0x8876086C);
+
+        /* back buffer -> texture (same size: a copy), then the texture back at (200, 200) */
+        memcpy(halopad_guest_ptr(rc), (int32_t[]){32, 0, 96, 32}, 16);
+        check("rt: StretchRect back buffer -> texture (copy)", method(device, StretchRect, 5, (uint32_t[]){bb, rc, rts, 0, 0}), 0);
+        memcpy(halopad_guest_ptr(rc), (int32_t[]){200, 200, 264, 232}, 16);
+        method(device, StretchRect, 5, (uint32_t[]){rts, 0, bb, rc, 0});
+        method(device, Present, 4, (uint32_t[]){0, 0, 0, 0});
+        check("  red (back buffer x 32-63) lands at (231,210)", halopad_metal_read_pixel(tg, 231, 210), 0xFFFF0000);
+        check("  green (back buffer x 64-95) at (232,210) and (263,231)", halopad_metal_read_pixel(tg, 232, 210) == 0xFF00FF00
+              && halopad_metal_read_pixel(tg, 263, 231) == 0xFF00FF00, 1);
+        check("  (264,210) outside untouched", halopad_metal_read_pixel(tg, 264, 210), 0xFF000000);
+
+        /* Halo's loading screen: an offscreen plain X8R8G8B8 surface, filled, stretched onto the target */
+        uint32_t poff = halopad_heap_alloc(4, 1);
+        check("rt: CreateOffscreenPlainSurface 4x4 X8R8G8B8 default pool",
+              method(device, CreateOffscreenPlainSurface, 6, (uint32_t[]){4, 4, 22, 0, poff, 0}), 0);
+        uint32_t off = rd(poff);
+        method(off, SGetDesc, 1, (uint32_t[]){desc});
+        check("  desc: X8R8G8B8 4x4, no usage", rd(desc) == 22 && rd(desc + 8) == 0 && rd(desc + 24) == 4 && rd(desc + 28) == 4, 1);
+        check("  LockRect", method(off, SLockRect, 3, (uint32_t[]){lr, 0, 0}), 0);
+        for (int yy = 0; yy < 4; yy++)
+            for (int xx = 0; xx < 4; xx++) {
+                uint32_t px = xx < 2 ? 0x00FF00FFu : 0x000000FFu;           /* X byte 0: must still read as opaque */
+                memcpy((uint8_t *)halopad_guest_ptr(rd(lr + 4)) + yy * rd(lr) + 4 * xx, &px, 4);
+            }
+        check("  UnlockRect", method(off, SUnlockRect, 0, NULL), 0);
+        check("rt: StretchRect offscreen -> back buffer (filter NONE)", method(device, StretchRect, 5, (uint32_t[]){off, 0, bb, 0, 0}), 0);
+        method(device, Present, 4, (uint32_t[]){0, 0, 0, 0});
+        check("  (100,240) magenta, opaque", halopad_metal_read_pixel(tg, 100, 240), 0xFFFF00FF);
+        check("  (540,240) blue, opaque", halopad_metal_read_pixel(tg, 540, 240), 0xFF0000FF);
+        check("rt: CreateOffscreenPlainSurface in the managed pool is invalid",
+              method(device, CreateOffscreenPlainSurface, 6, (uint32_t[]){4, 4, 22, 1, poff, 0}), 0x8876086C);
+        check("  Release the offscreen surface", method(off, SRelease, 0, NULL), 0);
+        method(rts, SRelease, 0, NULL);
+        check("  Release the render-target texture", method(rtt, TRelease, 0, NULL), 0);
+        method(bb, SRelease, 0, NULL);
         method(t2, TRelease, 0, NULL);
     }
 

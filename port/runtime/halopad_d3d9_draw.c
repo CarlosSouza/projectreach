@@ -205,6 +205,7 @@ static void *upload_texture(res *t)
     uint32_t mtl;
     uint8_t sw[4];
     int convert;
+    if (t->usage & 0x1) return halopad_d3d9_rt_view(t);             /* render target: its contents are on the GPU */
     texture_format(t->format, &mtl, sw, &convert);
     if (!t->native) t->native = halopad_metal_texture(2, mtl, t->width, t->height, 1, t->levels, sw);
     for (uint32_t l = 0; l < t->levels; l++) {
@@ -224,6 +225,7 @@ static void *upload_texture(res *t)
     }
     return t->native;
 }
+void *halopad_d3d9_upload_texture(res *t) { return upload_texture(t); }
 
 static void *sampler(device *d, int s)
 {
@@ -306,6 +308,7 @@ static uint32_t draw(device *d, uint32_t type, uint32_t prims, uint32_t start, i
     if (!d->in_scene) return D3DERR_INVALIDCALL;
     if (type < 1 || type > 6 || !prims) return D3DERR_INVALIDCALL;
     check_states(d);
+    hp_bound bound = halopad_d3d9_bind_targets(d);
     hp_pipeline_desc pd;
     memset(&pd, 0, sizeof pd);
     hp_draw_desc dd;
@@ -390,7 +393,9 @@ static uint32_t draw(device *d, uint32_t type, uint32_t prims, uint32_t start, i
     else { pd.src_a = pd.src_rgb; pd.dst_a = pd.dst_rgb; pd.op_a = pd.op_rgb; }
     uint32_t cw = rs[168];                                          /* D3D R1 G2 B4 A8 -> Metal A1 B2 G4 R8 */
     pd.write_mask = (uint8_t)(((cw & 1) << 3) | ((cw & 2) << 1) | ((cw & 4) >> 1) | ((cw & 8) >> 3));
-    pd.depth = d->pp[9] != 0;
+    if (bound.format == 22) pd.write_mask &= (uint8_t)~1u;          /* X8R8G8B8: alpha stays 1, as Direct3D reads it */
+    pd.depth = (uint8_t)bound.depth;
+    pd.color_format = bound.mtl;
     char err[512];
     dd.pipeline = halopad_metal_pipeline(&pd, err, sizeof err);
     if (!dd.pipeline) hp_unsupported("draw", "Metal pipeline: %s", err);

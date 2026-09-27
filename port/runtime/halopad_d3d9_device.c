@@ -4,6 +4,7 @@
  * level, caps/display/creation queries, scenes, Clear (whole targets) and Present (whole
  * back buffer), and the full fixed state: render states, texture-stage states, sampler
  * states, transforms and viewport, starting from Direct3D 9's documented defaults.
+ * Resources, draws, fixed function and render targets are in the other halopad_d3d9_*.c files.
  * Every other method traps with its name (generated stubs). Unknown state numbers,
  * partial clears/presents, multisampling and pure devices stop with their values. */
 #include "halopad_win32.h"
@@ -101,6 +102,7 @@ static void destroy(void *p)
     device *d = p;
     for (int i = 0; i < 16; i++) { rebind(&d->texture[i], 0); rebind(&d->stream[i], 0); }
     rebind(&d->indices, 0); rebind(&d->decl, 0); rebind(&d->vs, 0); rebind(&d->ps, 0);
+    halopad_d3d9_release_targets(d);
     if (d->target) halopad_metal_target_destroy(d->target);
     free(d);
 }
@@ -143,6 +145,7 @@ uint32_t halopad_d3d9_create_device(uint32_t d3d, uint32_t adapter, uint32_t typ
        round-to-nearest for the calling thread. */
     if (!(behavior & 0x2) && halopad_cpu) halopad_cpu->_st_cw &= ~0x0F00u;
     d->guest = halopad_com_new("IDirect3DDevice9", 4, d, destroy);
+    halopad_d3d9_create_targets(d);
     halopad_com_addref(d3d);
     wr32(out, d->guest);
     return D3D_OK;
@@ -230,12 +233,16 @@ uint32_t hpcom_IDirect3DDevice9_Clear_c(uint32_t g, uint32_t count, uint32_t rec
     device *d = dev(g);
     if (count || rects) hp_unsupported("IDirect3DDevice9::Clear", "%u rectangles", count);
     if (flags & ~0x7u) return D3DERR_INVALIDCALL;
-    if ((flags & 0x6) && !d->pp[9]) return D3DERR_INVALIDCALL;       /* no depth/stencil buffer */
+    hp_bound b = halopad_d3d9_bind_targets(d);
+    if ((flags & 0x6) && !b.depth) return D3DERR_INVALIDCALL;        /* no depth/stencil surface */
     uint32_t v[6];
     memcpy(v, d->viewport, sizeof v);
-    if (v[0] || v[1] || v[2] != d->pp[0] || v[3] != d->pp[1])
+    if (v[0] || v[1] || v[2] != b.width || v[3] != b.height)
         hp_unsupported("IDirect3DDevice9::Clear", "a clear limited to viewport %ux%u at %u,%u", v[2], v[3], v[0], v[1]);
+    if ((flags & 0x6) && (b.width != d->pp[0] || b.height != d->pp[1]))
+        hp_unsupported("IDirect3DDevice9::Clear", "depth/stencil clear with a %ux%u render target on the larger depth buffer", b.width, b.height);
     float rgba[4] = {((color >> 16) & 0xFF) / 255.0f, ((color >> 8) & 0xFF) / 255.0f, (color & 0xFF) / 255.0f, (color >> 24) / 255.0f};
+    if (b.format == 22) rgba[3] = 1.0f;                              /* X8R8G8B8 keeps alpha 1 */
     float zf;
     memcpy(&zf, &z, 4);
     halopad_metal_clear(d->target, flags & 1, (flags >> 1) & 1, (flags >> 2) & 1, rgba, zf, stencil);
@@ -316,7 +323,8 @@ uint32_t hpcom_IDirect3DDevice9_SetViewport_c(uint32_t g, uint32_t vp)
     device *d = dev(g);
     uint32_t v[6];
     memcpy(v, G(vp), sizeof v);
-    if (v[0] + v[2] > d->pp[0] || v[1] + v[3] > d->pp[1] || !v[2] || !v[3]) return D3DERR_INVALIDCALL;
+    hp_bound b = halopad_d3d9_bind_targets(d);
+    if (v[0] + v[2] > b.width || v[1] + v[3] > b.height || !v[2] || !v[3]) return D3DERR_INVALIDCALL;
     memcpy(d->viewport, v, sizeof v);
     return D3D_OK;
 }

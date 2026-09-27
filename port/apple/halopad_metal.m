@@ -18,6 +18,8 @@ typedef struct {
     CAMetalLayer *layer;
     id<MTLTexture> back, depth;
     uint32_t width, height;
+    id<MTLTexture> color, zs;                /* current attachments (Direct3D's render target and depth surface) */
+    uint32_t level;                          /* mip level of color */
     id<MTLCommandBuffer> cb;                 /* the frame being recorded */
     id<MTLRenderCommandEncoder> enc;
 } hp_target;
@@ -89,6 +91,8 @@ void *halopad_metal_target_create(uint32_t width, uint32_t height, int depth_ste
     }
     t->width = width;
     t->height = height;
+    t->color = t->back;
+    t->zs = t->depth;
     return t;
 }
 
@@ -96,26 +100,27 @@ void halopad_metal_target_destroy(void *p)
 {
     hp_target *t = p;
     @autoreleasepool { [t->window close]; }
-    t->window = nil; t->layer = nil; t->back = nil; t->depth = nil;
+    t->window = nil; t->layer = nil; t->back = nil; t->depth = nil; t->color = nil; t->zs = nil;
     free(t);
 }
 
-/* Clear the whole back buffer and/or depth/stencil (Direct3D's D3DCLEAR_TARGET/ZBUFFER/STENCIL). */
+/* Clear the whole colour and/or depth/stencil attachment (Direct3D's D3DCLEAR_TARGET/ZBUFFER/STENCIL). */
 void halopad_metal_clear(void *p, int color, int depth, int stencil, const float rgba[4], float z, uint32_t s)
 {
     hp_target *t = p;
     @autoreleasepool {
         MTLRenderPassDescriptor *rp = [MTLRenderPassDescriptor renderPassDescriptor];
-        rp.colorAttachments[0].texture = t->back;
+        rp.colorAttachments[0].texture = t->color;
+        rp.colorAttachments[0].level = t->level;
         rp.colorAttachments[0].loadAction = color ? MTLLoadActionClear : MTLLoadActionLoad;
         rp.colorAttachments[0].clearColor = MTLClearColorMake(rgba[0], rgba[1], rgba[2], rgba[3]);
         rp.colorAttachments[0].storeAction = MTLStoreActionStore;
-        if (t->depth) {
-            rp.depthAttachment.texture = t->depth;
+        if (t->zs) {
+            rp.depthAttachment.texture = t->zs;
             rp.depthAttachment.loadAction = depth ? MTLLoadActionClear : MTLLoadActionLoad;
             rp.depthAttachment.clearDepth = z;
             rp.depthAttachment.storeAction = MTLStoreActionStore;
-            rp.stencilAttachment.texture = t->depth;
+            rp.stencilAttachment.texture = t->zs;
             rp.stencilAttachment.loadAction = stencil ? MTLLoadActionClear : MTLLoadActionLoad;
             rp.stencilAttachment.clearStencil = s & 0xFF;
             rp.stencilAttachment.storeAction = MTLStoreActionStore;
@@ -223,7 +228,7 @@ void *halopad_metal_pipeline(const hp_pipeline_desc *d, char *err, uint32_t errl
         }
         pd.vertexDescriptor = vd;
         MTLRenderPipelineColorAttachmentDescriptor *ca = pd.colorAttachments[0];
-        ca.pixelFormat = MTLPixelFormatBGRA8Unorm;
+        ca.pixelFormat = d->color_format ? d->color_format : MTLPixelFormatBGRA8Unorm;
         ca.blendingEnabled = d->blend;
         ca.sourceRGBBlendFactor = d->src_rgb; ca.destinationRGBBlendFactor = d->dst_rgb; ca.rgbBlendOperation = d->op_rgb;
         ca.sourceAlphaBlendFactor = d->src_a; ca.destinationAlphaBlendFactor = d->dst_a; ca.alphaBlendOperation = d->op_a;
@@ -328,13 +333,14 @@ void halopad_metal_draw(void *target, const hp_draw_desc *d)
     hp_target *t = target;
     if (!t->enc) {
         MTLRenderPassDescriptor *rp = [MTLRenderPassDescriptor renderPassDescriptor];
-        rp.colorAttachments[0].texture = t->back;
+        rp.colorAttachments[0].texture = t->color;
+        rp.colorAttachments[0].level = t->level;
         rp.colorAttachments[0].loadAction = MTLLoadActionLoad;
         rp.colorAttachments[0].storeAction = MTLStoreActionStore;
-        if (t->depth) {
-            rp.depthAttachment.texture = t->depth; rp.depthAttachment.loadAction = MTLLoadActionLoad;
+        if (t->zs) {
+            rp.depthAttachment.texture = t->zs; rp.depthAttachment.loadAction = MTLLoadActionLoad;
             rp.depthAttachment.storeAction = MTLStoreActionStore;
-            rp.stencilAttachment.texture = t->depth; rp.stencilAttachment.loadAction = MTLLoadActionLoad;
+            rp.stencilAttachment.texture = t->zs; rp.stencilAttachment.loadAction = MTLLoadActionLoad;
             rp.stencilAttachment.storeAction = MTLStoreActionStore;
         }
         t->enc = [frame(t) renderCommandEncoderWithDescriptor:rp];
@@ -350,7 +356,7 @@ void halopad_metal_draw(void *target, const hp_draw_desc *d)
     [e setBlendColorRed:d->blend_color[0] green:d->blend_color[1] blue:d->blend_color[2] alpha:d->blend_color[3]];
     [e setViewport:(MTLViewport){d->viewport[0], d->viewport[1], d->viewport[2], d->viewport[3], d->viewport[4], d->viewport[5]}];
     MTLScissorRect sc = d->scissor ? (MTLScissorRect){d->scissor_rect[0], d->scissor_rect[1], d->scissor_rect[2], d->scissor_rect[3]}
-                                   : (MTLScissorRect){0, 0, t->width, t->height};
+                                   : (MTLScissorRect){0, 0, MAX(t->color.width >> t->level, 1u), MAX(t->color.height >> t->level, 1u)};
     [e setScissorRect:sc];
     for (int s = 0; s < 16; s++) if (d->vbuf[s]) [e setVertexBuffer:(__bridge id<MTLBuffer>)d->vbuf[s] offset:d->voff[s] atIndex:s];
     if (!constant_attr) { float v[4] = {0, 0, 0, 1}; constant_attr = [gpu newBufferWithBytes:v length:16 options:MTLResourceStorageModeShared]; }
@@ -368,4 +374,125 @@ void halopad_metal_draw(void *target, const hp_draw_desc *d)
                       baseVertex:d->base_vertex baseInstance:0];
     else
         [e drawPrimitives:d->prim vertexStart:d->start vertexCount:d->count];
+}
+
+/* ---- render targets ---- */
+
+void *halopad_metal_target_back(void *p) { return (__bridge void *)((hp_target *)p)->back; }
+void *halopad_metal_target_depth(void *p) { return (__bridge void *)((hp_target *)p)->depth; }
+
+void halopad_metal_set_attachments(void *p, void *color, uint32_t level, void *depth)
+{
+    hp_target *t = p;
+    id<MTLTexture> c = (__bridge id<MTLTexture>)color, z = (__bridge id<MTLTexture>)depth;
+    if (c == t->color && level == t->level && z == t->zs) return;
+    end_encoder(t);
+    t->color = c; t->level = level; t->zs = z;
+}
+
+void *halopad_metal_render_texture(uint32_t format, uint32_t w, uint32_t h, uint32_t levels)
+{
+    ensure_app();
+    MTLTextureDescriptor *td = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:format width:w height:h mipmapped:NO];
+    td.mipmapLevelCount = levels;
+    td.storageMode = MTLStorageModeShared;
+    td.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
+    return (__bridge_retained void *)[gpu newTextureWithDescriptor:td];
+}
+
+void *halopad_metal_texture_view(void *tex, const uint8_t sw[4])
+{
+    id<MTLTexture> t = (__bridge id<MTLTexture>)tex;
+    id<MTLTexture> v = [t newTextureViewWithPixelFormat:t.pixelFormat textureType:t.textureType levels:NSMakeRange(0, t.mipmapLevelCount)
+                                                 slices:NSMakeRange(0, 1) swizzle:MTLTextureSwizzleChannelsMake(sw[0], sw[1], sw[2], sw[3])];
+    return (__bridge_retained void *)v;
+}
+
+static const char stretch_msl[] =
+    "#include <metal_stdlib>\n"
+    "using namespace metal;\n"
+    "struct V { float4 p [[position]]; float2 uv; };\n"
+    "struct P { float4 r; float lod; };\n"
+    "vertex V hp_vs(uint i [[vertex_id]], constant P &c [[buffer(0)]]) {\n"
+    "    float2 k = float2(i & 1, i >> 1);\n"
+    "    V o; o.p = float4(k.x * 2 - 1, 1 - k.y * 2, 0, 1); o.uv = mix(c.r.xy, c.r.zw, k); return o;\n"
+    "}\n"
+    "fragment float4 hp_ps(V i [[stage_in]], constant P &c [[buffer(0)]], texture2d<float> t [[texture(0)]], sampler s [[sampler(0)]]) {\n"
+    "    return t.sample(s, i.uv, level(c.lod));\n"
+    "}\n"
+    "fragment float4 hp_ps_opaque(V i [[stage_in]], constant P &c [[buffer(0)]], texture2d<float> t [[texture(0)]], sampler s [[sampler(0)]]) {\n"
+    "    return float4(t.sample(s, i.uv, level(c.lod)).rgb, 1);\n"
+    "}\n";
+
+void halopad_metal_stretch(void *p, void *src, uint32_t slevel, const uint32_t sr[4], void *dst, uint32_t dlevel,
+                           const uint32_t dr[4], int linear, int opaque)
+{
+    hp_target *t = p;
+    id<MTLTexture> s = (__bridge id<MTLTexture>)src, d = (__bridge id<MTLTexture>)dst;
+    static NSMutableDictionary *stretch_pipes;
+    static id<MTLSamplerState> smp[2];
+    @autoreleasepool {
+        end_encoder(t);
+        id<MTLCommandBuffer> cb = frame(t);
+        if (!opaque && sr[2] == dr[2] && sr[3] == dr[3] && s.pixelFormat == d.pixelFormat) {
+            id<MTLBlitCommandEncoder> b = [cb blitCommandEncoder];
+            [b copyFromTexture:s sourceSlice:0 sourceLevel:slevel sourceOrigin:MTLOriginMake(sr[0], sr[1], 0)
+                    sourceSize:MTLSizeMake(sr[2], sr[3], 1) toTexture:d destinationSlice:0 destinationLevel:dlevel
+             destinationOrigin:MTLOriginMake(dr[0], dr[1], 0)];
+            [b endEncoding];
+            return;
+        }
+        if (!stretch_pipes) {
+            stretch_pipes = [NSMutableDictionary new];
+            for (int i = 0; i < 2; i++) {
+                MTLSamplerDescriptor *sd = [MTLSamplerDescriptor new];
+                sd.minFilter = sd.magFilter = i ? MTLSamplerMinMagFilterLinear : MTLSamplerMinMagFilterNearest;
+                sd.sAddressMode = sd.tAddressMode = MTLSamplerAddressModeClampToEdge;
+                smp[i] = [gpu newSamplerStateWithDescriptor:sd];
+            }
+        }
+        NSNumber *key = @(d.pixelFormat | (opaque ? 0x10000u : 0u));
+        id<MTLRenderPipelineState> ps = stretch_pipes[key];
+        if (!ps) {
+            char err[512];
+            MTLRenderPipelineDescriptor *pd = [MTLRenderPipelineDescriptor new];
+            pd.vertexFunction = function(stretch_msl, @"hp_vs", err, sizeof err);
+            pd.fragmentFunction = function(stretch_msl, opaque ? @"hp_ps_opaque" : @"hp_ps", err, sizeof err);
+            pd.colorAttachments[0].pixelFormat = d.pixelFormat;
+            NSError *e = nil;
+            ps = [gpu newRenderPipelineStateWithDescriptor:pd error:&e];
+            if (!ps) { fprintf(stderr, "HALOPAD TRAP: stretch pipeline: %s\n", e.localizedDescription.UTF8String); abort(); }
+            stretch_pipes[key] = ps;
+        }
+        float sw = (float)MAX(s.width >> slevel, 1u), sh = (float)MAX(s.height >> slevel, 1u);
+        struct { float r[4]; float lod; float pad[3]; } c = {{sr[0] / sw, sr[1] / sh, (sr[0] + sr[2]) / sw, (sr[1] + sr[3]) / sh}, (float)slevel, {0}};
+        MTLRenderPassDescriptor *rp = [MTLRenderPassDescriptor renderPassDescriptor];
+        rp.colorAttachments[0].texture = d;
+        rp.colorAttachments[0].level = dlevel;
+        rp.colorAttachments[0].loadAction = MTLLoadActionLoad;
+        rp.colorAttachments[0].storeAction = MTLStoreActionStore;
+        id<MTLRenderCommandEncoder> e = [cb renderCommandEncoderWithDescriptor:rp];
+        [e setRenderPipelineState:ps];
+        [e setViewport:(MTLViewport){dr[0], dr[1], dr[2], dr[3], 0, 1}];
+        [e setVertexBytes:&c length:sizeof c atIndex:0];
+        [e setFragmentBytes:&c length:sizeof c atIndex:0];
+        [e setFragmentTexture:s atIndex:0];
+        [e setFragmentSamplerState:smp[linear ? 1 : 0] atIndex:0];
+        [e drawPrimitives:MTLPrimitiveTypeTriangleStrip vertexStart:0 vertexCount:4];
+        [e endEncoding];
+    }
+}
+
+void halopad_metal_read_texture(void *p, void *tex, uint32_t level, uint32_t x, uint32_t y, uint32_t w, uint32_t h,
+                                void *out, uint32_t bytes_per_row)
+{
+    hp_target *t = p;
+    @autoreleasepool {
+        end_encoder(t);
+        id<MTLCommandBuffer> cb = t->cb ? t->cb : [queue commandBuffer];
+        t->cb = nil;
+        [cb commit];
+        [cb waitUntilCompleted];
+        [(__bridge id<MTLTexture>)tex getBytes:out bytesPerRow:bytes_per_row fromRegion:MTLRegionMake2D(x, y, w, h) mipmapLevel:level];
+    }
 }
