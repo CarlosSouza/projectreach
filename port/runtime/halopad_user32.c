@@ -164,6 +164,24 @@ uint32_t GetWindowRect_c(uint32_t hwnd, uint32_t rect)
     return 1;
 }
 
+/* For the graphics layer: a window's client size and title. */
+int halopad_window_client_size(uint32_t hwnd, int32_t *cw, int32_t *ch)
+{
+    uobj *w = uget(hwnd, H_WINDOW);
+    if (!w) return 0;
+    int32_t l, t, r, b;
+    frame_insets(hwnd == DESKTOP ? 0 : w->style, &l, &t, &r, &b);
+    *cw = w->w - l - r;
+    *ch = w->h - t - b;
+    return 1;
+}
+
+const char *halopad_window_text(uint32_t hwnd)
+{
+    uobj *w = uget(hwnd, H_WINDOW);
+    return w ? w->text : "HaloPad";
+}
+
 uint32_t GetClientRect_c(uint32_t hwnd, uint32_t rect)
 {
     uobj *w = uget(hwnd, H_WINDOW);

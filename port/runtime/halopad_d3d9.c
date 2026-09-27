@@ -1,8 +1,8 @@
 /* HaloPad Direct3D 9, part 1 (G3/G4): Direct3DCreate9 and IDirect3D9.
  * Answers follow docs/GRAPHICS-CONTRACT.md: the adapter identity selects Halo's own
  * config.txt tuning (ATI Radeon 9700 PRO); capabilities, formats and modes are promises
- * about HaloPad's Metal layer and are reported absent otherwise. CreateDevice stops until
- * the Metal device exists, printing Halo's presentation parameters. */
+ * about HaloPad's Metal layer and are reported absent otherwise. The device itself is in
+ * halopad_d3d9_device.c. */
 #include "halopad_win32.h"
 
 uint32_t halopad_com_new(const char *iface, uint32_t size, void *state, void (*destroy)(void *));
@@ -189,10 +189,18 @@ uint32_t hpcom_IDirect3D9_CheckDeviceFormatConversion_c(uint32_t g, uint32_t ada
     return (!adapter && type == HAL && src == dst && is_rt(src)) ? D3D_OK : D3DERR_NOTAVAILABLE;
 }
 
+void halopad_d3d9_fill_caps(uint32_t c);
 uint32_t hpcom_IDirect3D9_GetDeviceCaps_c(uint32_t g, uint32_t adapter, uint32_t type, uint32_t c)
 {
     self(g);
     if (adapter || type != HAL) return D3DERR_NOTAVAILABLE;
+    halopad_d3d9_fill_caps(c);
+    return D3D_OK;
+}
+
+/* D3DCAPS9 per docs/GRAPHICS-CONTRACT.md (shared with IDirect3DDevice9::GetDeviceCaps). */
+void halopad_d3d9_fill_caps(uint32_t c)
+{
     memset(G(c), 0, 304);
     wr32(c + 0, HAL);
     wr32(c + 12, 0x20000u | 0x20000000u | 0x40000000u);            /* Caps2: FULLSCREENGAMMA, DYNAMICTEXTURES, CANAUTOGENMIPMAP */
@@ -248,7 +256,6 @@ uint32_t hpcom_IDirect3D9_GetDeviceCaps_c(uint32_t g, uint32_t adapter, uint32_t
     wr32(c + 284, 0);                                              /* VertexTextureFilterCaps: no vertex textures */
     wr32(c + 288, 65535); wr32(c + 292, 96);                       /* MaxVShaderInstructionsExecuted, MaxPShaderInstructionsExecuted */
     wr32(c + 296, 0); wr32(c + 300, 0);                            /* no shader model 3 */
-    return D3D_OK;
 }
 
 uint32_t hpcom_IDirect3D9_GetAdapterMonitor_c(uint32_t g, uint32_t adapter)
@@ -257,15 +264,11 @@ uint32_t hpcom_IDirect3D9_GetAdapterMonitor_c(uint32_t g, uint32_t adapter)
     return adapter ? 0 : 0x00010001u;                              /* the single monitor's HMONITOR */
 }
 
+uint32_t halopad_d3d9_create_device(uint32_t d3d, uint32_t adapter, uint32_t type, uint32_t focus, uint32_t behavior,
+                                    uint32_t pp, uint32_t out);
 uint32_t hpcom_IDirect3D9_CreateDevice_c(uint32_t g, uint32_t adapter, uint32_t type, uint32_t focus, uint32_t behavior,
                                           uint32_t pp, uint32_t out)
 {
-    (void)out; self(g);
-    hp_unsupported("IDirect3D9::CreateDevice",
-                   "the Metal device (adapter %u, type %u, focus 0x%08x, behavior 0x%x; back buffer %ux%u format %u count %u, "
-                   "multisample %u, swap effect %u, window 0x%08x, windowed %u, auto depth %u format %u, flags 0x%x, "
-                   "refresh %u, interval 0x%x)",
-                   adapter, type, focus, behavior, rd32(pp), rd32(pp + 4), rd32(pp + 8), rd32(pp + 12), rd32(pp + 16),
-                   rd32(pp + 24), rd32(pp + 28), rd32(pp + 32), rd32(pp + 36), rd32(pp + 40), rd32(pp + 44), rd32(pp + 48),
-                   rd32(pp + 52));
+    self(g);
+    return halopad_d3d9_create_device(g, adapter, type, focus, behavior, pp, out);
 }

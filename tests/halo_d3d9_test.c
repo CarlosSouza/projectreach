@@ -114,6 +114,63 @@ int main(void)
     check("CheckDeviceMultiSampleType NONE", method(d3d, CheckDeviceMultiSampleType, 6, (uint32_t[]){0, 1, 22, 1, 0, q}), 0);
     check("CheckDeviceMultiSampleType 4x not available", method(d3d, CheckDeviceMultiSampleType, 6, (uint32_t[]){0, 1, 22, 1, 4, q}), 0x8876086A);
     check("CheckDepthStencilMatch X8R8G8B8/D24S8", method(d3d, CheckDepthStencilMatch, 5, (uint32_t[]){0, 1, 22, 22, 75}), 0);
+    /* Device on a real window: class and window created through their guest exports, with
+       user32's own DefWindowProcA as the window procedure. */
+    uint32_t user32 = LoadLibraryA_c(str("user32.dll"));
+    uint32_t defproc = GetProcAddress_c(user32, str("DefWindowProcA"));
+    uint32_t wc = halopad_heap_alloc(48, 1);
+    uint32_t cls = str("HaloPadTest");
+    uint32_t wcv[12] = {48, 0, defproc, 0, 0, 0x400000, 0, 0, 0, 0, cls, 0};
+    memcpy(halopad_guest_ptr(wc), wcv, 48);
+    check("RegisterClassExA", halopad_call_guest(GetProcAddress_c(user32, str("RegisterClassExA")), 1, &wc) != 0, 1);
+    uint32_t cw[12] = {0, cls, str("HaloPad D3D9 test"), 0x00CF0000, 100, 100, 640 + 8, 480 + 27, 0, 0, 0x400000, 0};
+    uint32_t hwnd = halopad_call_guest(GetProcAddress_c(user32, str("CreateWindowExA")), 12, cw);
+    check("CreateWindowExA", hwnd != 0, 1);
+
+    enum { CreateDevice = 16 };
+    uint32_t pp = halopad_heap_alloc(56, 1);
+    uint32_t ppv[14] = {0, 0, 0, 1, 0, 0, 1 /* DISCARD */, hwnd, 1 /* windowed */, 1, 75 /* D24S8 */, 0, 0, 0x80000000};
+    memcpy(halopad_guest_ptr(pp), ppv, 56);
+    uint32_t pdev = halopad_heap_alloc(4, 1);
+    cpu._st_cw = 0x027F;
+    check("CreateDevice (windowed, HW vertex processing)", method(d3d, CreateDevice, 6, (uint32_t[]){0, 1, hwnd, 0x40, pp, pdev}), 0);
+    uint32_t device = rd(pdev);
+    check("  back buffer width from the client area", rd(pp), 640);
+    check("  back buffer height from the client area", rd(pp + 4), 480);
+    check("  x87 set to single precision (no FPU_PRESERVE)", cpu._st_cw, 0x007F);
+    enum { DRelease = 2, TestCooperativeLevel = 3, Present = 17, BeginScene = 41, EndScene = 42, Clear = 43,
+           SetViewport = 47, GetViewport = 48, SetRenderState = 57, GetRenderState = 58, GetSamplerState = 68,
+           GetTextureStageState = 66 };
+    uint32_t v = halopad_heap_alloc(24, 1);
+    check("TestCooperativeLevel", method(device, TestCooperativeLevel, 0, NULL), 0);
+    method(device, GetRenderState, 2, (uint32_t[]){7, v});
+    check("  default ZENABLE with auto depth", rd(v), 1);
+    method(device, GetRenderState, 2, (uint32_t[]){58, v});
+    check("  default STENCILMASK", rd(v), 0xFFFFFFFF);
+    method(device, GetRenderState, 2, (uint32_t[]){22, v});
+    check("  default CULLMODE (CCW)", rd(v), 3);
+    method(device, GetTextureStageState, 3, (uint32_t[]){0, 1, v});
+    check("  default stage 0 COLOROP (MODULATE)", rd(v), 4);
+    method(device, GetTextureStageState, 3, (uint32_t[]){1, 1, v});
+    check("  default stage 1 COLOROP (DISABLE)", rd(v), 1);
+    method(device, GetSamplerState, 3, (uint32_t[]){0, 7, v});
+    check("  default MIPFILTER (NONE)", rd(v), 0);
+    check("SetRenderState ALPHABLENDENABLE", method(device, SetRenderState, 2, (uint32_t[]){27, 1}), 0);
+    method(device, GetRenderState, 2, (uint32_t[]){27, v});
+    check("  reads back", rd(v), 1);
+    method(device, GetViewport, 1, (uint32_t[]){v});
+    check("  default viewport covers the back buffer", rd(v + 8) == 640 && rd(v + 12) == 480, 1);
+    check("BeginScene", method(device, BeginScene, 0, NULL), 0);
+    check("BeginScene twice is invalid", method(device, BeginScene, 0, NULL), 0x8876086C);
+    float one = 1.0f; uint32_t onebits; memcpy(&onebits, &one, 4);
+    check("Clear target+z to 0xff336699", method(device, Clear, 6, (uint32_t[]){0, 0, 3, 0xFF336699, onebits, 0}), 0);
+    check("EndScene", method(device, EndScene, 0, NULL), 0);
+    check("Present", method(device, Present, 4, (uint32_t[]){0, 0, 0, 0}), 0);
+    void *halopad_d3d9_device_target(uint32_t g);
+    uint32_t halopad_metal_read_pixel(void *t, uint32_t x, uint32_t y);
+    check("  presented pixel (0,0) from Metal", halopad_metal_read_pixel(halopad_d3d9_device_target(device), 0, 0), 0xFF336699);
+    check("  presented pixel (639,479) from Metal", halopad_metal_read_pixel(halopad_d3d9_device_target(device), 639, 479), 0xFF336699);
+    check("Device Release to zero", method(device, DRelease, 0, NULL), 0);
     check("Release to zero", method(d3d, Release, 0, NULL), 0);
 
     printf("%s: %d failure(s)\n", failures ? "FAIL" : "PASS", failures);
