@@ -57,3 +57,4 @@ include llasm_pushx.llinc
 include llasm_scas.llinc
 include llasm_stos.llinc
 include llasm_xti.llinc
+include llasm_halopad.llinc

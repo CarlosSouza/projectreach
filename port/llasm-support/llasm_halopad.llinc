@@ -1,0 +1,8 @@
+; HaloPad additions to the llasm support (see llasm_halopad.c)
+
+funcv x86_cpuid $
+funcv x86_rdtsc $
+funcv x86_repe_cmpsw_prep $
+funcv x86_repne_cmpsw_prep $
+funcv x86_repe_cmpsd_prep $
+funcv x86_repne_cmpsd_prep $

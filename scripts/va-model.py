@@ -22,6 +22,7 @@ Usage: va-model.py --work generated/srw/<profile>/run-<id> --llasm <llasm binary
 Produces <work>/va/haloce.va.ll (translated code) and <work>/va/dispatch.ll.
 """
 import argparse
+import filecmp
 import pathlib
 import re
 import shutil
@@ -38,6 +39,8 @@ REGS = {'eax', 'ebx', 'ecx', 'edx', 'esi', 'edi', 'ebp', 'esp', 'tmpadr', 'tmpcn
 HOST_RETURN_VA = 0xFFFFF000
 IMPORT_VA_BASE = 0xFFFE0000
 IMPORT_VA_STRIDE = 16
+IMPORT_PREFIX = 'hpimp_'
+DYNAMIC_EXPORTS = pathlib.Path(__file__).resolve().parents[1] / 'config' / 'runtime' / 'dynamic-exports.txt'
 TRANSFER_OPS = ('tcall', 'ctcallz', 'ctcallnz', 'proc', 'endp')
 
 LBL = r'(?<![\w.])((?:hp_)?loc_([0-9A-F]+))'
@@ -65,7 +68,7 @@ def value_imports(line, import_vas):
 
 
 def static_imports(exe, known):
-    """Static IAT slots in slot order: (slot VA, import name as SRW names it)."""
+    """Static IAT slots in slot order: (slot VA, import name as SRW names it, DLL)."""
     pe = pefile.PE(str(exe), fast_load=True)
     pe.parse_data_directories(directories=[pefile.DIRECTORY_ENTRY['IMAGE_DIRECTORY_ENTRY_IMPORT']])
     out = []
@@ -74,8 +77,31 @@ def static_imports(exe, known):
             name = imp.name.decode() if imp.name else None
             if name not in known:
                 sys.exit(f'import {e.dll.decode()}!{name or imp.ordinal} has no SRW procedure name')
-            out.append((imp.address, name))
+            out.append((imp.address, name, e.dll.decode().lower()))
     return sorted(out)
+
+
+def symbol_for(name):
+    """Link symbol for an export name (delay-loaded names such as _BinkOpen@8 are not identifiers)."""
+    return IMPORT_PREFIX + re.sub(r'[^A-Za-z0-9_]', lambda m: '_%02x' % ord(m.group()), name)
+
+
+def dynamic_exports(exe):
+    """Exports reached only through LoadLibraryA/GetProcAddress: the delay-load imports and
+    the names listed in config/runtime/dynamic-exports.txt. Returns [(dll, name)] where an
+    ordinal import is named '#<ordinal>'."""
+    pe = pefile.PE(str(exe), fast_load=True)
+    pe.parse_data_directories(directories=[pefile.DIRECTORY_ENTRY['IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT']])
+    out = []
+    for e in getattr(pe, 'DIRECTORY_ENTRY_DELAY_IMPORT', []):
+        for imp in e.imports:
+            out.append((e.dll.decode().lower(), imp.name.decode() if imp.name else f'#{imp.ordinal}'))
+    for line in DYNAMIC_EXPORTS.read_text().splitlines():
+        line = line.strip()
+        if line and not line.startswith('#'):
+            dll, name = line.split('!', 1)
+            out.append((dll.lower(), name))
+    return out
 
 
 def transform_code(lines, import_vas=None):
@@ -136,21 +162,30 @@ def main():
 
     main_src = (work / 'haloce.llasm').read_text().splitlines()
     extern_src = (work / 'extern.llinc').read_text()
-    # Imports implemented by HaloPad's llasm runtime are taken from port/llasm-runtime
-    # directly, so adding a service does not need a new SRW run.
-    implemented = set()
-    for f in RUNTIME.glob('*.llasm'):
-        implemented |= set(re.findall(r'^proc (\S+)_asm2c public', f.read_text(), re.M))
+    # Every import is reached through the stable symbol hpimp_<name>. The link resolves
+    # it to HaloPad's service (port/llasm-runtime, 'proc hpimp_<name> public') or to a
+    # stub that stops with the name, so adding a service only needs a relink, and import
+    # names never collide with host symbols (send, recv, bind, select, ...).
     kept_extern = [l for l in extern_src.splitlines()
-                   if not re.fullmatch(r'define (\S+) \1_asm2c', l) and not re.fullmatch(r'proc \S+_asm2c external', l)
-                   and not (re.fullmatch(r'proc (\S+) external', l) and l.split()[1] in implemented)]
-    extern_src = '\n'.join([f'define {n} {n}_asm2c' for n in sorted(implemented)] + kept_extern) + '\n'
+                   if not re.fullmatch(r'define (\S+) (?:\1_asm2c|hpimp_\1)', l)
+                   and not re.fullmatch(r'proc (?:\S+_asm2c|hpimp_\S+) external', l)]
     known = {m.group(1) for m in re.finditer(r'^proc (\S+) external', '\n'.join(main_src) + '\n' + extern_src, re.M)}
-    redirect = dict(re.findall(r'^define (\S+) (\S+_asm2c)$', extern_src, re.M))
-    known |= set(redirect)
+    known |= set(re.findall(r'^define (\S+) (?:\S+_asm2c|hpimp_\S+)$', extern_src, re.M))
     imports = static_imports(work / 'haloce.exe', known)
-    import_vas = {name: IMPORT_VA_BASE + IMPORT_VA_STRIDE * i for i, (_, name) in enumerate(imports)}
-    if IMPORT_VA_BASE + IMPORT_VA_STRIDE * len(imports) > HOST_RETURN_VA:
+    redirect = {name: IMPORT_PREFIX + name for _, name, _ in imports}
+    extern_src = '\n'.join([f'define {n} {redirect[n]}' for n in sorted(redirect)] + kept_extern
+                           + [f'proc {redirect[n]} external' for n in sorted(redirect)
+                              if not re.search(rf'^proc {re.escape(n)} external', '\n'.join(main_src + kept_extern), re.M)]) + '\n'
+    import_vas = {name: IMPORT_VA_BASE + IMPORT_VA_STRIDE * i for i, (_, name, _) in enumerate(imports)}
+    # Export registry for GetProcAddress: every static import, then dynamic exports, each
+    # with its own guest address in the import page. Entry i is at IMPORT_VA_BASE + 16*i.
+    registry = [(dll, name, IMPORT_PREFIX + name) for _, name, dll in imports]
+    seen = {(dll, name) for dll, name, _ in registry}
+    for dll, name in dynamic_exports(work / 'haloce.exe'):
+        if (dll, name) not in seen:
+            seen.add((dll, name))
+            registry.append((dll, name, symbol_for(name if not name.startswith('#') else f'{dll.split(".")[0]}_ord{name[1:]}')))
+    if IMPORT_VA_BASE + IMPORT_VA_STRIDE * len(registry) > HOST_RETURN_VA:
         sys.exit('import address page overflow')
 
     code, stats = transform_code((work / 'seg01_code.llinc').open(errors='replace'), import_vas)
@@ -202,7 +237,7 @@ def main():
         import json
         triple = 'target triple = "%s"\n' % json.loads((ROOT / 'toolchains.lock.json').read_text())['target']
     procs, dropped, in_wrapper = [], 0, False
-    with open(va / 'haloce.va.raw.ll') as fin, open(va / 'haloce.va.ll', 'w') as fout:
+    with open(va / 'haloce.va.raw.ll') as fin, open(va / 'haloce.va.ll.new', 'w') as fout:
         fout.write(triple)
         for line in fin:
             if in_wrapper:
@@ -219,6 +254,13 @@ def main():
             if 'ptrtoint' in line and re.search(r'ptrtoint void\s*\(%_cpu\*\)\*', line):
                 sys.exit(f'host code address would become a guest value: {line.strip()[:160]}')
             fout.write(line)
+    # Replace the translated module only if it changed, so runtime or registry changes do
+    # not force the long recompile.
+    new, cur = va / 'haloce.va.ll.new', va / 'haloce.va.ll'
+    if cur.exists() and filecmp.cmp(new, cur, shallow=False):
+        new.unlink()
+    else:
+        new.replace(cur)
     for src in runtime_ll:
         ll = va / (src.stem + '.ll')
         ll.write_text(triple + ll.read_text())
@@ -237,24 +279,30 @@ def main():
         if vaddr in table:
             sys.exit(f'duplicate dispatch address {vaddr:#x}: {table[vaddr]} and {name}')
         table[vaddr] = name
-    for name, iva in import_vas.items():
+    reg_vas = [IMPORT_VA_BASE + IMPORT_VA_STRIDE * i for i in range(len(registry))]
+    for iva in reg_vas:
         if iva in table:
             sys.exit(f'import address {iva:#x} collides with {table[iva]}')
-    entries = sorted(list(table.items()) + [(iva, redirect.get(name, name)) for name, iva in import_vas.items()])
+    entries = sorted(list(table.items()) + [(iva, sym) for iva, (_, _, sym) in zip(reg_vas, registry)])
     ll = [triple.rstrip(), '', '; Generated by scripts/va-model.py: original address -> compiled procedure.']
     for name in sorted({n for _, n in entries}):
         ll.append(f'declare hidden fastcc void @{name}(ptr)')
     ll.append(f'@halopad_dispatch_count = constant i32 {len(entries)}')
     ll.append(f'@halopad_dispatch_vas = constant [{len(entries)} x i32] [' + ', '.join(f'i32 {v}' for v, _ in entries) + ']')
     ll.append(f'@halopad_dispatch_fns = constant [{len(entries)} x ptr] [' + ', '.join(f'ptr @{n}' for _, n in entries) + ']')
-    # Import binding: guest import table slot -> import guest address (+ names for traps).
-    ll.append(f'@halopad_import_count = constant i32 {len(imports)}')
+    # Import binding: guest import table slot -> import guest address. Export registry:
+    # (DLL, name) -> guest address for GetProcAddress; names also label traps.
+    n = len(registry)
+    ll.append(f'@halopad_import_count = constant i32 {n}')
+    ll.append(f'@halopad_import_slot_count = constant i32 {len(imports)}')
     ll.append(f'@halopad_import_base = constant i32 {IMPORT_VA_BASE}')
     ll.append(f'@halopad_import_stride = constant i32 {IMPORT_VA_STRIDE}')
-    ll.append(f'@halopad_import_slots = constant [{len(imports)} x i32] [' + ', '.join(f'i32 {s}' for s, _ in imports) + ']')
-    for i, (_, name) in enumerate(imports):
+    ll.append(f'@halopad_import_slots = constant [{len(imports)} x i32] [' + ', '.join(f'i32 {s}' for s, _, _ in imports) + ']')
+    for i, (dll, name, _) in enumerate(registry):
         ll.append(f'@.hp_import_{i} = private unnamed_addr constant [{len(name) + 1} x i8] c"{name}\\00"')
-    ll.append(f'@halopad_import_names = constant [{len(imports)} x ptr] [' + ', '.join(f'ptr @.hp_import_{i}' for i in range(len(imports))) + ']')
+        ll.append(f'@.hp_dll_{i} = private unnamed_addr constant [{len(dll) + 1} x i8] c"{dll}\\00"')
+    ll.append(f'@halopad_import_names = constant [{n} x ptr] [' + ', '.join(f'ptr @.hp_import_{i}' for i in range(n)) + ']')
+    ll.append(f'@halopad_import_dlls = constant [{n} x ptr] [' + ', '.join(f'ptr @.hp_dll_{i}' for i in range(n)) + ']')
     ll.append(f'''
 declare ptr @halopad_lookup(i32)
 
@@ -304,7 +352,7 @@ define ptr @halopad_return_to_host_address() {{
     (va / 'dispatch.ll').write_text('\n'.join(ll) + '\n')
     print(f"VA model: {stats['register-transfers']:,} register transfers via dispatch, "
           f"{stats['value-labels']:,} lines with label values rewritten, {stats['import-values']:,} import values, "
-          f"{len(imports)} imports bound, {dropped} C entry wrappers removed, {len(entries):,} dispatch entries")
+          f"{len(imports)} imports bound, {len(registry) - len(imports)} dynamic exports, {dropped} C entry wrappers removed, {len(entries):,} dispatch entries")
     return 0
 
 

@@ -1,0 +1,411 @@
+;; HaloPad Windows runtime: kernel32 process, thread, memory, locale and time services.
+;; Written from a table of service names and argument counts; maintained by hand.
+;; Each procedure passes its stdcall arguments (guest values) to the C implementation in
+;; port/runtime/halopad_k32_process.c, halopad_heap.c or halopad_vmem.c, sets eax and
+;; pops the arguments. Pattern and macros from SR's Septerra Core port (asm-calls.llinc).
+
+include llasm.llinc
+include asm-calls.llinc
+
+func GetLastError_c
+funcv SetLastError_c a1
+func GetVersionExA_c a1
+funcv GetSystemInfo_c a1
+func IsProcessorFeaturePresent_c a1
+func GetCommandLineA_c
+funcv GetStartupInfoA_c a1
+func GetStdHandle_c a1
+func GetFileType_c a1
+func SetHandleCount_c a1
+func GetModuleHandleA_c a1
+func LoadLibraryA_c a1
+func FreeLibrary_c a1
+func GetProcAddress_c a1, a2
+func InitializeCriticalSectionAndSpinCount_c a1, a2
+func GetModuleFileNameA_c a1, a2, a3
+func GetEnvironmentStringsW_c
+func GetEnvironmentStrings_c
+func FreeEnvironmentStringsW_c a1
+func FreeEnvironmentStringsA_c a1
+func GetCurrentProcess_c
+func GetCurrentThread_c
+func GetCurrentProcessId_c
+func GetCurrentThreadId_c
+funcv ExitProcess_c a1
+func SetUnhandledExceptionFilter_c a1
+func TlsAlloc_c
+func TlsGetValue_c a1
+func TlsSetValue_c a1, a2
+func TlsFree_c a1
+funcv InitializeCriticalSection_c a1
+funcv EnterCriticalSection_c a1
+funcv LeaveCriticalSection_c a1
+funcv DeleteCriticalSection_c a1
+func InterlockedExchange_c a1, a2
+funcv GetSystemTimeAsFileTime_c a1
+func GetTickCount_c
+func QueryPerformanceFrequency_c a1
+func QueryPerformanceCounter_c a1
+func GetACP_c
+func GetOEMCP_c
+func IsValidCodePage_c a1
+func GetCPInfo_c a1, a2
+func MultiByteToWideChar_c a1, a2, a3, a4, a5, a6
+func GetStringTypeW_c a1, a2, a3, a4
+func GetStringTypeA_c a1, a2, a3, a4, a5
+func LCMapStringW_c a1, a2, a3, a4, a5, a6
+func LCMapStringA_c a1, a2, a3, a4, a5, a6
+func WideCharToMultiByte_c a1, a2, a3, a4, a5, a6, a7, a8
+func VirtualAlloc_c a1, a2, a3, a4
+func VirtualFree_c a1, a2, a3
+func VirtualQuery_c a1, a2, a3
+func VirtualProtect_c a1, a2, a3, a4
+func HeapCreate_c a1, a2, a3
+func GetProcessHeap_c
+func HeapDestroy_c a1
+func HeapAlloc_c a1, a2, a3
+func HeapFree_c a1, a2, a3
+func HeapSize_c a1, a2, a3
+func HeapReAlloc_c a1, a2, a3, a4
+func GlobalAlloc_c a1, a2
+func LocalAlloc_c a1, a2
+func GlobalFree_c a1
+func LocalFree_c a1
+func GlobalReAlloc_c a1, a2, a3
+func GlobalLock_c a1
+func GlobalUnlock_c a1
+
+proc hpimp_GetLastError public
+        Call_Asm_Stack0 GetLastError_c
+        Call_Asm_Return 0
+endp
+
+proc hpimp_SetLastError public
+        Call_Asm_Stack1_void SetLastError_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_GetVersionExA public
+        Call_Asm_Stack1 GetVersionExA_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_GetSystemInfo public
+        Call_Asm_Stack1_void GetSystemInfo_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_IsProcessorFeaturePresent public
+        Call_Asm_Stack1 IsProcessorFeaturePresent_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_GetCommandLineA public
+        Call_Asm_Stack0 GetCommandLineA_c
+        Call_Asm_Return 0
+endp
+
+proc hpimp_GetStartupInfoA public
+        Call_Asm_Stack1_void GetStartupInfoA_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_GetStdHandle public
+        Call_Asm_Stack1 GetStdHandle_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_GetFileType public
+        Call_Asm_Stack1 GetFileType_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_SetHandleCount public
+        Call_Asm_Stack1 SetHandleCount_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_GetModuleHandleA public
+        Call_Asm_Stack1 GetModuleHandleA_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_GetModuleFileNameA public
+        Call_Asm_Stack3 GetModuleFileNameA_c
+        Call_Asm_Return 3
+endp
+
+proc hpimp_GetEnvironmentStringsW public
+        Call_Asm_Stack0 GetEnvironmentStringsW_c
+        Call_Asm_Return 0
+endp
+
+proc hpimp_GetEnvironmentStrings public
+        Call_Asm_Stack0 GetEnvironmentStrings_c
+        Call_Asm_Return 0
+endp
+
+proc hpimp_FreeEnvironmentStringsW public
+        Call_Asm_Stack1 FreeEnvironmentStringsW_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_FreeEnvironmentStringsA public
+        Call_Asm_Stack1 FreeEnvironmentStringsA_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_GetCurrentProcess public
+        Call_Asm_Stack0 GetCurrentProcess_c
+        Call_Asm_Return 0
+endp
+
+proc hpimp_GetCurrentThread public
+        Call_Asm_Stack0 GetCurrentThread_c
+        Call_Asm_Return 0
+endp
+
+proc hpimp_GetCurrentProcessId public
+        Call_Asm_Stack0 GetCurrentProcessId_c
+        Call_Asm_Return 0
+endp
+
+proc hpimp_GetCurrentThreadId public
+        Call_Asm_Stack0 GetCurrentThreadId_c
+        Call_Asm_Return 0
+endp
+
+proc hpimp_ExitProcess public
+        Call_Asm_Stack1_void ExitProcess_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_SetUnhandledExceptionFilter public
+        Call_Asm_Stack1 SetUnhandledExceptionFilter_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_TlsAlloc public
+        Call_Asm_Stack0 TlsAlloc_c
+        Call_Asm_Return 0
+endp
+
+proc hpimp_TlsGetValue public
+        Call_Asm_Stack1 TlsGetValue_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_TlsSetValue public
+        Call_Asm_Stack2 TlsSetValue_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_TlsFree public
+        Call_Asm_Stack1 TlsFree_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_InitializeCriticalSection public
+        Call_Asm_Stack1_void InitializeCriticalSection_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_EnterCriticalSection public
+        Call_Asm_Stack1_void EnterCriticalSection_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_LeaveCriticalSection public
+        Call_Asm_Stack1_void LeaveCriticalSection_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_DeleteCriticalSection public
+        Call_Asm_Stack1_void DeleteCriticalSection_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_InterlockedExchange public
+        Call_Asm_Stack2 InterlockedExchange_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_GetSystemTimeAsFileTime public
+        Call_Asm_Stack1_void GetSystemTimeAsFileTime_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_GetTickCount public
+        Call_Asm_Stack0 GetTickCount_c
+        Call_Asm_Return 0
+endp
+
+proc hpimp_QueryPerformanceFrequency public
+        Call_Asm_Stack1 QueryPerformanceFrequency_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_QueryPerformanceCounter public
+        Call_Asm_Stack1 QueryPerformanceCounter_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_GetACP public
+        Call_Asm_Stack0 GetACP_c
+        Call_Asm_Return 0
+endp
+
+proc hpimp_GetOEMCP public
+        Call_Asm_Stack0 GetOEMCP_c
+        Call_Asm_Return 0
+endp
+
+proc hpimp_IsValidCodePage public
+        Call_Asm_Stack1 IsValidCodePage_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_GetCPInfo public
+        Call_Asm_Stack2 GetCPInfo_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_MultiByteToWideChar public
+        Call_Asm_Stack6 MultiByteToWideChar_c
+        Call_Asm_Return 6
+endp
+
+proc hpimp_WideCharToMultiByte public
+        Call_Asm_Stack8 WideCharToMultiByte_c
+        Call_Asm_Return 8
+endp
+
+proc hpimp_VirtualAlloc public
+        Call_Asm_Stack4 VirtualAlloc_c
+        Call_Asm_Return 4
+endp
+
+proc hpimp_VirtualFree public
+        Call_Asm_Stack3 VirtualFree_c
+        Call_Asm_Return 3
+endp
+
+proc hpimp_VirtualQuery public
+        Call_Asm_Stack3 VirtualQuery_c
+        Call_Asm_Return 3
+endp
+
+proc hpimp_VirtualProtect public
+        Call_Asm_Stack4 VirtualProtect_c
+        Call_Asm_Return 4
+endp
+
+proc hpimp_HeapCreate public
+        Call_Asm_Stack3 HeapCreate_c
+        Call_Asm_Return 3
+endp
+
+proc hpimp_GetProcessHeap public
+        Call_Asm_Stack0 GetProcessHeap_c
+        Call_Asm_Return 0
+endp
+
+proc hpimp_HeapDestroy public
+        Call_Asm_Stack1 HeapDestroy_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_HeapAlloc public
+        Call_Asm_Stack3 HeapAlloc_c
+        Call_Asm_Return 3
+endp
+
+proc hpimp_HeapFree public
+        Call_Asm_Stack3 HeapFree_c
+        Call_Asm_Return 3
+endp
+
+proc hpimp_HeapSize public
+        Call_Asm_Stack3 HeapSize_c
+        Call_Asm_Return 3
+endp
+
+proc hpimp_HeapReAlloc public
+        Call_Asm_Stack4 HeapReAlloc_c
+        Call_Asm_Return 4
+endp
+
+proc hpimp_GlobalAlloc public
+        Call_Asm_Stack2 GlobalAlloc_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_LocalAlloc public
+        Call_Asm_Stack2 LocalAlloc_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_GlobalFree public
+        Call_Asm_Stack1 GlobalFree_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_LocalFree public
+        Call_Asm_Stack1 LocalFree_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_GlobalReAlloc public
+        Call_Asm_Stack3 GlobalReAlloc_c
+        Call_Asm_Return 3
+endp
+
+proc hpimp_GlobalLock public
+        Call_Asm_Stack1 GlobalLock_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_GlobalUnlock public
+        Call_Asm_Stack1 GlobalUnlock_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_LoadLibraryA public
+        Call_Asm_Stack1 LoadLibraryA_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_FreeLibrary public
+        Call_Asm_Stack1 FreeLibrary_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_GetProcAddress public
+        Call_Asm_Stack2 GetProcAddress_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_InitializeCriticalSectionAndSpinCount public
+        Call_Asm_Stack2 InitializeCriticalSectionAndSpinCount_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_GetStringTypeW public
+        Call_Asm_Stack4 GetStringTypeW_c
+        Call_Asm_Return 4
+endp
+
+proc hpimp_GetStringTypeA public
+        Call_Asm_Stack5 GetStringTypeA_c
+        Call_Asm_Return 5
+endp
+
+proc hpimp_LCMapStringW public
+        Call_Asm_Stack6 LCMapStringW_c
+        Call_Asm_Return 6
+endp
+
+proc hpimp_LCMapStringA public
+        Call_Asm_Stack6 LCMapStringA_c
+        Call_Asm_Return 6
+endp

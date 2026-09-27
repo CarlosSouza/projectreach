@@ -15,16 +15,25 @@
 #define ENTRY_VA 0x5CCAC7u
 
 extern uint64_t halopad_guest_base;
+extern int halopad_guest_harness_heap;
 uint32_t halopad_guest_init(const char *image_path, uint32_t image_base);
 void halopad_thread_init(uint32_t stack_base, uint32_t stack_limit, uint32_t image_base);
+void halopad_vm_mark(uint32_t base, uint32_t size);
+void halopad_protect_image(uint32_t image_base);
 void halopad_enter(_cpu *cpu, uint32_t va);
 
 int main(void)
 {
     const char *image = getenv("HALOPAD_IMAGE");
     if (!image) { fprintf(stderr, "HALOPAD_IMAGE not set\n"); return 2; }
+    halopad_guest_harness_heap = 0;
     uint32_t stack_top = halopad_guest_init(image, IMAGE_BASE);
     halopad_thread_init(0x00300000, 0x00100000, IMAGE_BASE);
+    /* ranges the memory services must never hand out */
+    halopad_vm_mark(0x00100000, 0x00200000);           /* main-thread stack */
+    halopad_vm_mark(IMAGE_BASE, 0x0042C000);           /* image (SizeOfImage) */
+    halopad_vm_mark(0x7FFD0000, 0x00030000);           /* TLS block, TEB, and the page above */
+    halopad_protect_image(IMAGE_BASE);
     _cpu cpu;
     memset(&cpu, 0, sizeof cpu);
     cpu._esp = stack_top;

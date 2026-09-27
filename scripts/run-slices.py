@@ -79,6 +79,18 @@ def cases_vec4(rng):
     return [[b'\0' * 16, rnd_floats(rng, 4), rnd_floats(rng, 16)] for _ in range(300)]
 
 
+def cases_strncmp(rng):
+    """CRT strncmp (0x5c88f0): jecxz for n = 0, then repe cmpsb; strings share prefixes."""
+    out = []
+    for _ in range(200):
+        base = bytes(rng.choice(b'abcAB/.') for _ in range(rng.randrange(0, 24)))
+        a = base + bytes(rng.choice(b'abcAB/.') for _ in range(rng.randrange(0, 6)))
+        b = base + bytes(rng.choice(b'abcAB/.') for _ in range(rng.randrange(0, 6)))
+        n = rng.choice([0, 1, 2, len(base), len(base) + 1, len(a) + 3, rng.randrange(0, 40)])
+        out.append([a + b'\0', b + b'\0', n])
+    return out
+
+
 MAPS_ROOT = ROOT / 'generated' / 'slices-data' / 'map-header'
 
 
@@ -167,6 +179,7 @@ SLICES = {
     'crc32': {'address': 0x59F2A2, 'alias': 'halo_crc32', 'conv': 'stdcall', 'cases': cases_crc32, 'x87': False},
     'memmove': {'address': 0x5C83F0, 'alias': 'halo_memmove', 'conv': 'cdecl', 'cases': cases_memmove, 'x87': False},
     'strrchr': {'address': 0x5C88C0, 'alias': 'halo_strrchr', 'conv': 'cdecl', 'cases': cases_strrchr, 'x87': False},
+    'strncmp': {'address': 0x5C88F0, 'conv': 'cdecl', 'cases': cases_strncmp, 'x87': False},
     'vec3_transform_coord': {'address': 0x5834D7, 'alias': 'halo_vec3_transform_coord', 'conv': 'stdcall', 'cases': cases_vec3, 'x87': True},
     'vec4_transform': {'address': 0x583B65, 'alias': 'halo_vec4_transform', 'conv': 'stdcall', 'cases': cases_vec4, 'x87': True},
     'map_header': {'address': 0x4434A0, 'alias': 'halo_map_header_valid', 'conv': 'cdecl', 'cases': cases_map_header, 'x87': False,
@@ -298,10 +311,10 @@ def run_va(a, names, work, target, evid, build):
                     str(va / 'dispatch.ll'), *[str(p) for p in sorted(va.glob('halopad-*.ll'))]],
                    check=True, capture_output=True)
     exe = build / 'halo-va-slices'
+    subprocess.run([sys.executable, str(ROOT / 'scripts/gen-nls-tables.py')], check=True, capture_output=True)
     cmd = ['clang', '-target', target, '-O2', '-fno-fast-math', '-ffp-contract=off', '-w', '-DPTROFS_64BIT=1', '-std=c2x',
-           '-Wno-override-module', '-I', str(SUPPORT),
-           str(ROOT / 'tests/halo_va_harness.c'), str(ROOT / 'port/runtime/halopad_guest.c'),
-           str(ROOT / 'port/runtime/halopad_slice_runtime.c'), str(ROOT / 'port/runtime/halopad_kernel32.c'),
+           '-Wno-override-module', '-I', str(SUPPORT), '-I', str(ROOT / 'generated' / 'runtime'),
+           str(ROOT / 'tests/halo_va_harness.c'), *[str(p) for p in sorted((ROOT / 'port/runtime').glob('*.c'))],
            *[str(p) for p in sorted(SUPPORT.glob('llasm_*.c'))], str(va / 'dispatch.ll'),
            *[str(p) for p in sorted(va.glob('halopad-*.ll'))], str(build / 'stubs.ll'), str(obj), '-o', str(exe)]
     link = subprocess.run(cmd, capture_output=True, text=True)

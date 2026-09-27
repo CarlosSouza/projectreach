@@ -27,6 +27,8 @@ static FILE *hp_lookup(uint32_t handle)
     return i < HP_MAX_FILES ? hp_files[i] : NULL;
 }
 
+uint32_t halopad_file_handle_valid(uint32_t handle) { return hp_lookup(handle) != NULL; }
+
 uint32_t CreateFileA_c(const char *name, uint32_t access, uint32_t share, uint32_t security,
                        uint32_t disposition, uint32_t flags, uint32_t template_file)
 {
@@ -66,4 +68,3 @@ uint32_t CloseHandle_c(uint32_t handle)
     hp_files[(handle - HP_FILE_BASE) / 4] = NULL;
     return 1;
 }
-

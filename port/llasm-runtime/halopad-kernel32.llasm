@@ -11,19 +11,19 @@ func CreateFileA_c *lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttribut
 func ReadFile_c hFile, *lpBuffer, nNumberOfBytesToRead, *lpNumberOfBytesRead, lpOverlapped
 func CloseHandle_c hObject
 
-proc CreateFileA_asm2c public
+proc hpimp_CreateFileA public
 ; [esp + 7*4] hTemplateFile ... [esp + 4] lpFileName, [esp] return address
         Call_Asm_Stack7 CreateFileA_c
         Call_Asm_Return 7
 endp
 
-proc ReadFile_asm2c public
+proc hpimp_ReadFile public
 ; [esp + 5*4] lpOverlapped ... [esp + 4] hFile, [esp] return address
         Call_Asm_Stack5 ReadFile_c
         Call_Asm_Return 5
 endp
 
-proc CloseHandle_asm2c public
+proc hpimp_CloseHandle public
 ; [esp + 4] hObject, [esp] return address
         Call_Asm_Stack1 CloseHandle_c
         Call_Asm_Return 1

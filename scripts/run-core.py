@@ -44,9 +44,10 @@ def build(work, target):
     runtime_ll = sorted(va.glob('halopad-*.ll'))
     subprocess.run([sys.executable, str(ROOT / 'scripts/gen-import-stubs.py'), str(va / 'haloce.va.ll'), str(out / 'stubs.ll'),
                     str(va / 'dispatch.ll'), *map(str, runtime_ll)], check=True, capture_output=True)
+    subprocess.run([sys.executable, str(ROOT / 'scripts/gen-nls-tables.py')], check=True, capture_output=True)
     exe = out / 'halopad-core'
     cmd = ['clang', '-target', target, '-O2', '-fno-fast-math', '-ffp-contract=off', '-w', '-DPTROFS_64BIT=1', '-std=c2x',
-           '-Wno-override-module', '-I', str(SUPPORT),
+           '-Wno-override-module', '-I', str(SUPPORT), '-I', str(ROOT / 'generated' / 'runtime'),
            str(ROOT / 'port/core/halopad_core_main.c'), *map(str, sorted((ROOT / 'port/runtime').glob('*.c'))),
            *map(str, sorted(SUPPORT.glob('llasm_*.c'))), str(va / 'dispatch.ll'), *map(str, runtime_ll),
            str(out / 'stubs.ll'), str(obj), '-o', str(exe)]

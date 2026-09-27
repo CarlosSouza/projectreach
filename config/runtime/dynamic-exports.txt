@@ -1,0 +1,8 @@
+# Exports Halo reaches only through GetProcAddress (beyond its static and delay-load
+# imports, which scripts/va-model.py adds automatically). One DLL!name per line. Each gets
+# a guest address that dispatches to hpimp_<name>: HaloPad's service if one exists, else a
+# stub that stops with the name. Names come from call sites (docs/EXECUTION-MODEL.md) and
+# from traps seen while running the core.
+kernel32.dll!InitializeCriticalSectionAndSpinCount
+d3d9.dll!Direct3DCreate9
+eula.dll!EBUEula

@@ -531,3 +531,45 @@ endm
 macro FTOL_INT64
     call x87_ftol_int64 $
 endm
+
+macro FLDPI_VOID
+    call x87_fldpi_void $
+endm
+
+macro FLDL2E_VOID
+    call x87_fldl2e_void $
+endm
+
+macro FPATAN_VOID
+    call x87_fpatan_void $
+endm
+
+macro FRNDINT_VOID
+    call x87_frndint_void $
+endm
+
+macro FSCALE_VOID
+    call x87_fscale_void $
+endm
+
+macro F2XM1_VOID
+    call x87_f2xm1_void $
+endm
+
+macro FSINCOS_VOID
+    call x87_fsincos_void $
+endm
+
+macro FXAM_VOID
+    call x87_fxam_void $
+endm
+
+; HaloPad additions (declarations for the macros below)
+funcv x87_fpatan_void $
+funcv x87_frndint_void $
+funcv x87_fscale_void $
+funcv x87_f2xm1_void $
+funcv x87_fsincos_void $
+funcv x87_fxam_void $
+funcv x87_fldpi_void $
+funcv x87_fldl2e_void $

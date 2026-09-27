@@ -1180,3 +1180,83 @@ EXTERNC uint32_t CCALL x87_ftol_int64(CPU)
 #endif
 }
 
+
+/* HaloPad additions (G3): x87 instructions reached by Halo's code that SR's backend did
+   not implement. Transcendentals, frndint and fscale are not affected by precision
+   control on x87, so none of these round to the control word's precision. The stack is
+   double: extended-range operands are out of scope here, as for the rest of the model. */
+
+EXTERNC void CCALL x87_fldpi_void(CPU)
+{
+    PUSH_REGS;
+    ST0 = M_PI;
+}
+
+EXTERNC void CCALL x87_fldl2e_void(CPU)
+{
+    PUSH_REGS;
+    ST0 = M_LOG2E;
+}
+
+EXTERNC void CCALL x87_fpatan_void(CPU)
+{
+    ST1 = atan2(ST1, ST0);
+    POP_REGS;
+    CLEAR_X87_FLAGS;
+}
+
+EXTERNC void CCALL x87_frndint_void(CPU)
+{
+    switch ((st_cw >> X87_RC_SHIFT) & 3)
+    {
+    case 0: ST0 = nearbyint(ST0); break;    /* host default mode: nearest, ties to even */
+    case 1: ST0 = floor(ST0); break;
+    case 2: ST0 = ceil(ST0); break;
+    case 3: ST0 = trunc(ST0); break;
+    }
+    CLEAR_X87_FLAGS;
+}
+
+EXTERNC void CCALL x87_fscale_void(CPU)
+{
+    double s = trunc(ST1);
+    int e = (s > 100000.0) ? 100000 : (s < -100000.0) ? -100000 : (int) s;
+    ST0 = ldexp(ST0, e);
+    CLEAR_X87_FLAGS;
+}
+
+EXTERNC void CCALL x87_f2xm1_void(CPU)
+{
+    ST0 = expm1(ST0 * M_LN2);
+    CLEAR_X87_FLAGS;
+}
+
+EXTERNC void CCALL x87_fsincos_void(CPU)
+{
+    double v = ST0;
+    if (fabs(v) >= 9223372036854775808.0)  /* |x| >= 2^63: C2 set, operand unchanged */
+    {
+        st_sw_cond = X87_C2;
+        return;
+    }
+    ST0 = sin(v);
+    PUSH_REGS;
+    ST0 = cos(v);
+    CLEAR_X87_FLAGS;
+}
+
+/* Tag word not modelled: a register is never reported empty. Values subnormal in double
+   are normal in x87's extended format. */
+EXTERNC void CCALL x87_fxam_void(CPU)
+{
+    double v = ST0;
+    uint32_t c;
+    switch (fpclassify(v))
+    {
+    case FP_NAN: c = X87_C0; break;
+    case FP_INFINITE: c = X87_C2 | X87_C0; break;
+    case FP_ZERO: c = X87_C3; break;
+    default: c = X87_C2; break;
+    }
+    st_sw_cond = c | (signbit(v) ? X87_C1 : 0);
+}

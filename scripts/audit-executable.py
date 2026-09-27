@@ -173,7 +173,12 @@ class Audit:
                     return 'overlaps known code'
                 o = a - self.base
                 if ins.mnemonic in JUNK or self.img[o:o + 2] == b'\0\0':
-                    return 'data-like instruction'
+                    # The CRT's CPUID-availability check uses 'pushfd; pop r32'
+                    # (0x5cf251, reached from the initializer table): that idiom is code.
+                    nxt = self.decode(a + ins.size) if ins.mnemonic == 'pushfd' else None
+                    if not (nxt is not None and nxt.mnemonic == 'pop' and nxt.operands
+                            and nxt.operands[0].type == X.X86_OP_REG and nxt.operands[0].size == 4):
+                        return 'data-like instruction'
                 seen[a] = ins.size
                 if len(seen) > limit:
                     return 'too long'

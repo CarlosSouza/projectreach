@@ -67,7 +67,8 @@ def main():
     rows = [l.split() for l in out.splitlines() if l.startswith('I ')]
     total_line = next(l for l in out.splitlines() if l.startswith('TOTAL'))
     (analysis / 'udis-all.txt').write_text(''.join(' '.join(r) + '\n' for r in rows))
-    handled = set(re.findall(r'case UD_I([a-z0-9_]+):', (ROOT / 'ref/sr/SRW/SR_full_llasm_instr.c').read_text()))
+    # the build's patched backend, including HaloPad's added cases
+    handled = set(re.findall(r'case UD_I([a-z0-9_]+):', (a.build / 'SRW' / 'SR_full_llasm_instr.c').read_text()))
     fns = sorted(int(x, 16) for x in json.loads((analysis / 'functions.json').read_text()))
     present = collections.Counter(r[3] for r in rows)
     cnt, fset, mn = collections.Counter(), collections.defaultdict(set), collections.defaultdict(collections.Counter)

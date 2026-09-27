@@ -23,8 +23,9 @@ def main():
     names = [n for n in names if not n.endswith('_asm2c') and not n.startswith('halopad_')]
     lines = ['declare void @halopad_missing_import(ptr)', '']
     for i, n in enumerate(names):
-        s = n.encode() + b'\0'
-        lines.append(f'@.hp_name_{i} = private unnamed_addr constant [{len(s)} x i8] c"{n}\\00"')
+        shown = n[len('hpimp_'):] if n.startswith('hpimp_') else n
+        s = shown.encode() + b'\0'
+        lines.append(f'@.hp_name_{i} = private unnamed_addr constant [{len(s)} x i8] c"{shown}\\00"')
         lines.append(f'define hidden fastcc void @{n}(ptr %cpu) {{')
         lines.append(f'  call void @halopad_missing_import(ptr @.hp_name_{i})')
         lines.append('  unreachable')
