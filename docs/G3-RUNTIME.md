@@ -144,6 +144,37 @@ Custom Edition runs a console script at start-up: `main`'s `0x4c9790` reads the 
 
 Translation in use: run `20260927T145850Z-51456`, lifter `24c44b99cfac-05b596a6`. Untranslated sites: 3.
 
+## Playing Blood Gulch: keyboard, mouse and trigger
+
+**Test** (`tests/halo_play_test.c`, a component test). It loads Blood Gulch as above, then acts like a player at the keyboard, giving host input the way the app shells deliver it (`halopad_input_event`). The input reaches Halo through USER32 and DirectInput 8: the buffered keyboard (`0x4946b7`) and the exclusive mouse (`0x4947b2`). Every effect is checked in Halo's own game state:
+
+- **Where the state is.** Halo's set-up code names the tables. `players` (`0x476170`) has 0x200-byte entries, with the table pointer at `0x815920`. `object` (`0x4f83e0`) has 12-byte entries whose `+8` is the object's address, with the table pointer at `0x7fb710`. A data table keeps its capacity at `+0x20` and its first entry at `+0x34`. A handle is salt << 16 | index. Player `+0x34` is the player's unit.
+- **Offsets read from the unit and weapon.** Object `+0x5c` is the position and `+0x68` the velocity. Unit `+0x23c` is where it looks, and `+0x118` is the weapon in hand. Weapon `+0x2b8` is the rounds in the magazine.
+- **Standing still:** without input, the player stays put.
+- **Walking:** holding W for 100 frames walks the player 7.3 units forward, along +x and down the base ramp. Letting go stops it.
+- **Turning:** 300 mouse counts to the right turn the view about 25° right.
+- **Firing:** holding the left button fires the assault rifle; the magazine goes from 60 to 50.
+- **The frame while firing** (`play.ppm`) shows the world, the muzzle flash, the rifle's counter and the shot on the motion tracker. Fewer than 10% of its pixels may be the bare clear colour.
+
+It passes on macOS and on the iPad Simulator.
+
+**A miscompile the trigger exposed: flags across a call.** Before the fix, firing made the camera's view-projection NaN, and every world vertex was discarded. The frame was the bare clear colour (Blood Gulch's fog, `0xffe6c4`) with only the HUD on it. The chain was:
+
+- the C runtime's `acos` (`0x5ccd00`) calls `0x5d7318`, which classifies the argument's exponent with `cmp eax, 0x7ff00000`;
+- it then calls `0x5ccd1d`, which begins with `je` on that ZF. A `call` does not change flags, so hand-written code can pass flags this way.
+- The translator fused the `cmp` with the local `je` and never materialised ZF.
+- `scripts/srw-flags.py` had noted the consumer at `0x5ccd1d`, but it treated flags at a function entry as undefined and followed only its post-call path. So `acos` read a stale ZF.
+- For arguments whose double has a zero low word (floats whose last three mantissa bits are zero), it took the domain-error path and returned the 80-bit indefinite NaN from `0x620230`.
+- Halo's vector-angle routine `0x4d08f0`, called for the first-person weapon, passed that NaN into the camera.
+
+Fix: the hint generator now follows every path into a label that reads flags: the callee's returns after a call, **the direct call sites of a function entry**, and direct predecessors. That adds 24 hints, nearly all in the C runtime's math helpers (`0x5d727c`–`0x5d7364`, `0x5cd1fb`). It also resolves the CPUID check `0x5441a0` (it reads the caller's flags with `pushfd`), leaving one unresolved label (`0x5a142e`). Translation run `20260927T162224Z-63690`. Keystone links the same C runtime math code and gains 22 hints; it is retranslated as run `20260927T163514Z-67223` (65,819 procedures). The hints for ksimeui, Controls and MSXML 4 are unchanged.
+
+How it was found (the tools stay available):
+
+- `HALOPAD_TRACE_DRAWS` showed the same draws with the camera constants turned NaN.
+- A scan for new NaNs in Halo's data narrowed it to the first-person weapon (`[0x64dcc8]`, 0x1ea0 bytes per player) and the camera globals.
+- A temporary check in the x87 helpers found the first NaN: the 80-bit load in `acos`'s domain-error path.
+
 ## Rasterizer initialization (Halo's graphics start-up)
 
 `0x51a240` (reached from `WinMain` through `0x5442e0` and `0x515610`) is Halo's whole graphics start-up. In order:
@@ -279,6 +310,7 @@ These are environment switches that only print; none of them changes behavior.
 - `HALOPAD_WATCH=va[,va…]`: every indirect transfer to those addresses, with the return address, arguments, `eax` and `esp`.
 - `HALOPAD_WATCH_RANGE=to_lo:to_hi:from_lo:from_hi`: indirect calls from one module into another, for example Keystone into msxml4.
 - `HALOPAD_TRACE_LAST=1`: the last 32 indirect transfer targets, printed with any trap or fault. Translated code has no program counter, so this shows where it was.
+- `HALOPAD_TRACE_DRAWS=first:last`: every Direct3D draw, clear, render-target change and `StretchRect` in those frames (counted by `Present`, from 1). Each line gives the primitive, shaders, blend, depth, alpha test, textures and viewport, depth range, bias, stencil, fog, and the guest return addresses on the stack. Up to four vertices are printed for small `*UP` draws. `HALOPAD_TRACE_DRAWS_VSCONSTS=1` adds vertex shader constants c0–c11, and `HALOPAD_TRACE_DRAWS_CONSTS=1` pixel shader constants c0–c7.
 - A missing import or COM method now prints the guest stack, so its caller and arguments are visible.
 
 

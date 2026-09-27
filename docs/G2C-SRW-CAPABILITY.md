@@ -92,3 +92,7 @@ With lifter `161d2b412a4a-89ccc7fb` the whole-image translation has 6 untranslat
 ## Update 2026-09-27 (later): 3 sites left
 
 Lifter `24c44b99cfac-05b596a6` translates `rcl` of a byte register by a constant (low or high byte, any count, CF and OF as on x86), which covers the four `rcl bl` sites in Halo's ADPCM sample step `0x551d10`; the `adpcm_step` slice checks it against the x86 oracle. Three sites are left: `imul byte [ecx+0x1d]` (`0x598198`) and `fnstenv`/`fldenv` (`0x5dac13`, `0x5dac22`). See [G3-RUNTIME.md](G3-RUNTIME.md), "Blood Gulch in play".
+
+## Update 2026-09-27: flags across calls
+
+SRW does not carry x86 flags between llasm procedures; `scripts/srw-flags.py` computes the hints that do. It now follows every incoming path of a label that reads flags, including the direct call sites of a function entry: hand-written C runtime code passes flags through `call` (`acos` at `0x5ccd00` calls `0x5d7318`, then `0x5ccd1d` branches on its ZF). 1,029 hint lines; 1 unresolved label (`0x5a142e`). See [G3-RUNTIME.md](G3-RUNTIME.md), "Playing Blood Gulch".

@@ -84,10 +84,12 @@ def main():
     nxt = {a: a + info[a][0] for a in addrs}
     post_call = {nxt[a] for a in calls}
     call_target = {}
+    call_sites = collections.defaultdict(list)     # function -> its direct call instructions
     for a in calls:
         op = next(md.disasm(img[a - base:a - base + 16], a, 1)).operands[0]
         if op.type == X.X86_OP_IMM:
             call_target[nxt[a]] = op.imm & 0xFFFFFFFF
+            call_sites[op.imm & 0xFFFFFFFF].append(a)
     replacement_starts = {line_a for line_a in traps if line_a in info and (line_a - 1 not in traps)}
     labels = (set(succ_jump.values()) | set(table_edges) | post_call | functions | code_targets |
               replacement_starts | trap_ends)
@@ -176,43 +178,42 @@ def main():
             return
         visited.add(key)
         to_clear[S] |= G
-        if S in post_call and S in call_target:
-            rets = callee_returns(call_target[S])
-            if rets:
-                for ret in rets:
-                    produce(ret, G, origin)
-                return
-        ps = preds.get(S, [])
-        if not ps or S in post_call:
+        ends = incoming(S)
+        if ends is None:
             unresolved.append({'label': hex(origin), 'via_region': hex(S), 'flags': hex(G),
                                'reason': 'after call' if S in post_call else 'no direct predecessor'})
             return
-        for kind, p in ps:
-            produce(p if kind != 'fall' else p, G, origin)
+        for e in ends:
+            produce(e, G, origin)
+
+    def incoming(S):
+        """The last instructions of every path into region S: the callee's returns after a
+        call, the direct call sites of a function entry (a call does not change flags, so
+        flags a hand-written routine reads at its entry come from its caller: the CRT's acos
+        0x5ccd1d reads ZF from 0x5d7318, called just before it at 0x5ccd06), and direct
+        predecessors. None if a path cannot be followed (a call whose callee has no
+        returns found, or no path at all)."""
+        ends = []
+        if S in post_call:
+            rets = callee_returns(call_target[S]) if S in call_target else []
+            if not rets:
+                return None
+            ends += rets
+        if S in functions:
+            ends += call_sites.get(S, [])
+        ends += [p for _, p in preds.get(S, [])]
+        return ends or None
 
     for L, F in sorted(needs.items()):
         to_clear[L] |= F
-        if L in post_call and L in call_target:
-            rets = callee_returns(call_target[L])
-            if rets:
-                for ret in rets:
-                    produce(ret, F, L)
-                continue
-        ps = preds.get(L, [])
-        if not ps and L in functions:
-            # Flags are undefined at a function entry; the consumer hint alone is correct.
-            unresolved.append({'label': hex(L), 'via_region': hex(L), 'flags': hex(F), 'reason': 'function entry (undefined flags; consumer hint only)'})
+        ends = incoming(L)
+        if ends is None:
+            reason = ('after call' if L in post_call else
+                      'function entry with no direct caller' if L in functions else 'no direct predecessor')
+            unresolved.append({'label': hex(L), 'via_region': hex(L), 'flags': hex(F), 'reason': reason})
             continue
-        if not ps or L in post_call:
-            unresolved.append({'label': hex(L), 'via_region': hex(L), 'flags': hex(F),
-                               'reason': 'after call' if L in post_call else 'no direct predecessor'})
-            continue
-        for kind, p in ps:
-            end = p
-            if kind in ('jump', 'table'):
-                # the jump itself does not write flags; search from the jump backwards
-                end = p
-            produce(end, F, L)
+        for e in ends:
+            produce(e, F, L)
     lines = []
     for a in sorted(set(to_set) | set(to_clear)):
         lines.append(f'loc_{a:X},0x{to_set[a]:02x},0x{to_clear[a]:02x} ; {info[a][1]}')

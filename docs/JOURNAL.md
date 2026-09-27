@@ -923,3 +923,22 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
 - **Lifter and run:** lifter `24c44b99cfac-05b596a6`, run `20260927T145850Z-51456`. 22 suites, 11 slices and 6 contract cases pass.
 - **Chris's key, again.** Chris sent `8437-1920-5563-7741-A` a second time. It is still not a Halo PC product key: those are 25 characters, `XXXXX-XXXXX-XXXXX-XXXXX-XXXXX`, from Microsoft's key alphabet, which has no 0, 1 or 5. There is nothing it could be typed into, and nothing was derived from it.
 
+
+
+## 2026-09-27 — Playing Blood Gulch: walk, turn, fire; a flags miscompile in acos found and fixed
+
+- **Halo takes a player's input.** `tests/halo_play_test.c` sends host keyboard, mouse and button events the way the app shells do, and checks the effects in Halo's own game state (players `0x815920`, objects `0x7fb710`):
+  - W walks the player 7.3 units forward, and letting go stops it;
+  - 300 mouse counts turn the view about 25° right;
+  - the left button fires the assault rifle (magazine 60 → 50).
+- **Firing blanked the world.** Every frame while firing showed only the fog colour and the HUD.
+  - The draw trace (new `HALOPAD_TRACE_DRAWS`) showed the camera constants had turned NaN.
+  - A NaN scan of Halo's data led to the first-person weapon and the camera globals.
+  - A temporary check in the x87 helpers found the first NaN: `acos`'s domain-error load, for ordinary arguments.
+- **The cause: flags across a call.** The CRT's `acos` calls `0x5d7318` (`cmp` on the exponent) and then `0x5ccd1d`, whose first instruction is a `je` on that ZF.
+  - `scripts/srw-flags.py` followed only the post-call path into `0x5ccd1d`, so the `cmp` was fused and ZF went stale.
+  - It now follows every path into a label that reads flags, including the direct call sites of a function entry. That adds 24 hints (the CRT math helpers and the CPUID check), and one label stays unresolved (`0x5a142e`).
+  - With the fix, the frame while firing shows the world, the muzzle flash and the shot on the tracker, and 0 bare fog pixels.
+- **Keystone** links the same C runtime math code and gains 22 hints. It is retranslated as run `20260927T163514Z-67223`. The hints for ksimeui, Controls and MSXML 4 are unchanged.
+- **Run and results:** translation run `20260927T162224Z-63690` (lifter unchanged, `24c44b99cfac-05b596a6`). 23 suites, 11 slices and 6 contract cases pass on macOS and on the iPad Simulator.
+

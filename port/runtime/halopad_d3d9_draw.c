@@ -18,6 +18,9 @@
 #include "halopad_d3d9_internal.h"
 int halopad_metal_supports_bc(void);
 #include "../apple/halopad_metal.h"
+int halopad_d3d9_tracing(void);
+void halopad_d3d9_trace_callers(char *out, size_t n);
+extern uint32_t halopad_d3d9_frame;
 
 void *halopad_com_state(const char *iface, uint32_t g);
 const char *halopad_com_interface(uint32_t g);
@@ -377,6 +380,34 @@ static uint32_t draw(device *d, uint32_t type, uint32_t prims, uint32_t start, i
     if (!d->in_scene) return D3DERR_INVALIDCALL;
     if (type < 1 || type > 6 || !prims) return D3DERR_INVALIDCALL;
     if (type == 1) hp_unsupported("draw", "point lists (point size, sprites 0x%x, scale 0x%x)", d->rs[156], d->rs[157]);
+    if (halopad_d3d9_tracing()) {
+        static uint32_t n, last_frame;
+        if (last_frame != halopad_d3d9_frame) { last_frame = halopad_d3d9_frame; n = 0; }
+        char callers[64];
+        halopad_d3d9_trace_callers(callers, sizeof callers);
+        const uint32_t *rs = d->rs;
+        fprintf(stderr, "HALOPAD DRAW f%u #%u type %u prims %u%s%s vs %08x ps %08x fvf %x rt %08x blend %u %u/%u op %u z %u/%u func %u atest %u/%u ref %u cw %x"
+                " tex %08x %08x %08x %08x vp %u,%u %ux%u from%s\n",
+                halopad_d3d9_frame, n++, type, prims, up ? " UP" : "", ib ? " indexed" : "", d->vs, d->ps, d->fvf, d->rt,
+                rs[27], rs[19], rs[20], rs[171], rs[7], rs[14], rs[23], rs[15], rs[25], rs[24] & 0xFF, rs[168],
+                d->texture[0], d->texture[1], d->texture[2], d->texture[3],
+                d->viewport[0], d->viewport[1], d->viewport[2], d->viewport[3], callers);
+        fprintf(stderr, "HALOPAD DRAW   depth %g..%g bias %g slope %g stencil %u fog %u/%08x/%u scissor %u clip %u\n", f32(d->viewport[4]), f32(d->viewport[5]),
+                f32(rs[195]), f32(rs[175]), rs[52], rs[28], rs[34], rs[35], rs[174], rs[136]);
+        if (up) {
+            for (uint32_t i = 0; i < (prims <= 2 ? prims + 2 : 1); i++) {
+                const uint32_t *w = (const uint32_t *)G(up + i * up_stride);
+                const float *v = (const float *)w;
+                fprintf(stderr, "HALOPAD DRAW   vertex %u:", i);
+                for (uint32_t k = 0; k < up_stride / 4 && k < 8; k++) fprintf(stderr, " %g/%08x", v[k], w[k]);
+                fprintf(stderr, "\n");
+            }
+        }
+        if (d->vs && getenv("HALOPAD_TRACE_DRAWS_VSCONSTS"))
+            for (int c = 0; c < 12; c++) fprintf(stderr, "HALOPAD DRAW   vs c%d = %g %g %g %g\n", c, d->vsf[c][0], d->vsf[c][1], d->vsf[c][2], d->vsf[c][3]);
+        if (d->ps && getenv("HALOPAD_TRACE_DRAWS_CONSTS"))
+            for (int c = 0; c < 8; c++) fprintf(stderr, "HALOPAD DRAW   ps c%d = %g %g %g %g\n", c, d->psf[c][0], d->psf[c][1], d->psf[c][2], d->psf[c][3]);
+    }
     check_states(d);
     hp_bound bound = halopad_d3d9_bind_targets(d);
     hp_pipeline_desc pd;

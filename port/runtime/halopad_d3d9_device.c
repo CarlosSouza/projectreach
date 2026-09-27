@@ -273,10 +273,13 @@ uint32_t hpcom_IDirect3DDevice9_EndScene_c(uint32_t g)
     d->in_scene = 0;
     return D3D_OK;
 }
+int halopad_d3d9_tracing(void);
+extern uint32_t halopad_d3d9_frame;
 uint32_t hpcom_IDirect3DDevice9_Clear_c(uint32_t g, uint32_t count, uint32_t rects, uint32_t flags, uint32_t color, uint32_t z,
                                         uint32_t stencil)
 {
     device *d = dev(g);
+    if (halopad_d3d9_tracing()) fprintf(stderr, "HALOPAD DRAW f%u clear flags %x color %08x z %08x stencil %u rt %08x\n", halopad_d3d9_frame, flags, color, z, stencil, d->rt);
     if (count || rects) hp_unsupported("IDirect3DDevice9::Clear", "%u rectangles", count);
     if (flags & ~0x7u) return D3DERR_INVALIDCALL;
     hp_bound b = halopad_d3d9_bind_targets(d);
@@ -297,6 +300,31 @@ uint32_t hpcom_IDirect3DDevice9_Clear_c(uint32_t g, uint32_t count, uint32_t rec
 /* Test support: called with each device just before it presents (the frame is complete). */
 void (*halopad_d3d9_present_hook)(uint32_t device);
 
+/* Diagnostics: HALOPAD_TRACE_DRAWS=first:last prints every draw, clear and render-target change
+   in those frames (counted by Present, from 1), with the guest return addresses on the stack. */
+uint32_t halopad_d3d9_frame = 1;
+int halopad_d3d9_tracing(void)
+{
+    static int init, lo = -1, hi = -1;
+    if (!init) {
+        init = 1;
+        const char *e = getenv("HALOPAD_TRACE_DRAWS");
+        if (e && sscanf(e, "%d:%d", &lo, &hi) != 2) lo = hi = -1;
+    }
+    return lo >= 0 && (int)halopad_d3d9_frame >= lo && (int)halopad_d3d9_frame <= hi;
+}
+void halopad_d3d9_trace_callers(char *out, size_t n)
+{
+    size_t k = 0;
+    out[0] = 0;
+    if (!halopad_cpu) return;
+    uint32_t sp = halopad_cpu->_esp;
+    for (int i = 0, found = 0; i < 64 && found < 3; i++) {
+        uint32_t v = rd32(sp + 4 * (uint32_t)i);
+        if (v >= 0x401000 && v < 0x5df000 && k + 12 < n) { k += (size_t)snprintf(out + k, n - k, " %06x", v); found++; }
+    }
+}
+
 uint32_t hpcom_IDirect3DDevice9_Present_c(uint32_t g, uint32_t src, uint32_t dst, uint32_t window, uint32_t dirty)
 {
     device *d = dev(g);
@@ -304,6 +332,7 @@ uint32_t hpcom_IDirect3DDevice9_Present_c(uint32_t g, uint32_t src, uint32_t dst
         hp_unsupported("IDirect3DDevice9::Present", "source/destination rectangles, another window or a dirty region");
     if (halopad_d3d9_present_hook) halopad_d3d9_present_hook(g);
     halopad_metal_present(d->target);
+    halopad_d3d9_frame++;
     return D3D_OK;
 }
 
