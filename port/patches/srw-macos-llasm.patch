@@ -30,17 +30,50 @@
  #include <string.h>
  #include "SR_defs.h"
  #include "SR_vars.h"
-@@ -1125,6 +1125,15 @@
-                         }
-                     }
- 
+@@ -1122,9 +1122,48 @@
+                         {
+                             case 1: ProcName = "DirectSoundCreate"; break;
+                             case 2: ProcName = "DirectSoundEnumerateA"; break;
++                        }
++                    }
++
 +                    if (strcasecmp(DllName, "OLEAUT32.dll") == 0)
 +                    {
 +                        switch(*LookupTable & 0xffff)
 +                        {
 +                            case 8: ProcName = "VariantInit"; break;
 +                            case 9: ProcName = "VariantClear"; break;
++                            case 2: ProcName = "SysAllocString"; break;
++                            case 6: ProcName = "SysFreeString"; break;
++                            case 12: ProcName = "VariantChangeType"; break;
++                            case 149: ProcName = "SysStringByteLen"; break;
++                            case 150: ProcName = "SysAllocStringByteLen"; break;
++                            case 200: ProcName = "GetErrorInfo"; break;
++                            case 201: ProcName = "SetErrorInfo"; break;
++                            case 202: ProcName = "CreateErrorInfo"; break;
+                         }
+                     }
+ 
++                    /* standard WS2_32 export ordinals (Keystone.dll imports these by ordinal) */
++                    if (strcasecmp(DllName, "WS2_32.dll") == 0)
++                    {
++                        switch(*LookupTable & 0xffff)
++                        {
++                            case   3: ProcName = "closesocket"; break;
++                            case   4: ProcName = "connect"; break;
++                            case   9: ProcName = "htons"; break;
++                            case  11: ProcName = "inet_addr"; break;
++                            case  52: ProcName = "gethostbyname"; break;
++                            case 111: ProcName = "WSAGetLastError"; break;
++                            case 115: ProcName = "WSAStartup"; break;
++                            case 116: ProcName = "WSACleanup"; break;
 +                        }
++                    }
++
++                    /* an ordinal-only WINSPOOL export; named by ordinal, never guessed */
++                    if (strcasecmp(DllName, "WINSPOOL.DRV") == 0 && (*LookupTable & 0xffff) == 203)
++                    {
++                        ProcName = "WINSPOOL_ord203";
 +                    }
 +
                      if (strcasecmp(DllName, "WSOCK32.dll") == 0)
@@ -189,7 +222,7 @@
      }
 --- a/SR_full_llasm_instr.c
 +++ b/SR_full_llasm_instr.c
-@@ -23,11 +23,21 @@
+@@ -23,12 +23,22 @@
   */
  
  #include <stdio.h>
@@ -199,7 +232,7 @@
  #include "SR_defs.h"
  #include "SR_vars.h"
  #include "udis86_dep.h"
-+
+ 
 +/* HaloPad diagnostic mode (HALOPAD_SRW_DIAG=1): log every conversion failure and
 +   continue, so one run enumerates all gaps. Output produced in this mode is a census,
 +   not a build input. */
@@ -209,14 +242,45 @@
 +    if (value < 0) value = (getenv("HALOPAD_SRW_DIAG") != NULL);
 +    return value;
 +}
- 
++
  #undef DISPLAY_DISASSEMBLY
  
-@@ -1721,6 +1731,35 @@
  
+@@ -201,7 +211,7 @@
+ };
+ 
+ struct madr_result {
+-    char madr[64];
++    char madr[512];         /* HaloPad: room for C++-decorated import names */
+     int align;
+     enum ll_regs memreg;
+ };
+@@ -441,7 +451,7 @@
+             -3 - address modulo 4 is 3
+     */
+ 
+-    char cFixupLabel[64];
++    char cFixupLabel[512];
+     char *address_str;
+     int *label_value;
+     output_data *output;
+@@ -1620,9 +1630,9 @@
+ int SR_disassemble_llasm_instruction(unsigned int Entry, output_data *output, uint_fast32_t flags_to_write, uint_fast32_t *pflags_write, uint_fast32_t *pflags_read, int *plast_instruction)
+ {
+     char cOutput[8192];
+-    char cOutPart[256];
+-    char cAddress[128];
+-    char cLabel[128];
++    char cOutPart[1024];
++    char cAddress[512];
++    char cLabel[512];
+     fixup_data *fixup1, *fixup2, *fixup[3];
+     extrn_data *extrn[3];
+     uint_fast32_t cur_ofs, flags_write, flags_read;
+@@ -1722,6 +1732,35 @@
  #define OUTPUT_PARAMSTRING(x, ...) sprintf(cOutPart, x, __VA_ARGS__); strcat(cOutput, cOutPart);
  #define OUTPUT_STRING(x) strcat(cOutput, x)
-+
+ 
 +    /* HaloPad guard: FS-prefixed instructions pass the Win32 disassembly stage, so
 +       accept exactly the FS forms this converter implements (mov r32 <-> fs:[const],
 +       fs:[reg]; push/pop dword fs:[const]). Anything else fails loudly instead of being
@@ -245,18 +309,18 @@
 +            return 8;
 +        }
 +    }
- 
++
      switch (ud_obj.mnemonic)
      {
-@@ -2989,7 +3028,58 @@
-                 }
+         case UD_Iadc:
+@@ -2990,6 +3029,57 @@
  
              }
-+            break;
+             break;
 +        case UD_Icpuid:
 +            /* HaloPad: plain-CPU contract (llasm_halopad.c); no flags affected */
 +            OUTPUT_STRING("call x86_cpuid $\n");
-             break;
++            break;
 +        case UD_Irdtsc:
 +            /* HaloPad: no flags affected */
 +            OUTPUT_STRING("call x86_rdtsc $\n");
@@ -448,6 +512,17 @@
              break;
          case UD_R_GS:
              seg = "gs:";
+@@ -264,8 +267,8 @@
+     bound_data *bound;
+     int finished, decoded_length, ret;
+     char cLabel[32];
+-    char cResult[128];
+-    char cResPart[128];
++    char cResult[1024];     /* HaloPad: room for C++-decorated import names (Controls.dll, 138 characters) */
++    char cResPart[1024];
+ #if (OUTPUT_TYPE == OUT_LLASM)
+     int prev_cjump_length, cur_cjump_length;
+ 
 @@ -304,6 +307,7 @@
          }
  

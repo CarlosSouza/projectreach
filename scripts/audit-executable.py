@@ -24,6 +24,8 @@ import sys
 
 import capstone
 import pefile
+
+import hpmodule
 from capstone import x86_const as X
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -52,7 +54,10 @@ def sha256(path):
 
 
 class Audit:
-    def __init__(self, exe):
+    def __init__(self, exe, pe_relocs=None):
+        # pe_relocs: the file's own base-relocation table (DLLs). It is ground truth for
+        # which dwords are addresses, so data pointers come from it instead of the scan.
+        self.pe_relocs = pe_relocs
         self.pe = pefile.PE(str(exe))
         self.img = self.pe.get_memory_mapped_image()
         self.base = self.pe.OPTIONAL_HEADER.ImageBase
@@ -96,6 +101,7 @@ class Audit:
         self.negative_candidates = []   # (jump, base, index register) for tables with no entries
         self.negative_index_jumps = []
         self.displaced_tables = {}      # table base -> byte distance to its first real entry
+        self.noret = {}                 # call target -> never returns (see is_noreturn)
 
     def section(self, name):
         return next(s for s in self.sections if s['name'] == name)
@@ -192,6 +198,8 @@ class Audit:
                     break
                 if capstone.CS_GRP_JUMP in ins.groups and op is not None and op.type == X.X86_OP_IMM:
                     work.append(op.imm & 0xFFFFFFFF)
+                if m == 'call' and op is not None and op.type == X.X86_OP_IMM and self.is_noreturn(op.imm & 0xFFFFFFFF):
+                    break
                 a += ins.size
         starts = sorted(seen)
         for x, y in zip(starts, starts[1:]):
@@ -252,7 +260,7 @@ class Audit:
                         t = op.imm & 0xFFFFFFFF
                         self.functions.setdefault(t, f'call@{addr:#x}')
                         work.append((t, f'call@{addr:#x}'))
-                        if self.is_noreturn_thunk(t):
+                        if self.is_noreturn(t):
                             break
                     else:
                         kind = self.indirect_kind(ins)
@@ -349,6 +357,46 @@ class Audit:
                 return 'vtable-or-struct'
             return 'indexed-memory'
         return 'other'
+
+    def is_noreturn(self, t):
+        """A call to t never returns: an import thunk to a no-return import, or straight-line
+        code (no branch or return before it) that exits the process/thread or throws a C++
+        exception (MSVC _CxxThrowException: RaiseException of a copied template whose code is
+        0xE06D7363 and whose flags are EXCEPTION_NONCONTINUABLE)."""
+        if t in self.noret:
+            return self.noret[t]
+        self.noret[t] = False                     # recursion guard
+        result = self.is_noreturn_thunk(t) or self._straight_noreturn(t)
+        self.noret[t] = result
+        return result
+
+    def _straight_noreturn(self, t):
+        if not self.in_text(t):
+            return False
+        a, template = t, None
+        for _ in range(64):
+            ins = self.decode(a)
+            if ins is None:
+                return False
+            m, ops = ins.mnemonic, ins.operands
+            if m == 'mov' and len(ops) == 2 and ops[0].type == X.X86_OP_REG and ops[1].type == X.X86_OP_IMM:
+                v = ops[1].imm & 0xFFFFFFFF
+                if self.in_image(v) and not self.in_text(v):
+                    template = v
+            if m == 'call':
+                op = ops[0]
+                if op.type == X.X86_OP_MEM and op.mem.base == 0 and op.mem.index == 0:
+                    name = self.imports.get(op.mem.disp & 0xFFFFFFFF, {}).get('name')
+                    if name in ('ExitProcess', 'ExitThread', 'FatalAppExitA', 'FatalAppExitW'):
+                        return True
+                    if name == 'RaiseException':
+                        return template is not None and self.dword(template) == 0xE06D7363 and self.dword(template + 4) == 1
+                elif op.type == X.X86_OP_IMM and self.is_noreturn(op.imm & 0xFFFFFFFF):
+                    return True
+            if m in ENDS or m.startswith('ret') or capstone.CS_GRP_JUMP in ins.groups:
+                return False
+            a += ins.size
+        return False
 
     def is_noreturn_thunk(self, t):
         ins = self.decode(t) if self.in_text(t) else None
@@ -477,6 +525,13 @@ class Audit:
         entry = self.base + self.pe.OPTIONAL_HEADER.AddressOfEntryPoint
         self.functions[entry] = 'entry'
         self.trace(entry, 'entry')
+        if hasattr(self.pe, 'DIRECTORY_ENTRY_EXPORT'):
+            for e in self.pe.DIRECTORY_ENTRY_EXPORT.symbols:
+                t = self.base + e.address
+                if self.in_text(t):
+                    name = e.name.decode() if e.name else f'#{e.ordinal}'
+                    self.functions.setdefault(t, f'export:{name}')
+                    self.trace(t, f'export:{name}')
         if hasattr(self.pe, 'DIRECTORY_ENTRY_TLS'):
             cb = self.pe.DIRECTORY_ENTRY_TLS.struct.AddressOfCallBacks
             while cb and self.in_image(cb):
@@ -551,6 +606,9 @@ class Audit:
             n = len(b.split(b'\0', 1)[0])
             return n >= 2 and all(pr(c) for c in b[:n]) and all(c == 0 for c in b[n:])
 
+        if self.pe_relocs is not None:
+            self.scan_pe_relocs()
+            return
         for s in self.sections:
             if s['name'] in ('.text', '.rsrc'):
                 continue
@@ -578,6 +636,32 @@ class Audit:
                     target_section = self.section_of(v) or 'header (uncertain)'
                     self.add_reloc(va, v, f'data-ptr:{target_section}')
                     self.data_ptr_counts[f'{s["name"]}->{target_section}'] += 1
+
+    def scan_pe_relocs(self):
+        """Data pointers from the file's relocation table. Fixups inside .text belong to
+        instructions and jump tables, which tracing finds and checks against this table."""
+        for fixup, v in self.pe_relocs:
+            if self.in_text(fixup):
+                continue
+            s = self.section_of(fixup)
+            if self.in_text(v):
+                self.data_code_ptrs[fixup] = v
+            elif self.section_of(v) == '.rsrc':
+                self.uncertain[fixup] = (v, 'data-ptr:rsrc-literal')
+            else:
+                self.add_reloc(fixup, v, f'data-ptr:{self.section_of(v) or "header"}')
+                self.data_ptr_counts[f'{s}->{self.section_of(v)}'] += 1
+
+    def check_against_pe_relocs(self):
+        """Every address the audit found in code must be in the file's table; report the
+        table's .text fixups the audit did not explain."""
+        table = {f for f, _ in self.pe_relocs}
+        extra = sorted(f for f in self.relocs if f not in table)
+        text_fixups = {f for f in table if self.in_text(f)}
+        explained = {f for f in text_fixups if f in self.relocs or f in self.uncertain or f in self.owner or f in self.table_bytes}
+        return {'audit_not_in_table': [hex(f) for f in extra[:50]], 'audit_not_in_table_count': len(extra),
+                'text_fixups': len(text_fixups), 'text_fixups_unexplained': len(text_fixups - explained),
+                'unexplained_sample': [hex(f) for f in sorted(text_fixups - explained)[:50]]}
 
     def classify_data_ptrs(self):
         for va, t in self.data_code_ptrs.items():
@@ -751,15 +835,21 @@ def write_markdown(path, r, meta):
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--executable', type=pathlib.Path)
+    hpmodule.add_argument(ap)
     a = ap.parse_args()
-    profile = json.loads((ROOT / 'config/profiles' / f'{PROFILE_ID}.json').read_text())
-    exe = a.executable or ROOT / profile['original_root'] / profile['executable']
-    digest = sha256(exe)
-    if digest != profile['accepted_sha256']:
-        sys.exit('FAIL: executable does not match the accepted profile hash')
-    audit = Audit(exe)
+    mod = hpmodule.Module(a.module)
+    exe = a.executable or mod.exe
+    mod.verify_source()
+    digest = sha256(mod.source)
+    pe_relocs = None if mod.relocs_stripped else hpmodule.pe_relocations(exe)
+    audit = Audit(exe, pe_relocs)
     audit.run()
-    demoted = audit.demote_mid_instruction_targets()
+    demoted = audit.demote_mid_instruction_targets() if pe_relocs is None else 0
+    if pe_relocs is not None:
+        # The file's table decides: drop code-operand guesses it does not list.
+        table = dict(pe_relocs)
+        for fixup in [f for f in audit.relocs if f not in table]:
+            audit.uncertain[fixup] = audit.relocs.pop(fixup)
     problems = audit.verify_relocs()
     if problems:
         sys.exit('FAIL: relocation self-check: ' + '; '.join(problems[:10]))
@@ -767,23 +857,32 @@ def main():
     r['demoted_mid_instruction'] = demoted
     today = datetime.date.today().isoformat()
     stamp = datetime.datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')
-    evid = ROOT / 'docs' / 'artifacts' / today / 'G2a' / f'audit-{stamp}'
+    evid = ROOT / 'docs' / 'artifacts' / today / 'G2a' / (f'audit-{stamp}' if mod.primary else f'audit-{mod.name}-{stamp}')
     evid.mkdir(parents=True, exist_ok=True)
-    out = ROOT / 'generated' / 'analysis' / PROFILE_ID
+    out = mod.analysis
     out.mkdir(parents=True, exist_ok=True)
-    with open(out / 'relocations.csv', 'w') as f:
-        for fixup in sorted(audit.relocs):
-            target, kind = audit.relocs[fixup]
-            f.write(f"{fixup:#x},{target:#x},{'i' if kind.endswith(':imagebase') else ''}\n")
+    if pe_relocs is None:
+        with open(out / 'relocations.csv', 'w') as f:
+            for fixup in sorted(audit.relocs):
+                target, kind = audit.relocs[fixup]
+                f.write(f"{fixup:#x},{target:#x},{'i' if kind.endswith(':imagebase') else ''}\n")
+    else:
+        r['pe_relocation_check'] = audit.check_against_pe_relocs()
+    (out / 'image.bin').write_bytes(audit.pe.get_memory_mapped_image())
     # SRW hints derived from the audit: relocation targets inside .text are code
     # entries only when the audit decoded an instruction there; all others are data.
-    text_targets = {t for t, _ in audit.relocs.values() if audit.in_text(t)}
+    # (SRW applies a DLL's own table, so every target in it needs a decision.)
+    all_targets = [t for _, t in pe_relocs] if pe_relocs is not None else [t for t, _ in audit.relocs.values()]
+    text_targets = {t for t in all_targets if audit.in_text(t)}
     code_targets = sorted(t for t in text_targets if t in audit.insn)
     data_targets = sorted(t for t in text_targets if t not in audit.insn)
     srw = out / 'srw'
     srw.mkdir(exist_ok=True)
     (srw / 'fixup_interpret_as_code.sci').write_text(''.join(f'loc_{t:X}\n' for t in code_targets))
     (srw / 'fixup_do_not_interpret_as_code.sci').write_text(''.join(f'loc_{t:X}\n' for t in data_targets))
+    noret = sorted(t for t, v in audit.noret.items() if v and t in audit.insn)
+    (srw / 'noret_procedures.sci').write_text(''.join(f'loc_{t:X}\n' for t in noret))
+    r['noret_procedures'] = [hex(t) for t in noret]
     (srw / 'displaced_labels.sci').write_text(''.join(f'loc_{t:X},{d}\n' for t, d in sorted(audit.displaced_tables.items())))
     r['srw_hints'] = {'fixup_interpret_as_code': len(code_targets), 'fixup_do_not_interpret_as_code': len(data_targets)}
     # Every decoded instruction start, for tools that re-decode with another decoder.
@@ -793,7 +892,9 @@ def main():
     with open(out / 'functions.json', 'w') as f:
         json.dump({f'{a:#x}': src for a, src in sorted(audit.functions.items())}, f)
     (evid / 'audit.json').write_text(json.dumps(r, indent=1, default=str) + '\n')
-    (evid / 'relocations.sha256').write_text(sha256(out / 'relocations.csv') + '  relocations.csv\n')
+    (out / 'audit.json').write_text(json.dumps(r, indent=1, default=str) + '\n')
+    if pe_relocs is None:
+        (evid / 'relocations.sha256').write_text(sha256(out / 'relocations.csv') + '  relocations.csv\n')
     mods = collections.Counter((i['dll'], i['delay']) for i in audit.imports.values())
     meta = {'date': today, 'sha256': digest, 'evidence': str(evid.relative_to(ROOT)),
             'sections': audit.sections, 'base': audit.base,
@@ -801,7 +902,10 @@ def main():
             'imports': [{'dll': d, 'delay': dl, 'count': c}
                         for (d, dl), c in sorted(mods.items(), key=lambda x: (x[0][1], x[0][0]))],
             'verdict': 'PASS' if r['unclassified_bytes'] < 0.02 * r['text_size'] else 'INCOMPLETE (unclassified code remains)'}
-    write_markdown(ROOT / 'docs' / 'EXECUTION-MODEL.md', r, meta)
+    if mod.primary:
+        write_markdown(ROOT / 'docs' / 'EXECUTION-MODEL.md', r, meta)
+    else:
+        print('relocation-table check:', {k: v for k, v in r['pe_relocation_check'].items() if not k.endswith('sample') and not k.endswith('table')})
     print(f"{meta['verdict']}: {r['instructions']:,} instructions, {r['functions']:,} functions, "
           f"code {r['code_bytes']:,}/{r['text_size']:,} bytes, tables {r['jump_table_bytes']:,}, padding {r['padding_bytes']:,}, "
           f"unclassified {r['unclassified_bytes']:,} in {len(r['unclassified_regions'])} regions, "

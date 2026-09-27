@@ -9,6 +9,14 @@ include asm-calls.llinc
 
 func GetLastError_c
 funcv SetLastError_c a1
+func TryEnterCriticalSection_c a1
+func lstrlenA_c a1
+func lstrlenW_c a1
+func lstrcpyA_c a1, a2
+func lstrcpyW_c a1, a2
+func lstrcatA_c a1, a2
+func lstrcatW_c a1, a2
+func lstrcmpiA_c a1, a2
 func GetVersionExA_c a1
 funcv GetSystemInfo_c a1
 func IsProcessorFeaturePresent_c a1
@@ -224,6 +232,11 @@ endp
 
 proc hpimp_EnterCriticalSection public
         Call_Asm_Stack1_void EnterCriticalSection_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_TryEnterCriticalSection public
+        Call_Asm_Stack1 TryEnterCriticalSection_c
         Call_Asm_Return 1
 endp
 
@@ -480,4 +493,39 @@ endp
 proc hpimp_Sleep public
         Call_Asm_Stack1_void Sleep_c
         Call_Asm_Return 1
+endp
+
+proc hpimp_lstrlenA public
+        Call_Asm_Stack1 lstrlenA_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_lstrlenW public
+        Call_Asm_Stack1 lstrlenW_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_lstrcpyA public
+        Call_Asm_Stack2 lstrcpyA_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_lstrcpyW public
+        Call_Asm_Stack2 lstrcpyW_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_lstrcatA public
+        Call_Asm_Stack2 lstrcatA_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_lstrcatW public
+        Call_Asm_Stack2 lstrcatW_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_lstrcmpiA public
+        Call_Asm_Stack2 lstrcmpiA_c
+        Call_Asm_Return 2
 endp

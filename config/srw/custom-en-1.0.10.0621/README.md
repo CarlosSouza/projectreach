@@ -26,3 +26,13 @@ Format: `loc_<hex addr>,<name>`. Exports a translated procedure as the C-callabl
 | `0x583b65` | `halo_vec4_transform` | `scripts/run-slices.py` (x87 math) |
 | `0x4434a0` | `halo_map_header_valid` | `scripts/run-slices.py` (reads a map file's 0x800-byte header through CreateFileA/ReadFile/CloseHandle and validates it; eax = name, esi = buffer) |
 | `0x5ccac7` | `halo_entry` | G3: the PE entry point (MSVC CRT startup, which calls WinMain `0x5445e0`). SRW's llasm mode does not root the entry point, and a global alias is SRW's way to add a translation root. Without it, the CRT startup and WinMain are not translated. |
+
+## Translated DLLs
+
+`keystone/` and `ksimeui/` hold the same kinds of files for `Keystone.dll` and `ksimeui.dll` (`scripts/srw-pipeline.sh <build> --module <name>`).
+
+| File | Entry | Why |
+|---|---|---|
+| `keystone/global_aliases.sci` | `loc_102DB232,keystone_entry` | DLL entry point (`_DllMainCRTStartup`); SRW's llasm mode does not root it |
+| `ksimeui/global_aliases.sci` | `loc_1000D2EC,ksimeui_entry` | same |
+| `keystone/instruction_replacements.sci` | `0x102dbabd`, 18 bytes | the same CRT local-unwind helper as the executable's `0x5cce49` (`cmp esi, fs:[0]`) |

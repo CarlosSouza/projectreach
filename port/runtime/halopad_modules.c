@@ -12,10 +12,12 @@
  * every static and delay-load import plus config/runtime/dynamic-exports.txt. Each entry
  * has a guest address that dispatches to HaloPad's service or to a stub naming it. */
 #include "halopad_win32.h"
+#include <pthread.h>
+#include <strings.h>
 
 #define ERROR_MOD_NOT_FOUND 126
-enum { LOADED, LOADABLE, ABSENT, DATAFILE };
-typedef struct { const char *name; uint32_t handle; int state; uint32_t refs; } module;
+enum { LOADED, LOADABLE, ABSENT, DATAFILE, TRANSLATED };
+typedef struct { const char *name; uint32_t handle; int state; uint32_t refs; int translated; } module;
 
 static module modules[] = {
     {"haloce.exe", HP_IMAGE_BASE, LOADED, 1},
@@ -37,9 +39,19 @@ static module modules[] = {
     {"shfolder.dll", 0x76780000, LOADABLE, 0},      /* SHGetFolderPathA (My Documents) */
     {"d3d9.dll", 0x4FDD0000, LOADABLE, 0},
     {"dinput8.dll", 0x4C000000, LOADABLE, 0},
-    {"vorbisfile.dll", 0x10000000, LOADABLE, 0},   /* shipped with the game */
-    {"binkw32.dll", 0x10100000, LOADABLE, 0},      /* shipped with the game */
-    {"eula.dll", 0x10200000, LOADABLE, 0},         /* shipped with the game */
+    {"winspool.drv", 0x73000000, LOADABLE, 0},     /* static import of Keystone.dll */
+    {"imm32.dll", 0x76390000, LOADABLE, 0},        /* static import of ksimeui.dll */
+    /* shipped with the game and replaced by HaloPad services. Their handles are not mapped
+       memory; they stay clear of the translated DLLs' bases (on Windows the loader would
+       relocate whichever of these loads after ksimeui.dll at 0x10000000). */
+    {"vorbisfile.dll", 0x6E000000, LOADABLE, 0},
+    {"binkw32.dll", 0x6E100000, LOADABLE, 0},
+    {"eula.dll", 0x6E200000, LOADABLE, 0},
+    /* shipped with the game and translated like the executable (scripts/va-model.py):
+       mapped at the preferred base, imports bound, DllMain run, exports from the image */
+    {"keystone.dll", 0x10200000, TRANSLATED, 0},
+    {"ksimeui.dll", 0x10000000, TRANSLATED, 0},
+    {"controls.dll", 0x10330000, TRANSLATED, 0},   /* Keystone's controls; relocated from 0x10200000 (profile 'rebase') */
     /* game DLLs Halo uses only for resources: mapped as read-only images from the game
        directory at their preferred base; their code never runs (no DllMain; no dispatch
        entries, so any transfer into them traps with the address) */
@@ -51,6 +63,18 @@ static module modules[] = {
 #define NMOD (sizeof modules / sizeof modules[0])
 
 extern const uint32_t halopad_import_count, halopad_import_base, halopad_import_stride;
+/* translated DLLs (dispatch.ll, scripts/va-model.py) */
+extern const uint32_t halopad_tmodule_count;
+extern const char *const halopad_tmodule_names[], *const halopad_tmodule_paths[];
+extern const uint32_t halopad_tmodule_bases[], halopad_tmodule_sizes[], halopad_tmodule_entries[];
+extern const uint32_t halopad_tmodule_slot_first[], halopad_tmodule_slot_count[];
+extern const uint32_t halopad_tmodule_slot_vas[], halopad_tmodule_slot_values[];
+uint32_t halopad_call_guest(uint32_t va, uint32_t nargs, const uint32_t *args);
+uint32_t halopad_vm_reserve(uint32_t address, uint32_t size, int commit_now);
+int halopad_vm_release(uint32_t address);
+void halopad_vm_hold(uint32_t base, uint32_t size, const char *what);
+void halopad_vm_hold_set(uint32_t base, int active);
+void halopad_protect_image(uint32_t image_base);
 extern const char *const halopad_import_names[];
 extern const char *const halopad_import_dlls[];
 
@@ -130,10 +154,216 @@ static void map_datafile(module *m)
     mapped[nmapped++] = m->handle;
 }
 
+/* ---- translated DLLs: the Windows loader's job for Keystone.dll and ksimeui.dll ---- */
+#define DLL_PROCESS_DETACH 0
+#define DLL_PROCESS_ATTACH 1
+#define ERROR_DLL_INIT_FAILED 1114
+#define ERROR_PROC_NOT_FOUND 127
+
+typedef struct { module *m; module *deps[16]; uint32_t ndeps; int attached; } loaded_module;
+static loaded_module load_order[8];          /* load order: initialization order */
+static uint32_t nload;
+static pthread_mutex_t loader_lock;
+__attribute__((constructor)) static void loader_lock_init(void)
+{
+    pthread_mutexattr_t a;
+    pthread_mutexattr_init(&a);
+    pthread_mutexattr_settype(&a, PTHREAD_MUTEX_RECURSIVE);
+    pthread_mutex_init(&loader_lock, &a);
+}
+
+static int tindex(const module *m)
+{
+    for (uint32_t i = 0; i < halopad_tmodule_count; i++)
+        if (!strcasecmp(halopad_tmodule_names[i], m->name)) return (int)i;
+    return -1;
+}
+
+static module *lookup(const char *name)
+{
+    char n[260];
+    const char *base = name;
+    for (const char *q = name; *q; q++) if (*q == '\\' || *q == '/') base = q + 1;
+    size_t k = 0;
+    for (; base[k] && k + 1 < sizeof n; k++) n[k] = (char)(base[k] >= 'A' && base[k] <= 'Z' ? base[k] + 32 : base[k]);
+    n[k] = 0;
+    if (!strchr(n, '.') && k + 5 < sizeof n) strcat(n, ".dll");
+    for (size_t i = 0; i < NMOD; i++) if (!strcmp(modules[i].name, n)) return &modules[i];
+    return NULL;
+}
+
+/* Hold every translated DLL's preferred range until it loads (halopad_vmem.c). */
+void halopad_modules_init(void)
+{
+    for (size_t i = 0; i < NMOD; i++) {
+        if (modules[i].state != TRANSLATED) continue;
+        int ti = tindex(&modules[i]);
+        if (ti < 0) continue;                         /* not in this build: LoadLibraryA stops with the name */
+        if (halopad_tmodule_bases[ti] != modules[i].handle)
+            hp_unsupported("LoadLibraryA", "%s: build base 0x%08x, module table 0x%08x", modules[i].name, halopad_tmodule_bases[ti], modules[i].handle);
+        halopad_vm_hold(halopad_tmodule_bases[ti], halopad_tmodule_sizes[ti], halopad_tmodule_names[ti]);
+    }
+}
+
+static void map_translated(module *m, int ti)
+{
+    const char *dir = getenv("HALOPAD_MODULE_IMAGES");
+    if (!dir) hp_unsupported("LoadLibraryA", "no HALOPAD_MODULE_IMAGES for \"%s\"", m->name);
+    char stem[64], path[1024];
+    snprintf(stem, sizeof stem, "%s", m->name);
+    char *dot = strrchr(stem, '.');
+    if (dot) *dot = 0;
+    snprintf(path, sizeof path, "%s/%s/image.bin", dir, stem);
+    FILE *f = fopen(path, "rb");
+    if (!f) hp_unsupported("LoadLibraryA", "cannot open %s", path);
+    fseek(f, 0, SEEK_END);
+    long size = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    uint32_t base = halopad_tmodule_bases[ti], image_size = halopad_tmodule_sizes[ti];
+    if (size <= 0 || (uint32_t)size > image_size) hp_unsupported("LoadLibraryA", "%s: %ld bytes for a 0x%x-byte image", path, size, image_size);
+    halopad_vm_hold_set(base, 0);
+    if (halopad_vm_reserve(base, image_size, 1) != base)
+        hp_unsupported("LoadLibraryA", "preferred base 0x%08x of %s is not free", base, m->name);
+    if (fread(G(base), 1, (size_t)size, f) != (size_t)size) hp_unsupported("LoadLibraryA", "short read of %s", path);
+    fclose(f);
+    uint32_t pe = base + rd32(base + 0x3C);
+    if (rd32(pe) != 0x4550 || rd32(pe + 0x50) != image_size || base + rd32(pe + 0x28) != halopad_tmodule_entries[ti])
+        hp_unsupported("LoadLibraryA", "%s does not match the translation of %s", path, m->name);
+}
+
+static uint32_t load_translated(module *m);
+
+/* Static imports load first (and run their DllMain first), as on Windows. */
+static int load_dependencies(loaded_module *lm, uint32_t base)
+{
+    uint32_t pe = base + rd32(base + 0x3C);
+    uint32_t imp = rd32(pe + 0x80);
+    for (uint32_t d = base + imp; imp && rd32(d + 12); d += 20) {
+        const char *dn = (const char *)G(base + rd32(d + 12));
+        module *dep = lookup(dn);
+        if (!dep) hp_unsupported("LoadLibraryA", "%s imports from unknown module \"%s\"", lm->m->name, dn);
+        if (dep->state == ABSENT) { halopad_last_error = ERROR_MOD_NOT_FOUND; return 0; }
+        if (dep->state == TRANSLATED) { if (!load_translated(dep)) return 0; }
+        else { dep->state = LOADED; dep->refs++; }
+        if (lm->ndeps == sizeof lm->deps / sizeof lm->deps[0]) hp_unsupported("LoadLibraryA", "%s: more than 16 imported modules", lm->m->name);
+        lm->deps[lm->ndeps++] = dep;
+    }
+    return 1;
+}
+
+static void unload_translated(module *m);
+
+static uint32_t load_translated(module *m)
+{
+    if (m->state == LOADED) { m->refs++; return m->handle; }
+    int ti = tindex(m);
+    if (ti < 0) hp_unsupported("LoadLibraryA", "no translation of \"%s\" in this build (scripts/va-model.py)", m->name);
+    map_translated(m, ti);
+    if (nload == sizeof load_order / sizeof load_order[0]) hp_unsupported("LoadLibraryA", "more than 8 translated modules");
+    loaded_module *lm = &load_order[nload];
+    memset(lm, 0, sizeof *lm);
+    lm->m = m;
+    m->state = LOADED;
+    m->translated = 1;
+    m->refs = 1;
+    nload++;
+    if (!load_dependencies(lm, m->handle)) { unload_translated(m); return 0; }
+    for (uint32_t k = 0; k < halopad_tmodule_slot_count[ti]; k++) {       /* bind the import address table */
+        uint32_t i = halopad_tmodule_slot_first[ti] + k;
+        memcpy(G(halopad_tmodule_slot_vas[i]), &halopad_tmodule_slot_values[i], 4);
+    }
+    halopad_protect_image(m->handle);
+    mapped[nmapped++] = m->handle;
+    uint32_t args[3] = {m->handle, DLL_PROCESS_ATTACH, 0};
+    lm->attached = 1;
+    if (!halopad_call_guest(halopad_tmodule_entries[ti], 3, args)) {
+        /* DllMain refused: Windows calls it again with DLL_PROCESS_DETACH and unloads */
+        m->refs = 1;
+        unload_translated(m);
+        halopad_last_error = ERROR_DLL_INIT_FAILED;
+        return 0;
+    }
+    return m->handle;
+}
+
+static void unload_translated(module *m)
+{
+    if (m->refs && --m->refs) return;
+    int ti = tindex(m);
+    uint32_t i = 0;
+    while (i < nload && load_order[i].m != m) i++;
+    loaded_module lm = load_order[i];
+    if (lm.attached) {
+        uint32_t args[3] = {m->handle, DLL_PROCESS_DETACH, 0};
+        halopad_call_guest(halopad_tmodule_entries[ti], 3, args);
+    }
+    for (uint32_t k = 0; k < nmapped; k++) if (mapped[k] == m->handle) { mapped[k] = mapped[--nmapped]; break; }
+    for (; i + 1 < nload; i++) load_order[i] = load_order[i + 1];
+    nload--;
+    halopad_vm_release(m->handle);
+    halopad_vm_hold_set(m->handle, 1);
+    m->state = TRANSLATED;
+    m->translated = 0;
+    m->refs = 0;
+    for (uint32_t k = lm.ndeps; k-- > 0;) {
+        module *d = lm.deps[k];
+        if (d->translated) unload_translated(d);
+        else if (d->refs) d->refs--;
+    }
+}
+
+/* DLL_THREAD_ATTACH (2) on a new thread before its start routine, DLL_THREAD_DETACH (3)
+ * when it ends: every loaded translated DLL, in load order / reverse load order. */
+void halopad_modules_thread_notify(uint32_t reason)
+{
+    pthread_mutex_lock(&loader_lock);
+    uint32_t n = nload;
+    loaded_module order[8];
+    memcpy(order, load_order, sizeof order);
+    pthread_mutex_unlock(&loader_lock);
+    for (uint32_t k = 0; k < n; k++) {
+        module *m = order[reason == 3 ? n - 1 - k : k].m;
+        uint32_t args[3] = {m->handle, reason, 0};
+        halopad_call_guest(halopad_tmodule_entries[tindex(m)], 3, args);
+    }
+}
+
+/* The file's own name for GetModuleFileNameA, or NULL if handle is not a loaded translated DLL. */
+const char *halopad_module_file(uint32_t handle)
+{
+    for (size_t i = 0; i < NMOD; i++)
+        if (modules[i].handle == handle && modules[i].translated) return halopad_tmodule_paths[tindex(&modules[i])];
+    return NULL;
+}
+
+/* GetProcAddress on a translated DLL reads its export directory, as Windows does. */
+static uint32_t translated_export(const module *m, uint32_t name)
+{
+    uint32_t base = m->handle, pe = base + rd32(base + 0x3C);
+    uint32_t dir = rd32(pe + 0x78), dsize = rd32(pe + 0x7C);
+    if (!dir) { halopad_last_error = ERROR_PROC_NOT_FOUND; return 0; }
+    uint32_t e = base + dir, ord_base = rd32(e + 0x10), nfun = rd32(e + 0x14), nnames = rd32(e + 0x18);
+    uint32_t funcs = base + rd32(e + 0x1C), names = base + rd32(e + 0x20), ords = base + rd32(e + 0x24);
+    uint32_t index = 0xFFFFFFFFu;
+    if (name < 0x10000) index = name - ord_base;
+    else for (uint32_t k = 0; k < nnames; k++)
+        if (!strcmp((const char *)G(base + rd32(names + 4 * k)), (const char *)G(name))) { index = rd32(ords + 2 * k) & 0xFFFF; break; }
+    if (index >= nfun || !rd32(funcs + 4 * index)) { halopad_last_error = ERROR_PROC_NOT_FOUND; return 0; }
+    uint32_t rva = rd32(funcs + 4 * index);
+    if (rva >= dir && rva < dir + dsize) hp_unsupported("GetProcAddress", "%s: forwarded export %s", m->name, (const char *)G(base + rva));
+    return base + rva;
+}
+
 uint32_t LoadLibraryA_c(uint32_t name)
 {
     module *m = find_module("LoadLibraryA", name);
     if (m->state == ABSENT) { halopad_last_error = ERROR_MOD_NOT_FOUND; return 0; }
+    if (m->state == TRANSLATED || m->translated) {
+        pthread_mutex_lock(&loader_lock);
+        uint32_t h = load_translated(m);
+        pthread_mutex_unlock(&loader_lock);
+        return h;
+    }
     if (m->state == DATAFILE) map_datafile(m);
     m->state = LOADED;
     m->refs++;
@@ -143,6 +373,13 @@ uint32_t LoadLibraryA_c(uint32_t name)
 /* Modules stay loaded; the reference count is kept for FreeLibrary's result only. */
 uint32_t FreeLibrary_c(uint32_t handle)
 {
+    for (size_t i = 0; i < NMOD; i++)
+        if (modules[i].handle == handle && modules[i].translated) {
+            pthread_mutex_lock(&loader_lock);
+            unload_translated(&modules[i]);
+            pthread_mutex_unlock(&loader_lock);
+            return 1;
+        }
     for (size_t i = 0; i < NMOD; i++)
         if (modules[i].handle == handle && modules[i].state == LOADED) { if (modules[i].refs) modules[i].refs--; return 1; }
     halopad_last_error = HP_ERROR_INVALID_HANDLE;
@@ -160,6 +397,7 @@ uint32_t GetProcAddress_c(uint32_t handle, uint32_t name)
     const module *m = NULL;
     for (size_t i = 0; i < NMOD; i++) if (modules[i].handle == handle && modules[i].state == LOADED) m = &modules[i];
     if (!m) hp_unsupported("GetProcAddress", "module handle 0x%08x", handle);
+    if (m->translated) return translated_export(m, name);
     char want[64];
     if (name < 0x10000) snprintf(want, sizeof want, "#%u", name);
     else snprintf(want, sizeof want, "%s", (const char *)G(name));

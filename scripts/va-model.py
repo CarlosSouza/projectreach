@@ -31,6 +31,9 @@ import sys
 
 import pefile
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import hpmodule  # noqa: E402
+
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SUPPORT = ROOT / 'port' / 'llasm-support'
 RUNTIME = ROOT / 'port' / 'llasm-runtime'
@@ -76,7 +79,9 @@ def static_imports(exe, known):
     out = []
     for e in pe.DIRECTORY_ENTRY_IMPORT:
         for imp in e.imports:
-            name = imp.name.decode() if imp.name else None
+            # Ordinals pefile cannot name get SRW's loader name <DLL stem>_ord<n>
+            # (port/patches: e.g. WINSPOOL.DRV ordinal 203 -> WINSPOOL_ord203).
+            name = imp.name.decode() if imp.name else f'{e.dll.decode().split(".")[0]}_ord{imp.ordinal}'
             if name not in known:
                 sys.exit(f'import {e.dll.decode()}!{name or imp.ordinal} has no SRW procedure name')
             out.append((imp.address, name, e.dll.decode().lower()))
@@ -86,6 +91,31 @@ def static_imports(exe, known):
 def symbol_for(name):
     """Link symbol for an export name (delay-loaded names such as _BinkOpen@8 are not identifiers)."""
     return IMPORT_PREFIX + re.sub(r'[^A-Za-z0-9_]', lambda m: '_%02x' % ord(m.group()), name)
+
+
+LLVM_IDENT = re.compile(r'[A-Za-z$._][\w$.]*')
+
+
+def import_symbol(name):
+    """Link symbol for an import: hpimp_<name>, sanitized when the name is not an LLVM identifier."""
+    return IMPORT_PREFIX + name if LLVM_IDENT.fullmatch(name) else symbol_for(name)
+
+
+def pe_exports(exe):
+    pe = pefile.PE(str(exe), fast_load=True)
+    pe.parse_data_directories(directories=[pefile.DIRECTORY_ENTRY['IMAGE_DIRECTORY_ENTRY_EXPORT']])
+    base = pe.OPTIONAL_HEADER.ImageBase
+    return {e.name.decode(): base + e.address for e in getattr(pe, 'DIRECTORY_ENTRY_EXPORT', None).symbols if e.name} \
+        if hasattr(pe, 'DIRECTORY_ENTRY_EXPORT') else {}
+
+
+def latest_module_run(mod):
+    runs = sorted((ROOT / 'generated' / 'srw' / hpmodule.PROFILE_ID / 'modules' / mod.name).glob('run-*/'),
+                  key=lambda p: p.stat().st_mtime)
+    runs = [r for r in runs if (r / f'{mod.stem}.ll').exists()]      # finished pipeline runs only
+    if not runs:
+        sys.exit(f'no finished SRW run for module {mod.name}; run scripts/srw-pipeline.sh <build> --module {mod.name}')
+    return runs[-1]
 
 
 def dynamic_exports(exe):
@@ -166,10 +196,178 @@ def transform_code(lines, import_vas=None):
     return out, stats
 
 
+def postprocess_ll(raw, out, triple):
+    """Drop llasm's C entry wrappers, make procedures visible to the dispatch module, and
+    refuse host code addresses as guest values. Returns procedure names and dropped count."""
+    procs, dropped, in_wrapper = [], 0, False
+    new = out.with_suffix('.ll.new')
+    with open(raw) as fin, open(new, 'w') as fout:
+        fout.write(triple)
+        for line in fin:
+            if in_wrapper:
+                in_wrapper = line.rstrip('\n') != '}'
+                continue
+            if line.startswith('define protected ccc void @c_'):
+                in_wrapper, dropped = True, dropped + 1
+                continue
+            if line.startswith('define private fastcc void @'):
+                line = line.replace('define private fastcc', 'define hidden fastcc', 1)
+            if line.startswith('define hidden fastcc void @__return_procedure('):
+                # llasm's helper for the removed C wrappers; every module defines one
+                line = line.replace('define hidden', 'define internal', 1)
+            m = re.match(r'define (?:hidden|protected) fastcc void @([^(]+)\(', line)
+            if m:
+                procs.append(m.group(1))
+            if 'ptrtoint' in line and re.search(r'ptrtoint void\s*\(%_cpu\*\)\*', line):
+                sys.exit(f'host code address would become a guest value: {line.strip()[:160]}')
+            fout.write(line)
+    if out.exists() and filecmp.cmp(new, out, shallow=False):
+        new.unlink()
+    else:
+        new.replace(out)
+    return procs, dropped
+
+
+def build_modules(a, va, llasm, triple, registry, seen, table):
+    """Translate each non-primary module into va/<name>/<name>.va.ll. Adds its procedures to
+    the dispatch table and its non-module imports to the export registry; returns module
+    records for module_tables()."""
+    overrides = dict(x.split('=', 1) for x in a.module_work)
+    mods = [m for m in hpmodule.all_modules() if not m.primary]
+    exports = {m.file.lower(): pe_exports(m.exe) for m in mods}
+    records = []
+    for mod in mods:
+        mw = pathlib.Path(overrides[mod.name]).resolve() if mod.name in overrides else latest_module_run(mod)
+        out = va / mod.name
+        out.mkdir(exist_ok=True)
+        main_src = (mw / f'{mod.stem}.llasm').read_text().splitlines()
+        extern_src = (mw / 'extern.llinc').read_text()
+        # Export and alias names SRW gave procedures (define loc_X NAME) go back to loc_X:
+        # C++ export names are not LLVM identifiers, and dispatch works by address.
+        named = {}
+        for line in main_src:
+            m = re.fullmatch(r'define loc_([0-9A-F]+) (\S+)', line)
+            if m:
+                named[m.group(2)] = f'loc_{m.group(1)}'
+        kept_extern = [l for l in extern_src.splitlines()
+                       if not re.fullmatch(r'define (\S+) (?:\1_asm2c|hpimp_\1)', l)
+                       and not re.fullmatch(r'proc (?:\S+_asm2c|hpimp_\S+) external', l)]
+        known = {m.group(1) for m in re.finditer(r'^proc (\S+) external', '\n'.join(main_src) + '\n' + extern_src, re.M)}
+        known |= set(re.findall(r'^define (\S+) (?:\S+_asm2c|hpimp_\S+)$', extern_src, re.M))
+        imports = static_imports(mw / mod.file, known)
+        values, redirect, forwarders = {}, {}, {}
+        for slot, name, dll in imports:
+            if dll in exports:                              # another translated module
+                if name not in exports[dll]:
+                    sys.exit(f'{mod.file} imports {dll}!{name}, which it does not export')
+                values[name] = exports[dll][name]
+                sym = symbol_for('fwd_' + name)
+                forwarders[sym] = exports[dll][name]
+                redirect[name] = sym
+            else:
+                if (dll, name) not in seen:
+                    seen.add((dll, name))
+                    registry.append((dll, name, import_symbol(name)))
+                i = next(k for k, (d, n, _) in enumerate(registry) if (d, n) == (dll, name))
+                values[name] = IMPORT_VA_BASE + IMPORT_VA_STRIDE * i
+                redirect[name] = registry[i][2]
+        body = '\n'.join(main_src + kept_extern)
+        extern_out = '\n'.join([f'define {n} {redirect[n]}' for n in sorted(redirect)] + kept_extern
+                               + [f'proc {sym} external' for sym in sorted(set(redirect.values()))
+                                  if not any(re.search(rf'^proc {re.escape(n)} external', body, re.M)
+                                             for n in redirect if redirect[n] == sym)]) + '\n'
+        (out / 'extern.llinc').write_text(extern_out + 'proc halopad_dispatch external\n')
+        (out / 'macros.llinc').write_text('')
+        name_re = re.compile(r'(?<![\w$@?.])(' + '|'.join(re.escape(n) for n in sorted(named, key=len, reverse=True)) + r')(?![\w$@?])') \
+            if named else None
+        def unname(lines):
+            for line in lines:
+                yield name_re.sub(lambda m: named[m.group(1)], line) if name_re else line
+        code, _ = transform_code(unname((mw / 'seg01_code.llinc').open(errors='replace')), values)
+        (out / 'seg01_code.va.llinc').write_text('\n'.join(code) + '\n')
+        kept, skip = [], False
+        for line in main_src:
+            if line.startswith('datasegment '):
+                skip = True
+                continue
+            if skip:
+                if line.startswith('endd'):
+                    skip = False
+                continue
+            if re.fullmatch(r'define loc_[0-9A-F]+ \S+', line):
+                continue
+            kept.append('include seg01_code.va.llinc' if line == 'include seg01_code.llinc' else line)
+        (out / f'{mod.stem}.va.llasm').write_text('\n'.join(kept) + '\n')
+        p = subprocess.run([str(a.llasm), '-m64', '-ptrofs', '-I', str(out), '-I', str(SUPPORT), '-o',
+                            str(out / f'{mod.stem}.va.raw.ll'), str(out / f'{mod.stem}.va.llasm')],
+                           cwd=out, capture_output=True, text=True)
+        if p.returncode:
+            sys.exit(f'llasm failed on {mod.name}:\n{p.stdout[-800:]}{p.stderr[-800:]}')
+        procs, dropped = postprocess_ll(out / f'{mod.stem}.va.raw.ll', out / f'{mod.stem}.va.ll', triple)
+        (out / f'{mod.stem}.va.raw.ll').unlink()
+        n = 0
+        for pname in procs:
+            m = re.fullmatch(r'(?:hp_)?loc_([0-9A-F]+)', pname)
+            if not m:
+                continue
+            vaddr = int(m.group(1), 16)
+            if not mod.base <= vaddr < mod.base + mod.size:
+                sys.exit(f'{mod.name}: procedure {pname} outside the module image')
+            if vaddr in table:
+                sys.exit(f'duplicate dispatch address {vaddr:#x}: {table[vaddr]} and {pname}')
+            table[vaddr] = pname
+            n += 1
+        records.append({'mod': mod, 'slots': [(slot, values[name]) for slot, name, _ in imports],
+                         'forwarders': forwarders, 'procs': n, 'run': mw})
+        print(f'module {mod.name}: {n:,} procedures, {len(imports)} imports ({len(forwarders)} from translated modules), '
+              f'{dropped} C entry wrappers removed, run {mw.name}')
+    return records
+
+
+def module_tables(records, registry):
+    """dispatch.ll data for the runtime loader (port/runtime/halopad_modules.c)."""
+    ll = ['', '; Translated DLLs: name, base, size, entry, import slots (slot VA -> bound value).']
+    n = len(records)
+    ll.append(f'@halopad_tmodule_count = constant i32 {n}')
+    slots, first = [], []
+    for r in records:
+        first.append(len(slots))
+        slots.extend(r['slots'])
+    for i, r in enumerate(records):
+        nm = r['mod'].file                                  # the file's own spelling (GetModuleFileNameA)
+        ll.append(f'@.hp_tmod_{i} = private unnamed_addr constant [{len(nm) + 1} x i8] c"{nm}\\00"')
+    arr = lambda ty, xs: f'[{len(xs)} x {ty}] [' + ', '.join(f'{ty} {x}' for x in xs) + ']' if xs else f'[0 x {ty}] zeroinitializer'
+    ll.append(f'@halopad_tmodule_names = constant ' + arr('ptr', [f'@.hp_tmod_{i}' for i in range(n)]))
+    for i, r in enumerate(records):
+        pth = r['mod'].relpath.replace('/', '\\5C')                 # LLVM's escape for a backslash
+        ll.append(f'@.hp_tpath_{i} = private unnamed_addr constant [{len(r["mod"].relpath) + 1} x i8] c"{pth}\\00"')
+    ll.append(f'@halopad_tmodule_paths = constant ' + arr('ptr', [f'@.hp_tpath_{i}' for i in range(n)]))
+    ll.append(f'@halopad_tmodule_bases = constant ' + arr('i32', [r['mod'].base for r in records]))
+    ll.append(f'@halopad_tmodule_sizes = constant ' + arr('i32', [r['mod'].size for r in records]))
+    ll.append(f'@halopad_tmodule_entries = constant ' + arr('i32', [r['mod'].entry for r in records]))
+    ll.append(f'@halopad_tmodule_slot_first = constant ' + arr('i32', first))
+    ll.append(f'@halopad_tmodule_slot_count = constant ' + arr('i32', [len(r['slots']) for r in records]))
+    ll.append(f'@halopad_tmodule_slot_vas = constant ' + arr('i32', [s for s, _ in slots]))
+    ll.append(f'@halopad_tmodule_slot_values = constant ' + arr('i32', [v for _, v in slots]))
+    # Calls from one translated module into another's exports go straight to the
+    # exporting procedure (the import slot holds the export's own address).
+    forwarders = {}                                         # one per export, whoever imports it
+    for r in records:
+        forwarders.update(r['forwarders'])
+    for sym, target in sorted(forwarders.items()):
+        ll.append(f'define hidden fastcc void @{sym}(ptr %cpu) nounwind {{')
+        ll.append(f'  musttail call fastcc void @loc_{target:X}(ptr %cpu)')
+        ll.append('  ret void')
+        ll.append('}')
+    return ll
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--work', type=pathlib.Path, required=True)
     ap.add_argument('--llasm', type=pathlib.Path, required=True)
+    ap.add_argument('--module-work', action='append', default=[], metavar='NAME=RUN_DIR',
+                    help='SRW run to use for a translated DLL (default: its latest finished run)')
     a = ap.parse_args()
     work = a.work.resolve()
     a.llasm = a.llasm.resolve()
@@ -203,6 +401,7 @@ def main():
             registry.append((dll, name, symbol_for(name if not name.startswith('#') else f'{dll.split(".")[0]}_ord{name[1:]}')))
     if IMPORT_VA_BASE + IMPORT_VA_STRIDE * len(registry) > HOST_RETURN_VA:
         sys.exit('import address page overflow')
+    a.registry_primary = len(registry)
 
     code, stats = transform_code((work / 'seg01_code.llinc').open(errors='replace'), import_vas)
     (va / 'seg01_code.va.llinc').write_text('\n'.join(code) + '\n')
@@ -296,6 +495,10 @@ def main():
         if vaddr in table:
             sys.exit(f'duplicate dispatch address {vaddr:#x}: {table[vaddr]} and {name}')
         table[vaddr] = name
+    # Translated DLLs shipped with the game (Keystone.dll, ksimeui.dll): same transform,
+    # own procedures at their own original addresses, own import slots (bound by the
+    # runtime's LoadLibraryA like the Windows loader does).
+    modules = build_modules(a, va, llasm, triple, registry, seen, table)
     reg_vas = [IMPORT_VA_BASE + IMPORT_VA_STRIDE * i for i in range(len(registry))]
     for iva in reg_vas:
         if iva in table:
@@ -344,6 +547,7 @@ def main():
         name = f'{iface}::{m}'
         ll.append(f'@.hp_method_{k2} = private unnamed_addr constant [{len(name) + 1} x i8] c"{name}\\00"')
     ll.append(f'@halopad_com_methods = constant [{len(com)} x ptr] [' + ', '.join(f'ptr @.hp_method_{k2}' for k2 in range(len(com))) + ']')
+    ll.extend(module_tables(modules, registry))
     ll.append(f'''
 declare ptr @halopad_lookup(i32)
 

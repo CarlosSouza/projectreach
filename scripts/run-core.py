@@ -20,6 +20,7 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import xiph  # noqa: E402  (libogg/libvorbis for vorbisfile.dll)
+import vabuild  # noqa: E402  (translated DLLs)
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SUPPORT = ROOT / 'port' / 'llasm-support'
@@ -45,15 +46,16 @@ def build(work, target, main_src):
         subprocess.run(['clang', '-target', target, '-c', '-O1', '-fno-fast-math', '-ffp-contract=off', '-Wno-override-module',
                         str(va / 'haloce.va.ll'), '-o', str(obj)], check=True)
     runtime_ll = sorted(va.glob('halopad-*.ll'))
+    mod_objs, mod_lls = vabuild.module_objects(va, target, obj.parent)
     subprocess.run([sys.executable, str(ROOT / 'scripts/gen-import-stubs.py'), str(va / 'haloce.va.ll'), str(out / 'stubs.ll'),
-                    str(va / 'dispatch.ll'), *map(str, runtime_ll)], check=True, capture_output=True)
+                    str(va / 'dispatch.ll'), *map(str, runtime_ll), *map(str, mod_lls)], check=True, capture_output=True)
     subprocess.run([sys.executable, str(ROOT / 'scripts/gen-nls-tables.py')], check=True, capture_output=True)
     exe = out / ('halopad-core' if main_src.name == 'halopad_core_main.c' else main_src.stem)
     cmd = ['clang', '-target', target, '-O2', '-fno-fast-math', '-ffp-contract=off', '-w', '-DPTROFS_64BIT=1', '-std=c2x',
            '-Wno-override-module', '-I', str(SUPPORT), '-I', str(ROOT / 'generated' / 'runtime'), *xiph.include_flags(),
            str(main_src), *map(str, sorted((ROOT / 'port/runtime').glob('*.c'))),
            *map(str, sorted(SUPPORT.glob('llasm_*.c'))), str(va / 'dispatch.ll'), *map(str, runtime_ll),
-           str(out / 'stubs.ll'), str(obj), *[str(m) for m in sorted((ROOT / 'port/apple').glob('*.m'))], str(xiph.archive(target, os.environ.get('SDKROOT'))), '-fobjc-arc', '-framework', 'CoreGraphics', '-framework', 'Cocoa', '-framework', 'Metal', '-framework', 'QuartzCore', '-framework', 'AudioToolbox', '-o', str(exe)]
+           str(out / 'stubs.ll'), str(obj), *map(str, mod_objs), *[str(m) for m in sorted((ROOT / 'port/apple').glob('*.m'))], str(xiph.archive(target, os.environ.get('SDKROOT'))), '-fobjc-arc', '-framework', 'CoreGraphics', '-framework', 'Cocoa', '-framework', 'Metal', '-framework', 'QuartzCore', '-framework', 'AudioToolbox', '-o', str(exe)]
     link = subprocess.run(cmd, capture_output=True, text=True)
     (out / 'link.log').write_text(' '.join(cmd) + '\n' + link.stdout + link.stderr)
     if link.returncode:
@@ -76,7 +78,7 @@ def main():
     evid = ROOT / 'docs' / 'artifacts' / datetime.date.today().isoformat() / 'G3' / f'core-{target}-{stamp}'
     evid.mkdir(parents=True, exist_ok=True)
     # each run starts from the reference machine's registry; the final state is evidence
-    env = dict(os.environ, HALOPAD_IMAGE=str(IMAGE), HALOPAD_GAME_ROOT=str(GAME_ROOT), HALOPAD_STATE_ROOT=str(ROOT / 'generated' / 'halopad-disk'), HALOPAD_REPO_ROOT=str(ROOT),
+    env = dict(os.environ, HALOPAD_IMAGE=str(IMAGE), HALOPAD_MODULE_IMAGES=str(IMAGE.parent / 'modules'), HALOPAD_GAME_ROOT=str(GAME_ROOT), HALOPAD_STATE_ROOT=str(ROOT / 'generated' / 'halopad-disk'), HALOPAD_REPO_ROOT=str(ROOT),
                HALOPAD_REGISTRY=str(evid / 'registry.txt'))
     acceptance = ROOT / 'generated' / 'runtime-state' / 'eula-acceptance.txt'   # written only by scripts/accept-eula.sh
     if acceptance.exists():

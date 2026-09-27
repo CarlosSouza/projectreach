@@ -41,6 +41,20 @@ static int overlaps(uint32_t base, uint32_t size)
     return 0;
 }
 
+/* Preferred bases of the game's translated DLLs (Keystone.dll, ksimeui.dll). Translated
+ * code cannot be relocated, so until the DLL is loaded its range stays free (VirtualQuery
+ * reports MEM_FREE, as on Windows) but automatic placement never uses it; an explicit
+ * reservation there stops the program instead of silently moving the DLL. */
+static struct { uint32_t base, size; const char *what; int active; } held[8];
+static uint32_t nheld;
+
+static const char *held_by(uint32_t base, uint32_t size)
+{
+    for (uint32_t i = 0; i < nheld; i++)
+        if (held[i].active && base < held[i].base + held[i].size && held[i].base < base + size) return held[i].what;
+    return NULL;
+}
+
 /* Fixed ranges already in use (image, stack, thread pages) are registered at startup. */
 void halopad_vm_mark(uint32_t base, uint32_t size);
 uint32_t halopad_vm_reserve(uint32_t address, uint32_t size, int commit_now);
@@ -98,9 +112,11 @@ static uint32_t halopad_vm_reserve_unlocked(uint32_t address, uint32_t size, int
         base = address & ~(GRAN - 1);
         span = ((address + size + GRAN - 1) & ~(GRAN - 1)) - base;
         if (base < 0x10000 || (uint64_t)base + span > VM_HI || overlaps(base, span)) return 0;
+        const char *what = held_by(base, span);
+        if (what) hp_unsupported("VirtualAlloc", "0x%08x+0x%x is where %s loads (translated code is not relocatable)", base, span, what);
     } else {
         for (uint64_t b = VM_LO; b + span <= VM_HI; b += GRAN)
-            if (!overlaps((uint32_t)b, span)) { base = (uint32_t)b; break; }
+            if (!overlaps((uint32_t)b, span) && !held_by((uint32_t)b, span)) { base = (uint32_t)b; break; }
         if (!base) return 0;
     }
     if (nregions == sizeof regions / sizeof regions[0]) hp_unsupported("VirtualAlloc", "more than %u regions", nregions);
@@ -255,6 +271,20 @@ __attribute__((constructor)) static void vm_lock_init(void)
     pthread_mutexattr_init(&a);
     pthread_mutexattr_settype(&a, PTHREAD_MUTEX_RECURSIVE);
     pthread_mutex_init(&vm_lock, &a);
+}
+void halopad_vm_hold(uint32_t base, uint32_t size, const char *what)
+{
+    pthread_mutex_lock(&vm_lock);
+    if (nheld == sizeof held / sizeof held[0]) hp_unsupported("LoadLibraryA", "more than %u held module ranges", nheld);
+    held[nheld++] = (typeof(held[0])){base, size, what, 1};
+    pthread_mutex_unlock(&vm_lock);
+}
+/* active = 0 while the module is mapped there (the loader owns the range), 1 after unload */
+void halopad_vm_hold_set(uint32_t base, int active)
+{
+    pthread_mutex_lock(&vm_lock);
+    for (uint32_t i = 0; i < nheld; i++) if (held[i].base == base) held[i].active = active;
+    pthread_mutex_unlock(&vm_lock);
 }
 void halopad_vm_mark(uint32_t base, uint32_t size) { pthread_mutex_lock(&vm_lock); halopad_vm_mark_unlocked(base, size); pthread_mutex_unlock(&vm_lock); }
 uint32_t halopad_vm_reserve(uint32_t address, uint32_t size, int commit_now) { pthread_mutex_lock(&vm_lock); uint32_t r = halopad_vm_reserve_unlocked(address, size, commit_now); pthread_mutex_unlock(&vm_lock); return r; }

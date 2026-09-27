@@ -704,6 +704,78 @@ int main(void)
         method(t2, TRelease, 0, NULL);
     }
 
+    {   /* state blocks: Keystone.dll saves and restores Halo's state around its drawing with them */
+        enum { SB_Create = 59, SB_Begin = 60, SB_End = 61, SB_GetTexture = 64, SB_SetTexture = 65, SB_CreateTexture = 23,
+               SB_Release = 2, SB_Capture = 4, SB_Apply = 5, SB_GetDevice = 3 };
+        uint32_t out = halopad_heap_alloc(4, 1), val = halopad_heap_alloc(24, 1);
+        method(device, SB_CreateTexture, 8, (uint32_t[]){2, 2, 1, 0, 21, 1, out, 0});
+        uint32_t tx = rd(out);
+        method(device, SetRenderState, 2, (uint32_t[]){27, 0});
+        check("EndStateBlock without BeginStateBlock: invalid", method(device, SB_End, 1, (uint32_t[]){out}), 0x8876086C);
+        check("BeginStateBlock", method(device, SB_Begin, 0, NULL), 0);
+        check("  BeginStateBlock while recording: invalid", method(device, SB_Begin, 0, NULL), 0x8876086C);
+        check("  SetRenderState(ALPHABLENDENABLE, 1) is recorded", method(device, SetRenderState, 2, (uint32_t[]){27, 1}), 0);
+        method(device, GetRenderState, 2, (uint32_t[]){27, val});
+        check("  ... and the device keeps 0 while recording", rd(val), 0);
+        check("  SetTexture(0, texture) is recorded", method(device, SB_SetTexture, 2, (uint32_t[]){0, tx}), 0);
+        method(device, SB_GetTexture, 2, (uint32_t[]){0, out});
+        check("  ... and stage 0 stays empty on the device", rd(out), 0);
+        check("EndStateBlock", method(device, SB_End, 1, (uint32_t[]){out}), 0);
+        uint32_t sb = rd(out);
+        check("  gives a block", sb != 0, 1);
+        method(sb, SB_GetDevice, 1, (uint32_t[]){out});
+        check("  GetDevice", rd(out), device);
+        method(device, DRelease, 0, NULL);
+        check("Apply", method(sb, SB_Apply, 0, NULL), 0);
+        method(device, GetRenderState, 2, (uint32_t[]){27, val});
+        check("  ALPHABLENDENABLE now 1", rd(val), 1);
+        method(device, SB_GetTexture, 2, (uint32_t[]){0, out});
+        check("  stage 0 now holds the texture", rd(out), tx);
+        method(tx, 2, 0, NULL);                                          /* GetTexture's reference */
+        method(device, SetRenderState, 2, (uint32_t[]){27, 0});
+        check("Capture (the block's states only)", method(sb, SB_Capture, 0, NULL), 0);
+        method(device, SetRenderState, 2, (uint32_t[]){27, 1});
+        method(sb, SB_Apply, 0, NULL);
+        method(device, GetRenderState, 2, (uint32_t[]){27, val});
+        check("  Apply restores the captured 0", rd(val), 0);
+        method(device, SB_SetTexture, 2, (uint32_t[]){0, 0});
+        check("  the texture stays alive while the block holds it (Release -> 0 references left to the app)", method(tx, 2, 0, NULL), 0);
+        method(device, SB_CreateTexture, 8, (uint32_t[]){2, 2, 1, 0, 21, 1, out, 0});
+        check("Release the recorded block", method(sb, SB_Release, 0, NULL), 0);
+        uint32_t tx2 = rd(out);
+        method(tx2, 2, 0, NULL);
+        /* CreateStateBlock(D3DSBT_ALL) */
+        method(device, GetViewport, 1, (uint32_t[]){val});
+        uint32_t vp0[6]; memcpy(vp0, halopad_guest_ptr(val), 24);
+        method(device, SetRenderState, 2, (uint32_t[]){22, 2});
+        check("CreateStateBlock(ALL)", method(device, SB_Create, 2, (uint32_t[]){1, out}), 0);
+        uint32_t all = rd(out);
+        uint32_t vp1[6] = {10, 10, 100, 100, 0, 0x3F800000};
+        memcpy(halopad_guest_ptr(val), vp1, 24);
+        method(device, SetViewport, 1, (uint32_t[]){val});
+        method(device, SetRenderState, 2, (uint32_t[]){22, 3});
+        method(all, SB_Apply, 0, NULL);
+        method(device, GetViewport, 1, (uint32_t[]){val});
+        check("  Apply restores the viewport", !memcmp(halopad_guest_ptr(val), vp0, 24), 1);
+        method(device, GetRenderState, 2, (uint32_t[]){22, val});
+        check("  ... and CULLMODE", rd(val), 2);
+        method(all, SB_Release, 0, NULL);
+        /* CreateStateBlock(D3DSBT_PIXELSTATE): SRCBLEND is pixel state, CULLMODE is not */
+        method(device, SetRenderState, 2, (uint32_t[]){19, 2});
+        check("CreateStateBlock(PIXELSTATE)", method(device, SB_Create, 2, (uint32_t[]){2, out}), 0);
+        uint32_t px = rd(out);
+        method(device, SetRenderState, 2, (uint32_t[]){19, 5});
+        method(device, SetRenderState, 2, (uint32_t[]){22, 3});
+        method(px, SB_Apply, 0, NULL);
+        method(device, GetRenderState, 2, (uint32_t[]){19, val});
+        check("  Apply restores SRCBLEND", rd(val), 2);
+        method(device, GetRenderState, 2, (uint32_t[]){22, val});
+        check("  ... and leaves CULLMODE (vertex state) alone", rd(val), 3);
+        method(px, SB_Release, 0, NULL);
+        method(device, SetRenderState, 2, (uint32_t[]){22, 2});
+        method(device, SetRenderState, 2, (uint32_t[]){19, 2});
+    }
+
     check("Device Release to zero", method(device, DRelease, 0, NULL), 0);
     check("Release to zero", method(d3d, Release, 0, NULL), 0);
 

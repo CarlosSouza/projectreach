@@ -19,6 +19,8 @@ import subprocess
 import sys
 import time
 
+import hpmodule
+
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 PROFILE_ID = 'custom-en-1.0.10.0621'
 
@@ -27,11 +29,11 @@ def sha(p):
     return hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest()
 
 
-def write_extern_llinc(work, exe):
+def write_extern_llinc(work, exe, stem='haloce'):
     """extern.llinc: every static import not already declared by SRW (imports referenced
     only from data, e.g. stored function pointers) plus HaloPad's trap helpers."""
     import pefile
-    header = (work / 'haloce.llasm').read_text()
+    header = (work / f'{stem}.llasm').read_text()
     declared = set(re.findall(r'^proc (\S+) external', header, re.M))
     # Imports implemented by HaloPad's llasm runtime (port/llasm-runtime/*.llasm,
     # 'proc hpimp_<name> public') are redirected there; everything else stays external.
@@ -53,8 +55,9 @@ def write_extern_llinc(work, exe):
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--build', type=pathlib.Path, required=True)
-    ap.add_argument('--extra-sci', type=pathlib.Path, default=ROOT / 'config' / 'srw' / PROFILE_ID,
-                    help='hand-maintained .sci/.cfg overrides (tracked); appended after audit hints')
+    ap.add_argument('--extra-sci', type=pathlib.Path,
+                    help='hand-maintained .sci/.cfg overrides (tracked; default: the module\'s config/srw directory); appended after audit hints')
+    hpmodule.add_argument(ap)
     ap.add_argument('--timeout', type=int, default=3600)
     ap.add_argument('--diagnostic', action='store_true',
                     help='HALOPAD_SRW_DIAG=1: log every conversion failure and continue (census; output is not a build input)')
@@ -65,27 +68,34 @@ def main():
     srw = build / 'SRW' / 'SRW.exe'
     if sha(srw) != manifest['artifacts']['SRW/SRW.exe']:
         sys.exit('FAIL: SRW binary does not match its build manifest')
-    profile = json.loads((ROOT / 'config/profiles' / f'{PROFILE_ID}.json').read_text())
-    exe = ROOT / profile['original_root'] / profile['executable']
-    if sha(exe) != profile['accepted_sha256']:
-        sys.exit('FAIL: input does not match the accepted profile hash')
-    analysis = ROOT / 'generated' / 'analysis' / PROFILE_ID
+    mod = hpmodule.Module(a.module)
+    exe = mod.exe
+    mod.verify_source()
+    analysis = mod.analysis
+    extra_sci = a.extra_sci or mod.hand
+    stem = mod.stem
 
     stamp = datetime.datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')
     run = f'run-{stamp}-{os.getpid()}'
-    work = ROOT / 'generated' / 'srw' / PROFILE_ID / run
-    evid = ROOT / 'docs' / 'artifacts' / datetime.date.today().isoformat() / 'G2c' / run
+    work = ROOT / 'generated' / 'srw' / PROFILE_ID / ('' if mod.primary else f'modules/{mod.name}') / run
+    evid = ROOT / 'docs' / 'artifacts' / datetime.date.today().isoformat() / 'G2c' / (run if mod.primary else f'{mod.name}-{run}')
     work.mkdir(parents=True)
     evid.mkdir(parents=True)
-    shutil.copyfile(exe, work / 'haloce.exe')
-    shutil.copyfile(analysis / 'relocations.csv', work / 'relocations.csv')
-    inputs = {'haloce.exe': profile['accepted_sha256'], 'relocations.csv': sha(work / 'relocations.csv')}
+    in_name = 'haloce.exe' if mod.primary else mod.file
+    shutil.copyfile(exe, work / in_name)
+    inputs = {in_name: sha(work / in_name)}
+    if mod.rebase is not None:
+        inputs['source ' + mod.relpath] = mod.sha256
+        inputs['rebased to'] = hex(mod.rebase)
+    if mod.relocs_stripped:
+        shutil.copyfile(analysis / 'relocations.csv', work / 'relocations.csv')
+        inputs['relocations.csv'] = sha(work / 'relocations.csv')
     hint_files = {}
-    for src_dir in (analysis / 'srw', a.extra_sci):
+    for src_dir in (analysis / 'srw', extra_sci):
         if not src_dir.is_dir():
             continue
         for f in sorted(src_dir.iterdir()):
-            if f.suffix not in ('.sci', '.cfg', '.csv'):
+            if f.suffix not in ('.sci', '.cfg', '.csv') or not f.is_file():
                 continue
             dst = work / f.name
             with open(dst, 'a') as out:
@@ -100,7 +110,7 @@ def main():
         env['HALOPAD_SRW_DIAG'] = '1'
     with open(evid / 'srw.stdout', 'w') as so, open(evid / 'srw.stderr', 'w') as se:
         try:
-            proc = subprocess.run([str(srw), 'haloce.exe', 'haloce.llasm'], cwd=work, stdout=so, stderr=se,
+            proc = subprocess.run([str(srw), in_name, f'{stem}.llasm'], cwd=work, stdout=so, stderr=se,
                                   timeout=a.timeout, env=env)
             code = proc.returncode
         except subprocess.TimeoutExpired:
@@ -119,15 +129,15 @@ def main():
     elif errors:
         category = 'other'
     outputs = {p.name: p.stat().st_size for p in work.iterdir() if p.suffix in ('.llasm', '.llinc')}
-    if (work / 'haloce.llasm').exists():
+    if (work / f'{stem}.llasm').exists():
         # SRW writes 'define loc_X alias' (global_aliases.sci) after the data-segment
         # includes, so references from data would keep the old label. Hoist the defines.
-        main_lines = (work / 'haloce.llasm').read_text().splitlines()
+        main_lines = (work / f'{stem}.llasm').read_text().splitlines()
         defines = [l for l in main_lines if l.startswith('define ')]
         rest = [l for l in main_lines if not l.startswith('define ')]
         first = next(i for i, l in enumerate(rest) if not l.startswith('include ')) if rest else 0
-        (work / 'haloce.llasm').write_text('\n'.join(rest[:first] + defines + rest[first:]) + '\n')
-        outputs['extern.llinc(extra imports)'] = write_extern_llinc(work, work / 'haloce.exe')
+        (work / f'{stem}.llasm').write_text('\n'.join(rest[:first] + defines + rest[first:]) + '\n')
+        outputs['extern.llinc(extra imports)'] = write_extern_llinc(work, work / in_name, stem)
     census = {}
     if a.diagnostic:
         lines = err.splitlines()
@@ -141,7 +151,7 @@ def main():
                 kinds.setdefault(parts[1], []).append([parts[2], text_.lstrip(';')])
         census = {k: {'count': len(v), 'sites': v} for k, v in kinds.items()}
         (evid / 'census.json').write_text(json.dumps(census, indent=1) + '\n')
-    report = {'run': run, 'build': manifest['key'], 'exit': code, 'seconds': elapsed,
+    report = {'run': run, 'module': mod.name, 'build': manifest['key'], 'exit': code, 'seconds': elapsed,
               'mode': 'diagnostic-census' if a.diagnostic else 'strict',
               'census_counts': {k: v['count'] for k, v in census.items()},
               'stages_reached': stages, 'errors': errors, 'category': category, 'location': location,

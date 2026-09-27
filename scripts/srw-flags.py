@@ -21,12 +21,18 @@ import sys
 import capstone
 from capstone import x86_const as X
 
+import hpmodule
+
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-A = ROOT / 'generated' / 'analysis' / 'custom-en-1.0.10.0621'
 COND = 0x3F  # CF PF AF ZF SF OF
 
 
 def main():
+    import argparse
+    ap = argparse.ArgumentParser(description=__doc__)
+    hpmodule.add_argument(ap)
+    module = hpmodule.Module(ap.parse_args().module)
+    A = module.analysis
     rows = [l.split() for l in (A / 'udis-flags.txt').read_text().splitlines()]
     info = {}
     for _, a, ln, m, seg, need, mod in rows:
@@ -36,7 +42,7 @@ def main():
     # neither reads nor writes flags visible to the analysis.
     traps, trap_ends = set(), set()
     for sci in (A / 'srw' / 'instruction_replacements.sci',
-                ROOT / 'config' / 'srw' / 'custom-en-1.0.10.0621' / 'instruction_replacements.sci'):
+                module.hand / 'instruction_replacements.sci'):
         if not sci.exists():
             continue
         for line in sci.read_text().splitlines():
@@ -47,8 +53,8 @@ def main():
             traps.update(x for x in range(a, a + n) if x in info)
             trap_ends.add(a + n)
             traps.add(a)
-    img = (A / 'image.bin').read_bytes()
-    base = 0x400000
+    img = module.image()
+    base = module.base
     md = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_32)
     md.detail = True
     succ_jump = {}          # addr -> direct jump/jcc target
@@ -66,7 +72,7 @@ def main():
                 uncond.add(a)
         elif capstone.CS_GRP_RET in g or ins.mnemonic in ('int3', 'hlt', 'ud2'):
             returns.add(a)
-    audit = json.loads(pathlib.Path(sorted(glob.glob(str(ROOT / 'docs/artifacts/*/G2a/audit-*/audit.json')))[-1]).read_text())
+    audit = module.audit()
     table_edges = collections.defaultdict(list)
     for jt in audit['jump_tables']:
         for i in range(jt['entries']):

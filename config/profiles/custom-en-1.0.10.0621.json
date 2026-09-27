@@ -24,6 +24,23 @@
   },
   "core_namespace": "halopad_custom",
   "original_root": "ref/inputs/custom-original",
-  "prepared_root": "generated/prepared/custom-en-1.0.10.0621"
+  "prepared_root": "generated/prepared/custom-en-1.0.10.0621",
+  "modules": {
+    "keystone": {
+      "file": "Keystone.dll",
+      "sha256": "cfefc87686617ed110bccc7947895f452c410e367db096980473ed5d9d05d713",
+      "role": "Microsoft Keystone UI library shipped with the game: Halo loads it at start-up (unless -safemode) and draws the multiplayer chat edit box and chat log with it through its own Direct3D device"
+    },
+    "ksimeui": {
+      "file": "ksimeui.dll",
+      "sha256": "ae238ebbb61a363a86fb20cd1cb7e07df2f6d2e07e456bdf1f0b75a79e7cc81c",
+      "role": "Keystone IME user interface, a static import of Keystone.dll"
+    },
+    "controls": {
+      "file": "controls/Controls.dll",
+      "sha256": "ab96837c2886a701a79179be6f98b5ae53e4972ef5403592ce625514767af646",
+      "rebase": "0x10330000",
+      "role": "Keystone control library shipped with the game (edit box, list box, label); Keystone loads it by path. Its preferred base 0x10200000 is Keystone's, so the Windows loader relocates it; HaloPad applies its relocation table once, at 0x10330000 (the first 64 KiB boundary after Keystone), and translates that image"
+    }
+  }
 }
-

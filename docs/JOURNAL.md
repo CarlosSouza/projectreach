@@ -587,3 +587,52 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
 - All suites, 15 slices and the unit tests pass; the core still stops at the license.
 
 **Next:** SEH (\`RaiseException\`, handlers through the \`fs:[0]\` chain, \`SetUnhandledExceptionFilter\`), game controllers for DirectInput, file mapping, then the iOS host.
+
+## 2026-09-27 — Keystone.dll and ksimeui.dll translated and loaded
+
+- **Why.** Halo loads `keystone.dll` in WinMain before it creates its window, so the first run after the license would stop there. Keystone is not optional in normal play: it draws the multiplayer chat input (`KeystoneEditbox`) and chat log (`KeystoneChatLog`) from `content/*.ksml` through Halo's own Direct3D device. Only `-safemode` skips it, and every Halo caller checks the pointers.
+- **Decision.** Translate it rather than reimplement it. The loop allows a native replacement only when that is smaller or safer than the translation; Keystone is 1 MB with its own D3DX9, libpng and XML layout, and its imports mostly overlap services HaloPad already has.
+- **Pipeline** (all scripts take `--module`):
+  - `scripts/hpmodule.py` holds the module registry, with hashes in the profile.
+  - The audit uses a DLL's own relocation table as ground truth and roots its exports.
+  - The audit now recognises functions that never return (`_CxxThrowException`, the CRT exit paths) and gives them to SRW as `noret_procedures.sci`. Without this, SRW decoded a switch table after a throw.
+  - The capability scan now also writes the flag table (`udis-flags.txt`), which was previously made by hand.
+  - The trap pass drops replacements SRW emitted outside a procedure.
+  - The SRW patch names the WS2_32 and OLEAUT32 ordinals, and WINSPOOL ordinal 203 becomes an explicit trap.
+  - Bug found along the way: DLL hints had used fixup addresses as targets, which left `fixup_interpret_as_code.sci` empty.
+- **VA model and loader.** Described in G3-RUNTIME.md ("Translated game DLLs"). It is one address space with 193,611 dispatch entries, and cross-module imports are bound to real export addresses. The loader maps, binds and runs DllMain on attach and detach, including thread notifications.
+- **Test** (`tests/halo_keystone_test.c`, 18 checks, all passing): Keystone and ksimeui load at 0x10200000 and 0x10000000, both DllMains run in translated code, all 17 exports match the file, and unload and reload are clean. `TryEnterCriticalSection` was added (Keystone's CRT uses it on detach).
+- All 12 suites, 15 slices and the unit tests pass; the core still stops at the license.
+
+**Next:** run Halo's own `0x51cdb0` (KeystoneCreate plus both chat windows) on a real device and draw a chat line through `KsUpdate`, then SEH.
+
+## 2026-09-27 — Review of bnunu/halo-1 (and the halo-ce-universal ports)
+
+- Reviewed at Chris's request: [REVIEW-HALO1-DECOMP.md](REVIEW-HALO1-DECOMP.md). It is a decompilation of the Xbox pre-release build 2342, with Linux, Windows and Android ports that need the Xbox SDK and the PAL Xbox data.
+- It has no Custom Edition support, no PC network protocol, no GameSpy or CD-key code, and no Apple port. Its networking is system link between copies of itself, so it cannot join existing Custom Edition servers, the project's core requirement.
+- Decision: keep the HaloPad route. Both repositories are pinned read-only under `ref/decomp/` as an engine reference; nothing from them is linked or copied.
+
+## 2026-09-27 — Chat UI progress: state blocks, Controls.dll, and the next services
+
+- **Direct3D 9 state blocks** (`port/runtime/halopad_d3d9_stateblock.c`): Keystone saves and restores Halo's device state around its drawing with `BeginStateBlock`/`EndStateBlock`. The implementation follows D3D9:
+  - setters called while a block records are recorded, not applied;
+  - `CreateStateBlock` uses the documented ALL, PIXEL and VERTEX sets;
+  - `Capture` and `Apply` work on the marked states;
+  - blocks hold references to what they bind.
+  - The D3D9 test gained 23 checks (221 in all).
+- **Controls.dll**: Keystone loads it by path. It is a third shipped DLL, and its preferred base is Keystone's own `0x10200000`, so the Windows loader relocates it. The profile now has `rebase`: `scripts/hpmodule.py` applies the file's own relocation table at `0x10330000` (only fixup dwords and `ImageBase` change, which is checked), and that image is translated (29,069 procedures). pefile's `relocate_image` + `write` damaged the import directory and is not used.
+- **SRW patch**: its fixed 128-byte output buffers overflowed on Controls.dll's 138-character C++ import names, so they were enlarged. Lifter build `e8751a3aad23-3b4081c0` (smoke test passes).
+- **Pipeline check**: the refactored pipeline reproduces Halo's translation (run `run-20260927T081739Z-49093`, now the one in use). It differs from the previous run only where the new no-return rule applies: SRW stops after calls to `_CxxThrowException` and two STL throw helpers. All 15 slices pass on it.
+- **Small fixes found by running Keystone:**
+  - `C:\Program Files\Microsoft Games` now exists on the virtual drive, so `FindFirstFileA` of the install directory returns its own entry (added to the files test).
+  - The `lstr*` family was added.
+- **Where the chat set-up stops now:** Halo's `0x51cdb0` runs `KeystoneCreate` into Controls.dll's start-up and stops at `GetPrivateProfileStringA` (`controls\controls.ini`).
+- **Remaining imports of the three DLLs with no implementation (about 100):**
+  - GDI text: `CreateFontA`, `ExtTextOutW`, `GetTextExtentPoint32W`, `GetTextMetricsA`, `CreateDIBSection` and others;
+  - OLE BSTR helpers;
+  - IMM32 (the IME is turned off in the `.ksml` files);
+  - SEH (`RaiseException`/`RtlUnwind`);
+  - file mapping, and a few kernel32 and user32 calls.
+- All 12 suites, 15 slices and the unit tests pass; the core still stops at the license.
+
+**Next:** `GetPrivateProfileStringA`, OLE BSTRs and GDI text on CoreText, then SEH, until `0x51cdb0` completes and `KsUpdate` draws a chat line.

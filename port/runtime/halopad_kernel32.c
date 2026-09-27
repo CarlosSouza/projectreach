@@ -91,7 +91,10 @@ static void init(void)
     static const char *const folders[] = {"install", "C/Documents and Settings/Player/My Documents",
                                           "C/Documents and Settings/Player/Local Settings/Temp",
                                           "C/Documents and Settings/Player/Application Data",
-                                          "C/Documents and Settings/All Users/Application Data", "C/WINDOWS/system32"};
+                                          "C/Documents and Settings/All Users/Application Data", "C/WINDOWS/system32",
+                                          /* the install directory's own entry in its parent, as on an installed
+                                             machine (its contents come from the install layer, not from here) */
+                                          "C/Program Files/Microsoft Games/Halo Custom Edition"};
     for (size_t i = 0; i < sizeof folders / sizeof folders[0]; i++) {
         char p[1200];
         snprintf(p, sizeof p, "%s/%s", state_root, folders[i]);

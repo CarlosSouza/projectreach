@@ -102,10 +102,17 @@ uint32_t GetFileType_c(uint32_t handle)
 
 uint32_t SetHandleCount_c(uint32_t n) { return n; }    /* no effect on Windows NT */
 
+const char *halopad_module_file(uint32_t handle);   /* halopad_modules.c: translated DLLs */
 uint32_t GetModuleFileNameA_c(uint32_t module, uint32_t buf, uint32_t size)
 {
-    if (module && module != HP_IMAGE_BASE) hp_unsupported("GetModuleFileNameA", "module 0x%08x", module);
+    char dll[512];
     const char *path = HP_INSTALL_DIR "\\haloce.exe";
+    if (module && module != HP_IMAGE_BASE) {
+        const char *file = halopad_module_file(module);
+        if (!file) hp_unsupported("GetModuleFileNameA", "module 0x%08x", module);
+        snprintf(dll, sizeof dll, "%s\\%s", HP_INSTALL_DIR, file);
+        path = dll;
+    }
     uint32_t n = (uint32_t)strlen(path);
     if (size == 0) { halopad_last_error = HP_ERROR_INSUFFICIENT_BUFFER; return 0; }
     if (n >= size) {                    /* Windows XP: truncated, not terminated */
@@ -243,6 +250,14 @@ void EnterCriticalSection_c(uint32_t cs)
     cs_entry *e = cs_find(cs, 0);
     if (!e) hp_unsupported("EnterCriticalSection", "uninitialized critical section 0x%08x", cs);
     pthread_mutex_lock(e->m);
+}
+
+/* Nonzero if the section is now owned by this thread (free, or already owned: recursive). */
+uint32_t TryEnterCriticalSection_c(uint32_t cs)
+{
+    cs_entry *e = cs_find(cs, 0);
+    if (!e) hp_unsupported("TryEnterCriticalSection", "uninitialized critical section 0x%08x", cs);
+    return pthread_mutex_trylock(e->m) == 0;
 }
 
 void LeaveCriticalSection_c(uint32_t cs)

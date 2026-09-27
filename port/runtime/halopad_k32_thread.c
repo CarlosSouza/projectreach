@@ -26,6 +26,7 @@ extern _Thread_local _cpu *halopad_cpu;
 extern _Thread_local uint32_t halopad_current_tid;
 extern uint64_t halopad_guest_base;
 uint32_t halopad_call_guest(uint32_t va, uint32_t nargs, const uint32_t *args);
+void halopad_modules_thread_notify(uint32_t reason);          /* halopad_modules.c */
 uint32_t halopad_thread_attach(uint32_t stack_base, uint32_t stack_limit);
 void halopad_thread_detach(void);
 uint32_t halopad_object_thread_new(void);
@@ -81,7 +82,11 @@ static void *run(void *p)
     while (t->suspend && !t->cancelled) pthread_cond_wait(&tcond, &tlock);
     t->started = !t->cancelled;
     pthread_mutex_unlock(&tlock);
-    if (t->started && !setjmp(t->exit)) t->code = halopad_call_guest(t->start, 1, &t->param);
+    if (t->started) {
+        halopad_modules_thread_notify(2);                           /* DLL_THREAD_ATTACH */
+        if (!setjmp(t->exit)) t->code = halopad_call_guest(t->start, 1, &t->param);
+        halopad_modules_thread_notify(3);                           /* DLL_THREAD_DETACH */
+    }
     halopad_thread_detach();
     halopad_vm_release(t->stack);
     pthread_mutex_lock(&tlock);

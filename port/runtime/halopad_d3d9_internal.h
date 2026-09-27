@@ -53,7 +53,23 @@ typedef struct {
     uint32_t nlight;
     /* render target and depth/stencil surface (bound), and the implicit ones (referenced) */
     uint32_t rt, ds, backbuffer, autods;
+    struct stateblock *rec;                     /* BeginStateBlock..EndStateBlock: setters record here */
 } device;
+
+/* IDirect3DStateBlock9 (halopad_d3d9_stateblock.c): values in a device-shaped copy, and
+   which of them the block holds. Bindings in st hold a bind on their objects. */
+typedef struct stateblock {
+    uint32_t guest, device;
+    device st;
+    struct {
+        uint8_t rs[NRS], tss[8][NTSS], ss[NSAMPLERS][NSS], transform[512], viewport;
+        uint8_t texture[16], stream[16], indices, layout, vs, ps;   /* layout: vertex declaration or FVF */
+        uint8_t vsf[256], psf[224], vsi[16], psi[16], vsb[16], psb[16], material;
+        uint8_t light[16], light_enable[16];                        /* by slot in st.light */
+    } m;
+} stateblock;
+#define W(d) ((d)->rec ? &(d)->rec->st : (d))                      /* where a setter writes */
+#define MARK(d, field) do { if ((d)->rec) (d)->rec->m.field = 1; } while (0)
 
 /* halopad_d3d9_resources.c */
 uint32_t halopad_d3d9_surface_new(uint32_t dev, uint32_t w, uint32_t h, uint32_t format, uint32_t usage, uint32_t pool,

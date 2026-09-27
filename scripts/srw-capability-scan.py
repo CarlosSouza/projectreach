@@ -20,6 +20,8 @@ import sys
 import pefile
 import capstone
 
+import hpmodule
+
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 PROFILE_ID = 'custom-en-1.0.10.0621'
 
@@ -48,8 +50,10 @@ def family(m, cs_name=''):
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--build', type=pathlib.Path, required=True)
+    hpmodule.add_argument(ap)
     a = ap.parse_args()
-    analysis = ROOT / 'generated' / 'analysis' / PROFILE_ID
+    mod = hpmodule.Module(a.module)
+    analysis = mod.analysis
     udis = a.build / 'SRW' / 'udis86-1.7.2'
     tool = ROOT / 'generated' / 'tools' / 'udis-scan'
     tool.parent.mkdir(parents=True, exist_ok=True)
@@ -58,12 +62,21 @@ def main():
                     str(ROOT / 'tools' / 'udis-scan.c')] +
                    [str(lib / f) for f in ('decode.c', 'itab.c', 'syn.c', 'syn-intel.c', 'syn-att.c', 'udis86.c')] +
                    ['-o', str(tool)], check=True)
-    profile = json.loads((ROOT / 'config/profiles' / f'{PROFILE_ID}.json').read_text())
-    pe = pefile.PE(str(ROOT / profile['original_root'] / profile['executable']))
+    pe = pefile.PE(str(mod.exe))
     image = analysis / 'image.bin'
     image.write_bytes(pe.get_memory_mapped_image())
     out = subprocess.run([str(tool), str(image), hex(pe.OPTIONAL_HEADER.ImageBase), str(analysis / 'instructions.u32')],
                          check=True, capture_output=True, text=True, env={'UDIS_SCAN_ALL': '1'}).stdout
+    # The same decode with SRW's flag tables (needed/modified per mnemonic) for
+    # scripts/srw-flags.py and scripts/srw-traps.py.
+    flags_tool = tool.parent / 'udis-flags'
+    subprocess.run(['clang', '-O2', '-w', '-include', 'string.h', '-DWITH_SRW_FLAGS', f'-I{udis}', f'-I{lib}',
+                    f'-I{a.build / "SRW"}', str(ROOT / 'tools' / 'udis-scan.c'), str(a.build / 'SRW' / 'udis86_dep.c')] +
+                   [str(lib / f) for f in ('decode.c', 'itab.c', 'syn.c', 'syn-intel.c', 'syn-att.c', 'udis86.c')] +
+                   ['-o', str(flags_tool)], check=True)
+    fl = subprocess.run([str(flags_tool), str(image), hex(pe.OPTIONAL_HEADER.ImageBase), str(analysis / 'instructions.u32')],
+                        check=True, capture_output=True, text=True, env={'UDIS_SCAN_ALL': '1'}).stdout
+    (analysis / 'udis-flags.txt').write_text(''.join(l + '\n' for l in fl.splitlines() if l.startswith('I ')))
     rows = [l.split() for l in out.splitlines() if l.startswith('I ')]
     total_line = next(l for l in out.splitlines() if l.startswith('TOTAL'))
     (analysis / 'udis-all.txt').write_text(''.join(' '.join(r) + '\n' for r in rows))

@@ -163,6 +163,11 @@ int main(void)
     int maps = 0, has_bg = 0;
     if (fh != 0xFFFFFFFF) { do { maps++; has_bg |= !strcmp(P(fd + 44), "bloodgulch.map"); } while (API("FindNextFileA", fh, fd)); API("FindClose", fh); }
     check("FindFirstFileA(\"maps\\\\*.map\") lists the game's maps, bloodgulch.map among them", maps > 10 && has_bg, 1);
+    /* Keystone.dll checks its content directory this way (KeystoneCreate) */
+    fh = API("FindFirstFileA", str("C:\\Program Files\\Microsoft Games\\Halo Custom Edition"), fd);
+    check("FindFirstFileA(install directory, no wildcard): its own entry, a directory",
+          fh != 0xFFFFFFFF && !strcmp(P(fd + 44), "Halo Custom Edition") && (rd(fd) & 0x10), 1);
+    if (fh != 0xFFFFFFFF) API("FindClose", fh);
     snprintf(path_buf, sizeof path_buf, "%s\\*.none", mygames);
     check("FindFirstFileA with no match: ERROR_FILE_NOT_FOUND", API("FindFirstFileA", str(path_buf), fd) == 0xFFFFFFFF && LE() == 2, 1);
 

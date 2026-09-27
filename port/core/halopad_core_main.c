@@ -20,6 +20,7 @@ uint32_t halopad_guest_init(const char *image_path, uint32_t image_base);
 void halopad_thread_init(uint32_t stack_base, uint32_t stack_limit, uint32_t image_base);
 void halopad_vm_mark(uint32_t base, uint32_t size);
 void halopad_protect_image(uint32_t image_base);
+void halopad_modules_init(void);
 void halopad_enter(_cpu *cpu, uint32_t va);
 extern _Thread_local _cpu *halopad_cpu;
 
@@ -35,6 +36,7 @@ int main(void)
     halopad_vm_mark(IMAGE_BASE, 0x0042C000);           /* image (SizeOfImage) */
     halopad_vm_mark(0x7FFD0000, 0x00030000);           /* TLS block, TEB, and the page above */
     halopad_protect_image(IMAGE_BASE);
+    halopad_modules_init();                            /* translated DLLs' preferred ranges */
     _cpu cpu;
     memset(&cpu, 0, sizeof cpu);
     cpu._esp = stack_top;

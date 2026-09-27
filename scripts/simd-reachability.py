@@ -16,14 +16,20 @@ import sys
 import capstone
 from capstone import x86_const as X
 
+import hpmodule
+
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-A = ROOT / 'generated' / 'analysis' / 'custom-en-1.0.10.0621'
 SIMD_FAMILIES = ('3DNow!', 'MMX/SSE-integer', 'SSE/SSE2 float')
 
 
 def main():
-    img = (A / 'image.bin').read_bytes()
-    base = 0x400000
+    import argparse
+    ap = argparse.ArgumentParser(description=__doc__)
+    hpmodule.add_argument(ap)
+    mod = hpmodule.Module(ap.parse_args().module)
+    A = mod.analysis
+    img = mod.image()
+    base = mod.base
     raw = (A / 'instructions.u32').read_bytes()
     addrs = struct.unpack('<%dI' % (len(raw) // 4), raw)
     fns = sorted(int(x, 16) for x in json.loads((A / 'functions.json').read_text()))
@@ -35,7 +41,7 @@ def main():
             a = int(addr, 16)
             simd_sites[fn(a)].append((a, m, fam))
     S = set(simd_sites)
-    text_lo, text_hi = 0x401000, 0x401000 + 0x1dd156
+    text_lo, text_hi = mod.text_lo, mod.text_hi
     md = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_32)
     md.detail = True
     inc = collections.defaultdict(list)
@@ -51,9 +57,7 @@ def main():
                     tf = fn(t)
                     if tf in S and tf != src and (kind != 'jump' or t == tf):
                         inc[tf].append((kind, src, a))
-    for line in (A / 'relocations.csv').read_text().splitlines():
-        f, t, _ = line.split(',')
-        f, t = int(f, 16), int(t, 16)
+    for f, t in mod.relocations():
         if not (text_lo <= f < text_hi) and text_lo <= t < text_hi and fn(t) in S and t == fn(t):
             inc[fn(t)].append(('data-ptr', None, f))
     out, cls = [], collections.Counter()
