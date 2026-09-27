@@ -60,7 +60,6 @@ func FindResourceA_c a1, a2, a3
 func LoadResource_c a1, a2
 func LockResource_c a1
 func SizeofResource_c a1, a2
-func LoadStringA_c a1, a2, a3, a4
 func CreateMutexA_c a1, a2, a3
 func CreateEventA_c a1, a2, a3, a4
 func ReleaseMutex_c a1
@@ -446,11 +445,6 @@ endp
 proc hpimp_SizeofResource public
         Call_Asm_Stack2 SizeofResource_c
         Call_Asm_Return 2
-endp
-
-proc hpimp_LoadStringA public
-        Call_Asm_Stack4 LoadStringA_c
-        Call_Asm_Return 4
 endp
 
 proc hpimp_CreateMutexA public

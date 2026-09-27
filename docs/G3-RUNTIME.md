@@ -41,3 +41,33 @@ Every import is reached through the stable symbol `hpimp_<name>`, which resolves
 
 The backend now implements `fldpi`, `fldl2e`, `fpatan`, `frndint` (by the control word's rounding field), `fscale`, `f2xm1`, `fsincos` and `fxam` (`port/llasm-support/llasm_float.c`). SR's x87 model has no exception flags and no tag word: the status word is the condition codes plus TOP. So `fnclex` and `ffree` change no modelled state, `fnstsw` never reports a pending exception, and `fxam` never reports an empty register. Code that depends on those would diverge. Where a function might, the oracle can check it.
 
+
+## Resources
+
+`FindResourceA/ExA`, `LoadResource`, `LockResource`, `SizeofResource` and `LoadStringA` walk the PE resource directory in guest memory. For `LANG_NEUTRAL` they try neutral, en-US, English with neutral sublanguage, then the first language present. `strings.dll` (localized strings, dialogs and bitmaps) is mapped read-only at its preferred base `0x3f800000` from the game directory. Its `DllMain` is not run: that only initializes the DLL's own static C runtime, the DLL exports nothing, and its code has no dispatch entries.
+
+## Registry
+
+A persistent registry (`port/runtime/halopad_registry.c`) holds case-insensitive keys, Windows return codes and `ERROR_MORE_DATA` sizing, and stores values exactly as written. It is seeded from `config/runtime/registry-machine.txt`: only `HKLM\Software\Microsoft\Direct3D`, which every XP machine with DirectX 9 has. Halo's install keys, including the product-key-derived `PID`, are **never** created by HaloPad. Their absence behaves as on a machine where setup did not run with a key. `run-core.py` starts every run from the seed and keeps the final state as evidence.
+
+## Kernel objects
+
+Mutexes (owner and recursion, `ERROR_NOT_OWNER`), events (manual or auto-reset), timed and untimed waits, and named objects (`ERROR_ALREADY_EXISTS`) run on host synchronization with one lock and condition variable. Handles are `0x1000 + 4·i`; file handles sit below `0x1000`. Alertable waits work like plain ones until APC delivery exists, because nothing queues APCs yet.
+
+## Page protection
+
+Protection is tracked per 4 KiB guest page. `VirtualProtect` returns the previous protection of the first page, and `VirtualQuery` reports runs of equal protection. Image pages carry Windows' protections (`.text` `PAGE_EXECUTE_READ`, headers and `.rdata` `PAGE_READONLY`). On the host, restricting access rounds inward to 16 KiB pages. So `WinMain`'s one-page `PAGE_NOACCESS` stack sentinel (`0x2fe000`) is recorded but not enforced, and a stack smash that reaches it would go undetected instead of faulting.
+
+
+## Callbacks and windows
+
+Runtime services call translated Halo code (window procedures) through `halopad_call_guest`, which checks Windows' stdcall callback convention. Windows are host-side records for now: classes, the desktop (the Mac's main display), and `CreateWindowExA` with the documented creation messages (`WM_GETMINMAXINFO`, `WM_NCCREATE`, `WM_NCCALCSIZE`, `WM_CREATE`). `DefWindowProcA` handles those messages and traps on any other message number. Frame metrics are XP classic (caption 19, sizing frame 4). The AppKit/Metal view attaches with the graphics work.
+
+## Paths
+
+Relative guest paths and paths under the install directory map into the game directory, with `\` becoming `/`. Any other absolute path is refused.
+
+## First-run license
+
+`EBUEula` replaces the game's `Eula.dll`. It accepts only when the player has accepted this exact `Eula.rtf` (SHA-256) with `scripts/accept-eula.sh` at an interactive terminal, then writes REG_DWORD `FIRSTRUN=1` under `HKCU\Software\Microsoft\Microsoft Games\Halo CE` as the real DLL does. Otherwise it declines and Halo exits with code 1. HaloPad never accepts on the player's behalf.
+

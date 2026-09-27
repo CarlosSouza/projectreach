@@ -1,0 +1,72 @@
+;; HaloPad Windows runtime: user32 services (port/runtime/halopad_user32.c, halopad_resources.c).
+;; Pattern and macros from SR's Septerra Core port (asm-calls.llinc).
+
+include llasm.llinc
+include asm-calls.llinc
+
+func LoadIconA_c a1, a2
+func LoadCursorA_c a1, a2
+func RegisterClassExA_c a1
+func UnregisterClassA_c a1, a2
+func GetDesktopWindow_c
+func AdjustWindowRect_c a1, a2, a3
+func GetWindowRect_c a1, a2
+func GetClientRect_c a1, a2
+func CreateWindowExA_c a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12
+func DefWindowProcA_c a1, a2, a3, a4
+func LoadStringA_c a1, a2, a3, a4
+
+proc hpimp_LoadIconA public
+        Call_Asm_Stack2 LoadIconA_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_LoadCursorA public
+        Call_Asm_Stack2 LoadCursorA_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_RegisterClassExA public
+        Call_Asm_Stack1 RegisterClassExA_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_UnregisterClassA public
+        Call_Asm_Stack2 UnregisterClassA_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_GetDesktopWindow public
+        Call_Asm_Stack0 GetDesktopWindow_c
+        Call_Asm_Return 0
+endp
+
+proc hpimp_AdjustWindowRect public
+        Call_Asm_Stack3 AdjustWindowRect_c
+        Call_Asm_Return 3
+endp
+
+proc hpimp_GetWindowRect public
+        Call_Asm_Stack2 GetWindowRect_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_GetClientRect public
+        Call_Asm_Stack2 GetClientRect_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_CreateWindowExA public
+        Call_Asm_Stack12 CreateWindowExA_c
+        Call_Asm_Return 12
+endp
+
+proc hpimp_DefWindowProcA public
+        Call_Asm_Stack4 DefWindowProcA_c
+        Call_Asm_Return 4
+endp
+
+proc hpimp_LoadStringA public
+        Call_Asm_Stack4 LoadStringA_c
+        Call_Asm_Return 4
+endp

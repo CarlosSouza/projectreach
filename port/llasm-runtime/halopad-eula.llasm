@@ -1,0 +1,12 @@
+;; HaloPad replacement for the game's Eula.dll (port/runtime/halopad_eula.c).
+;; EBUEula is cdecl: the caller pops its four arguments.
+
+include llasm.llinc
+include asm-calls.llinc
+
+func EBUEula_c a1, a2, a3, a4
+
+proc hpimp_EBUEula public
+        Call_Asm_Stack4 EBUEula_c
+        Call_Asm_Return 0
+endp

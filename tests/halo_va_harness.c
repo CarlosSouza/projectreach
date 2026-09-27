@@ -16,6 +16,7 @@ uint32_t halopad_guest_init(const char *image_path, uint32_t image_base);
 uint32_t halopad_guest_alloc(uint32_t size, uint32_t align);
 void *halopad_guest_ptr(uint32_t guest);
 void halopad_enter(_cpu *cpu, uint32_t va);
+extern _Thread_local _cpu *halopad_cpu;
 extern void (*ptr_initialize_pointers)(uint64_t) __attribute__((weak));
 
 static int rd(FILE *f, uint32_t *v) { return fread(v, 4, 1, f) == 1; }
@@ -71,6 +72,7 @@ int main(int argc, char **argv)
             if (reg_ids[r] > 7 || !slot[reg_ids[r]]) return 2;
             *slot[reg_ids[r]] = reg_vals[r];
         }
+        halopad_cpu = &state;
         uint32_t entry = va;
         if (via_slot) memcpy(&entry, halopad_guest_ptr(va), 4);
         halopad_enter(&state, entry);

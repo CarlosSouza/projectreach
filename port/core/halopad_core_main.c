@@ -21,6 +21,7 @@ void halopad_thread_init(uint32_t stack_base, uint32_t stack_limit, uint32_t ima
 void halopad_vm_mark(uint32_t base, uint32_t size);
 void halopad_protect_image(uint32_t image_base);
 void halopad_enter(_cpu *cpu, uint32_t va);
+extern _Thread_local _cpu *halopad_cpu;
 
 int main(void)
 {
@@ -39,6 +40,7 @@ int main(void)
     cpu._esp = stack_top;
     cpu._pointer_offset = halopad_guest_base;
     cpu._st_cw = 0x027F;   /* x87 control word at Windows process start */
+    halopad_cpu = &cpu;
     fprintf(stderr, "HALOPAD: entering Halo at 0x%08x\n", ENTRY_VA);
     halopad_enter(&cpu, ENTRY_VA);
     fprintf(stderr, "HALOPAD: entry point returned, eax=0x%08x\n", cpu._eax);

@@ -50,7 +50,7 @@ def build(work, target):
            '-Wno-override-module', '-I', str(SUPPORT), '-I', str(ROOT / 'generated' / 'runtime'),
            str(ROOT / 'port/core/halopad_core_main.c'), *map(str, sorted((ROOT / 'port/runtime').glob('*.c'))),
            *map(str, sorted(SUPPORT.glob('llasm_*.c'))), str(va / 'dispatch.ll'), *map(str, runtime_ll),
-           str(out / 'stubs.ll'), str(obj), '-o', str(exe)]
+           str(out / 'stubs.ll'), str(obj), '-framework', 'CoreGraphics', '-o', str(exe)]
     link = subprocess.run(cmd, capture_output=True, text=True)
     (out / 'link.log').write_text(' '.join(cmd) + '\n' + link.stdout + link.stderr)
     if link.returncode:
@@ -73,6 +73,9 @@ def main():
     # each run starts from the reference machine's registry; the final state is evidence
     env = dict(os.environ, HALOPAD_IMAGE=str(IMAGE), HALOPAD_GAME_ROOT=str(GAME_ROOT), HALOPAD_REPO_ROOT=str(ROOT),
                HALOPAD_REGISTRY=str(evid / 'registry.txt'))
+    acceptance = ROOT / 'generated' / 'runtime-state' / 'eula-acceptance.txt'   # written only by scripts/accept-eula.sh
+    if acceptance.exists():
+        env['HALOPAD_EULA_ACCEPTANCE'] = str(acceptance)
     try:
         run = subprocess.run([str(exe)], capture_output=True, text=True, timeout=a.timeout, env=env)
         code, out, err = run.returncode, run.stdout, run.stderr

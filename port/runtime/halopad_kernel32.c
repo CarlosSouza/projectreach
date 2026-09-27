@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 
 #define HP_INVALID_HANDLE 0xFFFFFFFFu
 #define HP_FILE_BASE 0x100u
@@ -18,6 +19,26 @@ static void hp_trap(const char *what, uint32_t a, uint32_t b)
 {
     fprintf(stderr, "HALOPAD TRAP: %s (0x%x, 0x%x) not supported by the runtime yet\n", what, a, b);
     abort();
+}
+
+/* Guest paths: relative paths and paths under the install directory
+   (C:\\Program Files\\Microsoft Games\\Halo Custom Edition) map into HALOPAD_GAME_ROOT, with
+   '\\' as '/'. The current directory is the install directory. Returns 0 for any other
+   path. */
+int halopad_host_path(const char *guest, char *out, size_t size)
+{
+    static const char install[] = "C:\\Program Files\\Microsoft Games\\Halo Custom Edition";
+    const char *root = getenv("HALOPAD_GAME_ROOT");
+    if (!root) { fprintf(stderr, "HALOPAD TRAP: HALOPAD_GAME_ROOT is not set\n"); abort(); }
+    const char *rel = guest;
+    size_t il = strlen(install);
+    if (!strncasecmp(guest, install, il) && (guest[il] == '\\' || guest[il] == 0)) rel = guest + il + (guest[il] ? 1 : 0);
+    else if ((guest[0] && guest[1] == ':') || guest[0] == '\\' || guest[0] == '/') return 0;
+    while (rel[0] == '.' && (rel[1] == '\\' || rel[1] == '/')) rel += 2;
+    size_t n = (size_t)snprintf(out, size, "%s/%s", root, rel);
+    if (n >= size) return 0;
+    for (char *p = out + strlen(root); *p; p++) if (*p == '\\') *p = '/';
+    return 1;
 }
 
 static FILE *hp_lookup(uint32_t handle)
@@ -35,12 +56,8 @@ uint32_t CreateFileA_c(const char *name, uint32_t access, uint32_t share, uint32
     (void)share; (void)flags;
     if (access != 0x80000000u || disposition != 3 /* OPEN_EXISTING */ || security != 0 || template_file != 0)
         hp_trap("CreateFileA access/disposition", access, disposition);
-    const char *root = getenv("HALOPAD_GAME_ROOT");
-    if (!root) { fprintf(stderr, "HALOPAD TRAP: HALOPAD_GAME_ROOT is not set\n"); abort(); }
     char path[1024];
-    size_t n = (size_t)snprintf(path, sizeof path, "%s/%s", root, name);
-    if (n >= sizeof path) hp_trap("CreateFileA path length", (uint32_t)n, 0);
-    for (char *p = path + strlen(root); *p; p++) if (*p == '\\') *p = '/';
+    if (!halopad_host_path(name, path, sizeof path)) hp_trap("CreateFileA path outside the game directory", 0, 0);
     FILE *f = fopen(path, "rb");
     if (!f) { halopad_last_error = 2; /* ERROR_FILE_NOT_FOUND */ return HP_INVALID_HANDLE; }
     for (uint32_t i = 0; i < HP_MAX_FILES; i++)

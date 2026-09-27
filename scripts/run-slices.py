@@ -205,8 +205,9 @@ FAULT_CASES = {
     # CloseHandle; an unknown handle returns FALSE and the stdcall argument is popped.
     'import_call_via_slot': {'slot': 'CloseHandle', 'args': [0x1234], 'stdout': '00000000 4 V00000000', 'oracle': None},
     # an import without an implementation must stop and name itself
-    'unimplemented_import_via_slot': {'slot': 'Sleep', 'args': [1],
-                                      'expect': 'Windows import Sleep has no implementation', 'oracle': None},
+    # (a security API HaloPad has no reason to implement)
+    'unimplemented_import_via_slot': {'slot': 'SetSecurityDescriptorGroup', 'args': [0, 0, 0],
+                                      'expect': 'Windows import SetSecurityDescriptorGroup has no implementation', 'oracle': None},
     # an address inside an import's reserved slot is not an entry
     'inside_import_address': {'args': [b'\0' * 64, 12, 1, 0xFFFE0004], 'expect': "inside import ", 'oracle': None},
 }
@@ -316,7 +317,7 @@ def run_va(a, names, work, target, evid, build):
            '-Wno-override-module', '-I', str(SUPPORT), '-I', str(ROOT / 'generated' / 'runtime'),
            str(ROOT / 'tests/halo_va_harness.c'), *[str(p) for p in sorted((ROOT / 'port/runtime').glob('*.c'))],
            *[str(p) for p in sorted(SUPPORT.glob('llasm_*.c'))], str(va / 'dispatch.ll'),
-           *[str(p) for p in sorted(va.glob('halopad-*.ll'))], str(build / 'stubs.ll'), str(obj), '-o', str(exe)]
+           *[str(p) for p in sorted(va.glob('halopad-*.ll'))], str(build / 'stubs.ll'), str(obj), '-framework', 'CoreGraphics', '-o', str(exe)]
     link = subprocess.run(cmd, capture_output=True, text=True)
     (evid / 'link.log').write_text(' '.join(cmd) + '\n' + link.stdout + link.stderr)
     if link.returncode:

@@ -244,3 +244,31 @@ uint32_t RegSetValueExA_c(uint32_t h, uint32_t name, uint32_t reserved, uint32_t
     save();
     return ERROR_SUCCESS;
 }
+
+/* Internal helpers for runtime components that act like Windows DLLs (e.g. Eula.dll). */
+void halopad_registry_set_dword(const char *path, const char *name, uint32_t value)
+{
+    ensure_loaded();
+    add_key(path);
+    int i = find_value(path, name);
+    if (i < 0) {
+        vals = realloc(vals, (nvals + 1) * sizeof *vals);
+        i = (int)nvals++;
+        vals[i] = (rvalue){strdup(path), strdup(name), 0, 0, NULL};
+    }
+    free(vals[i].data);
+    vals[i].type = 4;                      /* REG_DWORD */
+    vals[i].size = 4;
+    vals[i].data = malloc(4);
+    memcpy(vals[i].data, &value, 4);
+    save();
+}
+
+uint32_t halopad_registry_get_dword(const char *path, const char *name, uint32_t *value)
+{
+    ensure_loaded();
+    int i = find_value(path, name);
+    if (i < 0 || vals[i].type != 4 || vals[i].size != 4) return 0;
+    memcpy(value, vals[i].data, 4);
+    return 1;
+}
