@@ -8,3 +8,4 @@ d3d9.dll!Direct3DCreate9
 eula.dll!EBUEula
 dsound.dll!DirectSoundCreate8
 dinput8.dll!DirectInput8Create
+shfolder.dll!SHGetFolderPathA

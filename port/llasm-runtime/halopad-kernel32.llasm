@@ -1,38 +1,162 @@
-;; HaloPad Windows runtime: kernel32 file services called from translated Halo code.
-;; Pattern and macros from SR's Septerra Core port (asm-calls.llinc, MIT, Roman Pauer).
-;; Each procedure reads its stdcall arguments from the guest stack, calls a C
-;; implementation (port/runtime/halopad_kernel32.c), sets eax and returns, popping
-;; the arguments.
+;; HaloPad Windows runtime: kernel32 files and directories, shfolder (port/runtime/halopad_kernel32.c).
+;; Pattern and macros from SR's Septerra Core port (asm-calls.llinc). All arguments are guest values.
 
 include llasm.llinc
 include asm-calls.llinc
 
-func CreateFileA_c *lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile
-func ReadFile_c hFile, *lpBuffer, nNumberOfBytesToRead, *lpNumberOfBytesRead, lpOverlapped
-func CloseHandle_c hObject
-func GetFileSize_c hFile, lpFileSizeHigh
+func CreateFileA_c a1, a2, a3, a4, a5, a6, a7
+func ReadFile_c a1, a2, a3, a4, a5
+func WriteFile_c a1, a2, a3, a4, a5
+func ReadFileEx_c a1, a2, a3, a4, a5
+func GetOverlappedResult_c a1, a2, a3, a4
+func SetFilePointer_c a1, a2, a3, a4
+func SetEndOfFile_c a1
+func FlushFileBuffers_c a1
+func GetFileSize_c a1, a2
+func GetFileTime_c a1, a2, a3, a4
+func SetFileTime_c a1, a2, a3, a4
+func CloseHandle_c a1
+func GetFileAttributesA_c a1
+func GetFileAttributesExA_c a1, a2, a3
+func SetFileAttributesA_c a1, a2
+func CreateDirectoryA_c a1, a2
+func RemoveDirectoryA_c a1
+func DeleteFileA_c a1
+func CopyFileA_c a1, a2, a3
+func FindFirstFileA_c a1, a2
+func FindNextFileA_c a1, a2
+func FindClose_c a1
+func GetCurrentDirectoryA_c a1, a2
+func GetTempPathA_c a1, a2
+func GetDiskFreeSpaceExA_c a1, a2, a3, a4
+func SHGetFolderPathA_c a1, a2, a3, a4, a5
 
 proc hpimp_CreateFileA public
-; [esp + 7*4] hTemplateFile ... [esp + 4] lpFileName, [esp] return address
         Call_Asm_Stack7 CreateFileA_c
         Call_Asm_Return 7
 endp
 
 proc hpimp_ReadFile public
-; [esp + 5*4] lpOverlapped ... [esp + 4] hFile, [esp] return address
         Call_Asm_Stack5 ReadFile_c
         Call_Asm_Return 5
 endp
 
+proc hpimp_WriteFile public
+        Call_Asm_Stack5 WriteFile_c
+        Call_Asm_Return 5
+endp
+
+proc hpimp_ReadFileEx public
+        Call_Asm_Stack5 ReadFileEx_c
+        Call_Asm_Return 5
+endp
+
+proc hpimp_GetOverlappedResult public
+        Call_Asm_Stack4 GetOverlappedResult_c
+        Call_Asm_Return 4
+endp
+
+proc hpimp_SetFilePointer public
+        Call_Asm_Stack4 SetFilePointer_c
+        Call_Asm_Return 4
+endp
+
+proc hpimp_SetEndOfFile public
+        Call_Asm_Stack1 SetEndOfFile_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_FlushFileBuffers public
+        Call_Asm_Stack1 FlushFileBuffers_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_GetFileSize public
+        Call_Asm_Stack2 GetFileSize_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_GetFileTime public
+        Call_Asm_Stack4 GetFileTime_c
+        Call_Asm_Return 4
+endp
+
+proc hpimp_SetFileTime public
+        Call_Asm_Stack4 SetFileTime_c
+        Call_Asm_Return 4
+endp
+
 proc hpimp_CloseHandle public
-; [esp + 4] hObject, [esp] return address
         Call_Asm_Stack1 CloseHandle_c
         Call_Asm_Return 1
 endp
 
+proc hpimp_GetFileAttributesA public
+        Call_Asm_Stack1 GetFileAttributesA_c
+        Call_Asm_Return 1
+endp
 
-proc hpimp_GetFileSize public
-; [esp + 2*4] lpFileSizeHigh, [esp + 4] hFile
-        Call_Asm_Stack2 GetFileSize_c
+proc hpimp_GetFileAttributesExA public
+        Call_Asm_Stack3 GetFileAttributesExA_c
+        Call_Asm_Return 3
+endp
+
+proc hpimp_SetFileAttributesA public
+        Call_Asm_Stack2 SetFileAttributesA_c
         Call_Asm_Return 2
+endp
+
+proc hpimp_CreateDirectoryA public
+        Call_Asm_Stack2 CreateDirectoryA_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_RemoveDirectoryA public
+        Call_Asm_Stack1 RemoveDirectoryA_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_DeleteFileA public
+        Call_Asm_Stack1 DeleteFileA_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_CopyFileA public
+        Call_Asm_Stack3 CopyFileA_c
+        Call_Asm_Return 3
+endp
+
+proc hpimp_FindFirstFileA public
+        Call_Asm_Stack2 FindFirstFileA_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_FindNextFileA public
+        Call_Asm_Stack2 FindNextFileA_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_FindClose public
+        Call_Asm_Stack1 FindClose_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_GetCurrentDirectoryA public
+        Call_Asm_Stack2 GetCurrentDirectoryA_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_GetTempPathA public
+        Call_Asm_Stack2 GetTempPathA_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_GetDiskFreeSpaceExA public
+        Call_Asm_Stack4 GetDiskFreeSpaceExA_c
+        Call_Asm_Return 4
+endp
+
+proc hpimp_SHGetFolderPathA public
+        Call_Asm_Stack5 SHGetFolderPathA_c
+        Call_Asm_Return 5
 endp

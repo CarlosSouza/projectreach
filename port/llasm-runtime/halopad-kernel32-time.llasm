@@ -1,0 +1,156 @@
+;; HaloPad Windows runtime: kernel32 time, locale, messages, memory status (port/runtime/halopad_k32_time.c).
+;; Pattern and macros from SR's Septerra Core port (asm-calls.llinc).
+
+include llasm.llinc
+include asm-calls.llinc
+
+func GetSystemTime_c a1
+func GetLocalTime_c a1
+func SystemTimeToFileTime_c a1, a2
+func CompareFileTime_c a1, a2
+func GetTimeZoneInformation_c a1
+func GetLocaleInfoA_c a1, a2, a3, a4
+func GetLocaleInfoW_c a1, a2, a3, a4
+func GetUserDefaultLCID_c
+func GetThreadLocale_c
+func SetThreadLocale_c a1
+func IsValidLocale_c a1, a2
+func EnumSystemLocalesA_c a1, a2
+func GetDateFormatA_c a1, a2, a3, a4, a5, a6
+func GetTimeFormatA_c a1, a2, a3, a4, a5, a6
+func CompareStringA_c a1, a2, a3, a4, a5, a6
+func CompareStringW_c a1, a2, a3, a4, a5, a6
+func FormatMessageA_c a1, a2, a3, a4, a5, a6, a7
+func GlobalMemoryStatus_c a1
+func IsBadReadPtr_c a1, a2
+func IsBadWritePtr_c a1, a2
+func IsBadCodePtr_c a1
+func SetErrorMode_c a1
+func GetPriorityClass_c a1
+func SetPriorityClass_c a1, a2
+func TerminateProcess_c a1, a2
+
+proc hpimp_GetSystemTime public
+        Call_Asm_Stack1 GetSystemTime_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_GetLocalTime public
+        Call_Asm_Stack1 GetLocalTime_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_SystemTimeToFileTime public
+        Call_Asm_Stack2 SystemTimeToFileTime_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_CompareFileTime public
+        Call_Asm_Stack2 CompareFileTime_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_GetTimeZoneInformation public
+        Call_Asm_Stack1 GetTimeZoneInformation_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_GetLocaleInfoA public
+        Call_Asm_Stack4 GetLocaleInfoA_c
+        Call_Asm_Return 4
+endp
+
+proc hpimp_GetLocaleInfoW public
+        Call_Asm_Stack4 GetLocaleInfoW_c
+        Call_Asm_Return 4
+endp
+
+proc hpimp_GetUserDefaultLCID public
+        Call_Asm_Stack0 GetUserDefaultLCID_c
+        Call_Asm_Return 0
+endp
+
+proc hpimp_GetThreadLocale public
+        Call_Asm_Stack0 GetThreadLocale_c
+        Call_Asm_Return 0
+endp
+
+proc hpimp_SetThreadLocale public
+        Call_Asm_Stack1 SetThreadLocale_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_IsValidLocale public
+        Call_Asm_Stack2 IsValidLocale_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_EnumSystemLocalesA public
+        Call_Asm_Stack2 EnumSystemLocalesA_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_GetDateFormatA public
+        Call_Asm_Stack6 GetDateFormatA_c
+        Call_Asm_Return 6
+endp
+
+proc hpimp_GetTimeFormatA public
+        Call_Asm_Stack6 GetTimeFormatA_c
+        Call_Asm_Return 6
+endp
+
+proc hpimp_CompareStringA public
+        Call_Asm_Stack6 CompareStringA_c
+        Call_Asm_Return 6
+endp
+
+proc hpimp_CompareStringW public
+        Call_Asm_Stack6 CompareStringW_c
+        Call_Asm_Return 6
+endp
+
+proc hpimp_FormatMessageA public
+        Call_Asm_Stack7 FormatMessageA_c
+        Call_Asm_Return 7
+endp
+
+proc hpimp_GlobalMemoryStatus public
+        Call_Asm_Stack1 GlobalMemoryStatus_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_IsBadReadPtr public
+        Call_Asm_Stack2 IsBadReadPtr_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_IsBadWritePtr public
+        Call_Asm_Stack2 IsBadWritePtr_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_IsBadCodePtr public
+        Call_Asm_Stack1 IsBadCodePtr_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_SetErrorMode public
+        Call_Asm_Stack1 SetErrorMode_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_GetPriorityClass public
+        Call_Asm_Stack1 GetPriorityClass_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_SetPriorityClass public
+        Call_Asm_Stack2 SetPriorityClass_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_TerminateProcess public
+        Call_Asm_Stack2 TerminateProcess_c
+        Call_Asm_Return 2
+endp

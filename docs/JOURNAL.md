@@ -451,3 +451,32 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
 - **Limits:** these are loopback checks. Joining a real Custom Edition server (G5/G6) still needs the game past its license, and later a product key.
 
 **Next:** the remaining KERNEL32 file and time services, then Vorbis, Bink and game controllers.
+
+## 2026-09-27 — A virtual C: drive; asynchronous reads; time, locale and messages
+
+- **How Halo uses them.**
+  - Profiles, checkpoints and screenshots live in \`%s\My Games\Halo CE\`, where \`%s\` is \`SHGetFolderPathA(CSIDL_PERSONAL)\` from \`shfolder.dll\`. \`WinMain\` loads it at \`0x544b0c\` and stops if it is missing; the \`-path\` option overrides it.
+  - 17 \`CreateFileA\` sites. The streaming reads (\`0x443072\` …) are \`FILE_FLAG_OVERLAPPED\`, with \`ReadFileEx\` completion routines run by \`SleepEx(0, TRUE)\` (\`0x443560\`), plus one \`ReadFile\` with \`GetOverlappedResult\`. The others are plain reads (\`SEQUENTIAL_SCAN\`), read/write \`OPEN_ALWAYS\`, and \`CREATE_ALWAYS\` writes.
+  - Also: \`SetFilePointer\` 18 sites, \`WriteFile\` 10, \`FindFirstFileA\` 13, directories, \`CopyFileA\`/\`DeleteFileA\`, attributes and times.
+  - \`FormatMessageA(FROM_SYSTEM|IGNORE_INSERTS|MAX_WIDTH)\` into 2 KB buffers, 12 of them for Direct3D codes. \`GetDate\`/\`GetTimeFormatA\` with \`LOCALE_USER_DEFAULT\` (including \`NOTIMEMARKER|FORCE24HOUR\`). The C runtime's locale calls (\`GetLocaleInfo\`, \`EnumSystemLocalesA\`, \`CompareString\`).
+- **What** (\`port/runtime/halopad_kernel32.c\`, rewritten; \`halopad_k32_time.c\`):
+  - **The drive.** The install directory (also the current directory) is two layers: the game files, which are never written, under a writable layer in \`HALOPAD_STATE_ROOT/install\`. A game file opened for writing is first copied up.
+  - Every other \`C:\\` path is in \`HALOPAD_STATE_ROOT/C\`, where the user profile, My Documents and Temp exist from the start. Other drives do not exist.
+  - Names are matched without regard to case on any host file system, which iOS needs. Trailing dots and spaces are dropped, and device and UNC names stop the program.
+  - Installed files report \`ARCHIVE\`, as Windows installed them. Deleting installed game files or directories stops the program.
+  - **Files.** All five creation dispositions with Windows' last errors. Read/write, 64-bit \`SetFilePointer\`, \`SetEndOfFile\`, flush, size and times (creation time set with \`setattrlist\`), delete-on-close.
+  - **Enumeration** merges both layers and returns names in NTFS order with \`.\` and \`..\` (none at a drive root), using Windows wildcards.
+  - Also: attributes (\`READONLY\` enforced), directories, copies, disk space, the temp and current directories, and \`SHGetFolderPathA\` for the standard folders.
+  - **Asynchronous reads** complete when issued, as Windows may. \`ReadFileEx\`'s routine is queued as an APC on the calling thread and runs at its next alertable \`SleepEx\`/\`WaitForSingleObjectEx\`, which then return \`WAIT_IO_COMPLETION\`. Overlapped \`ReadFile\` sets the \`OVERLAPPED\` status and event; reads at end-of-file give \`ERROR_HANDLE_EOF\`.
+  - **Time.** \`GetSystemTime\`/\`GetLocalTime\`, \`SystemTimeToFileTime\`, \`CompareFileTime\`, and \`GetTimeZoneInformation\` with the host zone's daylight rules for the year in Windows' form.
+  - **Locale.** One locale, English (US), LCID 0x409, code page 1252: \`GetLocaleInfoA/W\` (incl. \`RETURN_NUMBER\`), date/time pictures and flags, and \`CompareString\` with a word-sort approximation. Other locales stop with their number.
+  - **Messages.** \`FormatMessageA\` from a system table of the errors HaloPad produces; unknown codes (such as Direct3D's) give \`ERROR_MR_MID_NOT_FOUND\`, as on Windows.
+  - Also: \`GlobalMemoryStatus\` (a 2 GB address space), \`IsBad*Ptr\` from the memory map, \`VirtualQuery\` of free memory (\`MEM_FREE\`, as Windows answers, where it used to stop), error mode, priority class, and \`TerminateProcess\` of itself.
+- **Test** (\`tests/halo_files_test.c\`, 83 checks, all passing; a fresh temporary state directory over the real game files):
+  - Special folders, case-insensitive access to the maps, creation dispositions and last errors, writes and seeks, truncation, copies, enumeration order and wildcards.
+  - Read-only and deletion rules, directory errors, new files landing in the writable layer, and an installed file changed with the game files left untouched.
+  - \`ReadFileEx\`'s routine running only at an alertable \`SleepEx\`; overlapped \`ReadFile\` with its event and \`GetOverlappedResult\`.
+  - Time conversion and the zone's offset, date/time formatting (including Halo's flags), locale values, string comparison, messages, and memory checks.
+- All other suites, the 15 slices and the unit tests still pass; the core still stops at the license. The runners now set \`HALOPAD_STATE_ROOT\` (\`generated/halopad-disk\`, ignored).
+
+**Next:** SEH (\`RaiseException\`, \`RtlUnwind\`, exception delivery), \`CreateFileMappingA\`/\`MapViewOfFile\`, GDI and dialogs for the splash and crash paths, then Vorbis, Bink and game controllers.

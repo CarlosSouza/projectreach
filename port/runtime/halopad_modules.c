@@ -34,6 +34,7 @@ static module modules[] = {
     {"shell32.dll", 0x7C9C0000, LOADABLE, 0},
     {"wininet.dll", 0x3D930000, LOADABLE, 0},
     {"version.dll", 0x77C00000, LOADABLE, 0},
+    {"shfolder.dll", 0x76780000, LOADABLE, 0},      /* SHGetFolderPathA (My Documents) */
     {"d3d9.dll", 0x4FDD0000, LOADABLE, 0},
     {"dinput8.dll", 0x4C000000, LOADABLE, 0},
     {"vorbisfile.dll", 0x10000000, LOADABLE, 0},   /* shipped with the game */

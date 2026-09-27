@@ -166,8 +166,15 @@ static uint32_t VirtualQuery_c_unlocked(uint32_t address, uint32_t info, uint32_
 {
     if (length < 28) { halopad_last_error = HP_ERROR_INSUFFICIENT_BUFFER; return 0; }
     region *r = find(address);
-    if (!r) hp_unsupported("VirtualQuery", "address 0x%08x outside known regions", address);
     uint32_t page = address & ~(PAGE - 1);
+    if (!r) {                                                        /* free memory, up to the next region */
+        if (address >= 0x7FFF0000u) { halopad_last_error = HP_ERROR_INVALID_PARAMETER; return 0; }
+        uint32_t next = 0x7FFF0000u;
+        for (uint32_t i = 0; i < nregions; i++) if (regions[i].base > page && regions[i].base < next) next = regions[i].base;
+        wr32(info + 0, page); wr32(info + 4, 0); wr32(info + 8, 0); wr32(info + 12, next - page);
+        wr32(info + 16, MEM_FREE); wr32(info + 20, 0x01 /* PAGE_NOACCESS */); wr32(info + 24, 0);
+        return 28;
+    }
     uint32_t on = r->committed ? r->committed[(page - r->base) / PAGE] : 1, end = page;
     uint32_t pp = r->pprot[(page - r->base) / PAGE];
     while (end < r->base + r->size && (r->committed ? r->committed[(end - r->base) / PAGE] : 1) == on

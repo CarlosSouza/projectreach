@@ -204,9 +204,15 @@ uint32_t TerminateThread_c(uint32_t h, uint32_t code)
     hp_unsupported("TerminateThread", "stopping running thread 0x%x (start 0x%08x) in the middle of its code", t->tid, t->start);
 }
 
+int halopad_apc_pending(void);
+int halopad_apc_deliver(void);
+
+/* An alertable sleep runs the thread's queued completion routines (ReadFileEx) and
+   returns WAIT_IO_COMPLETION at once; only this thread queues APCs to itself, so none can
+   arrive while it sleeps. */
 uint32_t SleepEx_c(uint32_t ms, uint32_t alertable)
 {
-    (void)alertable;                                                /* no APCs are ever queued */
+    if (alertable && halopad_apc_pending()) { halopad_apc_deliver(); return 0xC0; }
     Sleep_c(ms);
     return 0;
 }

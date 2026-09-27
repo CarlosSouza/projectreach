@@ -115,9 +115,12 @@ static int try_acquire(object *o)
     return 1;
 }
 
+int halopad_apc_pending(void);
+int halopad_apc_deliver(void);
+
 uint32_t WaitForSingleObjectEx_c(uint32_t h, uint32_t timeout, uint32_t alertable)
 {
-    (void)alertable;   /* no APCs are ever queued yet, so an alertable wait behaves like a plain one */
+    if (alertable && halopad_apc_pending()) { halopad_apc_deliver(); return 0xC0; }   /* WAIT_IO_COMPLETION */
     struct timespec deadline;
     if (timeout != INFINITE) {
         clock_gettime(CLOCK_REALTIME, &deadline);

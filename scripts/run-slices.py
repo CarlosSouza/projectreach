@@ -344,10 +344,11 @@ def run_va(a, names, work, target, evid, build):
         env = dict(os.environ, HALOPAD_IMAGE=str(image_bin), **s.get('env', {}))
         if s.get('game_root'):
             env['HALOPAD_GAME_ROOT'] = str(s['game_root'])
+            env['HALOPAD_STATE_ROOT'] = str(ROOT / 'generated' / 'halopad-disk')
         prefix = list(a.run_prefix)
         if prefix:
             # simctl spawn passes the environment through SIMCTL_CHILD_ variables
-            for k in ('HALOPAD_IMAGE', 'HALOPAD_GAME_ROOT'):
+            for k in ('HALOPAD_IMAGE', 'HALOPAD_GAME_ROOT', 'HALOPAD_STATE_ROOT'):
                 if k in env:
                     env['SIMCTL_CHILD_' + k] = env[k]
         run = subprocess.run(prefix + [str(exe), str(build / f'{name}.bin')], capture_output=True, text=True, timeout=900, env=env)
@@ -488,6 +489,7 @@ def _main():
         env = dict(os.environ)
         if s.get('game_root'):
             env['HALOPAD_GAME_ROOT'] = str(s['game_root'])
+            env['HALOPAD_STATE_ROOT'] = str(ROOT / 'generated' / 'halopad-disk')
         run = subprocess.run([str(exe), str(build / f'{name}.bin')], capture_output=True, text=True, timeout=600, env=env)
         (evid / f'{name}.native.txt').write_text(run.stdout)
         if run.stderr:
