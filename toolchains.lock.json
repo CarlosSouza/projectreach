@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "ldc": {
+    "version": "1.42.0",
+    "archive": "ldc2-1.42.0-osx-arm64.tar.xz",
+    "url": "https://github.com/ldc-developers/ldc/releases/download/v1.42.0/ldc2-1.42.0-osx-arm64.tar.xz",
+    "sha256": "7a68e21c5305766a74f4736cc891a7942db7842a9226623209504bc85c701382",
+    "root": "ldc2-1.42.0-osx-arm64",
+    "tree_sha256": "07f0ab582bbc05ab7bf509b77404e91896bdb3ba087919c87b991dce12cabd88"
+  },
+  "scons": "4.8.1",
+  "target": "arm64-apple-macosx14.0.0"
+}

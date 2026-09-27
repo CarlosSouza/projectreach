@@ -1,0 +1,142 @@
+--- a/SConstruct
++++ b/SConstruct
+@@ -30,6 +30,8 @@
+ vars.Add(BoolVariable('mingw', 'Set to use MinGW instead of default compiler', False))
+ vars.Add(BoolVariable('judy', 'Set to use Judy library instead of C++ containers', False))
+ env = Environment(variables = vars)
++if env['PLATFORM'] == 'darwin':
++    env.Replace(CC='clang', CXX='clang++')
+ Help(vars.GenerateHelpText(env))
+ 
+ Help("""
+@@ -65,7 +67,8 @@
+     if judy:
+         env.Append(CCFLAGS = '-DUSE_JUDY')
+     else:
+-        env.Append(LIBS = ['stdc++'])
++        if env['PLATFORM'] != 'darwin':
++            env.Append(LIBS = ['stdc++'])
+         if env['CXX'] == 'g++':
+             env.Append(LINKFLAGS = '-static-libgcc -static-libstdc++')
+     if debug:
+--- a/SRW_loader.c
++++ b/SRW_loader.c
+@@ -23,7 +23,7 @@
+  */
+ 
+ #include <stdio.h>
+-#include <malloc.h>
++#include <stdlib.h>
+ #include <string.h>
+ #include "SR_defs.h"
+ #include "SR_vars.h"
+--- a/SR_basic.c
++++ b/SR_basic.c
+@@ -23,7 +23,7 @@
+  */
+ 
+ #include <stdio.h>
+-#include <malloc.h>
++#include <stdlib.h>
+ #include <string.h>
+ #include "SR_defs.h"
+ #include "SR_vars.h"
+--- a/SR_defs.h
++++ b/SR_defs.h
+@@ -44,7 +44,7 @@
+ #define OUT_LLASM 7
+ #define OUT_X64 8
+ 
+-#define OUTPUT_TYPE  OUT_X86
++#define OUTPUT_TYPE  OUT_LLASM
+ 
+ #if (OUTPUT_TYPE == OUT_LLASM)
+     #define EMULATE_FPU 1
+--- a/SR_full.c
++++ b/SR_full.c
+@@ -23,7 +23,7 @@
+  */
+ 
+ #include <stdio.h>
+-#include <malloc.h>
++#include <stdlib.h>
+ #include <string.h>
+ #include "SR_defs.h"
+ #include "SR_vars.h"
+--- a/SR_full_dos.c
++++ b/SR_full_dos.c
+@@ -23,7 +23,7 @@
+  */
+ 
+ #include <stdio.h>
+-#include <malloc.h>
++#include <stdlib.h>
+ #include <string.h>
+ #include "SR_defs.h"
+ #include "SR_vars.h"
+--- a/SR_full_llasm.c
++++ b/SR_full_llasm.c
+@@ -23,7 +23,7 @@
+  */
+ 
+ #include <stdio.h>
+-#include <malloc.h>
++#include <stdlib.h>
+ #include <string.h>
+ #include "SR_defs.h"
+ #include "SR_vars.h"
+--- a/SR_full_llasm_instr.c
++++ b/SR_full_llasm_instr.c
+@@ -23,7 +23,7 @@
+  */
+ 
+ #include <stdio.h>
+-#include <malloc.h>
++#include <stdlib.h>
+ #include <string.h>
+ #include "SR_defs.h"
+ #include "SR_vars.h"
+--- a/SR_full_win32.c
++++ b/SR_full_win32.c
+@@ -23,7 +23,7 @@
+  */
+ 
+ #include <stdio.h>
+-#include <malloc.h>
++#include <stdlib.h>
+ #include <string.h>
+ #include "SR_defs.h"
+ #include "SR_vars.h"
+--- a/SR_full_x64.c
++++ b/SR_full_x64.c
+@@ -23,7 +23,7 @@
+  */
+ 
+ #include <stdio.h>
+-#include <malloc.h>
++#include <stdlib.h>
+ #include <string.h>
+ #include "SR_defs.h"
+ #include "SR_vars.h"
+--- a/SR_full_x64_instr.c
++++ b/SR_full_x64_instr.c
+@@ -23,7 +23,7 @@
+  */
+ 
+ #include <stdio.h>
+-#include <malloc.h>
++#include <stdlib.h>
+ #include <string.h>
+ #include "SR_defs.h"
+ #include "SR_vars.h"
+--- a/SR_main.c
++++ b/SR_main.c
+@@ -23,7 +23,7 @@
+  */
+ 
+ #include <stdio.h>
+-#include <malloc.h>
++#include <stdlib.h>
+ #include <time.h>
+ #include <string.h>
+ 

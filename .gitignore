@@ -1,0 +1,26 @@
+# Private original inputs, third-party references and generated game code.
+/ref/
+/generated/
+/docs/artifacts/
+/INPUTS.lock.json
+/.venv/
+/build/
+.DS_Store
+__pycache__/
+*.pyc
+*.exe
+*.dll
+*.xbe
+*.map
+*.iso
+*.dmg
+*.ipa
+*.app/
+*.dmp
+*.pcap
+*.pcapng
+*.p12
+*.pfx
+*.mobileprovision
+.env
+.env.*

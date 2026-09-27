@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "id": "custom-en-1.0.10.0621",
+  "edition": "custom",
+  "language": "en",
+  "executable": "haloce.exe",
+  "version": "1.0.10.0621",
+  "machine": "IMAGE_FILE_MACHINE_I386",
+  "input_state": "UNVERIFIED",
+  "accepted_sha256": null,
+  "core_namespace": "halopad_custom",
+  "original_root": "ref/inputs/custom-original",
+  "prepared_root": "generated/prepared/custom-en-1.0.10.0621"
+}

@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "sources": [
+    {
+      "name": "utp",
+      "url": "https://github.com/chrissotraidis/utp.git",
+      "revision": "2f9c9b8f815b1f691a39960bfc96c6a9b8ebda14",
+      "path": "ref/utp"
+    },
+    {
+      "name": "sr",
+      "url": "https://github.com/M-HT/SR.git",
+      "revision": "ac690ddf3010bc3d2c875cb1b5e8da4f53a8d5b3",
+      "path": "ref/sr"
+    },
+    {
+      "name": "xboxrecomp",
+      "url": "https://github.com/sp00nznet/xboxrecomp.git",
+      "revision": "a781596e2181f8d4b15336659897ce07bdd7d56a",
+      "path": "ref/xboxrecomp"
+    }
+  ]
+}

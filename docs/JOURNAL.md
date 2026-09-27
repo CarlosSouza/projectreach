@@ -1,0 +1,73 @@
+# HaloPad experiment journal
+
+Append-only. Evidence directories are ignored private records.
+
+## 2026-09-06 — G0 / establish the workspace and identify the next boundary
+
+**Authorization:** Chris assigned `HaloPad-GOAL-LOOP.md` via `/goal`, then explicitly directed use of the supplied `ref/` directory. Requirements and the loop are adopted for this task; research assertions remain source-level evidence, not additional publication or acquisition authorization.
+
+**Hypothesis:** the existing workspace can be protected and the documented exact source pins reproduced without modifying unknown local work. A supplied installer may provide the selected executable, which must be verified rather than inferred from its name.
+
+**Falsifiable result:** references match all three full commit IDs, are clean with push disabled, private paths are ignored and guards reject attempted leakage. Input inspection must either identify 1.0.10.0621 with accepted provenance/hash or fail explicitly. No original or reference execution is required for this read-only step.
+
+**State:** root `2341fa014be34677eedf30b32d5e5a99c884695d`; pre-existing root-document deletions and matching untracked `docs/` files preserved. `ref/HaloCESetup.exe` was present (186,757,648 bytes). Initial directory-only listing missed the installer; subsequent file listing found it before any input-dependent work. No candidate/Simulator was active. No save/profile was selected or modified.
+
+**Commands / observations:**
+
+1. Read all three supplied HaloPad documents. Inspected Git status/revision, host tools, booted Simulators and command-name-only candidate process list. ARM64 Mac/Xcode available; no active project candidate/Simulator.
+2. Added `.gitignore`, unaccepted exact-profile configs, source lock and scriptable checks. Wrote initial state and installer hash privately. No source was staged, committed or pushed.
+3. `scripts/bootstrap-sources.sh` fetched UTP, SR and xboxrecomp at the exact supplied pins, detached each and disabled all remote push URLs. All succeeded; no Git submodules were declared. Reviewed relevant source/license/build and input/lifecycle paths. No upstream code was copied into the integration source.
+4. `7zz l -slt ref/HaloCESetup.exe` identified an NSIS archive. `7zz x -so ref/HaloCESetup.exe haloce.exe > generated/inspection/supplied-installer/haloce.exe` extracted only the named client into ignored storage. No installer/client execution and no credentials.
+5. Apple `objdump -p` and pefile inspected the client. Initial `import pefile` failed because it was absent; created project-local `.venv` and installed pinned pefile 2024.8.26, then reran successfully. The original client reports **1.0.0.609**, not 1.0.10.0621. Rejected the selected profile; did not alter expected version/hash.
+6. The installed Parallels CLI's `list -a` returned exit 253: “Login failed: Unable to connect to Parallels Service.” No repeated unchanged retries, restart, VM boot or configuration change. Original-client environment remains unidentified.
+7. `.venv/bin/python scripts/inspect-inputs.py --profile custom-en-1.0.10.0621 --executable generated/inspection/supplied-installer/haloce.exe` returned exit 2 with version mismatch and no accepted hash. It wrote a private structured PE/import/delay-import/resource/TLS/relocation inventory; no input lock or generated core.
+8. `.venv/bin/python -m unittest discover -s tests -v` passed nine tests. Temporary Git repositories prove forced private-input staging and staged disguised executable bytes fail even after a benign worktree replacement. Identity tests reject wrong version/machine/hash and unaccepted profiles.
+9. `scripts/doctor.sh` passed implemented environment/source/safety checks. `scripts/verify-sources.sh` and `scripts/check-repo-safety.sh` succeeded. Full G0 remains unmet: original-client environment and selected lifter toolchain readiness are not established. Standalone LLVM tools and SCons were absent at inspected paths; no claim the lifter is built.
+
+**Evidence:** `docs/artifacts/2026-09-06/G0/bootstrap/{initial-state.txt,sources.log,installer-list.txt,supplied-pe.txt,python-dependencies.log,guard-tests.log}`; `docs/artifacts/2026-09-06/G0/doctor-ad36542cb24c/environment.json`; `docs/artifacts/2026-09-06/G1/inspect-f13eeb6d8a2c/pe-inventory.json`.
+
+**Interpretation:** host/source protections and read-only input inventory are executed evidence. Reference implementation findings are source-only. The supplied older client does not satisfy G1 and cannot be the selected-profile translation oracle. A source-level route remains unproven; no evidence invalidates both candidate lifters and no project-level NO_GO is justified.
+
+**Rejected explanations:** matching installer filename is insufficient; extraction is not installation; an installed VM application is not a working authorized Windows baseline; compiling guards is not native Halo execution; offset macros/TLS in references do not pass the iOS architecture capsule. No percentages or downstream gates are promoted.
+
+**Next experiment / stop condition:** identify the authorized original-client environment and acquire the patched Custom client through the accepted original-PC-key route, then run the exact input-inspection command in `HANDOFF.md`. Stop this path on wrong identity, absent accepted provenance or missing baseline, while preserving all evidence. Local-only preparation of the selected lifter remains possible but cannot pass G1/G2. Publication, credentials and physical actions remain explicit boundaries.
+
+**Final verification correction:** the generated acceptance ledger initially included the campaign table header (`Map identity`) because its row filter was too broad. The explicit 36-row assertion caught it; removed that spurious header and rechecked exact M01–M36 identity. Final guard tests still pass (nine tests). Original installer hash and supplied-document bytes match their preserved identities. No project candidate or Simulator was launched during this session.
+
+## 2026-09-06 — G0 independent lifter-tool preparation (second goal turn)
+
+**Previous turn classification:** progress: protected source state, verified wrong supplied input, implemented and tested guards. Re-read current status/handoff/journal, checked Git/source pins and booted Simulators. No newly supplied accepted input or Windows baseline appeared; the same external boundary persists for the second consecutive goal turn.
+
+**Hypothesis:** the selected SRW/llasm path can at least build locally and execute a self-authored PE arithmetic slice as native ARM64 without modifying references or relying on game inputs. **Pass:** exact OUT_LLASM frontend/converter identities, ARM64 binaries and expected native fixture results. **Fail:** causal compiler/converter/runtime failure preserved; no promotion to G2.
+
+**Commands:** installed SCons 4.8.1 in `.venv`; fetched official LDC 1.42.0 macOS ARM64 package, verified published archive checksum and locked extracted tree; built llasm from its pinned D source. Tried OUT_LLASM SRW in an ignored source copy. Initial build failed on malloc.h; stdlib.h substitution exposed macOS static-libgcc linker failure; Darwin clang/C++ selection fixed that without suppressing warnings. Added a documented reproducible patch and license notice.
+
+**Minimized experiment:** authored a 16-byte x86 arithmetic function inside a minimal PE32. SRW initially required an explicit relocation inventory; the fixture has no absolute references, so an empty CSV is correct. The first strict IR compilation failed on a missing target triple; generated an actual compiler target probe and supplied that triple rather than suppressing the diagnostic. One early exploratory command selected a not-yet-created working directory and did not execute; created it before retrying. No missing game behavior was replaced.
+
+**Executed result:** `scripts/build-lifter.sh` created fresh manifest-keyed build `generated/tool-builds/f056cf19425c-b11a4f45`; `.venv/bin/python scripts/test-lifter-smoke.py --build generated/tool-builds/f056cf19425c-b11a4f45` passed 36 arithmetic result/stack-restoration cases as ARM64. No x86 fixture execution, actual Halo differential test, flags/FP/thread/callback/device or gameplay claim. Four upstream redundant-parentheses warnings remain recorded.
+
+**Evidence:** exploratory failures under `docs/artifacts/2026-09-06/G0/lifter-tools/`; fresh build under `docs/artifacts/2026-09-06/G0/lifter-f056cf19425c-b11a4f45/`; scripted execution under `docs/artifacts/2026-09-06/G0/lifter-smoke-8a1da1d5d6ab/`. Exact tool/source/compiler/SDK/patch/input/output identities are in those manifests.
+
+**Interpretation / rejected shortcut:** llasm's wrapper converts native return pointers into offset-based 32-bit words; code and stack must occupy the same representable host window. The bounded fixture checks that constraint before execution, but this is not the arbitrary high-address, checked guest-memory and finite guest-target dispatch contract required for HaloPad. Enabling -ptrofs is not an architectural pass. G0 still lacks an authorized reference environment; G1 still lacks the selected accepted patched client; no goal passes.
+
+**Next experiment:** obtain the accepted 1.0.10.0621 Custom input and original-client environment, then inventory actual code/relocations/imports and choose the first real differential slice. Do not keep expanding synthetic smoke tests in place of that missing evidence. No alternate lifter, game acquisition, VM/device action, public network test or publication occurred. All project candidates and Simulators remain stopped.
+
+## 2026-09-06 — third consecutive external-boundary audit
+
+**Previous turn:** progress, verified by unchanged built SRW/llasm artifact hashes and the saved 36-case native synthetic execution result. No active process/job is being waited on.
+
+**Current authoritative state:** re-read status and journal; checked current Git status, supplied files under ref, candidate command names and booted Simulators. The only supplied acquisition file remains HaloCESetup.exe. Its hash and the extracted older client's hash match the original evidence. The selected profile still has no accepted hash, no ref/inputs installation exists, and no authorized original-client environment has been identified. No new operator response supplied that missing state. All source pins remain clean and push-disabled; repository safety checks pass.
+
+**Audit evidence:** `docs/artifacts/2026-09-06/G0/blocker-audit-3/audit.json`. The same unavailable exact input/original-reference boundary has now persisted across the original goal turn and two continuations. Host protection, input inspection and bounded lifter-tool preparation are completed independently. Additional synthetic cases or speculative shell work cannot resolve the required actual-Halo/reference uncertainty and would not justify advancing the lowest goal. No build or runtime failure is being declared impossible.
+
+**Decision:** mark the goal BLOCKED_EXTERNAL after the required three-turn audit. This is neither completion nor NO_GO. Resume when the accepted Custom Edition 1.0.10.0621 installation and an authorized original-client reference environment are supplied/identified, using the exact command and evidence requirements in HANDOFF.md. Acquisition, credentials, machine configuration and physical/public actions remain operator boundaries under the assigned loop. No unknown work was overwritten, and no candidate/Simulator remains running.
+
+## 2026-09-26 — unblocking review with Chris; phase 2 loop written
+
+**Findings:** The supplied installer is the stock Custom Edition 1.00 file set (all stock maps, shaders, `haloceded.exe`), repackaged in NSIS 2.25. The 1.10 patch (`haloce-patch-1.0.10.exe`, SHA-256 `33818f3f…7508`, Microsoft Authenticode) was fetched from Bungie's original URL via the Wayback Machine. Its cabinet holds `haloupdate.exe` and `patch.rtp`, which targets `haloce.exe`, `haloceded.exe`, `strings.dll`, `binkw32.dll` and `config.txt`. The Parallels service now runs, but its only VM is invalid (no files under `~/Parallels`). No product key exists in the repo or elsewhere on the Mac; a leftover "Halo CE Cracked" Parallels shortcut was found and deliberately not used.
+
+**Commands:** extracted the patch targets from the installer into `generated/patchwork/ce-1.00-to-1.10/`; created CrossOver bottle `halopad-patch` (win10_64); ran `haloupdate.exe processrtp=patch.rtp updateversion=01.00.10.0621`. The updater held a splash window after writing files and was terminated.
+
+**Result:** `haloce.exe` and `haloceded.exe` report 1.0.10.621; `binkw32.dll` and `config.txt` unchanged. `haloce.exe` SHA-256 `feea46fce285ec071016cf5534abe47ecf36f6cfac8f1973ee6919851ea5a037`, MD5 `6388cf3d1f162ce1766a562481f61432` (does not match ProcessChecker's listed MD5; not an independent confirmation either way). `inspect-inputs.py` initially failed on a string version comparison; fixed to numeric; now fails only on the unaccepted hash. Nine tests pass. Relocations are stripped. Unicorn 2.0.1 ran Halo's CRC32 at `0x59f2a2`: `0xCBF43926` for the standard check string, correct stdcall stack effect, matches zlib on randomized inputs (the five apparent mismatches were the harness expecting 0 for empty buffers; Halo correctly returns the input CRC). Capstone's wheel was x86_64-only and was removed.
+
+**Decision:** Chris directed use of the repo copy. Wrote `HaloPad-GOAL-LOOP-PHASE2.md`: G1 split into engineering input (G1a) and CrossOver runtime baseline (G1b, parkable on a key); function-level oracle is the emulator; blocked goals park only their dependents. **Next:** G0′ local commit, then G1a reproduction script.
