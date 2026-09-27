@@ -112,6 +112,13 @@ def main():
         category = 'other'
     outputs = {p.name: p.stat().st_size for p in work.iterdir() if p.suffix in ('.llasm', '.llinc')}
     if (work / 'haloce.llasm').exists():
+        # SRW writes 'define loc_X alias' (global_aliases.sci) after the data-segment
+        # includes, so references from data would keep the old label. Hoist the defines.
+        main_lines = (work / 'haloce.llasm').read_text().splitlines()
+        defines = [l for l in main_lines if l.startswith('define ')]
+        rest = [l for l in main_lines if not l.startswith('define ')]
+        first = next(i for i, l in enumerate(rest) if not l.startswith('include ')) if rest else 0
+        (work / 'haloce.llasm').write_text('\n'.join(rest[:first] + defines + rest[first:]) + '\n')
         outputs['extern.llinc(extra imports)'] = write_extern_llinc(work, work / 'haloce.exe')
     census = {}
     if a.diagnostic:

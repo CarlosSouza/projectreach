@@ -94,13 +94,16 @@ class Image:
 
 
 class Oracle:
-    def __init__(self, image=None, import_handlers=None, max_instructions=50_000_000, cpuid=None):
+    def __init__(self, image=None, import_handlers=None, max_instructions=50_000_000, cpuid=None, fpcw=None):
         """cpuid: optional callable(leaf, subleaf) -> (eax, ebx, ecx, edx). When set, every
-        CPUID instruction returns these values instead of the emulator's own CPU model."""
+        CPUID instruction returns these values instead of the emulator's own CPU model.
+        fpcw: optional initial x87 control word (e.g. 0x007F = single precision, the mode
+        Halo runs in under Direct3D 9; 0x037F = the power-on extended-precision default)."""
         self.image = image or Image()
         self.import_handlers = import_handlers or {}
         self.max_instructions = max_instructions
         self.cpuid = cpuid
+        self.fpcw = fpcw
         self.cpuid_calls = []
 
     # -- machine setup -------------------------------------------------
@@ -147,6 +150,8 @@ class Oracle:
             mu.reg_write(seg, DATA_SELECTOR)
         mu.reg_write(X.UC_X86_REG_CS, CODE_SELECTOR)
         mu.reg_write(X.UC_X86_REG_FS, FS_SELECTOR)
+        if self.fpcw is not None:
+            mu.reg_write(X.UC_X86_REG_FPCW, self.fpcw)
         return mu
 
     # -- one call ------------------------------------------------------
@@ -156,14 +161,20 @@ class Oracle:
         mu = self._machine()
         heap = HEAP_BASE
         values, buffers = [], []
+        deferred = []
         for a in args:
             if isinstance(a, int):
                 values.append(a & 0xFFFFFFFF); buffers.append(None)
+            elif isinstance(a, tuple) and a and a[0] == 'ptr':
+                # pointer into an earlier buffer argument: ('ptr', arg_index, byte_offset)
+                values.append(None); buffers.append(None); deferred.append((len(values) - 1, a[1], a[2]))
             else:
                 data = bytes(a) if isinstance(a, (bytes, bytearray)) else b'\0' * a[1]
                 mu.mem_write(heap, data)
                 values.append(heap); buffers.append((heap, len(data)))
                 heap = (heap + len(data) + 0x40) & ~0xF
+        for slot, target, offset in deferred:
+            values[slot] = (values[target] + offset) & 0xFFFFFFFF
         regs = dict(regs or {})
         stack_args = list(values)
         if convention == 'thiscall':
@@ -237,6 +248,7 @@ class Oracle:
         for spec in reads:
             addr, size = buffers[spec['arg']]
             out['buffers'][spec['arg']] = bytes(mu.mem_read(addr, spec.get('size', size))).hex()
+        out['arg_values'] = values
         st0 = mu.reg_read(X.UC_X86_REG_FP0)
         out['st0'] = list(st0) if isinstance(st0, tuple) else st0
         return out

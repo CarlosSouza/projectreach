@@ -111,6 +111,21 @@ def main():
         tail = f'|tcall loc_{addr + length:X}|endp' if (addr + length) in srw_labels else ''
         lines.append(f'loc_{addr:X},{length},call {kind} 0x{addr:x}{tail} ; {mnemonic}')
     out = A / 'srw' / 'instruction_replacements.sci'
+    # Negative-index table jumps (MSVC memcpy): index the real table from its start.
+    import glob
+    audit = json.loads(pathlib.Path(sorted(glob.glob(str(ROOT / 'docs/artifacts/*/G2a/audit-*/audit.json')))[-1]).read_text())
+    for nj in audit.get('negative_index_jumps', []):
+        reg = nj['index']
+        # The replacement ends the procedure; cover trailing filler bytes (nop/int3) so SRW
+        # does not emit them after 'endp'.
+        img = (A / 'image.bin').read_bytes()
+        length = nj['length']
+        while img[nj['jump'] + length - 0x400000] in (0x90, 0xCC) and (nj['jump'] + length) not in srw_labels:
+            length += 1
+        lines.append(f"loc_{nj['jump']:X},{length},;jmp dword [{reg}*4+loc_{nj['base']:X}] (negative index into table loc_{nj['table']:X})"
+                     f"|mov tmpadr, loc_{nj['table']:X}|add tmp2, {reg}, {nj['delta_entries']}|shl tmp0, tmp2, 2"
+                     f"|add tmpadr, tmpadr, tmp0|load tmp1, tmpadr, 4|tcall tmp1|endp")
+        summary[('negative-index-jump', 'jmp')] += 1
     out.write_text('\n'.join(lines) + '\n')
     by_kind = collections.Counter()
     for (kind, _), n in summary.items():

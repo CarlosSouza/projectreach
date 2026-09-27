@@ -9,6 +9,7 @@
 #include "llasm_cpu.h"
 
 extern void c_halo_crc32(_cpu *);
+extern void (*ptr_initialize_pointers)(uint64_t);
 
 static uint32_t stack_words[4096];
 static uint8_t buffer[1 << 20];
@@ -25,6 +26,7 @@ int main(int argc, char **argv)
         fprintf(stderr, "FAIL: upstream offset model cannot represent this layout\n");
         return 2;
     }
+    ptr_initialize_pointers(offset);
     uint32_t len, crc;
     while (fread(&len, 4, 1, f) == 1 && fread(&crc, 4, 1, f) == 1) {
         if (len > sizeof buffer || fread(buffer, 1, len, f) != len) { fprintf(stderr, "FAIL: bad case file\n"); return 2; }
@@ -41,4 +43,3 @@ int main(int argc, char **argv)
     }
     return 0;
 }
-

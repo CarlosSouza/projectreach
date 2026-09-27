@@ -93,6 +93,9 @@ class Audit:
         self.heuristic_functions = 0
         self.data_in_text = {}    # target -> first referrer (rejected by probe)
         self.probe_rejects = collections.Counter()
+        self.negative_candidates = []   # (jump, base, index register) for tables with no entries
+        self.negative_index_jumps = []
+        self.displaced_tables = {}      # table base -> byte distance to its first real entry
 
     def section(self, name):
         return next(s for s in self.sections if s['name'] == name)
@@ -144,7 +147,7 @@ class Audit:
         address (for example the ASCII tag 'FPS' = 0x00535046). Demote it."""
         demoted = 0
         for fixup, (target, kind) in list(self.relocs.items()):
-            if self.in_text(target) and target in self.owner:
+            if self.in_text(target) and target in self.owner and target not in self.displaced_tables:
                 del self.relocs[fixup]
                 self.uncertain[fixup] = (target, kind + ':mid-instruction')
                 demoted += 1
@@ -356,30 +359,82 @@ class Audit:
         table = op.mem.disp & 0xFFFFFFFF
         if not self.in_image(table):
             return None
-        bound = self.table_bound(ins.address, op.mem.index)
+        bound, bound_kind = self.table_bound(ins.address, op.mem.index)
+        if bound and self.index_negated(ins.address, op.mem.index):
+            # 'neg idx; jmp [base + idx*4]' (MSVC memmove): entries run downward from base.
+            targets = []
+            for k in range(bound):
+                va = table - 4 * k
+                t = self.dword(va)
+                if not self.in_text(t):
+                    break
+                targets.append(t)
+                self.add_reloc(va, t, 'jump-table')
+                for b in range(4):
+                    self.table_bytes.add(va + b)
+            self.jump_tables.append({'jump': ins.address, 'table': table - 4 * (len(targets) - 1) if targets else table,
+                                     'entries': len(targets), 'holes': 0, 'bound': bound, 'negated': True,
+                                     'section': self.section_of(table)})
+            return targets
         targets = []
         va = table
+        holes = 0
         while len(targets) < (bound if bound is not None else 2048):
             if bound is None and va != table and (va in self.insn or va in self.owner or va in self.blocks):
                 break
             t = self.dword(va)
             if not self.in_text(t):
+                if bound_kind == 'mask' and len(targets) + holes < bound:
+                    # e.g. 'and eax, 3' with index 0 never used: an unused slot, not the end
+                    # (and possibly the tail of a neighbouring instruction), so it is not
+                    # marked as table data.
+                    holes += 1
+                    va += 4
+                    if len(targets) + holes >= bound:
+                        break
+                    continue
                 break
             targets.append(t)
             self.add_reloc(va, t, 'jump-table')
             for k in range(4):
                 self.table_bytes.add(va + k)
             va += 4
+            if bound_kind == 'mask' and len(targets) + holes >= bound:
+                break
+        if not targets:
+            self.negative_candidates.append((ins.address, table, ins.reg_name(op.mem.index)))
+        elif bound_kind == 'mask' and self.dword(table) and not self.in_text(self.dword(table)):
+            # Leading unused slot(s): the table base may lie inside a neighbouring
+            # instruction. Reference it through the first real entry (SRW displaced label).
+            lead = 0
+            while not self.in_text(self.dword(table + 4 * lead)):
+                lead += 1
+            self.displaced_tables[table] = 4 * lead
         self.jump_tables.append({'jump': ins.address, 'table': table, 'entries': len(targets),
-                                 'bound': bound, 'section': self.section_of(table)})
+                                 'holes': holes, 'bound': bound, 'section': self.section_of(table)})
         return targets
 
+    def index_negated(self, jump_addr, index_reg):
+        """True if 'neg index_reg' is among the three instructions before the jump."""
+        prev = [a for a in range(jump_addr - 1, jump_addr - 16, -1) if a in self.insn][:3]
+        for a in prev:
+            ins = self.decode(a)
+            if ins.mnemonic == 'neg' and ins.operands and ins.operands[0].type == X.X86_OP_REG \
+                    and ins.operands[0].reg == index_reg:
+                return True
+        return False
+
     def table_bound(self, jump_addr, index_reg):
-        """Entry count from the guarding 'cmp idx, N; ja/jae default' a few instructions back."""
+        """Entry count from the guarding 'cmp idx, N; ja/jae default' a few instructions back,
+        or from 'and idx, mask' (mask 1/3/7/15). Returns (count, 'cmp'|'mask') or (None, None)."""
         prev = [a for a in range(jump_addr - 1, jump_addr - 40, -1) if a in self.insn]
         cmp_seen = None
         for a in prev[:8]:
             ins = self.decode(a)
+            if ins.mnemonic == 'and' and len(ins.operands) == 2 and ins.operands[0].type == X.X86_OP_REG \
+                    and ins.operands[1].type == X.X86_OP_IMM and ins.operands[0].reg == index_reg \
+                    and (ins.operands[1].imm & 0xFFFFFFFF) in (1, 3, 7, 15):
+                return (ins.operands[1].imm & 0xFFFFFFFF) + 1, 'mask'
             if ins.mnemonic in ('ja', 'jae', 'jbe', 'jb'):
                 cmp_seen = ins.mnemonic
                 continue
@@ -388,8 +443,8 @@ class Audit:
                 reg = ins.operands[0].reg
                 if reg == index_reg or ins.reg_name(reg)[-2:] == ins.reg_name(index_reg)[-2:]:
                     n = ins.operands[1].imm & 0xFFFFFFFF
-                    return n + 1 if cmp_seen == 'ja' else n
-        return None
+                    return (n + 1 if cmp_seen == 'ja' else n), 'cmp'
+        return None, None
 
     def note_getproc(self, call_addr):
         for a in range(call_addr - 1, call_addr - 48, -1):
@@ -439,6 +494,22 @@ class Audit:
                     self.drain_pending()
         self.sweep_gaps()
         self.classify_data_ptrs()
+        self.resolve_negative_index_jumps()
+
+    def resolve_negative_index_jumps(self):
+        """MSVC's hand-written memcpy indexes a table backwards from a label that is also
+        code ('jmp [label + ecx*4]' with ecx in -4..-1). Record the real table and the
+        byte distance so the translator can index it from its true start."""
+        tables = {j['table']: j for j in self.jump_tables if j['entries'] > 0}
+        for jump, base, reg in self.negative_candidates:
+            if base not in self.insn:
+                continue
+            real = [t for t, j in tables.items() if t < base <= t + 4 * (j['entries'] + j.get('holes', 0))]
+            if len(real) == 1:
+                t = real[0]
+                self.negative_index_jumps.append({'jump': jump, 'base': base, 'table': t,
+                                                  'delta_entries': (base - t) // 4, 'index': reg,
+                                                  'length': self.insn[jump][0]})
 
     def drain_pending(self):
         # Pointers that look like function starts are traced first; the rest wait until
@@ -586,6 +657,7 @@ class Audit:
             'function_sources': dict(collections.Counter(v.split('@')[0] for v in self.functions.values())),
             'heuristic_functions': self.heuristic_functions, 'tls_callbacks': self.tls_callbacks,
             'jump_tables': self.jump_tables, 'index_tables': self.index_tables,
+            'negative_index_jumps': self.negative_index_jumps,
             'indirect_counts': {f'{k[0]}:{k[1]}': v for k, v in indirect_counts.items()},
             'import_call_sites': dict(imported), 'indirect_sites': self.indirect,
             'bad_decodes': self.bad, 'overlaps': self.overlaps,
@@ -707,6 +779,7 @@ def main():
     srw.mkdir(exist_ok=True)
     (srw / 'fixup_interpret_as_code.sci').write_text(''.join(f'loc_{t:X}\n' for t in code_targets))
     (srw / 'fixup_do_not_interpret_as_code.sci').write_text(''.join(f'loc_{t:X}\n' for t in data_targets))
+    (srw / 'displaced_labels.sci').write_text(''.join(f'loc_{t:X},{d}\n' for t, d in sorted(audit.displaced_tables.items())))
     r['srw_hints'] = {'fixup_interpret_as_code': len(code_targets), 'fixup_do_not_interpret_as_code': len(data_targets)}
     # Every decoded instruction start, for tools that re-decode with another decoder.
     with open(out / 'instructions.u32', 'wb') as f:

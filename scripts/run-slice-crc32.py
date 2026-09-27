@@ -45,7 +45,7 @@ def main():
     subprocess.run([sys.executable, str(ROOT / 'scripts/gen-import-stubs.py'), str(work / 'haloce.target.ll'),
                     str(build / 'stubs.ll')], check=True)
     exe = build / 'halo-crc32-slice'
-    cmd = ['clang', '-target', target, '-O2', '-fno-fast-math', '-ffp-contract=off', '-w', '-I', str(SUPPORT),
+    cmd = ['clang', '-target', target, '-O2', '-fno-fast-math', '-ffp-contract=off', '-w', '-DPTROFS_64BIT=1', '-std=c2x', '-I', str(SUPPORT),
            str(ROOT / 'tests/halo_crc32_harness.c'), str(ROOT / 'port/runtime/halopad_slice_runtime.c'),
            *[str(p) for p in sorted(SUPPORT.glob('llasm_*.c'))], str(build / 'stubs.ll'), str(work / 'haloce.o'),
            '-o', str(exe)]
@@ -100,4 +100,3 @@ def main():
 
 if __name__ == '__main__':
     sys.exit(main())
-

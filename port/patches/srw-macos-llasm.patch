@@ -380,3 +380,30 @@
  		deinitialize_values();
  		return 6;
  	}
+--- a/SR_output.c
++++ b/SR_output.c
+@@ -70,6 +70,14 @@
+ #if (OUTPUT_TYPE == OUT_LLASM)
+         if (item->type == OT_INSTRUCTION)
+         {
++            /* HaloPad: mirror instruction bytes into the code section's data segment so data
++               inside .text (jump tables read with negative or relative offsets) keeps its
++               original byte layout. No labels here: code labels are procedure names. */
++            uint_fast32_t k;
++            for (k = 0; k <= item->len; k++)
++            {
++                fprintf(DATA->fout, "db %i\n", section[DATA->Entry].adr[item->ofs + k]);
++            }
+             return;
+         }
+ #endif
+@@ -77,6 +85,9 @@
+         if ( item->align != 0 )
+         {
+ #if (OUTPUT_TYPE == OUT_LLASM)
++            /* HaloPad: the code section's data segment mirrors .text byte for byte, so
++               alignment padding there would break relative offsets. */
++            if (section[DATA->Entry].type != ST_CODE)
+             fprintf(DATA->fout, "dalign %i\n", item->align);
+ #else
+             fprintf(DATA->fout, "align %i%s\n", item->align, ((section[DATA->Entry].type == ST_CODE)?"":", db 0"));
