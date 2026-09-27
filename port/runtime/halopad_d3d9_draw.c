@@ -285,7 +285,8 @@ static void check_states(device *d)
     if (rs[28] && rs[35]) hp_unsupported("draw", "table (per-pixel) fog mode %u", rs[35]);
     if (rs[194]) hp_unsupported("draw", "sRGB writes");
     if (rs[161] != 1 && rs[161] != 0) hp_unsupported("draw", "MULTISAMPLEANTIALIAS %u", rs[161]);
-    if (rs[156] || rs[157]) hp_unsupported("draw", "point sprites / point scaling");
+    /* POINTSPRITEENABLE/POINTSCALEENABLE affect only point lists (refused in draw);
+       Halo's state reset turns sprites on for every draw (0x519bf9). */
     if (rs[174]) hp_unsupported("draw", "scissor test");
     if (rs[167] || rs[151]) hp_unsupported("draw", "vertex blending in fixed function");
 }
@@ -314,6 +315,7 @@ static uint32_t draw(device *d, uint32_t type, uint32_t prims, uint32_t start, i
 {
     if (!d->in_scene) return D3DERR_INVALIDCALL;
     if (type < 1 || type > 6 || !prims) return D3DERR_INVALIDCALL;
+    if (type == 1) hp_unsupported("draw", "point lists (point size, sprites 0x%x, scale 0x%x)", d->rs[156], d->rs[157]);
     check_states(d);
     hp_bound bound = halopad_d3d9_bind_targets(d);
     hp_pipeline_desc pd;
