@@ -233,3 +233,17 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
 
 **Next:** the translator (Direct3D shader bytecode → Metal Shading Language), checked against all 804 programs compiling with Metal, then pipeline state and draws.
 
+## 2026-09-27 — Shader translator: all 804 of Halo's programs compile with Metal
+
+- **Translator** (`port/runtime/halopad_shader.c`): Direct3D 9 bytecode (vs_1_1/2_0, ps_1_1–1_4/2_0) → one MSL function per program over a fixed interface (varyings: position, colour 0–1, texture coordinates 0–7, fog, point size; constants in fixed structs). Direct3D rules it reproduces:
+  - ps_1_x: constants clamped to ±1, results clamped to ±8 (the contract's `PixelShader1xMaxValue`), colour inputs saturated.
+  - Co-issued ps_1_x pairs compute both values before writing.
+  - The texture-register meaning differs by version: sampled value in 1.1–1.3, coordinates in 1.4/2.0.
+  - `tex`/`texcoord`/`texld`/`texcrd` (projected, _dz/_dw), `texm3x2` and `texm3x3` including the `vspec` reflection (cube by default), `cnd` (r0.a in 1.1–1.3), `cmp`, `lrp`, the matrix macros, `lit`/`dst`, `rsq`/`log` on |x|, `pow` on |x|.
+  - vs_1_1 `mov a0` floors and vs_2_0 `mova` rounds; relative constants are bounds-checked (out of range reads 0); `def` constants take precedence and keep their exact bits.
+  - Every source modifier, destination shift and `_sat`; alpha test and fog applied after the pixel shader from uniforms; a vertex-side pixel-centre fixup uniform.
+  - Anything else is refused with the opcode or register named.
+- **Coverage** (`scripts/shader-compile-test.sh`, `tools/shader_compile_test.m`): all **804** programs Halo ships (64 vs, 740 ps, all three collections) translate and compile with Metal.
+
+**Not yet shown: that they compute the right values.** Next is a reference interpreter written from the Direct3D rules, with each program run on Metal against it on random inputs (as with the x86 oracle); then pipelines and draws.
+
