@@ -5,8 +5,7 @@
  * end, and Present commits and waits.
  * Direct3D's back buffer is an offscreen BGRA8 texture of the size Halo asks for; the
  * depth/stencil buffer is Depth32Float_Stencil8. Present copies the back buffer into the
- * layer's drawable. Gamma ramps are not applied yet (the device refuses non-identity
- * ramps until they are). */
+ * window's drawable through the window's gamma table. */
 #import <Cocoa/Cocoa.h>
 #import <Metal/Metal.h>
 #import <QuartzCore/CAMetalLayer.h>
@@ -14,9 +13,9 @@
 #include "halopad_metal.h"
 #include "../runtime/halopad_input.h"
 
+struct hp_window;
 typedef struct {
-    NSWindow *window;
-    CAMetalLayer *layer;
+    struct hp_window *win;                   /* the host window it presents to */
     id<MTLTexture> back, depth;
     uint32_t width, height;
     id<MTLTexture> color, zs;                /* current attachments (Direct3D's render target and depth surface) */
@@ -189,33 +188,197 @@ void halopad_host_cursor(int visible)
     if (visible) [NSCursor unhide]; else [NSCursor hide];
 }
 
-/* A host window whose content is a Metal layer of width x height pixels. */
-void *halopad_metal_target_create(uint32_t width, uint32_t height, int depth_stencil, const char *title)
+/* ---- host windows: one per shown Windows top-level window (USER32 owns them) ----
+ * Each has a Metal layer. Before Direct3D attaches, GDI output (StretchBlt to the window)
+ * goes to a CPU surface of the client size that is presented directly; once a device
+ * attaches, Present shows its back buffer. Every presentation passes through the window's
+ * gamma table (SetDeviceGammaRamp, IDirect3DDevice9::SetGammaRamp), as a display's
+ * hardware ramp would apply. */
+typedef struct hp_window {
+    NSWindow *window;
+    CAMetalLayer *layer;
+    uint32_t w, h, refs;
+    uint32_t *gdi;                           /* GDI surface, BGRA, client size */
+    id<MTLTexture> gdi_tex;
+    float lut[768];                          /* gamma, per channel, 256 entries each */
+    int has_target;
+} hp_window;
+
+static id<MTLRenderPipelineState> present_pipe;
+
+static void present_texture(hp_window *win, id<MTLCommandBuffer> cb, id<MTLTexture> src)
+{
+    if (!present_pipe) {
+        static const char msl[] =
+            "#include <metal_stdlib>\nusing namespace metal;\n"
+            "struct V { float4 p [[position]]; };\n"
+            "vertex V hp_vs(uint i [[vertex_id]]) { float2 k = float2((i << 1) & 2, i & 2); V o; o.p = float4(k * 2 - 1, 0, 1); return o; }\n"
+            "fragment float4 hp_ps(V i [[stage_in]], texture2d<float> t [[texture(0)]], constant float *lut [[buffer(0)]]) {\n"
+            "    float4 c = t.read(uint2(i.p.xy));\n"
+            "    uint3 k = uint3(round(saturate(c.rgb) * 255.0));\n"
+            "    return float4(lut[k.r], lut[256 + k.g], lut[512 + k.b], 1);\n"
+            "}\n";
+        NSError *e = nil;
+        id<MTLLibrary> lib = [gpu newLibraryWithSource:[NSString stringWithUTF8String:msl] options:nil error:&e];
+        MTLRenderPipelineDescriptor *pd = [MTLRenderPipelineDescriptor new];
+        pd.vertexFunction = [lib newFunctionWithName:@"hp_vs"];
+        pd.fragmentFunction = [lib newFunctionWithName:@"hp_ps"];
+        pd.colorAttachments[0].pixelFormat = MTLPixelFormatBGRA8Unorm;
+        present_pipe = [gpu newRenderPipelineStateWithDescriptor:pd error:&e];
+        if (!present_pipe) { fprintf(stderr, "HALOPAD TRAP: present pipeline: %s\n", e.localizedDescription.UTF8String); abort(); }
+    }
+    if (win->layer.drawableSize.width != src.width || win->layer.drawableSize.height != src.height)
+        win->layer.drawableSize = CGSizeMake(src.width, src.height);
+    id<CAMetalDrawable> drawable = [win->layer nextDrawable];
+    if (!drawable) return;
+    MTLRenderPassDescriptor *rp = [MTLRenderPassDescriptor renderPassDescriptor];
+    rp.colorAttachments[0].texture = drawable.texture;
+    rp.colorAttachments[0].loadAction = MTLLoadActionDontCare;
+    rp.colorAttachments[0].storeAction = MTLStoreActionStore;
+    id<MTLRenderCommandEncoder> e = [cb renderCommandEncoderWithDescriptor:rp];
+    [e setRenderPipelineState:present_pipe];
+    [e setFragmentTexture:src atIndex:0];
+    [e setFragmentBytes:win->lut length:sizeof win->lut atIndex:0];
+    [e drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
+    [e endEncoding];
+    [cb presentDrawable:drawable];
+}
+
+void *halopad_host_window_create(uint32_t width, uint32_t height, const char *title, int visible)
 {
     ensure_app();
-    hp_target *t = calloc(1, sizeof *t);
+    hp_window *w = calloc(1, sizeof *w);
+    w->refs = 1;
+    for (int c = 0; c < 3; c++) for (int i = 0; i < 256; i++) w->lut[256 * c + i] = i / 255.0f;
     @autoreleasepool {
         CGFloat scale = NSScreen.mainScreen.backingScaleFactor;
         NSRect frame = NSMakeRect(80, 80, width / scale, height / scale);
-        t->window = [[NSWindow alloc] initWithContentRect:frame
+        w->window = [[NSWindow alloc] initWithContentRect:frame
                                                 styleMask:NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskMiniaturizable
                                                   backing:NSBackingStoreBuffered defer:NO];
-        t->window.releasedWhenClosed = NO;
-        t->window.title = [NSString stringWithUTF8String:title ? title : "HaloPad"];
-        NSView *view = t->window.contentView;
+        w->window.releasedWhenClosed = NO;
+        w->window.title = [NSString stringWithUTF8String:title ? title : "HaloPad"];
+        NSView *view = w->window.contentView;
         view.wantsLayer = YES;
-        t->layer = [CAMetalLayer layer];
-        t->layer.device = gpu;
-        t->layer.pixelFormat = MTLPixelFormatBGRA8Unorm;
-        t->layer.framebufferOnly = NO;
-        t->layer.contentsScale = scale;
-        t->layer.drawableSize = CGSizeMake(width, height);
-        view.layer = t->layer;
+        w->layer = [CAMetalLayer layer];
+        w->layer.device = gpu;
+        w->layer.pixelFormat = MTLPixelFormatBGRA8Unorm;
+        w->layer.framebufferOnly = YES;
+        w->layer.contentsScale = scale;
+        w->layer.drawableSize = CGSizeMake(width, height);
+        view.layer = w->layer;
         if (!window_delegate) window_delegate = [HPWindowDelegate new];
-        t->window.delegate = window_delegate;
-        t->window.acceptsMouseMovedEvents = YES;
-        for (int i = 0; i < 8; i++) if (!input_windows[i]) { input_windows[i] = t->window; break; }
-        [t->window makeKeyAndOrderFront:nil];
+        w->window.delegate = window_delegate;
+        w->window.acceptsMouseMovedEvents = YES;
+        for (int i = 0; i < 8; i++) if (!input_windows[i]) { input_windows[i] = w->window; break; }
+        if (visible) [w->window makeKeyAndOrderFront:nil];
+    }
+    w->w = width; w->h = height;
+    return w;
+}
+
+static void window_unref(hp_window *w)
+{
+    if (--w->refs) return;
+    free(w->gdi);
+    w->gdi_tex = nil; w->layer = nil; w->window = nil;
+    free(w);
+}
+
+void halopad_host_window_destroy(void *p)
+{
+    hp_window *w = p;
+    for (int i = 0; i < 8; i++) if (input_windows[i] == w->window) input_windows[i] = nil;
+    @autoreleasepool { w->window.delegate = nil; [w->window close]; }
+    window_unref(w);
+}
+
+void halopad_host_window_show(void *p, int visible)
+{
+    hp_window *w = p;
+    @autoreleasepool { if (visible) [w->window makeKeyAndOrderFront:nil]; else [w->window orderOut:nil]; }
+}
+
+void halopad_host_window_title(void *p, const char *title)
+{
+    hp_window *w = p;
+    @autoreleasepool { w->window.title = [NSString stringWithUTF8String:title ? title : ""]; }
+}
+
+/* The client area in pixels (GDI's surface follows it). */
+void halopad_host_window_resize(void *p, uint32_t width, uint32_t height)
+{
+    hp_window *w = p;
+    if (!width || !height || (width == w->w && height == w->h)) return;
+    @autoreleasepool {
+        CGFloat scale = w->window.backingScaleFactor;
+        [w->window setContentSize:NSMakeSize(width / scale, height / scale)];
+    }
+    w->w = width; w->h = height;
+    free(w->gdi);
+    w->gdi = NULL;
+    w->gdi_tex = nil;
+}
+
+void halopad_host_window_gamma(void *p, const uint16_t ramp[768])
+{
+    hp_window *w = p;
+    for (int i = 0; i < 768; i++) w->lut[i] = ramp[i] / 65535.0f;
+}
+
+/* GDI: copy (scaling, nearest) a region of a top-down BGRA image into the client area,
+   clipped, and show it unless a Direct3D device owns the window's presentation. */
+void halopad_host_window_blit(void *p, const uint32_t *src, uint32_t src_w, uint32_t src_h, int32_t dx, int32_t dy, int32_t dw, int32_t dh,
+                              int32_t sx, int32_t sy, int32_t sw, int32_t sh)
+{
+    hp_window *w = p;
+    if (!w->gdi) w->gdi = calloc((size_t)w->w * w->h, 4);
+    if (dw <= 0 || dh <= 0 || sw <= 0 || sh <= 0) return;
+    for (int32_t y = 0; y < dh; y++) {
+        int32_t ty = dy + y;
+        if (ty < 0 || ty >= (int32_t)w->h) continue;
+        int32_t fy = sy + (int32_t)(((int64_t)y * sh) / dh);
+        if (fy < 0 || fy >= (int32_t)src_h) continue;
+        for (int32_t x = 0; x < dw; x++) {
+            int32_t tx = dx + x, fx = sx + (int32_t)(((int64_t)x * sw) / dw);
+            if (tx < 0 || tx >= (int32_t)w->w || fx < 0 || fx >= (int32_t)src_w) continue;
+            w->gdi[(size_t)ty * w->w + (size_t)tx] = src[(size_t)fy * src_w + (size_t)fx] | 0xFF000000u;
+        }
+    }
+    if (w->has_target) return;                                      /* the device's next Present covers it */
+    @autoreleasepool {
+        if (!w->gdi_tex) {
+            MTLTextureDescriptor *d = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm width:w->w height:w->h mipmapped:NO];
+            d.usage = MTLTextureUsageShaderRead;
+            d.storageMode = MTLStorageModeShared;
+            w->gdi_tex = [gpu newTextureWithDescriptor:d];
+        }
+        [w->gdi_tex replaceRegion:MTLRegionMake2D(0, 0, w->w, w->h) mipmapLevel:0 withBytes:w->gdi bytesPerRow:4 * w->w];
+        id<MTLCommandBuffer> cb = [queue commandBuffer];
+        present_texture(w, cb, w->gdi_tex);
+        [cb commit];
+        [cb waitUntilCompleted];
+    }
+}
+
+/* Test support: one pixel of the window's GDI surface, 0xAARRGGBB. */
+uint32_t halopad_host_window_gdi_pixel(void *p, uint32_t x, uint32_t y)
+{
+    hp_window *w = p;
+    return w->gdi && x < w->w && y < w->h ? w->gdi[(size_t)y * w->w + x] : 0;
+}
+
+/* ---- the Direct3D device's target: back buffer and depth, attached to a host window ---- */
+
+void *halopad_metal_target_create(void *window, uint32_t width, uint32_t height, int depth_stencil)
+{
+    ensure_app();
+    hp_target *t = calloc(1, sizeof *t);
+    hp_window *w = window;
+    w->refs++;
+    w->has_target = 1;
+    t->win = w;
+    @autoreleasepool {
         MTLTextureDescriptor *d = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm
                                                                                      width:width height:height mipmapped:NO];
         d.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
@@ -239,9 +402,11 @@ void *halopad_metal_target_create(uint32_t width, uint32_t height, int depth_ste
 void halopad_metal_target_destroy(void *p)
 {
     hp_target *t = p;
-    for (int i = 0; i < 8; i++) if (input_windows[i] == t->window) input_windows[i] = nil;
-    @autoreleasepool { t->window.delegate = nil; [t->window close]; }
-    t->window = nil; t->layer = nil; t->back = nil; t->depth = nil; t->color = nil; t->zs = nil;
+    end_encoder(t);
+    if (t->cb) { [t->cb commit]; [t->cb waitUntilCompleted]; t->cb = nil; }
+    t->win->has_target = 0;
+    window_unref(t->win);
+    t->back = nil; t->depth = nil; t->color = nil; t->zs = nil; t->vis = nil;
     free(t);
 }
 
@@ -271,22 +436,18 @@ void halopad_metal_clear(void *p, int color, int depth, int stencil, const float
     }
 }
 
-/* Copy the back buffer to the window and show it. */
+void halopad_host_window_gamma(void *p, const uint16_t ramp[768]);
+void halopad_metal_target_gamma(void *p, const uint16_t ramp[768]) { halopad_host_window_gamma(((hp_target *)p)->win, ramp); }
+
+/* Show the back buffer in the window (through its gamma table). */
 int halopad_metal_present(void *p)
 {
     hp_target *t = p;
     @autoreleasepool {
         end_encoder(t);
-        id<CAMetalDrawable> drawable = [t->layer nextDrawable];
-        if (!drawable) return 0;
         id<MTLCommandBuffer> cb = frame(t);
         t->cb = nil;
-        id<MTLBlitCommandEncoder> blit = [cb blitCommandEncoder];
-        [blit copyFromTexture:t->back sourceSlice:0 sourceLevel:0 sourceOrigin:MTLOriginMake(0, 0, 0)
-                   sourceSize:MTLSizeMake(t->width, t->height, 1) toTexture:drawable.texture destinationSlice:0
-             destinationLevel:0 destinationOrigin:MTLOriginMake(0, 0, 0)];
-        [blit endEncoding];
-        [cb presentDrawable:drawable];
+        present_texture(t->win, cb, t->back);
         [cb commit];
         [cb waitUntilCompleted];
     }

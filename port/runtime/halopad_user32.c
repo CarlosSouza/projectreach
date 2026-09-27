@@ -32,6 +32,7 @@ typedef struct { int kind; uint32_t resource; uint32_t cls; uint32_t style, exst
                  char text[256]; uint32_t userdata; int visible;
                  uint32_t wndproc;                       /* the window's procedure (the class's, unless subclassed) */
                  int disabled, minimized, invalid, sizemove_sent;
+                 void *host;                             /* the host window, once shown (top-level windows) */
                  struct { char name[32]; uint32_t atom, data; } props[8]; } uobj;
 #define UBASE 0x00010010u
 #define MAXU 256
@@ -402,6 +403,45 @@ static void window_screen_client(uobj *w, int32_t *x, int32_t *y)
     *x = w->x + l; *y = w->y + t;
 }
 
+/* ---- host windows ---- */
+
+void *halopad_host_window_create(uint32_t width, uint32_t height, const char *title, int visible);
+void halopad_host_window_destroy(void *w);
+void halopad_host_window_show(void *w, int visible);
+void halopad_host_window_title(void *w, const char *title);
+void halopad_host_window_resize(void *w, uint32_t width, uint32_t height);
+
+static void host_sync(uint32_t hwnd)
+{
+    uobj *w = uget(hwnd, H_WINDOW);
+    if (!w || hwnd == DESKTOP || (w->style & WS_CHILD)) return;
+    int32_t cw, ch;
+    halopad_window_client_size(hwnd, &cw, &ch);
+    int shown = w->visible && !w->minimized;
+    if (!w->host) {
+        if (!shown || cw <= 0 || ch <= 0) return;
+        w->host = halopad_host_window_create((uint32_t)cw, (uint32_t)ch, w->text, 1);
+        return;
+    }
+    if (cw > 0 && ch > 0) halopad_host_window_resize(w->host, (uint32_t)cw, (uint32_t)ch);
+    halopad_host_window_show(w->host, shown);
+}
+
+/* Direct3D's window: its host window, created (and shown) if it has none yet. */
+void *halopad_window_host(uint32_t hwnd, uint32_t width, uint32_t height)
+{
+    uobj *w = uget(hwnd, H_WINDOW);
+    if (!w) hp_unsupported("Direct3D", "a device window 0x%x that is not a window", hwnd);
+    if (!w->host) w->host = halopad_host_window_create(width, height, w->text, 1);
+    return w->host;
+}
+/* GDI: the host window if the window is on screen, else NULL. */
+void *halopad_window_host_if_shown(uint32_t hwnd)
+{
+    uobj *w = uget(hwnd, H_WINDOW);
+    return w && w->visible && !w->minimized ? w->host : NULL;
+}
+
 /* ---- activation and focus ---- */
 
 static void set_focus(uint32_t hwnd)
@@ -492,6 +532,7 @@ static uint32_t set_window_pos(uint32_t hwnd, uint32_t after, int32_t x, int32_t
     if (flags & SWP_SHOWWINDOW) { w->visible = 1; w->invalid = 1; }
     if (flags & SWP_HIDEWINDOW) w->visible = 0;
     if (!(flags & SWP_NOACTIVATE) && w->visible && !(w->style & WS_CHILD)) activate(hwnd);
+    host_sync(hwnd);
     pos_changed(hwnd, after, x, y, cx, cy, flags);
     if ((flags & SWP_HIDEWINDOW) && active == hwnd) activate(0);
     return 1;
@@ -521,7 +562,7 @@ uint32_t ShowWindow_c(uint32_t hwnd, uint32_t cmd)
     case 1: case 5: case 9: case 10: case 4: case 8: {               /* SHOWNORMAL, SHOW, RESTORE, SHOWDEFAULT, NOACTIVATE, NA */
         int restore = w->minimized && (cmd == 1 || cmd == 9);
         if (!was) send(hwnd, WM_SHOWWINDOW, 1, 0);
-        if (restore) w->minimized = 0;
+        if (restore) { w->minimized = 0; host_sync(hwnd); }
         uint32_t f = SWP_NOSIZE | SWP_NOMOVE | SWP_NOZORDER | SWP_SHOWWINDOW;
         if (cmd == 4 || cmd == 8) f |= SWP_NOACTIVATE;
         if (was && !restore) f |= SWP_NOACTIVATE * (active == hwnd);
@@ -537,6 +578,7 @@ uint32_t ShowWindow_c(uint32_t hwnd, uint32_t cmd)
         if (!was) send(hwnd, WM_SHOWWINDOW, 1, 0);
         w->minimized = 1;
         w->visible = 1;
+        host_sync(hwnd);
         send(hwnd, WM_SIZE, 1 /* SIZE_MINIMIZED */, 0);
         if (active == hwnd) { set_focus(0); activate(0); }
         return (uint32_t)was;
@@ -561,7 +603,11 @@ uint32_t DestroyWindow_c(uint32_t hwnd)
     for (uint32_t i = 0; i < qcount; i++) if (queue[i].hwnd != hwnd) queue[n++] = queue[i];
     qcount = n;
     if (last_active == hwnd) last_active = 0;
-    if ((w = uget(hwnd, H_WINDOW))) w->kind = H_FREE;
+    if ((w = uget(hwnd, H_WINDOW))) {
+        if (w->host) halopad_host_window_destroy(w->host);
+        w->host = NULL;
+        w->kind = H_FREE;
+    }
     return 1;
 }
 
@@ -1090,6 +1136,7 @@ static uint32_t default_message(uobj *w, uint32_t hwnd, uint32_t msg, uint32_t w
         return 0;
     case WM_SETTEXT:
         snprintf(w->text, sizeof w->text, "%s", lp ? (const char *)G(lp) : "");
+        if (w->host) halopad_host_window_title(w->host, w->text);
         return 1;
     case WM_GETTEXT: {
         if (!wp) return 0;

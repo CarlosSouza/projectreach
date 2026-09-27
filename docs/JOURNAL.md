@@ -504,3 +504,29 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
 - All other suites, the 15 slices and the unit tests still pass; the core still stops at the license.
 
 **Next:** dialogs and GDI (\`DialogBoxParamA\`, \`LoadBitmapA\`, \`GetDC\`, gamma ramps), version info, the console used by Halo's developer console, Bink, then SEH.
+
+## 2026-09-27 — Host windows per window; GDI splash; gamma at presentation
+
+- **How Halo uses them.**
+  - The main window (\`0x5191d0\`, reached from start-up through Direct3D initialisation) loads splash bitmap \`0x86\` from \`strings.dll\` (640×480, 24-bit) and selects it into a memory DC compatible with the window's DC.
+  - \`WM_PAINT\` (\`0x545072\`) stretches it over the client area (\`GetClientRect\`, \`GetObjectA\`, \`StretchBlt SRCCOPY\`) until Direct3D presents.
+  - Direct3D start-up checks the desktop's \`BITSPIXEL\` (\`0x51a80e\`).
+  - The brightness setting saves the display ramp (\`GetDeviceGammaRamp\`) and applies one through both Direct3D's \`SetGammaRamp\` and \`SetDeviceGammaRamp\` on the window's DC (\`0x525ae0\`).
+- **What:**
+  - **Host windows belong to USER32** (\`halopad_metal.m\`, \`halopad_user32.c\`).
+    - A top-level window gets its Mac window when it is first shown. It follows hide, minimise, restore, size, title and destroy.
+    - The Direct3D device attaches its back buffer to that window instead of creating its own (a window never shown gets one on device creation).
+    - Every presentation, GDI or Direct3D, goes through a pass that applies the window's gamma table. So \`SetGammaRamp\` no longer stops the program, and brightness changes only HaloPad's window, not the Mac's display.
+  - **GDI** (\`halopad_gdi.c\`):
+    - \`LoadBitmapA\` decodes DIB resources (1/4/8-bit palettes, 16/24/32-bit, \`BI_RGB\`/\`BI_BITFIELDS\`) into 32-bit display bitmaps.
+    - Window, screen and memory DCs; \`SelectObject\` with Windows' rules (one DC per bitmap, a stock bitmap in new memory DCs); \`DeleteObject\` refused while selected; \`GetObjectA\`.
+    - \`StretchBlt SRCCOPY\` (nearest) onto the window's surface or another bitmap. A window not on screen shows nothing.
+    - Also \`GetDeviceCaps\` and \`Get\`/\`SetDeviceGammaRamp\`. Fonts, text, pens, brushes and other raster operations stop with their names.
+  - An 11-argument wrapper macro was added for \`StretchBlt\`.
+- **Test** (\`tests/halo_gdi_test.c\`, 25 checks, all passing), with Halo's real splash resource:
+  - A host window only once shown; the bitmap's size and format.
+  - \`StretchBlt\` over the 640×480 client area, with the window's corner and middle pixels equal to pixels decoded independently from the resource.
+  - Selection and deletion rules, \`BITSPIXEL\` 32, the gamma ramp round trip, \`ReleaseDC\` rules, and the host window gone with the window.
+- All other suites (Direct3D still 198 checks, now on a USER32-owned window), the 15 slices and the unit tests still pass; the core still stops at the license.
+
+**Next:** the developer console's input path, version info, Bink (intro movie), then SEH, Vorbis and game controllers.

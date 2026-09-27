@@ -229,6 +229,33 @@ macro Call_Asm_Stack10 proc_name
     mov eax, tmp0
 endm
 
+macro Call_Asm_Stack11 proc_name
+    add tmp0, esp, 4
+    load tmp0, tmp0, 4
+    add tmp1, esp, 2*4
+    load tmp1, tmp1, 4
+    add tmp2, esp, 3*4
+    load tmp2, tmp2, 4
+    add tmp3, esp, 4*4
+    load tmp3, tmp3, 4
+    add tmp4, esp, 5*4
+    load tmp4, tmp4, 4
+    add tmp5, esp, 6*4
+    load tmp5, tmp5, 4
+    add tmp6, esp, 7*4
+    load tmp6, tmp6, 4
+    add tmp7, esp, 8*4
+    load tmp7, tmp7, 4
+    add tmp8, esp, 9*4
+    load tmp8, tmp8, 4
+    add tmp9, esp, 10*4
+    load tmp9, tmp9, 4
+    add tmp10, esp, 11*4
+    load tmp10, tmp10, 4
+    call \proc_name tmp0, tmp1, tmp2, tmp3, tmp4, tmp5, tmp6, tmp7, tmp8, tmp9, tmp10
+    mov eax, tmp0
+endm
+
 macro Call_Asm_Stack12 proc_name
     add tmp0, esp, 4
     load tmp0, tmp0, 4

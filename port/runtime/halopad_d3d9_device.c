@@ -19,7 +19,9 @@ void halopad_d3d9_fill_caps(uint32_t c);
 void halopad_desktop_size(int32_t *w, int32_t *h);
 int halopad_window_client_size(uint32_t hwnd, int32_t *w, int32_t *h);
 const char *halopad_window_text(uint32_t hwnd);
-void *halopad_metal_target_create(uint32_t width, uint32_t height, int depth_stencil, const char *title);
+void *halopad_metal_target_create(void *window, uint32_t width, uint32_t height, int depth_stencil);
+void *halopad_window_host(uint32_t hwnd, uint32_t width, uint32_t height);
+void halopad_metal_target_gamma(void *target, const uint16_t ramp[768]);
 void halopad_metal_target_destroy(void *t);
 void halopad_metal_clear(void *t, int color, int depth, int stencil, const float rgba[4], float z, uint32_t s);
 int halopad_metal_present(void *t);
@@ -140,7 +142,7 @@ uint32_t halopad_d3d9_create_device(uint32_t d3d, uint32_t adapter, uint32_t typ
     wr32(pp, (uint32_t)w); wr32(pp + 4, (uint32_t)h); wr32(pp + 8, d->pp[2]); wr32(pp + 12, d->pp[3]);   /* as Direct3D fills them in */
     d->d3d = d3d; d->window = window; d->behavior = behavior; d->software_vp = !!(behavior & 0x20);
     default_states(d);
-    d->target = halopad_metal_target_create((uint32_t)w, (uint32_t)h, d->pp[9] != 0, halopad_window_text(window));
+    d->target = halopad_metal_target_create(halopad_window_host(window, (uint32_t)w, (uint32_t)h), (uint32_t)w, (uint32_t)h, d->pp[9] != 0);
     /* Without D3DCREATE_FPU_PRESERVE, Direct3D 9 sets the x87 unit to single precision and
        round-to-nearest for the calling thread. */
     if (!(behavior & 0x2) && halopad_cpu) halopad_cpu->_st_cw &= ~0x0F00u;
@@ -198,12 +200,10 @@ uint32_t hpcom_IDirect3DDevice9_ShowCursor_c(uint32_t g, uint32_t show)
 uint32_t hpcom_IDirect3DDevice9_SetGammaRamp_c(uint32_t g, uint32_t swap, uint32_t flags, uint32_t ramp)
 {
     device *d = dev(g);
-    (void)flags;
+    (void)flags;                                                    /* D3DSGR_CALIBRATE: no calibration to apply */
     if (swap) return D3DERR_INVALIDCALL;
     memcpy(d->gamma, G(ramp), sizeof d->gamma);
-    for (int c = 0; c < 3; c++) for (int i = 0; i < 256; i++)
-        if (d->gamma[c][i] != (uint16_t)(i * 257))
-            hp_unsupported("IDirect3DDevice9::SetGammaRamp", "a non-identity ramp (applying gamma at presentation)");
+    halopad_metal_target_gamma(d->target, &d->gamma[0][0]);        /* applied when the back buffer is shown */
     return D3D_OK;
 }
 uint32_t hpcom_IDirect3DDevice9_GetGammaRamp_c(uint32_t g, uint32_t swap, uint32_t ramp)

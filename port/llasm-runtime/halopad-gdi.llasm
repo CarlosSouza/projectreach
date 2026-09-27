@@ -1,0 +1,72 @@
+;; HaloPad Windows runtime: gdi32 and user32 bitmap/DC services (port/runtime/halopad_gdi.c).
+;; Pattern and macros from SR's Septerra Core port (asm-calls.llinc).
+
+include llasm.llinc
+include asm-calls.llinc
+
+func LoadBitmapA_c a1, a2
+func GetDC_c a1
+func ReleaseDC_c a1, a2
+func CreateCompatibleDC_c a1
+func SelectObject_c a1, a2
+func DeleteObject_c a1
+func GetObjectA_c a1, a2, a3
+func StretchBlt_c a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11
+func GetDeviceCaps_c a1, a2
+func GetDeviceGammaRamp_c a1, a2
+func SetDeviceGammaRamp_c a1, a2
+
+proc hpimp_LoadBitmapA public
+        Call_Asm_Stack2 LoadBitmapA_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_GetDC public
+        Call_Asm_Stack1 GetDC_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_ReleaseDC public
+        Call_Asm_Stack2 ReleaseDC_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_CreateCompatibleDC public
+        Call_Asm_Stack1 CreateCompatibleDC_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_SelectObject public
+        Call_Asm_Stack2 SelectObject_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_DeleteObject public
+        Call_Asm_Stack1 DeleteObject_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_GetObjectA public
+        Call_Asm_Stack3 GetObjectA_c
+        Call_Asm_Return 3
+endp
+
+proc hpimp_StretchBlt public
+        Call_Asm_Stack11 StretchBlt_c
+        Call_Asm_Return 11
+endp
+
+proc hpimp_GetDeviceCaps public
+        Call_Asm_Stack2 GetDeviceCaps_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_GetDeviceGammaRamp public
+        Call_Asm_Stack2 GetDeviceGammaRamp_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_SetDeviceGammaRamp public
+        Call_Asm_Stack2 SetDeviceGammaRamp_c
+        Call_Asm_Return 2
+endp
