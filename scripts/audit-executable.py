@@ -140,6 +140,17 @@ class Audit:
                 problems.append(f'target {target:#x} of {fixup:#x} outside sections')
         return problems
 
+    def demote_mid_instruction_targets(self):
+        """A value that points into the middle of a decoded instruction is not an
+        address (for example the ASCII tag 'FPS' = 0x00535046). Demote it."""
+        demoted = 0
+        for fixup, (target, kind) in list(self.relocs.items()):
+            if self.in_text(target) and target in self.owner:
+                del self.relocs[fixup]
+                self.uncertain[fixup] = (target, kind + ':mid-instruction')
+                demoted += 1
+        return demoted
+
     def probe(self, start, limit=20000):
         """Side-effect-free test decode of the code reachable from start (intra-procedural)."""
         seen, work = {}, [start]
@@ -644,10 +655,12 @@ def main():
         sys.exit('FAIL: executable does not match the accepted profile hash')
     audit = Audit(exe)
     audit.run()
+    demoted = audit.demote_mid_instruction_targets()
     problems = audit.verify_relocs()
     if problems:
         sys.exit('FAIL: relocation self-check: ' + '; '.join(problems[:10]))
     r = audit.report()
+    r['demoted_mid_instruction'] = demoted
     today = datetime.date.today().isoformat()
     stamp = datetime.datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')
     evid = ROOT / 'docs' / 'artifacts' / today / 'G2a' / f'audit-{stamp}'
@@ -658,6 +671,22 @@ def main():
         for fixup in sorted(audit.relocs):
             target, kind = audit.relocs[fixup]
             f.write(f"{fixup:#x},{target:#x},{'i' if kind.endswith(':imagebase') else ''}\n")
+    # SRW hints derived from the audit: relocation targets inside .text are code
+    # entries only when the audit decoded an instruction there; all others are data.
+    text_targets = {t for t, _ in audit.relocs.values() if audit.in_text(t)}
+    code_targets = sorted(t for t in text_targets if t in audit.insn)
+    data_targets = sorted(t for t in text_targets if t not in audit.insn)
+    srw = out / 'srw'
+    srw.mkdir(exist_ok=True)
+    (srw / 'fixup_interpret_as_code.sci').write_text(''.join(f'loc_{t:X}\n' for t in code_targets))
+    (srw / 'fixup_do_not_interpret_as_code.sci').write_text(''.join(f'loc_{t:X}\n' for t in data_targets))
+    r['srw_hints'] = {'fixup_interpret_as_code': len(code_targets), 'fixup_do_not_interpret_as_code': len(data_targets)}
+    # Every decoded instruction start, for tools that re-decode with another decoder.
+    with open(out / 'instructions.u32', 'wb') as f:
+        for addr in sorted(audit.insn):
+            f.write(struct.pack('<I', addr))
+    with open(out / 'functions.json', 'w') as f:
+        json.dump({f'{a:#x}': src for a, src in sorted(audit.functions.items())}, f)
     (evid / 'audit.json').write_text(json.dumps(r, indent=1, default=str) + '\n')
     (evid / 'relocations.sha256').write_text(sha256(out / 'relocations.csv') + '  relocations.csv\n')
     mods = collections.Counter((i['dll'], i['delay']) for i in audit.imports.values())

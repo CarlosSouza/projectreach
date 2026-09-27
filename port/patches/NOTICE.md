@@ -1,6 +1,6 @@
 # SRW patch provenance
 
-`srw-macos-llasm.patch` applies to M-HT/SR revision `ac690ddf3010bc3d2c875cb1b5e8da4f53a8d5b3`, SRW directory. It changes build selection, standard allocation includes and Darwin compiler/runtime selection. It contains context from upstream MIT-licensed files. Ignored source/build copies retain all upstream notices, including the separately licensed bundled udis86 files.
+`srw-macos-llasm.patch` applies to M-HT/SR revision `ac690ddf3010bc3d2c875cb1b5e8da4f53a8d5b3`, SRW directory. It changes build selection, standard allocation includes and Darwin compiler/runtime selection, and (2026-09-26) adds the standard OLEAUT32 ordinals 8 (`VariantInit`) and 9 (`VariantClear`) to the loader's import-by-ordinal table, which Halo's executable uses. It contains context from upstream MIT-licensed files. Ignored source/build copies retain all upstream notices, including the separately licensed bundled udis86 files.
 
 Copyright (C) 2016-2025 Roman Pauer
 
