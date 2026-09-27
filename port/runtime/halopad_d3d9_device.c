@@ -344,7 +344,8 @@ uint32_t hpcom_IDirect3DDevice9_SetTexture_c(uint32_t g, uint32_t stage, uint32_
 {
     device *d = dev(g);
     if (stage >= 16) hp_unsupported("IDirect3DDevice9::SetTexture", "sampler %u (displacement or vertex texture)", stage);
-    if (!is(tex, "IDirect3DTexture9")) hp_unsupported("IDirect3DDevice9::SetTexture", "a %s", halopad_com_interface(tex));
+    if (!is(tex, "IDirect3DTexture9") && !is(tex, "IDirect3DCubeTexture9") && !is(tex, "IDirect3DVolumeTexture9"))
+        return D3DERR_INVALIDCALL;
     rebind(&d->texture[stage], tex);
     return D3D_OK;
 }

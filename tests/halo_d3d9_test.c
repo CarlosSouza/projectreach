@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #define PTROFS_64BIT 1
 #include "llasm_cpu.h"
 
@@ -37,6 +38,17 @@ static uint32_t method(uint32_t obj, uint32_t index, uint32_t n, const uint32_t 
     uint32_t a[12] = {obj};
     memcpy(a + 1, args, 4 * n);
     return halopad_call_guest(rd(rd(obj) + 4 * index), n + 1, a);
+}
+
+/* Direct3D's cube-map face and texel (2x2 face, point sampling) for a direction */
+static void cube_texel(const float d[3], int *face, int *x, int *y)
+{
+    float ax = fabsf(d[0]), ay = fabsf(d[1]), az = fabsf(d[2]), sc, tc, ma;
+    if (ax >= ay && ax >= az) { ma = ax; if (d[0] > 0) { *face = 0; sc = -d[2]; tc = -d[1]; } else { *face = 1; sc = d[2]; tc = -d[1]; } }
+    else if (ay >= az) { ma = ay; if (d[1] > 0) { *face = 2; sc = d[0]; tc = d[2]; } else { *face = 3; sc = d[0]; tc = -d[2]; } }
+    else { ma = az; if (d[2] > 0) { *face = 4; sc = d[0]; tc = -d[1]; } else { *face = 5; sc = -d[0]; tc = -d[1]; } }
+    *x = (sc / ma + 1) / 2 >= 0.5f;
+    *y = (tc / ma + 1) / 2 >= 0.5f;
 }
 
 int main(void)
@@ -552,6 +564,93 @@ int main(void)
         method(rts, SRelease, 0, NULL);
         check("  Release the render-target texture", method(rtt, TRelease, 0, NULL), 0);
         method(bb, SRelease, 0, NULL);
+        /* ---- cube and volume textures (fixed function, 3-component texture coordinates) ---- */
+        enum { CreateVolumeTexture = 24, CreateCubeTexture = 25, BGetType = 10, CLockRect = 19, CUnlockRect = 20,
+               VGetLevelDesc = 17, VLockBox = 19, VUnlockBox = 20, CGetCubeMapSurface = 18 };
+        uint32_t pcube = halopad_heap_alloc(4, 1);
+        check("tex: CreateCubeTexture 2x2 A8R8G8B8 managed", method(device, CreateCubeTexture, 7, (uint32_t[]){2, 1, 0, 21, 1, pcube, 0}), 0);
+        uint32_t cube = rd(pcube);
+        check("  GetType is CUBETEXTURE", method(cube, BGetType, 0, NULL), 5);
+        static const uint32_t face_colour[6] = {0xFFFF0000, 0xFF00FF00, 0xFF0000FF, 0xFFFFFF00, 0xFF00FFFF, 0xFFFF00FF};
+        static const float dirs[6][3] = {{1, 0.2f, 0.1f}, {-1, 0.2f, 0.1f}, {0.1f, 1, 0.2f}, {0.1f, -1, 0.2f}, {0.2f, 0.1f, 1}, {0.2f, 0.1f, -1}};
+        uint32_t cube_ok = 1;
+        for (uint32_t f = 0; f < 6; f++) {                              /* the face's colour only where dirs[f] lands */
+            int cf, cx, cy;
+            cube_texel(dirs[f], &cf, &cx, &cy);
+            cube_ok &= cf == (int)f;
+            cube_ok &= method(cube, CLockRect, 5, (uint32_t[]){f, 0, lr, 0, 0}) == 0;
+            for (int yy = 0; yy < 2; yy++)
+                for (int xx = 0; xx < 2; xx++) {
+                    uint32_t c = xx == cx && yy == cy ? face_colour[f] : 0xFF808080u;
+                    memcpy((uint8_t *)halopad_guest_ptr(rd(lr + 4)) + yy * rd(lr) + 4 * xx, &c, 4);
+                }
+            cube_ok &= method(cube, CUnlockRect, 2, (uint32_t[]){f, 0}) == 0;
+        }
+        check("  LockRect/UnlockRect on all six faces", cube_ok, 1);
+        check("  LockRect face 6 is invalid", method(cube, CLockRect, 5, (uint32_t[]){6, 0, lr, 0, 0}), 0x8876086C);
+        check("  GetCubeMapSurface(NEGATIVE_Z, 0)", method(cube, CGetCubeMapSurface, 3, (uint32_t[]){5, 0, prt}), 0);
+        method(rd(prt), SGetDesc, 1, (uint32_t[]){desc});
+        check("  face surface desc 2x2 A8R8G8B8", rd(desc) == 21 && rd(desc + 24) == 2 && rd(desc + 28) == 2, 1);
+        method(rd(prt), SRelease, 0, NULL);
+        /* a quad with one direction per draw: XYZRHW | TEX1 | TEXCOORDSIZE3(0) */
+        struct { float x, y, z, rhw, s, t, r; } cq[4] = {
+            {-0.5f, -0.5f, 0.5f, 1, 0, 0, 0}, {15.5f, -0.5f, 0.5f, 1, 0, 0, 0}, {-0.5f, 15.5f, 0.5f, 1, 0, 0, 0}, {15.5f, 15.5f, 0.5f, 1, 0, 0, 0}};
+        uint32_t gcq = halopad_heap_alloc(sizeof cq, 0);
+        method(device, SetFVF, 1, (uint32_t[]){0x104 | 0x10000});
+        method(device, SetTexture, 2, (uint32_t[]){0, cube});
+        method(device, SetTextureStageState, 3, (uint32_t[]){0, 2, 2});     /* ARG1 = TEXTURE */
+        uint32_t faces_ok = 1;
+        for (int f = 0; f < 6; f++) {
+            for (int k = 0; k < 4; k++) { cq[k].s = dirs[f][0]; cq[k].t = dirs[f][1]; cq[k].r = dirs[f][2]; }
+            memcpy(halopad_guest_ptr(gcq), cq, sizeof cq);
+            method(device, BeginScene, 0, NULL);
+            method(device, Clear, 6, (uint32_t[]){0, 0, 3, 0xFF000000, onebits, 0});
+            faces_ok &= method(device, 83, 4, (uint32_t[]){5, 2, gcq, sizeof cq[0]}) == 0;
+            method(device, EndScene, 0, NULL);
+            method(device, Present, 4, (uint32_t[]){0, 0, 0, 0});
+            uint32_t got = halopad_metal_read_pixel(tg, 8, 8);
+            if (got != face_colour[f]) { printf("    face %d: got 0x%08x want 0x%08x\n", f, got, face_colour[f]); faces_ok = 0; }
+        }
+        check("  each direction samples its face and the texel Direct3D's face table gives", faces_ok, 1);
+        method(device, SetTexture, 2, (uint32_t[]){0, 0});
+        check("  Release the cube texture", method(cube, TRelease, 0, NULL), 0);
+
+        uint32_t pvol = halopad_heap_alloc(4, 1), lbox = halopad_heap_alloc(12, 1), bx = halopad_heap_alloc(24, 0);
+        check("tex: CreateVolumeTexture 2x2x2 A8R8G8B8 managed",
+              method(device, CreateVolumeTexture, 9, (uint32_t[]){2, 2, 2, 1, 0, 21, 1, pvol, 0}), 0);
+        uint32_t vol = rd(pvol);
+        check("  GetType is VOLUMETEXTURE", method(vol, BGetType, 0, NULL), 4);
+        method(vol, VGetLevelDesc, 2, (uint32_t[]){0, desc});
+        check("  level desc 2x2x2 (D3DVOLUME_DESC)", rd(desc + 4) == 2 && rd(desc + 16) == 2 && rd(desc + 20) == 2 && rd(desc + 24) == 2, 1);
+        check("  LockBox whole level", method(vol, VLockBox, 4, (uint32_t[]){0, lbox, 0, 0}), 0);
+        check("  row pitch 8, slice pitch 16", rd(lbox) == 8 && rd(lbox + 4) == 16, 1);
+        for (int zz = 0; zz < 2; zz++)
+            for (int i = 0; i < 4; i++) { uint32_t c = zz ? 0xFF0000FFu : 0xFFFF0000u; memcpy((uint8_t *)halopad_guest_ptr(rd(lbox + 8)) + 16 * zz + 4 * i, &c, 4); }
+        check("  a second LockBox while locked is invalid", method(vol, VLockBox, 4, (uint32_t[]){0, lbox, 0, 0}), 0x8876086C);
+        check("  UnlockBox", method(vol, VUnlockBox, 1, (uint32_t[]){0}), 0);
+        memcpy(halopad_guest_ptr(bx), (uint32_t[]){1, 1, 2, 2, 1, 2}, 24);
+        method(vol, VLockBox, 4, (uint32_t[]){0, lbox, bx, 0});
+        uint32_t green = 0xFF00FF00;
+        memcpy(halopad_guest_ptr(rd(lbox + 8)), &green, 4);                /* texel (1,1,1) */
+        method(vol, VUnlockBox, 1, (uint32_t[]){0});
+        method(device, SetTexture, 2, (uint32_t[]){0, vol});
+        static const float probe[3][3] = {{0.25f, 0.25f, 0.25f}, {0.25f, 0.25f, 0.75f}, {0.75f, 0.75f, 0.75f}};
+        static const uint32_t want_vol[3] = {0xFFFF0000, 0xFF0000FF, 0xFF00FF00};
+        uint32_t vol_ok = 1;
+        for (int k = 0; k < 3; k++) {
+            for (int j = 0; j < 4; j++) { cq[j].s = probe[k][0]; cq[j].t = probe[k][1]; cq[j].r = probe[k][2]; }
+            memcpy(halopad_guest_ptr(gcq), cq, sizeof cq);
+            method(device, BeginScene, 0, NULL);
+            method(device, Clear, 6, (uint32_t[]){0, 0, 3, 0xFF000000, onebits, 0});
+            vol_ok &= method(device, 83, 4, (uint32_t[]){5, 2, gcq, sizeof cq[0]}) == 0;
+            method(device, EndScene, 0, NULL);
+            method(device, Present, 4, (uint32_t[]){0, 0, 0, 0});
+            uint32_t got = halopad_metal_read_pixel(tg, 8, 8);
+            if (got != want_vol[k]) { printf("    probe %d: got 0x%08x want 0x%08x\n", k, got, want_vol[k]); vol_ok = 0; }
+        }
+        check("  slice 0 red, slice 1 blue, boxed texel (1,1,1) green", vol_ok, 1);
+        method(device, SetTexture, 2, (uint32_t[]){0, 0});
+        check("  Release the volume texture", method(vol, TRelease, 0, NULL), 0);
         method(t2, TRelease, 0, NULL);
     }
 

@@ -96,7 +96,9 @@ static uint32_t c_preload(const char *i, uint32_t g) { R(i, g); return 0; }   /*
 static uint32_t c_gettype(const char *i, uint32_t g)
 {
     static const uint32_t t[] = {3, 1, 6, 7};
-    return t[R(i, g)->kind];
+    res *r = R(i, g);
+    if (r->kind == R_TEXTURE) return r->ttype == 3 ? 5u : r->ttype == 4 ? 4u : 3u;   /* CUBETEXTURE, VOLUMETEXTURE, TEXTURE */
+    return t[r->kind];
 }
 static uint32_t c_setlod(const char *i, uint32_t g, uint32_t lod)
 {
@@ -137,6 +139,40 @@ HPCOM_FWD0(IDirect3DTexture9, GetLevelCount, c_levelcount)
 HPCOM_FWD1(IDirect3DTexture9, SetAutoGenFilterType, c_setautogen)
 HPCOM_FWD0(IDirect3DTexture9, GetAutoGenFilterType, c_getautogen)
 HPCOM_FWD0(IDirect3DTexture9, GenerateMipSubLevels, c_genmips)
+HPCOM_FWD2(IDirect3DCubeTexture9, QueryInterface, c_qi)
+HPCOM_FWD0(IDirect3DCubeTexture9, AddRef, c_addref)
+HPCOM_FWD0(IDirect3DCubeTexture9, Release, c_release)
+HPCOM_FWD1(IDirect3DCubeTexture9, GetDevice, c_getdevice)
+HPCOM_FWD4(IDirect3DCubeTexture9, SetPrivateData, c_privdata)
+HPCOM_FWD3(IDirect3DCubeTexture9, GetPrivateData, c_privdata3)
+HPCOM_FWD1(IDirect3DCubeTexture9, FreePrivateData, c_privdata1)
+HPCOM_FWD1(IDirect3DCubeTexture9, SetPriority, c_setpriority)
+HPCOM_FWD0(IDirect3DCubeTexture9, GetPriority, c_getpriority)
+HPCOM_FWD0(IDirect3DCubeTexture9, PreLoad, c_preload)
+HPCOM_FWD0(IDirect3DCubeTexture9, GetType, c_gettype)
+HPCOM_FWD1(IDirect3DCubeTexture9, SetLOD, c_setlod)
+HPCOM_FWD0(IDirect3DCubeTexture9, GetLOD, c_getlod)
+HPCOM_FWD0(IDirect3DCubeTexture9, GetLevelCount, c_levelcount)
+HPCOM_FWD1(IDirect3DCubeTexture9, SetAutoGenFilterType, c_setautogen)
+HPCOM_FWD0(IDirect3DCubeTexture9, GetAutoGenFilterType, c_getautogen)
+HPCOM_FWD0(IDirect3DCubeTexture9, GenerateMipSubLevels, c_genmips)
+HPCOM_FWD2(IDirect3DVolumeTexture9, QueryInterface, c_qi)
+HPCOM_FWD0(IDirect3DVolumeTexture9, AddRef, c_addref)
+HPCOM_FWD0(IDirect3DVolumeTexture9, Release, c_release)
+HPCOM_FWD1(IDirect3DVolumeTexture9, GetDevice, c_getdevice)
+HPCOM_FWD4(IDirect3DVolumeTexture9, SetPrivateData, c_privdata)
+HPCOM_FWD3(IDirect3DVolumeTexture9, GetPrivateData, c_privdata3)
+HPCOM_FWD1(IDirect3DVolumeTexture9, FreePrivateData, c_privdata1)
+HPCOM_FWD1(IDirect3DVolumeTexture9, SetPriority, c_setpriority)
+HPCOM_FWD0(IDirect3DVolumeTexture9, GetPriority, c_getpriority)
+HPCOM_FWD0(IDirect3DVolumeTexture9, PreLoad, c_preload)
+HPCOM_FWD0(IDirect3DVolumeTexture9, GetType, c_gettype)
+HPCOM_FWD1(IDirect3DVolumeTexture9, SetLOD, c_setlod)
+HPCOM_FWD0(IDirect3DVolumeTexture9, GetLOD, c_getlod)
+HPCOM_FWD0(IDirect3DVolumeTexture9, GetLevelCount, c_levelcount)
+HPCOM_FWD1(IDirect3DVolumeTexture9, SetAutoGenFilterType, c_setautogen)
+HPCOM_FWD0(IDirect3DVolumeTexture9, GetAutoGenFilterType, c_getautogen)
+HPCOM_FWD0(IDirect3DVolumeTexture9, GenerateMipSubLevels, c_genmips)
 HPCOM_FWD2(IDirect3DSurface9, QueryInterface, c_qi)
 HPCOM_FWD0(IDirect3DSurface9, AddRef, c_addref)
 HPCOM_FWD0(IDirect3DSurface9, Release, c_release)
@@ -183,9 +219,11 @@ HPCOM_FWD0(IDirect3DPixelShader9, AddRef, c_addref)
 HPCOM_FWD0(IDirect3DPixelShader9, Release, c_release)
 HPCOM_FWD1(IDirect3DPixelShader9, GetDevice, c_getdevice)
 
-/* ---- textures and their surfaces ---- */
+/* ---- textures (2D, cube, volume) and their surfaces ----
+ * Level l of a texture is one block of guest memory: a 2D image, six faces of size[l]
+ * each (cube, in D3DCUBEMAP_FACES order), or ld[l] slices of slice[l] bytes (volume). */
 
-static uint32_t new_surface(res *t, uint32_t level);
+static uint32_t new_surface(res *t, uint32_t face, uint32_t level);
 
 static uint32_t level_offset(res *r, uint32_t l, uint32_t rect)
 {
@@ -198,24 +236,29 @@ static uint32_t level_offset(res *r, uint32_t l, uint32_t rect)
     return (top / block) * r->pitch[l] + (left / block) * bytes;
 }
 
-static uint32_t lock_level(res *r, uint32_t l, uint32_t out, uint32_t rect, uint32_t flags)
+static void check_lock_flags(uint32_t flags)
 {
-    if (l >= r->levels || r->locked[l]) return D3DERR_INVALIDCALL;
     if (flags & ~(0x10u | 0x800u | 0x1000u | 0x2000u | 0x4000u | 0x8000u)) hp_unsupported("LockRect", "flags 0x%x", flags);
+}
+
+static uint32_t lock_level(res *r, uint32_t face, uint32_t l, uint32_t out, uint32_t rect, uint32_t flags)
+{
+    if (l >= r->levels || (r->locked[l] >> face & 1)) return D3DERR_INVALIDCALL;
+    check_lock_flags(flags);
     if (!r->mem[l]) return D3DERR_INVALIDCALL;                      /* render targets, non-dynamic default pool */
     uint32_t off = level_offset(r, l, rect);
     if (off == 0xFFFFFFFFu) return D3DERR_INVALIDCALL;
     wr32(out, r->pitch[l]);
-    wr32(out + 4, r->mem[l] + off);
-    r->locked[l] = 1;
+    wr32(out + 4, r->mem[l] + face * r->size[l] + off);
+    r->locked[l] |= (uint8_t)(1u << face);
     if (!(flags & (0x10u | 0x8000u))) r->dirty[l] = 1;              /* not READONLY or NO_DIRTY_UPDATE */
     return D3D_OK;
 }
 
-static uint32_t unlock_level(res *r, uint32_t l)
+static uint32_t unlock_level(res *r, uint32_t face, uint32_t l)
 {
-    if (l >= r->levels || !r->locked[l]) return D3DERR_INVALIDCALL;
-    r->locked[l] = 0;
+    if (l >= r->levels || !(r->locked[l] >> face & 1)) return D3DERR_INVALIDCALL;
+    r->locked[l] &= (uint8_t)~(1u << face);
     return D3D_OK;
 }
 
@@ -225,21 +268,25 @@ static void level_desc(res *r, uint32_t l, uint32_t d)
     wr32(d + 16, 0); wr32(d + 20, 0); wr32(d + 24, r->lw[l]); wr32(d + 28, r->lh[l]);
 }
 
-uint32_t hpcom_IDirect3DDevice9_CreateTexture_c(uint32_t dev, uint32_t w, uint32_t h, uint32_t levels, uint32_t usage,
-                                                uint32_t format, uint32_t pool, uint32_t out, uint32_t shared)
+/* ttype: 2 = 2D, 3 = cube (w = h = edge), 4 = volume */
+static uint32_t new_texture(const char *iface, uint32_t ttype, uint32_t dev, uint32_t w, uint32_t h, uint32_t depth, uint32_t levels,
+                            uint32_t usage, uint32_t format, uint32_t pool, uint32_t out, uint32_t shared)
 {
     halopad_com_state("IDirect3DDevice9", dev);
     uint32_t bytes, block;
-    if (shared) return D3DERR_INVALIDCALL;
-    if (!w || !h || pool > 3) return D3DERR_INVALIDCALL;
-    if (usage & ~(0x1u | 0x2u | 0x200u | 0x400u)) hp_unsupported("IDirect3DDevice9::CreateTexture", "usage 0x%x", usage);
+    if (shared || !out) return D3DERR_INVALIDCALL;
+    if (!w || !h || !depth || pool > 3) return D3DERR_INVALIDCALL;
+    if (usage & ~(0x1u | 0x2u | 0x200u | 0x400u)) hp_unsupported(iface, "usage 0x%x", usage);
     if ((usage & 0x3) && pool != 0) return D3DERR_INVALIDCALL;       /* render/depth targets live in the default pool */
     if ((usage & 0x200) && pool == 1) return D3DERR_INVALIDCALL;     /* dynamic textures are not managed */
-    if (usage & 0x2) hp_unsupported("IDirect3DDevice9::CreateTexture", "depth-stencil textures");
-    if (!fmt(format, &bytes, &block)) hp_unsupported("IDirect3DDevice9::CreateTexture", "format %u", format);
+    if ((usage & 0x3) && ttype == 4) return D3DERR_INVALIDCALL;      /* volumes are never targets */
+    if (usage & 0x2) hp_unsupported(iface, "depth-stencil textures");
+    if ((usage & 0x1) && ttype == 3) hp_unsupported(iface, "render-target cube textures");
+    if (!fmt(format, &bytes, &block)) hp_unsupported(iface, "format %u", format);
     if ((usage & 0x1) && format != 21 && format != 22 && format != 23) return D3DERR_INVALIDCALL;   /* the contract's render-target formats */
+    if (w > 2048 || h > 2048 || depth > 2048) return D3DERR_INVALIDCALL;   /* MaxTextureWidth/Height, MaxVolumeExtent */
     uint32_t full = 1;
-    while ((w >> full) || (h >> full)) full++;
+    while ((w >> full) || (h >> full) || (depth >> full)) full++;
     if (usage & 0x400) {                                            /* autogen: 0 or 1 levels, one visible level */
         if (levels > 1) return D3DERR_INVALIDCALL;
         levels = 1;
@@ -248,20 +295,38 @@ uint32_t hpcom_IDirect3DDevice9_CreateTexture_c(uint32_t dev, uint32_t w, uint32
     }
     if (levels > full || levels > MAXLEVELS) return D3DERR_INVALIDCALL;
     res *r = calloc(1, sizeof *r);
-    r->kind = R_TEXTURE; r->device = dev; r->usage = usage; r->format = format; r->pool = pool;
-    r->width = w; r->height = h; r->levels = levels; r->autogen_filter = (usage & 0x400) ? 2 : 0;
+    r->kind = R_TEXTURE; r->ttype = ttype; r->device = dev; r->usage = usage; r->format = format; r->pool = pool;
+    r->width = w; r->height = h; r->depth = depth; r->levels = levels; r->autogen_filter = (usage & 0x400) ? 2 : 0;
     int lockable = !(usage & 0x3) && (pool != 0 || (usage & 0x200));
     for (uint32_t l = 0; l < levels; l++) {
         r->lw[l] = w >> l ? w >> l : 1;
         r->lh[l] = h >> l ? h >> l : 1;
+        r->ld[l] = depth >> l ? depth >> l : 1;
         r->pitch[l] = ((r->lw[l] + block - 1) / block) * bytes;
-        r->size[l] = r->pitch[l] * ((r->lh[l] + block - 1) / block);
-        if (lockable) r->mem[l] = halopad_heap_alloc(r->size[l], 1);
+        r->slice[l] = r->pitch[l] * ((r->lh[l] + block - 1) / block);
+        r->size[l] = ttype == 4 ? r->slice[l] * r->ld[l] : r->slice[l];
+        if (lockable) r->mem[l] = halopad_heap_alloc(ttype == 3 ? 6 * r->size[l] : r->size[l], 1);
         r->dirty[l] = 1;
     }
-    r->guest = halopad_com_new("IDirect3DTexture9", 4, r, res_destroy);
+    r->guest = halopad_com_new(iface, 4, r, res_destroy);
     wr32(out, r->guest);
     return D3D_OK;
+}
+
+uint32_t hpcom_IDirect3DDevice9_CreateTexture_c(uint32_t dev, uint32_t w, uint32_t h, uint32_t levels, uint32_t usage,
+                                                uint32_t format, uint32_t pool, uint32_t out, uint32_t shared)
+{
+    return new_texture("IDirect3DTexture9", 2, dev, w, h, 1, levels, usage, format, pool, out, shared);
+}
+uint32_t hpcom_IDirect3DDevice9_CreateCubeTexture_c(uint32_t dev, uint32_t edge, uint32_t levels, uint32_t usage, uint32_t format,
+                                                    uint32_t pool, uint32_t out, uint32_t shared)
+{
+    return new_texture("IDirect3DCubeTexture9", 3, dev, edge, edge, 1, levels, usage, format, pool, out, shared);
+}
+uint32_t hpcom_IDirect3DDevice9_CreateVolumeTexture_c(uint32_t dev, uint32_t w, uint32_t h, uint32_t depth, uint32_t levels,
+                                                      uint32_t usage, uint32_t format, uint32_t pool, uint32_t out, uint32_t shared)
+{
+    return new_texture("IDirect3DVolumeTexture9", 4, dev, w, h, depth, levels, usage, format, pool, out, shared);
 }
 
 uint32_t hpcom_IDirect3DTexture9_GetLevelDesc_c(uint32_t g, uint32_t l, uint32_t d)
@@ -271,20 +336,25 @@ uint32_t hpcom_IDirect3DTexture9_GetLevelDesc_c(uint32_t g, uint32_t l, uint32_t
     level_desc(r, l, d);
     return D3D_OK;
 }
+static uint32_t surface_of(res *r, uint32_t face, uint32_t l, uint32_t out)
+{
+    uint32_t *slot = &r->surface[face * MAXLEVELS + l];
+    if (!*slot) *slot = new_surface(r, face, l);
+    halopad_com_addref(r->guest);                                   /* the surface shares the texture's count */
+    wr32(out, *slot);
+    return D3D_OK;
+}
 uint32_t hpcom_IDirect3DTexture9_GetSurfaceLevel_c(uint32_t g, uint32_t l, uint32_t out)
 {
     res *r = R("IDirect3DTexture9", g);
-    if (l >= r->levels) return D3DERR_INVALIDCALL;
-    if (!r->surface[l]) r->surface[l] = new_surface(r, l);
-    halopad_com_addref(g);                                          /* the surface shares the texture's count */
-    wr32(out, r->surface[l]);
-    return D3D_OK;
+    if (l >= r->levels || !out) return D3DERR_INVALIDCALL;
+    return surface_of(r, 0, l, out);
 }
 uint32_t hpcom_IDirect3DTexture9_LockRect_c(uint32_t g, uint32_t l, uint32_t out, uint32_t rect, uint32_t flags)
 {
-    return lock_level(R("IDirect3DTexture9", g), l, out, rect, flags);
+    return lock_level(R("IDirect3DTexture9", g), 0, l, out, rect, flags);
 }
-uint32_t hpcom_IDirect3DTexture9_UnlockRect_c(uint32_t g, uint32_t l) { return unlock_level(R("IDirect3DTexture9", g), l); }
+uint32_t hpcom_IDirect3DTexture9_UnlockRect_c(uint32_t g, uint32_t l) { return unlock_level(R("IDirect3DTexture9", g), 0, l); }
 uint32_t hpcom_IDirect3DTexture9_AddDirtyRect_c(uint32_t g, uint32_t rect)
 {
     (void)rect;
@@ -293,10 +363,86 @@ uint32_t hpcom_IDirect3DTexture9_AddDirtyRect_c(uint32_t g, uint32_t rect)
     return D3D_OK;
 }
 
-static uint32_t new_surface(res *t, uint32_t level)
+uint32_t hpcom_IDirect3DCubeTexture9_GetLevelDesc_c(uint32_t g, uint32_t l, uint32_t d)
+{
+    res *r = R("IDirect3DCubeTexture9", g);
+    if (l >= r->levels) return D3DERR_INVALIDCALL;
+    level_desc(r, l, d);
+    return D3D_OK;
+}
+uint32_t hpcom_IDirect3DCubeTexture9_GetCubeMapSurface_c(uint32_t g, uint32_t face, uint32_t l, uint32_t out)
+{
+    res *r = R("IDirect3DCubeTexture9", g);
+    if (face > 5 || l >= r->levels || !out) return D3DERR_INVALIDCALL;
+    return surface_of(r, face, l, out);
+}
+uint32_t hpcom_IDirect3DCubeTexture9_LockRect_c(uint32_t g, uint32_t face, uint32_t l, uint32_t out, uint32_t rect, uint32_t flags)
+{
+    if (face > 5) return D3DERR_INVALIDCALL;
+    return lock_level(R("IDirect3DCubeTexture9", g), face, l, out, rect, flags);
+}
+uint32_t hpcom_IDirect3DCubeTexture9_UnlockRect_c(uint32_t g, uint32_t face, uint32_t l)
+{
+    if (face > 5) return D3DERR_INVALIDCALL;
+    return unlock_level(R("IDirect3DCubeTexture9", g), face, l);
+}
+uint32_t hpcom_IDirect3DCubeTexture9_AddDirtyRect_c(uint32_t g, uint32_t face, uint32_t rect)
+{
+    (void)rect;
+    res *r = R("IDirect3DCubeTexture9", g);
+    if (face > 5) return D3DERR_INVALIDCALL;
+    r->dirty[0] = 1;
+    return D3D_OK;
+}
+
+uint32_t hpcom_IDirect3DVolumeTexture9_GetLevelDesc_c(uint32_t g, uint32_t l, uint32_t d)
+{
+    res *r = R("IDirect3DVolumeTexture9", g);
+    if (l >= r->levels) return D3DERR_INVALIDCALL;
+    wr32(d, r->format); wr32(d + 4, 2 /* D3DRTYPE_VOLUME */); wr32(d + 8, r->usage); wr32(d + 12, r->pool);
+    wr32(d + 16, r->lw[l]); wr32(d + 20, r->lh[l]); wr32(d + 24, r->ld[l]);
+    return D3D_OK;
+}
+uint32_t hpcom_IDirect3DVolumeTexture9_GetVolumeLevel_c(uint32_t g, uint32_t l, uint32_t out)
+{
+    (void)l; (void)out; R("IDirect3DVolumeTexture9", g);
+    hp_unsupported("IDirect3DVolumeTexture9::GetVolumeLevel", "IDirect3DVolume9 objects");
+}
+uint32_t hpcom_IDirect3DVolumeTexture9_LockBox_c(uint32_t g, uint32_t l, uint32_t out, uint32_t box, uint32_t flags)
+{
+    res *r = R("IDirect3DVolumeTexture9", g);
+    if (l >= r->levels || r->locked[l] || !out) return D3DERR_INVALIDCALL;
+    check_lock_flags(flags);
+    if (!r->mem[l]) return D3DERR_INVALIDCALL;
+    uint32_t off = 0;
+    if (box) {
+        uint32_t bytes, block;
+        fmt(r->format, &bytes, &block);
+        uint32_t left = rd32(box), top = rd32(box + 4), right = rd32(box + 8), bottom = rd32(box + 12);
+        uint32_t front = rd32(box + 16), back = rd32(box + 20);
+        if (right <= left || bottom <= top || back <= front || right > r->lw[l] || bottom > r->lh[l] || back > r->ld[l]
+            || (block > 1 && ((left | top) & 3)))
+            return D3DERR_INVALIDCALL;
+        off = front * r->slice[l] + (top / block) * r->pitch[l] + (left / block) * bytes;
+    }
+    wr32(out, r->pitch[l]); wr32(out + 4, r->slice[l]); wr32(out + 8, r->mem[l] + off);
+    r->locked[l] = 1;
+    if (!(flags & (0x10u | 0x8000u))) r->dirty[l] = 1;
+    return D3D_OK;
+}
+uint32_t hpcom_IDirect3DVolumeTexture9_UnlockBox_c(uint32_t g, uint32_t l) { return unlock_level(R("IDirect3DVolumeTexture9", g), 0, l); }
+uint32_t hpcom_IDirect3DVolumeTexture9_AddDirtyBox_c(uint32_t g, uint32_t box)
+{
+    (void)box;
+    res *r = R("IDirect3DVolumeTexture9", g);
+    r->dirty[0] = 1;
+    return D3D_OK;
+}
+
+static uint32_t new_surface(res *t, uint32_t face, uint32_t level)
 {
     res *s = calloc(1, sizeof *s);
-    s->kind = R_SURFACE; s->device = t->device; s->parent = t->guest; s->level = level;
+    s->kind = R_SURFACE; s->device = t->device; s->parent = t->guest; s->face = face; s->level = level;
     s->format = t->format; s->usage = t->usage; s->pool = t->pool; s->levels = 1;
     s->lw[0] = t->lw[level]; s->lh[0] = t->lh[level];
     return halopad_com_new("IDirect3DSurface9", 4, s, res_destroy);
@@ -336,7 +482,7 @@ uint32_t hpcom_IDirect3DDevice9_CreateOffscreenPlainSurface_c(uint32_t dev, uint
     return D3D_OK;
 }
 
-static res *texture_of(res *s) { return R("IDirect3DTexture9", s->parent); }
+static res *texture_of(res *s) { return R(halopad_com_interface(s->parent), s->parent); }
 
 uint32_t hpcom_IDirect3DSurface9_GetContainer_c(uint32_t g, uint32_t iid, uint32_t out)
 {
@@ -357,14 +503,14 @@ uint32_t hpcom_IDirect3DSurface9_GetDesc_c(uint32_t g, uint32_t d)
 uint32_t hpcom_IDirect3DSurface9_LockRect_c(uint32_t g, uint32_t out, uint32_t rect, uint32_t flags)
 {
     res *s = R("IDirect3DSurface9", g);
-    if (!s->parent) return lock_level(s, 0, out, rect, flags);     /* back buffer and depth: no memory, not lockable */
-    return lock_level(texture_of(s), s->level, out, rect, flags);
+    if (!s->parent) return lock_level(s, 0, 0, out, rect, flags);     /* back buffer and depth: no memory, not lockable */
+    return lock_level(texture_of(s), s->face, s->level, out, rect, flags);
 }
 uint32_t hpcom_IDirect3DSurface9_UnlockRect_c(uint32_t g)
 {
     res *s = R("IDirect3DSurface9", g);
-    if (!s->parent) return unlock_level(s, 0);
-    return unlock_level(texture_of(s), s->level);
+    if (!s->parent) return unlock_level(s, 0, 0);
+    return unlock_level(texture_of(s), s->face, s->level);
 }
 
 /* ---- vertex and index buffers ---- */

@@ -64,7 +64,8 @@ static surf surface(res *s)
 {
     surf o = {0};
     if (s->parent) {
-        res *t = halopad_com_state("IDirect3DTexture9", s->parent);
+        res *t = halopad_com_state(halopad_com_interface(s->parent), s->parent);
+        if (t->ttype != 2) hp_unsupported("render target", "a %s surface", halopad_com_interface(s->parent));
         o.w = t->lw[s->level]; o.h = t->lh[s->level]; o.format = t->format; o.level = s->level;
         if (t->usage & 0x1) { o.tex = rt_texture(t); o.rt = 1; }
         else o.tex = halopad_d3d9_upload_texture(t);

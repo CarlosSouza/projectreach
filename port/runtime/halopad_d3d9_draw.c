@@ -207,19 +207,26 @@ static void *upload_texture(res *t)
     int convert;
     if (t->usage & 0x1) return halopad_d3d9_rt_view(t);             /* render target: its contents are on the GPU */
     texture_format(t->format, &mtl, sw, &convert);
-    if (!t->native) t->native = halopad_metal_texture(2, mtl, t->width, t->height, 1, t->levels, sw);
+    int type = t->ttype ? (int)t->ttype : 2;
+    uint32_t faces = type == 3 ? 6 : 1;
+    if (!t->native) t->native = halopad_metal_texture(type, mtl, t->width, t->height, type == 4 ? t->depth : 1, t->levels, sw);
     for (uint32_t l = 0; l < t->levels; l++) {
         if (!t->dirty[l]) continue;
         if (!t->mem[l]) hp_unsupported("draw", "a texture whose contents live only on the GPU (render target or default pool)");
-        if (convert) {
-            uint32_t n = t->lw[l] * t->lh[l];
-            uint8_t *tmp = malloc(4 * n);
-            for (uint32_t y = 0; y < t->lh[l]; y++)
-                expand16(t->format, (const uint16_t *)((uint8_t *)G(t->mem[l]) + y * t->pitch[l]), tmp + 4 * t->lw[l] * y, t->lw[l]);
-            halopad_metal_texture_upload(t->native, l, 0, tmp, 4 * t->lw[l], 4 * n, t->lw[l], t->lh[l], 1);
-            free(tmp);
-        } else {
-            halopad_metal_texture_upload(t->native, l, 0, G(t->mem[l]), t->pitch[l], t->size[l], t->lw[l], t->lh[l], 1);
+        uint32_t depth = type == 4 ? t->ld[l] : 1, slice = type == 4 ? t->slice[l] : t->size[l];
+        for (uint32_t f = 0; f < faces; f++) {
+            const uint8_t *src = (const uint8_t *)G(t->mem[l]) + f * t->size[l];
+            if (convert) {
+                uint32_t n = t->lw[l] * t->lh[l];
+                uint8_t *tmp = malloc(4 * n * depth);
+                for (uint32_t z = 0; z < depth; z++)
+                    for (uint32_t y = 0; y < t->lh[l]; y++)
+                        expand16(t->format, (const uint16_t *)(src + z * slice + y * t->pitch[l]), tmp + 4 * (n * z + t->lw[l] * y), t->lw[l]);
+                halopad_metal_texture_upload(t->native, l, f, tmp, 4 * t->lw[l], 4 * n, t->lw[l], t->lh[l], depth);
+                free(tmp);
+            } else {
+                halopad_metal_texture_upload(t->native, l, f, src, t->pitch[l], slice, t->lw[l], t->lh[l], depth);
+            }
         }
         t->dirty[l] = 0;
     }
@@ -320,9 +327,9 @@ static uint32_t draw(device *d, uint32_t type, uint32_t prims, uint32_t start, i
     uint8_t tex_dim[16] = {0};
     for (int s = 0; s < 16; s++) {
         if (!d->texture[s]) continue;
-        res *t = halopad_com_state("IDirect3DTexture9", d->texture[s]);
-        key.sampler_dim[s] = 2;
-        tex_dim[s] = 2;
+        res *t = halopad_com_state(halopad_com_interface(d->texture[s]), d->texture[s]);
+        key.sampler_dim[s] = (uint8_t)t->ttype;
+        tex_dim[s] = (uint8_t)t->ttype;
         if (s < 8 && (d->tss[s][24] & 0x100)) key.projected[s] = 1;   /* D3DTTFF_PROJECTED */
         dd.tex[s] = upload_texture(t);
         dd.smp[s] = sampler(d, s);

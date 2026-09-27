@@ -13,8 +13,9 @@ typedef struct res {
     uint32_t width, height, levels;
     uint32_t mem[MAXLEVELS], pitch[MAXLEVELS], size[MAXLEVELS], lw[MAXLEVELS], lh[MAXLEVELS];
     uint8_t locked[MAXLEVELS], dirty[MAXLEVELS];
-    uint32_t surface[MAXLEVELS];
-    uint32_t parent, level;                     /* surfaces of a texture */
+    uint32_t surface[6 * MAXLEVELS];            /* per face (cube) and level */
+    uint32_t parent, level, face;               /* surfaces of a texture */
+    uint32_t ttype, depth, ld[MAXLEVELS], slice[MAXLEVELS];   /* textures: 2 = 2D, 3 = cube, 4 = volume; depths, slice pitches */
     uint32_t length, buf, locks;                /* buffers */
     uint32_t count, *tokens;                    /* declarations (elements) and shaders (tokens) */
     void *native;                               /* Metal object, created on first use */
