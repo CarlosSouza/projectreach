@@ -17,6 +17,7 @@ import json
 import os
 import pathlib
 import random
+import re
 import struct
 import subprocess
 import sys
@@ -142,6 +143,26 @@ def oracle_file_handlers(root):
     return {'KERNEL32.dll!CreateFileA': create, 'KERNEL32.dll!ReadFile': read, 'KERNEL32.dll!CloseHandle': close}
 
 
+# Real Halo callbacks for the vector iterator: the constructor that pairs with Halo's own
+# destructor at 0x589491 (zeroes a 12-byte element) and a constructor that stores a vtable.
+VECTOR_CALLBACKS = [0x589484, 0x5CC982]
+
+
+def cases_vector_iterate(rng):
+    """0x582d1a (MSVC vector iterator, stdcall): (array, element size, count, fn) calls
+    fn once per element, last to first, with ecx = element. The callback is a guest
+    address reached through translated 'call [ebp+0x14]' -> dispatch. The array sits
+    inside a larger buffer so writes before or after it are visible."""
+    out = []
+    for i in range(200):
+        size = rng.choice([12, 16, 20, 24, 36])
+        count = rng.choice([0, 1, 2, 3, rng.randrange(0, 40)])
+        pre = rng.randrange(0, 16)
+        buf = bytes(rng.getrandbits(8) for _ in range(pre + size * count + 16))
+        out.append([('ptr', 4, pre), size, count, VECTOR_CALLBACKS[i % 2], buf])
+    return out
+
+
 SLICES = {
     'crc32': {'address': 0x59F2A2, 'alias': 'halo_crc32', 'conv': 'stdcall', 'cases': cases_crc32, 'x87': False},
     'memmove': {'address': 0x5C83F0, 'alias': 'halo_memmove', 'conv': 'cdecl', 'cases': cases_memmove, 'x87': False},
@@ -150,7 +171,43 @@ SLICES = {
     'vec4_transform': {'address': 0x583B65, 'alias': 'halo_vec4_transform', 'conv': 'stdcall', 'cases': cases_vec4, 'x87': True},
     'map_header': {'address': 0x4434A0, 'alias': 'halo_map_header_valid', 'conv': 'cdecl', 'cases': cases_map_header, 'x87': False,
                    'game_root': MAPS_ROOT},
+    # VA model only: host -> translated guest -> translated guest callback through dispatch
+    'vector_iterate': {'address': 0x582D1A, 'conv': 'stdcall', 'cases': cases_vector_iterate, 'x87': False},
 }
+
+# G2e contract runs. Each runs in its own process. 'expect' must appear in stderr and the
+# process must fail, unless 'stdout' is given: then it must succeed with exactly that line.
+# 'slot' cases enter through a guest memory word (HALOPAD_ENTER_VIA_SLOT), the way
+# 'mov esi, [__imp_X]; call esi' does; the slot is found by import name.
+FAULT_CASES = {
+    # a callback address inside a function has no compiled procedure: dispatch must trap
+    'unknown_dispatch_target': {'args': [b'\0' * 64, 12, 1, 0x582D1B], 'expect': 'indirect transfer to 0x00582d1b',
+                                'oracle': None},
+    # null array: the callback's first store goes to guest address 0
+    'null_guest_pointer': {'args': [0, 12, 1, 0x589484], 'expect': 'guest access to 0x00000000', 'oracle': 0x0},
+    # unmapped array: element 1 (the first visited) is at 0x7f00000c
+    'unmapped_guest_pointer': {'args': [0x7F000000, 12, 2, 0x589484], 'expect': 'guest access to 0x7f00000c',
+                               'oracle': 0x7F00000C},
+    # Halo's CloseHandle slot (0x5df2f0) -> bound import address -> dispatch -> HaloPad's
+    # CloseHandle; an unknown handle returns FALSE and the stdcall argument is popped.
+    'import_call_via_slot': {'slot': 'CloseHandle', 'args': [0x1234], 'stdout': '00000000 4 V00000000', 'oracle': None},
+    # an import without an implementation must stop and name itself
+    'unimplemented_import_via_slot': {'slot': 'Sleep', 'args': [1],
+                                      'expect': 'Windows import Sleep has no implementation', 'oracle': None},
+    # an address inside an import's reserved slot is not an entry
+    'inside_import_address': {'args': [b'\0' * 64, 12, 1, 0xFFFE0004], 'expect': "inside import ", 'oracle': None},
+}
+
+
+def import_slot(name):
+    import pefile
+    pe = pefile.PE(str(ROOT / 'ref/inputs/custom-original/haloce.exe'), fast_load=True)
+    pe.parse_data_directories(directories=[pefile.DIRECTORY_ENTRY['IMAGE_DIRECTORY_ENTRY_IMPORT']])
+    for e in pe.DIRECTORY_ENTRY_IMPORT:
+        for imp in e.imports:
+            if imp.name and imp.name.decode() == name:
+                return imp.address
+    raise KeyError(name)
 
 
 def sha(p):
@@ -237,7 +294,8 @@ def run_va(a, names, work, target, evid, build):
     if not obj.exists() or obj.stat().st_mtime < (va / 'haloce.va.ll').stat().st_mtime:
         subprocess.run(['clang', '-target', target, '-c', '-O1', '-fno-fast-math', '-ffp-contract=off', '-Wno-override-module',
                         str(va / 'haloce.va.ll'), '-o', str(obj)], check=True)
-    subprocess.run([sys.executable, str(ROOT / 'scripts/gen-import-stubs.py'), str(va / 'haloce.va.ll'), str(build / 'stubs.ll')],
+    subprocess.run([sys.executable, str(ROOT / 'scripts/gen-import-stubs.py'), str(va / 'haloce.va.ll'), str(build / 'stubs.ll'),
+                    str(va / 'dispatch.ll'), *[str(p) for p in sorted(va.glob('halopad-*.ll'))]],
                    check=True, capture_output=True)
     exe = build / 'halo-va-slices'
     cmd = ['clang', '-target', target, '-O2', '-fno-fast-math', '-ffp-contract=off', '-w', '-DPTROFS_64BIT=1', '-std=c2x',
@@ -254,6 +312,8 @@ def run_va(a, names, work, target, evid, build):
     image = oracle.Image()
     image_bin = ROOT / 'generated/analysis/custom-en-1.0.10.0621/image.bin'
     summary, overall = {}, True
+    faults, faults_ok = ({}, True) if a.no_faults else run_faults(a, exe, image, image_bin, build, evid)
+    overall &= faults_ok
     for name in names:
         s = SLICES[name]
         rng = random.Random(a.seed ^ s['address'])
@@ -285,12 +345,61 @@ def run_va(a, names, work, target, evid, build):
             print('   stderr:', run.stderr.strip()[:300])
     arch = subprocess.run(['lipo', '-archs', str(exe)], capture_output=True, text=True).stdout.strip()
     platform = subprocess.run(['vtool', '-show-build', str(exe)], capture_output=True, text=True).stdout
-    report = {'model': 'va', 'target': target, 'architecture': arch, 'build_platform': platform.strip().splitlines()[-4:],
-              'run_prefix': a.run_prefix, 'work': str(work.relative_to(ROOT)), 'dispatch_entries': sum(1 for _ in open(va / 'dispatch.ll') if _.startswith('declare hidden')),
-              'identities': {'image_sha256': image.sha256, 'haloce.va.o': sha(obj), 'executable': sha(exe)}, 'slices': summary}
+    build_version = dict(l.split(None, 1) for l in platform.splitlines() if l.split()[:1] in (['platform'], ['minos'], ['sdk']))
+    report = {'model': 'va', 'target': target, 'architecture': arch, 'build_version': build_version,
+              'run_prefix': a.run_prefix, 'work': str(work.relative_to(ROOT)),
+              'dispatch_entries': int(re.search(r'@halopad_dispatch_count = constant i32 (\d+)', (va / 'dispatch.ll').read_text()).group(1)),
+              'identities': {'image_sha256': image.sha256, 'haloce.va.o': sha(obj), 'executable': sha(exe)}, 'slices': summary,
+              'fault_contract': faults}
     (evid / 'result.json').write_text(json.dumps(report, indent=1) + '\n')
     print('evidence', evid.relative_to(ROOT))
     return 0 if overall else 1
+
+
+def harness_env(a, extra):
+    env = dict(os.environ, **extra)
+    if a.run_prefix:
+        # simctl spawn passes the environment through SIMCTL_CHILD_ variables
+        for k, v in extra.items():
+            env['SIMCTL_CHILD_' + k] = v
+    return env
+
+
+def run_faults(a, exe, image, image_bin, build, evid):
+    """Each case runs in its own process and must exit non-zero with a message naming the
+    guest address. Where x86 also faults, the oracle's fault address must match."""
+    out, ok_all = {}, True
+    s = SLICES['vector_iterate']
+    for name, fc in FAULT_CASES.items():
+        path = build / f'fault-{name}.bin'
+        env = {'HALOPAD_IMAGE': str(image_bin)}
+        entry = s['address']
+        if 'slot' in fc:
+            entry = import_slot(fc['slot'])
+            env['HALOPAD_ENTER_VIA_SLOT'] = '1'
+        path.write_bytes(encode(entry, HALO_FPCW, fc['args']))
+        run = subprocess.run(list(a.run_prefix) + [str(exe), str(path)], capture_output=True, text=True, timeout=120,
+                             env=harness_env(a, env))
+        (evid / f'fault-{name}.stderr').write_text(run.stderr)
+        oracle_fault = None
+        if fc['oracle'] is not None:
+            try:
+                oracle.Oracle(image).call(s['address'], list(fc['args']), s['conv'])
+            except oracle.OracleError as exc:
+                oracle_fault = json.loads(str(exc)).get('unmapped', {}).get('address')
+        if 'stdout' in fc:
+            ok = run.returncode == 0 and run.stdout.strip() == fc['stdout'] and not run.stderr.strip()
+        else:
+            ok = (run.returncode != 0 and fc['expect'] in run.stderr and not run.stdout.strip()
+                  and (fc['oracle'] is None or oracle_fault == fc['oracle']))
+        ok_all &= ok
+        out[name] = {'result': 'PASS' if ok else 'FAIL', 'exit': run.returncode, 'message': run.stderr.strip()[-300:],
+                     'stdout': run.stdout.strip()[:200], 'expect': fc.get('expect') or fc.get('stdout'),
+                     'entry': hex(entry) + (' (slot)' if 'slot' in fc else ''),
+                     'oracle_fault_address': None if oracle_fault is None else hex(oracle_fault)}
+        print(f"fault {name:30} {out[name]['result']:4} exit {run.returncode}: {(run.stderr.strip() or run.stdout.strip())[-120:]}"
+              + (f" | oracle {hex(oracle_fault)}" if oracle_fault is not None else ''))
+    return out, ok_all
 
 
 def _main():
@@ -302,8 +411,9 @@ def _main():
                     help="va: original-address guest memory + dispatch (G2e); offset: SR's pointer-offset model")
     ap.add_argument('--target', help='clang target triple (default: toolchains.lock.json target)')
     ap.add_argument('--run-prefix', nargs='*', default=[], help='command prefix to run the harness (e.g. xcrun simctl spawn booted)')
+    ap.add_argument('--no-faults', action='store_true', help='skip the VA-model fault contract runs')
     a = ap.parse_args()
-    names = a.only or list(SLICES)
+    names = a.only or [n for n in SLICES if a.model == 'va' or 'alias' in SLICES[n]]
     runs = sorted((ROOT / 'generated/srw/custom-en-1.0.10.0621').glob('run-*/haloce.o'), key=lambda p: p.stat().st_mtime)
     work = a.work or runs[-1].parent
     target = a.target or json.loads((ROOT / 'toolchains.lock.json').read_text())['target']
@@ -315,10 +425,11 @@ def _main():
     build.mkdir(exist_ok=True)
     if a.model == 'va':
         return run_va(a, names, work, target, evid, build)
+    offset_slices = [n for n in SLICES if 'alias' in SLICES[n]]
     table = ['#define PTROFS_64BIT 1', '#include "llasm_cpu.h"']
-    table += [f'extern void c_{SLICES[n]["alias"]}(_cpu *);' for n in SLICES]
-    table += ['void (*const halopad_slice_fns[])(_cpu *) = {' + ', '.join(f'c_{SLICES[n]["alias"]}' for n in SLICES) + '};',
-              f'const unsigned halopad_slice_count = {len(SLICES)};']
+    table += [f'extern void c_{SLICES[n]["alias"]}(_cpu *);' for n in offset_slices]
+    table += ['void (*const halopad_slice_fns[])(_cpu *) = {' + ', '.join(f'c_{SLICES[n]["alias"]}' for n in offset_slices) + '};',
+              f'const unsigned halopad_slice_count = {len(offset_slices)};']
     (build / 'slice_table.c').write_text('\n'.join(table) + '\n')
     subprocess.run([sys.executable, str(ROOT / 'scripts/gen-import-stubs.py'), str(work / 'haloce.target.ll'), str(build / 'stubs.ll')],
                    check=True, capture_output=True)
@@ -348,7 +459,7 @@ def _main():
     summary, overall = {}, True
     for name in names:
         s = SLICES[name]
-        fn_index = list(SLICES).index(name)
+        fn_index = offset_slices.index(name)
         rng = random.Random(a.seed ^ s['address'])
         cases = s['cases'](rng)
         blob = b''

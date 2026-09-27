@@ -1,17 +1,23 @@
 #!/usr/bin/env python3
 """Generate LLVM IR stubs for external procedures in llasm output that no linked
 support file defines. Each stub calls halopad_missing_import(name) and never returns.
+Extra inputs (e.g. the VA model's dispatch.ll) add declarations; anything defined in
+any input gets no stub.
 
-Usage: gen-import-stubs.py <haloce.target.ll> <out.ll>
+Usage: gen-import-stubs.py <haloce.target.ll> <out.ll> [more.ll ...]
 """
 import re
 import sys
 
 
 def main():
-    src, out = sys.argv[1], sys.argv[2]
-    text = open(src, errors='replace').read()
-    names = sorted(set(re.findall(r'^declare hidden fastcc void @([A-Za-z0-9_$@?.]+)\(%_cpu\*\)', text, re.M)))
+    src, out, extra = sys.argv[1], sys.argv[2], sys.argv[3:]
+    declared, defined = set(), set()
+    for path in [src, *extra]:
+        text = open(path, errors='replace').read()
+        declared |= set(re.findall(r'^declare hidden fastcc void @([A-Za-z0-9_$@?.]+)\((?:%_cpu\*|ptr)\)', text, re.M))
+        defined |= set(re.findall(r'^define [^@\n]*@([A-Za-z0-9_$@?.]+)\(', text, re.M))
+    names = sorted(declared - defined)
     # <name>_asm2c procedures are implemented by HaloPad's llasm runtime object.
     # halopad_* procedures come from the dispatch module (VA model).
     names = [n for n in names if not n.endswith('_asm2c') and not n.startswith('halopad_')]

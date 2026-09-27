@@ -12,6 +12,11 @@ the game are host-derived. In the VA model:
   * every indirect transfer (register jump/call, return) goes through
     halopad_dispatch, which maps an original address to its compiled procedure
     through a finite table generated at build time and stops on anything unknown.
+  * every static import has a fixed guest address in a reserved, never-mapped page
+    (IMPORT_VA_BASE + 16*i). Halo's import address table is filled with these at
+    load time and translated code that loads an import as a value gets the same
+    address, so 'mov esi, [__imp_X]; call esi' reaches X through dispatch.
+  * no host code address ever becomes a guest value; the build fails if one does.
 
 Usage: va-model.py --work generated/srw/<profile>/run-<id> --llasm <llasm binary>
 Produces <work>/va/haloce.va.ll (translated code) and <work>/va/dispatch.ll.
@@ -23,12 +28,17 @@ import shutil
 import subprocess
 import sys
 
+import pefile
+
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SUPPORT = ROOT / 'port' / 'llasm-support'
 RUNTIME = ROOT / 'port' / 'llasm-runtime'
 ALIASES = ROOT / 'config' / 'srw' / 'custom-en-1.0.10.0621' / 'global_aliases.sci'
 REGS = {'eax', 'ebx', 'ecx', 'edx', 'esi', 'edi', 'ebp', 'esp', 'tmpadr', 'tmpcnd'}
 HOST_RETURN_VA = 0xFFFFF000
+IMPORT_VA_BASE = 0xFFFE0000
+IMPORT_VA_STRIDE = 16
+TRANSFER_OPS = ('tcall', 'ctcallz', 'ctcallnz', 'proc', 'endp')
 
 LBL = r'(?<![\w.])((?:hp_)?loc_([0-9A-F]+))'
 EXPR_PLUS = re.compile(r'\(\s*' + LBL + r'\s*\+\s*\((-?\d+)\)\s*\)')
@@ -46,9 +56,32 @@ def value_labels(line):
     return PLAIN.sub(lambda m: hex(int(m.group(2), 16)), line)
 
 
-def transform_code(lines):
+IDENT = re.compile(r'(?<![\w$@?.])[A-Za-z_][\w$@?]*(?![\w$@?])')
+
+
+def value_imports(line, import_vas):
+    """Replace import names used as values (not as transfer targets) by their guest address."""
+    return IDENT.sub(lambda m: hex(import_vas[m.group(0)]) if m.group(0) in import_vas else m.group(0), line)
+
+
+def static_imports(exe, known):
+    """Static IAT slots in slot order: (slot VA, import name as SRW names it)."""
+    pe = pefile.PE(str(exe), fast_load=True)
+    pe.parse_data_directories(directories=[pefile.DIRECTORY_ENTRY['IMAGE_DIRECTORY_ENTRY_IMPORT']])
+    out = []
+    for e in pe.DIRECTORY_ENTRY_IMPORT:
+        for imp in e.imports:
+            name = imp.name.decode() if imp.name else None
+            if name not in known:
+                sys.exit(f'import {e.dll.decode()}!{name or imp.ordinal} has no SRW procedure name')
+            out.append((imp.address, name))
+    return sorted(out)
+
+
+def transform_code(lines, import_vas=None):
     """Yield VA-model llasm lines. Counts rewritten forms."""
-    stats = {'register-transfers': 0, 'value-labels': 0}
+    stats = {'register-transfers': 0, 'value-labels': 0, 'import-values': 0}
+    import_vas = import_vas or {}
     out = []
     for raw in lines:
         line = raw.rstrip('\n')
@@ -63,11 +96,16 @@ def transform_code(lines):
             out.append('tcall halopad_dispatch')
             stats['register-transfers'] += 1
             continue
-        if op in ('tcall', 'ctcallz', 'ctcallnz', 'proc', 'endp'):
+        if op in TRANSFER_OPS:
             if op.startswith('ctcall') and len(w) >= 3 and is_reg(w[-1]):
                 raise SystemExit(f'conditional register transfer not supported: {s}')
             out.append(line)
             continue
+        if import_vas:
+            new = value_imports(line, import_vas)
+            if new != line:
+                stats['import-values'] += 1
+                line, s = new, new.strip()
         if op.startswith(('load', 'store')) and len(w) >= 3:
             # llasm load/store take a register or label as the address, not a constant:
             # materialize the original address in tmp19 (unused by SRW output).
@@ -96,10 +134,19 @@ def main():
     va = work / 'va'
     va.mkdir(exist_ok=True)
 
-    code, stats = transform_code((work / 'seg01_code.llinc').open(errors='replace'))
+    main_src = (work / 'haloce.llasm').read_text().splitlines()
+    extern_src = (work / 'extern.llinc').read_text()
+    known = {m.group(1) for m in re.finditer(r'^proc (\S+) external', '\n'.join(main_src) + '\n' + extern_src, re.M)}
+    redirect = dict(re.findall(r'^define (\S+) (\S+_asm2c)$', extern_src, re.M))
+    known |= set(redirect)
+    imports = static_imports(work / 'haloce.exe', known)
+    import_vas = {name: IMPORT_VA_BASE + IMPORT_VA_STRIDE * i for i, (_, name) in enumerate(imports)}
+    if IMPORT_VA_BASE + IMPORT_VA_STRIDE * len(imports) > HOST_RETURN_VA:
+        sys.exit('import address page overflow')
+
+    code, stats = transform_code((work / 'seg01_code.llinc').open(errors='replace'), import_vas)
     (va / 'seg01_code.va.llinc').write_text('\n'.join(code) + '\n')
 
-    main_src = (work / 'haloce.llasm').read_text().splitlines()
     kept, skip = [], False
     for line in main_src:
         if line.startswith('datasegment '):
@@ -111,7 +158,7 @@ def main():
             continue
         kept.append('include seg01_code.va.llinc' if line == 'include seg01_code.llinc' else line)
     (va / 'haloce.va.llasm').write_text('\n'.join(kept) + '\n')
-    extern = (work / 'extern.llinc').read_text() + 'proc halopad_dispatch external\n'
+    extern = extern_src + 'proc halopad_dispatch external\n'
     (va / 'extern.llinc').write_text(extern)
     (va / 'macros.llinc').write_text('')
 
@@ -135,17 +182,28 @@ def main():
     for src in runtime_ll:
         llasm(src, va / (src.stem + '.ll'))
 
-    # Procedures must be visible to the dispatch module.
+    # Procedures must be visible to the dispatch module. llasm's C entry wrappers
+    # (c_<alias>) are SR's pointer-offset entry path: they store a host function
+    # address minus the pointer offset as a guest return address. The VA model enters
+    # through halopad_enter, so they are removed.
     triple = next(l for l in (work / 'haloce.target.ll').open() if l.startswith('target triple'))
-    procs = []
+    procs, dropped, in_wrapper = [], 0, False
     with open(va / 'haloce.va.raw.ll') as fin, open(va / 'haloce.va.ll', 'w') as fout:
         fout.write(triple)
         for line in fin:
+            if in_wrapper:
+                in_wrapper = line.rstrip('\n') != '}'
+                continue
+            if line.startswith('define protected ccc void @c_'):
+                in_wrapper, dropped = True, dropped + 1
+                continue
             if line.startswith('define private fastcc void @'):
                 line = line.replace('define private fastcc', 'define hidden fastcc', 1)
             m = re.match(r'define (?:hidden|protected) fastcc void @([^(]+)\(', line)
             if m:
                 procs.append(m.group(1))
+            if 'ptrtoint' in line and re.search(r'ptrtoint void\s*\(%_cpu\*\)\*', line):
+                sys.exit(f'host code address would become a guest value: {line.strip()[:160]}')
             fout.write(line)
     for src in runtime_ll:
         ll = va / (src.stem + '.ll')
@@ -165,13 +223,24 @@ def main():
         if vaddr in table:
             sys.exit(f'duplicate dispatch address {vaddr:#x}: {table[vaddr]} and {name}')
         table[vaddr] = name
-    entries = sorted(table.items())
+    for name, iva in import_vas.items():
+        if iva in table:
+            sys.exit(f'import address {iva:#x} collides with {table[iva]}')
+    entries = sorted(list(table.items()) + [(iva, redirect.get(name, name)) for name, iva in import_vas.items()])
     ll = [triple.rstrip(), '', '; Generated by scripts/va-model.py: original address -> compiled procedure.']
-    for _, name in entries:
+    for name in sorted({n for _, n in entries}):
         ll.append(f'declare hidden fastcc void @{name}(ptr)')
     ll.append(f'@halopad_dispatch_count = constant i32 {len(entries)}')
     ll.append(f'@halopad_dispatch_vas = constant [{len(entries)} x i32] [' + ', '.join(f'i32 {v}' for v, _ in entries) + ']')
     ll.append(f'@halopad_dispatch_fns = constant [{len(entries)} x ptr] [' + ', '.join(f'ptr @{n}' for _, n in entries) + ']')
+    # Import binding: guest import table slot -> import guest address (+ names for traps).
+    ll.append(f'@halopad_import_count = constant i32 {len(imports)}')
+    ll.append(f'@halopad_import_base = constant i32 {IMPORT_VA_BASE}')
+    ll.append(f'@halopad_import_stride = constant i32 {IMPORT_VA_STRIDE}')
+    ll.append(f'@halopad_import_slots = constant [{len(imports)} x i32] [' + ', '.join(f'i32 {s}' for s, _ in imports) + ']')
+    for i, (_, name) in enumerate(imports):
+        ll.append(f'@.hp_import_{i} = private unnamed_addr constant [{len(name) + 1} x i8] c"{name}\\00"')
+    ll.append(f'@halopad_import_names = constant [{len(imports)} x ptr] [' + ', '.join(f'ptr @.hp_import_{i}' for i in range(len(imports))) + ']')
     ll.append(f'''
 declare ptr @halopad_lookup(i32)
 
@@ -220,7 +289,8 @@ define ptr @halopad_return_to_host_address() {{
 ''')
     (va / 'dispatch.ll').write_text('\n'.join(ll) + '\n')
     print(f"VA model: {stats['register-transfers']:,} register transfers via dispatch, "
-          f"{stats['value-labels']:,} lines with label values rewritten, {len(entries):,} dispatch entries")
+          f"{stats['value-labels']:,} lines with label values rewritten, {stats['import-values']:,} import values, "
+          f"{len(imports)} imports bound, {dropped} C entry wrappers removed, {len(entries):,} dispatch entries")
     return 0
 
 

@@ -1,6 +1,6 @@
 # HaloPad status
 
-Updated 2026-09-26. **ACTIVE — phase 2 loop. Translation work is unblocked; no native Halo code runs yet.**
+Updated 2026-09-26 (G2 closed). **ACTIVE — phase 2 loop. G2 closed (GO: SRW/llasm in the original-address model); working G3.**
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE2.md](HaloPad-GOAL-LOOP-PHASE2.md) (replaces G0–G2 of the original loop; inherits the rest).
 
@@ -13,8 +13,9 @@ Operating loop: [HaloPad-GOAL-LOOP-PHASE2.md](HaloPad-GOAL-LOOP-PHASE2.md) (repl
 - **G2d progress — whole-image llasm:** SRW translates the entire image in diagnostic mode (46 MB llasm, ~2 s) with explicit traps, FS support, 1,101 generated flag hints and a hand replacement for the SEH compare. Complete remaining gap list: 134 x87 instructions, 164 80-bit loads/stores, 12 integer forms, 6 fused-flag `test` forms, 17 string compares, 17 `cpuid`, 2 `rdtsc`, 1 `jecxz` (see [G2C-SRW-CAPABILITY.md](G2C-SRW-CAPABILITY.md)). Finding: SR's x87 support uses `double` and ignores precision control; repair plan recorded. Tool build `ab2a55d63d9a-6f980c58`.
 - **G2d slice 1 PASS — first real Halo code running natively:** `scripts/srw-pipeline.sh` turns the whole image into 287 MB LLVM IR; `clang -O1` compiles it to an 18 MB ARM64 object in ~70 s. `scripts/run-slice-crc32.py` links it (whole program, 267 loud import stubs, `port/runtime/halopad_slice_runtime.c`) and runs Halo's CRC32 `0x59f2a2`: **201/201 cases match the x86 oracle** (return value and stack effect; lengths 0–17, 255–257, 4096, 65536, random; check value `0xCBF43926`). Evidence `docs/artifacts/2026-09-26/G2d/slice-crc32-*`.
 - **G2d PASS:** [G2D-SLICES.md](G2D-SLICES.md). Six real Halo slices match the x86 oracle natively on arm64: CRC32 121/121, CRT `memmove` 300/300 (all jump-table forms), `strrchr` 200/200, two x87 transforms 300/300 each in Halo's single-precision mode, and the map-header validator `0x4434a0` 6/6 over the real `bloodgulch.map` through HaloPad's first Windows services (`CreateFileA`/`ReadFile`/`CloseHandle`, `port/runtime/halopad_kernel32.c` + `port/llasm-runtime/`). Halo's x87 mode measured: single precision. Fixes: jump-table forms in the audit, SRW `.text` data mirroring (patch), llasm pointer initialization, x87 precision control (`port/llasm-support/`).
-- **Lowest unmet goal now:** G2e — replace SR's pointer-offset model with checked 32-bit guest memory at original addresses and a finite dispatch table; run a real slice on macOS and the iPad Simulator. Strict-mode gap list (x87 extras, 80-bit loads/stores, string compares, `cpuid`/`rdtsc`/`jecxz`, 12 integer forms) still open. G1b (CrossOver baseline) remains open and parkable.
-- **Oracle:** Unicorn 2.0.1 runs original Halo functions on the Mac. Halo's CRC32 at `0x59f2a2` returned `0xCBF43926` for "123456789", popped exactly 12 bytes of arguments, and matched zlib on randomized inputs. Not yet scripted (G2b).
+- **G2e PASS (macOS + iPad Simulator; physical-device row parked):** [G2E-ADDRESS-MODEL.md](G2E-ADDRESS-MODEL.md). Translated code runs at Halo's original 32-bit addresses in a checked 4 GiB guest region; every indirect jump/call/return goes through a finite build-time table (119,706 entries: 119,439 procedures + 267 imports); Halo's import table is bound to reserved import addresses, so `mov esi,[__imp_X]; call esi` works; no host code address reaches guest values (build-time check). All six G2d slices plus a real callback slice (`0x582d1a` calling Halo's `0x589484`/`0x5cc982`, 200/200) match the oracle, and six contract cases (unknown target, null and unmapped pointers with the oracle faulting at the same address, a call through Halo's `CloseHandle` slot, an unimplemented import, an address inside an import) behave as specified on both targets. Simulator: project-owned "HaloPad iPad Pro 13" (iOS 26.5), binary platform IOSSIMULATOR.
+- **G2 selection: GO** — [G2-SELECTION.md](G2-SELECTION.md). The bounded alternate is not needed. Remaining translation work is enumerated: the strict-mode gap list (353 instruction sites) and 304 of 7,214 audited entries without a compiled procedure, including the PE entry point `0x5ccac7` and `WinMain` `0x5445e0`, because SRW's llasm mode does not root the entry point.
+- **Lowest unmet goal now: G3** — native macOS core initializes. First steps: entry point as a translation root (global alias), enter `0x5ccac7` via `halopad_enter`, implement the Windows services startup actually reaches, close gap-list items on that path. G1b (CrossOver baseline) remains open and parkable.
 - **Executable facts:** relocations stripped; 267 static imports across 6 DLLs; 9 delay-import DLLs; d3d9/dinput8/etc. loaded dynamically; TLS present; entry `0x5ccac7`.
 - **Tooling fix:** `scripts/inspect-inputs.py` compared versions as strings (`621` ≠ `0621`); it now compares numerically. Nine tests pass.
 - **Reference environment:** CrossOver chosen for the system-level baseline (G1b). The Parallels "Windows 11" VM is an invalid registration with no files and is not used.
@@ -24,11 +25,11 @@ Operating loop: [HaloPad-GOAL-LOOP-PHASE2.md](HaloPad-GOAL-LOOP-PHASE2.md) (repl
 | Item | Parks | Status |
 |---|---|---|
 | Legitimate Halo PC product key (used boxed Halo PC) | G1b if the client refuses to start without one; G5–G6 online identity | Not supplied |
-| Physical iPhone/iPad + signing | Final G2e capsule row | Not requested yet |
+| Physical iPhone/iPad + signing | Final G2e capsule row (M07): must first measure whether a 4 GiB guest reservation is allowed on device | Needed to close G2e fully; Mac work continues |
 | Second legitimately provisioned player | G5 | Not needed yet |
 | Retail `halo.exe` 1.10 + campaign data | G7 | A boxed copy would cover it |
 
-Rights: private-engineering-authorized; publication-not-authorized. No commit or push has occurred yet. No candidate process or Simulator is running.
+Rights: private-engineering-authorized; publication-not-authorized. Commits are local on `codex/halopad-phase2`; nothing has been pushed. No candidate process is running; the HaloPad Simulator is shut down between runs.
 
 Known-good commands:
 

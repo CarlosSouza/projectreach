@@ -8,9 +8,9 @@ All original acceptance conditions remain in `HaloPad-PRD.md` Section 10. No row
 | M02 | Custom Edition identity | PARTIAL (engineering tier) | G1a: reproducible derived 1.0.10.621 client accepted (`INPUTS.md`, `docs/artifacts/2026-09-26/G1a/`). Original-client baseline (G1b) and independent hash confirmation outstanding. |
 | M03 | Retail identity | BLOCKED_EXTERNAL | Separate retail input and campaign baseline missing. |
 | M04 | Static translation coverage | NOT_RUN | Required behavior has not been executed. |
-| M05 | CPU/ABI differential tests | PARTIAL | Six real Halo slices match the x86 oracle natively (G2D-SLICES.md): integer, string/memory with direction flag, jump tables, x87 in Halo's single-precision mode, and map-header validation over real data through the file API. Whole-program coverage and the strict-mode gap list remain. |
-| M06 | Memory, callback and thread tests | NOT_RUN | Required behavior has not been executed. |
-| M07 | Early physical architecture capsule | NOT_RUN | Required behavior has not been executed. |
+| M05 | CPU/ABI differential tests | PARTIAL | Seven real Halo slices match the x86 oracle natively on macOS and the iPad Simulator (G2D-SLICES.md, G2E-ADDRESS-MODEL.md): integer, string/memory with direction flag, jump tables, x87 in Halo's single-precision mode, map-header validation over real data through the file API, and a guest callback. Whole-program coverage, the strict-mode gap list and 304 untranslated entries (including the PE entry point) remain. |
+| M06 | Memory, callback and thread tests | PARTIAL | G2e: checked original-address guest memory, finite dispatch, bound imports; callback slice 200/200; null/unmapped faults name the guest address and match the oracle; unknown targets and import misuse trap by name (macOS + iPad Simulator). Threads not yet tested (G3 runtime). |
+| M07 | Early physical architecture capsule | BLOCKED_EXTERNAL | Needs a physical iPhone/iPad and signing from Chris. The Simulator equivalent passes (G2E-ADDRESS-MODEL.md). First measurement on device: whether the 4 GiB guest reservation is allowed. |
 | M08 | Native process/core | NOT_RUN | Required behavior has not been executed. |
 | M09 | Menus and loading | NOT_RUN | Required behavior has not been executed. |
 | M10 | Stock local gameplay | NOT_RUN | Required behavior has not been executed. |

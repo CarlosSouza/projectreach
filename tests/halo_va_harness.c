@@ -1,6 +1,8 @@
 /* G2e harness: translated Halo functions in the original-address model.
  * Case format as tests/halo_slice_harness.c, except the first word is the function's
- * original address. Buffers live in guest memory; pointers are guest addresses. */
+ * original address. Buffers live in guest memory; pointers are guest addresses.
+ * With HALOPAD_ENTER_VIA_SLOT=1 the first word is instead a guest address holding the
+ * entry (as 'call [slot]' or 'mov esi, [slot]; call esi' read it), e.g. an import slot. */
 #include <inttypes.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -27,6 +29,8 @@ int main(int argc, char **argv)
     if (&ptr_initialize_pointers && ptr_initialize_pointers) ptr_initialize_pointers(halopad_guest_base);
     FILE *f = fopen(argv[1], "rb");
     if (!f) { perror(argv[1]); return 2; }
+    const char *via = getenv("HALOPAD_ENTER_VIA_SLOT");
+    int via_slot = via && via[0] == '1';
     uint32_t va, fpcw, nargs;
     while (rd(f, &va) && rd(f, &fpcw) && rd(f, &nargs)) {
         if (nargs > 16) return 2;
@@ -67,7 +71,9 @@ int main(int argc, char **argv)
             if (reg_ids[r] > 7 || !slot[reg_ids[r]]) return 2;
             *slot[reg_ids[r]] = reg_vals[r];
         }
-        halopad_enter(&state, va);
+        uint32_t entry = va;
+        if (via_slot) memcpy(&entry, halopad_guest_ptr(va), 4);
+        halopad_enter(&state, entry);
         printf("%08" PRIx32 " %" PRId32, state._eax, (int32_t)(state._esp - sp));
         int found = 0;
         for (uint32_t i = 0; i < nargs && !found; i++)
@@ -86,4 +92,3 @@ int main(int argc, char **argv)
     }
     return 0;
 }
-
