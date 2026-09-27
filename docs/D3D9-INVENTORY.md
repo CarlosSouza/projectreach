@@ -77,6 +77,29 @@ which Halo loads dynamically at `0x54436c` and `0x544353`. These globals are not
 | `0x6b84a0` | 1 |
 | `0x6b8500` | 1 |
 
+## Device capabilities Halo reads
+
+Halo copies `D3DCAPS9` to `0x75c420` (`IDirect3D9::GetDeviceCaps` at `0x51a414`) and reads these fields by
+absolute address. They decide Halo's rendering path, so every value HaloPad reports for them needs a
+documented source.
+
+| Field | Reads | Examples |
+|---|---|---|
+| `DeviceType` | 1 | `pushl $0x75c420 #` |
+| `Caps2` | 1 | `movl 0x75c42c, %ecx` |
+| `DevCaps (+2)` | 1 | `movw 0x75c43e, %si` |
+| `RasterCaps` | 24 | `testl $0x6000000, 0x75c444`; `testl $0x6000000, 0x75c444` |
+| `RasterCaps (+2)` | 1 | `movb 0x75c446, %cl` |
+| `SrcBlendCaps` | 4 | `movl 0x75c44c, %eax`; `movl 0x75c44c, %eax` |
+| `TextureCaps` | 4 | `movl 0x75c45c, %eax`; `movl 0x75c45c, %eax` |
+| `TextureFilterCaps` | 1 | `movl 0x75c460, %eax` |
+| `TextureAddressCaps` | 2 | `movb 0x75c46c, %al`; `testb $0x8, 0x75c46c` |
+| `MaxAnisotropy` | 1 | `movl 0x75c48c, %eax` |
+| `MaxSimultaneousTextures` | 13 | `movl 0x75c4b8, %eax`; `movl 0x75c4b8, %eax` |
+| `MaxActiveLights` | 4 | `movl 0x75c4c0, %eax`; `movl 0x75c4c0, %eax` |
+| `MaxStreams` | 6 | `cmpl $0x1, 0x75c4dc`; `movl 0x75c4dc, %eax` |
+| `PixelShaderVersion` | 95 | `cmpl $0xffff0101, 0x75c4ec`; `movl 0x75c4ec, %edx` |
+
 ## Shaders
 
 Halo ships encrypted effect collections (`shaders/EffectCollection_ps_1_1.enc`, `_ps_1_4`, `_ps_2_0`, `vsh.enc`).

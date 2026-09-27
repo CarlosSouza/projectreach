@@ -63,6 +63,28 @@ def scan():
     return sites
 
 
+CAPS_GLOBAL = 0x75C420          # IDirect3D9::GetDeviceCaps(adapter, HAL, 0x75c420) at 0x51a414
+CAPS_FIELDS = [(n, int(o)) for n, o in (x.split() for x in 'DeviceType 0,AdapterOrdinal 4,Caps 8,Caps2 12,Caps3 16,PresentationIntervals 20,CursorCaps 24,DevCaps 28,PrimitiveMiscCaps 32,RasterCaps 36,ZCmpCaps 40,SrcBlendCaps 44,DestBlendCaps 48,AlphaCmpCaps 52,ShadeCaps 56,TextureCaps 60,TextureFilterCaps 64,CubeTextureFilterCaps 68,VolumeTextureFilterCaps 72,TextureAddressCaps 76,VolumeTextureAddressCaps 80,LineCaps 84,MaxTextureWidth 88,MaxTextureHeight 92,MaxVolumeExtent 96,MaxTextureRepeat 100,MaxTextureAspectRatio 104,MaxAnisotropy 108,MaxVertexW 112,GuardBandLeft 116,GuardBandTop 120,GuardBandRight 124,GuardBandBottom 128,ExtentsAdjust 132,StencilCaps 136,FVFCaps 140,TextureOpCaps 144,MaxTextureBlendStages 148,MaxSimultaneousTextures 152,VertexProcessingCaps 156,MaxActiveLights 160,MaxUserClipPlanes 164,MaxVertexBlendMatrices 168,MaxVertexBlendMatrixIndex 172,MaxPointSize 176,MaxPrimitiveCount 180,MaxVertexIndex 184,MaxStreams 188,MaxStreamStride 192,VertexShaderVersion 196,MaxVertexShaderConst 200,PixelShaderVersion 204,PixelShader1xMaxValue 208,DevCaps2 212,MaxNpatchTessellationLevel 216,Reserved5 220,MasterAdapterOrdinal 224,AdapterOrdinalInGroup 228,NumberOfAdaptersInGroup 232,DeclTypes 236,NumSimultaneousRTs 240,StretchRectFilterCaps 244,VS20Caps 248,PS20Caps 268,VertexTextureFilterCaps 288,MaxVShaderInstructionsExecuted 292,MaxPShaderInstructionsExecuted 296,MaxVertexShader30InstructionSlots 300,MaxPixelShader30InstructionSlots 304'.split(','))]
+
+
+def caps_reads():
+    """D3DCAPS9 fields Halo reads from its global copy, from the audit's objdump listing
+    (absolute-address operands only; the copy handed to the config.txt parser at 0x580ace
+    is read through a pointer and is not covered)."""
+    import re
+    uses = collections.defaultdict(list)
+    for line in (A / 'text.objdump').open():
+        for m in re.finditer(r'0x(75c[0-9a-f]{3})\b', line):
+            a = int(m.group(1), 16)
+            if CAPS_GLOBAL <= a < CAPS_GLOBAL + 304 and ':' in line:
+                uses[a - CAPS_GLOBAL].append(' '.join(line.split(':', 1)[1].split()[:3]))
+    rows = []
+    for off in sorted(uses):
+        name, base = max((f for f in CAPS_FIELDS if f[1] <= off), key=lambda f: f[1])
+        rows.append((name + (f' (+{off - base})' if off != base else ''), len(uses[off]), uses[off][:2]))
+    return rows
+
+
 def main():
     sites = scan()
     out = {}
@@ -88,6 +110,11 @@ def main():
               'DirectInput 8 and DirectSound 8 objects are created through ~DirectInput8Create~ and ~DirectSoundCreate8~,',
               'which Halo loads dynamically at ~0x54436c~ and ~0x544353~. These globals are not typed yet:', '',
               '| Global | Call sites |', '|---|---|'] + [f'| ~{g:#x}~ | {n} |' for g, n in other.most_common()]
+    lines += ['', '## Device capabilities Halo reads', '',
+              'Halo copies ~D3DCAPS9~ to ~0x75c420~ (~IDirect3D9::GetDeviceCaps~ at ~0x51a414~) and reads these fields by',
+              'absolute address. They decide Halo\'s rendering path, so every value HaloPad reports for them needs a',
+              'documented source.', '', '| Field | Reads | Examples |', '|---|---|---|']
+    lines += [f'| ~{n}~ | {k} | ' + '; '.join(f'~{e}~' for e in ex) + ' |' for n, k, ex in caps_reads()]
     lines += ['', '## Shaders', '',
               'Halo ships encrypted effect collections (~shaders/EffectCollection_ps_1_1.enc~, ~_ps_1_4~, ~_ps_2_0~, ~vsh.enc~).',
               'Halo decrypts them itself and passes plain Direct3D shader bytecode to ~CreatePixelShader~ and',
