@@ -1,0 +1,48 @@
+;; HaloPad Windows runtime: ole32 and oleaut32 (port/runtime/halopad_ole.c).
+;; Pattern and macros from SR's Septerra Core port (asm-calls.llinc).
+
+include llasm.llinc
+include asm-calls.llinc
+
+func CoInitialize_c a1
+func CoUninitialize_c
+func CoCreateInstance_c a1, a2, a3, a4, a5
+func StringFromGUID2_c a1, a2, a3
+func CLSIDFromString_c a1, a2
+func VariantInit_c a1
+func VariantClear_c a1
+
+proc hpimp_CoInitialize public
+        Call_Asm_Stack1 CoInitialize_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_CoUninitialize public
+        Call_Asm_Stack0 CoUninitialize_c
+        Call_Asm_Return 0
+endp
+
+proc hpimp_CoCreateInstance public
+        Call_Asm_Stack5 CoCreateInstance_c
+        Call_Asm_Return 5
+endp
+
+proc hpimp_StringFromGUID2 public
+        Call_Asm_Stack3 StringFromGUID2_c
+        Call_Asm_Return 3
+endp
+
+proc hpimp_CLSIDFromString public
+        Call_Asm_Stack2 CLSIDFromString_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_VariantInit public
+        Call_Asm_Stack1 VariantInit_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_VariantClear public
+        Call_Asm_Stack1 VariantClear_c
+        Call_Asm_Return 1
+endp

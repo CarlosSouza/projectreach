@@ -480,3 +480,27 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
 - All other suites, the 15 slices and the unit tests still pass; the core still stops at the license. The runners now set \`HALOPAD_STATE_ROOT\` (\`generated/halopad-disk\`, ignored).
 
 **Next:** SEH (\`RaiseException\`, \`RtlUnwind\`, exception delivery), \`CreateFileMappingA\`/\`MapViewOfFile\`, GDI and dialogs for the splash and crash paths, then Vorbis, Bink and game controllers.
+
+## 2026-09-27 — What WinMain reaches next: DxDiag, CryptoAPI, timers
+
+- **Method.** A static call-graph walk from \`WinMain\` (\`0x5445e0\`, depth 6, 1,883 functions) lists the imports reached that HaloPad did not implement.
+  - Depth 1: COM start-up with \`CoCreateInstance\` and variants; CryptoAPI; \`timeBeginPeriod\`/\`timeEndPeriod\`.
+  - Depth 2: \`DSOUND #9\`, dialogs, GDI, console input, Bink.
+  - Deeper: version info, security checks, the clipboard. SEH (\`RaiseException\`) only at depth 6.
+- **How Halo uses them** (\`0x580e70\`):
+  - \`GetDeviceID(DSDEVID_DefaultPlayback)\` (dsound ordinal 9).
+  - \`CoCreateInstance(CLSID_DxDiagProvider, IID_IDxDiagProvider)\`, then \`DxDiag_DirectSound.DxDiag_SoundDevices\`; for each device \`szDescription\`, \`szGuidDeviceID\`, \`szDriverVersion\` and \`szHardwareID\` as BSTR variants, matched against the default device's GUID. It identifies the sound card and skips the step if DxDiag fails.
+  - CryptoAPI (\`0x5829e0\`, \`0x582890\`): a \`PROV_RSA_FULL\` \`CRYPT_VERIFYCONTEXT\` context and \`CALG_SHA1\` hashes.
+- **What:**
+  - \`port/runtime/halopad_ole.c\`:
+    - \`CoInitialize\`/\`CoUninitialize\` (per thread, \`S_FALSE\` when already initialized) and \`CoCreateInstance\` (\`CO_E_NOTINITIALIZED\` first).
+    - \`StringFromGUID2\`/\`CLSIDFromString\`, and \`VariantInit\`/\`VariantClear\` with BSTRs.
+    - A DxDiag provider whose tree describes what HaloPad provides: one sound device, the Core Audio output, with the GUID \`GetDeviceID\` reports and \`DirectSoundCreate8\` accepts. Other classes, containers and properties stop with their names.
+  - \`halopad_crypt.c\`: SHA-1 and MD5 hashes via CommonCrypto, with size queries, \`ERROR_MORE_DATA\`, and \`NTE_BAD_HASH_STATE\` after the value is read; plus the WINMM timer period calls.
+  - An ordinal import is named \`<dll>_ord<n>\` (\`hpimp_dsound_ord9\`).
+- **Test** (\`tests/halo_ole_test.c\`, 33 checks, all passing):
+  - Halo's sequence end to end: \`GetDeviceID\` fetched by ordinal; DxDiag's device GUID equal to \`StringFromGUID2\` of it; the BSTR's byte-length prefix; \`VariantClear\`; the index past the last.
+  - GUID text round trip; SHA-1/MD5 of "abc" against the published digests; timer calls.
+- All other suites, the 15 slices and the unit tests still pass; the core still stops at the license.
+
+**Next:** dialogs and GDI (\`DialogBoxParamA\`, \`LoadBitmapA\`, \`GetDC\`, gamma ramps), version info, the console used by Halo's developer console, Bink, then SEH.

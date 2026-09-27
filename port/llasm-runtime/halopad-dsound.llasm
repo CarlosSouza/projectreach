@@ -5,8 +5,15 @@ include llasm.llinc
 include asm-calls.llinc
 
 func DirectSoundCreate8_c a1, a2, a3
+func GetDeviceID_c a1, a2
 
 proc hpimp_DirectSoundCreate8 public
         Call_Asm_Stack3 DirectSoundCreate8_c
         Call_Asm_Return 3
+endp
+
+;; dsound.dll ordinal 9 (GetDeviceID), imported by ordinal: scripts/va-model.py names it dsound_ord9
+proc hpimp_dsound_ord9 public
+        Call_Asm_Stack2 GetDeviceID_c
+        Call_Asm_Return 2
 endp

@@ -446,3 +446,21 @@ interface IDirectSound3DListener
   SetRolloffFactor
   SetVelocity
   CommitDeferredSettings
+
+interface IDxDiagProvider
+  QueryInterface
+  AddRef
+  Release
+  Initialize
+  GetRootContainer
+
+interface IDxDiagContainer
+  QueryInterface
+  AddRef
+  Release
+  GetNumberOfChildContainers
+  EnumChildContainerNames
+  GetChildContainer
+  GetNumberOfProps
+  EnumPropNames
+  GetProp

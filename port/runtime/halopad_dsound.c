@@ -192,8 +192,10 @@ uint32_t DirectSoundCreate8_c(uint32_t guid, uint32_t out, uint32_t outer)
     if (!out) return DSERR_INVALIDPARAM;
     wr32(out, 0);
     if (outer) return DSERR_NOAGGREGATION;
-    if (!guid_null(guid) && !guid_is(guid, 0xDEF00000, 0x9C6D, 0x47ED, def_tail) && !guid_is(guid, 0xDEF00002, 0x9C6D, 0x47ED, def_tail))
-        return DSERR_NODRIVER;                                      /* only the default playback device */
+    extern const uint8_t halopad_audio_guid[16];
+    if (!guid_null(guid) && !guid_is(guid, 0xDEF00000, 0x9C6D, 0x47ED, def_tail) && !guid_is(guid, 0xDEF00002, 0x9C6D, 0x47ED, def_tail)
+        && memcmp(G(guid), halopad_audio_guid, 16))
+        return DSERR_NODRIVER;                                      /* the one playback device, by any of its names */
     if (devices == 0 && !halopad_audio_manual && !halopad_audio_start(halopad_dsound_mix, RATE)) return DSERR_NODRIVER;
     devices++;
     dsound *d = calloc(1, sizeof *d);
@@ -897,4 +899,21 @@ uint32_t hpcom_IDirectSound3DListener_CommitDeferredSettings_c(uint32_t g)
     for (sbuf *b = buffers; b; b = b->next) if (b->d3_dirty) { b->p3 = b->d3; b->d3_dirty = 0; }
     pthread_mutex_unlock(&lock);
     return DS_OK;
+}
+
+/* dsound ordinal 9, GetDeviceID: the default (voice) playback device is HaloPad's audio
+   output; there is no capture device yet. */
+uint32_t GetDeviceID_c(uint32_t src, uint32_t dst)
+{
+    extern const uint8_t halopad_audio_guid[16];
+    static const uint8_t def_tail[8] = {0xAA, 0xF1, 0x4D, 0xDA, 0x8F, 0x2B, 0x5C, 0x03};
+    if (!dst) return DSERR_INVALIDPARAM;
+    if (guid_null(src) || guid_is(src, 0xDEF00000, 0x9C6D, 0x47ED, def_tail) || guid_is(src, 0xDEF00002, 0x9C6D, 0x47ED, def_tail)
+        || !memcmp(G(src), halopad_audio_guid, 16)) {
+        memcpy(G(dst), halopad_audio_guid, 16);
+        return DS_OK;
+    }
+    if (guid_is(src, 0xDEF00001, 0x9C6D, 0x47ED, def_tail) || guid_is(src, 0xDEF00003, 0x9C6D, 0x47ED, def_tail))
+        return DSERR_NODRIVER;                                      /* default (voice) capture: none */
+    return DSERR_NODRIVER;
 }

@@ -1,0 +1,54 @@
+;; HaloPad Windows runtime: advapi32 CryptoAPI hashing and winmm timer periods (port/runtime/halopad_crypt.c).
+;; Pattern and macros from SR's Septerra Core port (asm-calls.llinc).
+
+include llasm.llinc
+include asm-calls.llinc
+
+func CryptAcquireContextA_c a1, a2, a3, a4, a5
+func CryptReleaseContext_c a1, a2
+func CryptCreateHash_c a1, a2, a3, a4, a5
+func CryptHashData_c a1, a2, a3, a4
+func CryptGetHashParam_c a1, a2, a3, a4, a5
+func CryptDestroyHash_c a1
+func timeBeginPeriod_c a1
+func timeEndPeriod_c a1
+
+proc hpimp_CryptAcquireContextA public
+        Call_Asm_Stack5 CryptAcquireContextA_c
+        Call_Asm_Return 5
+endp
+
+proc hpimp_CryptReleaseContext public
+        Call_Asm_Stack2 CryptReleaseContext_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_CryptCreateHash public
+        Call_Asm_Stack5 CryptCreateHash_c
+        Call_Asm_Return 5
+endp
+
+proc hpimp_CryptHashData public
+        Call_Asm_Stack4 CryptHashData_c
+        Call_Asm_Return 4
+endp
+
+proc hpimp_CryptGetHashParam public
+        Call_Asm_Stack5 CryptGetHashParam_c
+        Call_Asm_Return 5
+endp
+
+proc hpimp_CryptDestroyHash public
+        Call_Asm_Stack1 CryptDestroyHash_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_timeBeginPeriod public
+        Call_Asm_Stack1 timeBeginPeriod_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_timeEndPeriod public
+        Call_Asm_Stack1 timeEndPeriod_c
+        Call_Asm_Return 1
+endp
