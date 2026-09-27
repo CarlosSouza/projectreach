@@ -210,8 +210,9 @@ FAULT_CASES = {
     'import_call_via_slot': {'slot': 'CloseHandle', 'args': [0x1234], 'stdout': '00000000 4 V00000000', 'oracle': None},
     # an import without an implementation must stop and name itself
     # (a security API HaloPad has no reason to implement)
-    'unimplemented_import_via_slot': {'slot': 'SetSecurityDescriptorGroup', 'args': [0, 0, 0],
-                                      'expect': 'Windows import SetSecurityDescriptorGroup has no implementation', 'oracle': None},
+    # an import HaloPad deliberately never implements (the crash reporter's process launch)
+    'unimplemented_import_via_slot': {'slot': 'CreateProcessA', 'args': [0] * 10,
+                                      'expect': 'Windows import CreateProcessA has no implementation', 'oracle': None},
     # an address inside an import's reserved slot is not an entry
     'inside_import_address': {'args': [b'\0' * 64, 12, 1, 0xFFFE0004], 'expect': "inside import ", 'oracle': None},
 }

@@ -1,0 +1,192 @@
+;; HaloPad Windows runtime: console, version, security and clipboard (port/runtime/halopad_misc.c).
+;; Pattern and macros from SR's Septerra Core port (asm-calls.llinc).
+
+include llasm.llinc
+include asm-calls.llinc
+
+func GetNumberOfConsoleInputEvents_c a1, a2
+func ReadConsoleInputA_c a1, a2, a3, a4
+func WriteConsoleA_c a1, a2, a3, a4, a5
+func GetConsoleScreenBufferInfo_c a1, a2
+func GetConsoleCursorInfo_c a1, a2
+func SetConsoleCursorInfo_c a1, a2
+func SetConsoleCursorPosition_c a1, a2
+func FillConsoleOutputAttribute_c a1, a2, a3, a4, a5
+func FillConsoleOutputCharacterA_c a1, a2, a3, a4, a5
+func WriteConsoleOutputCharacterA_c a1, a2, a3, a4, a5
+func GetFileVersionInfoSizeA_c a1, a2
+func GetFileVersionInfoA_c a1, a2, a3, a4
+func VerQueryValueA_c a1, a2, a3, a4
+func OpenThreadToken_c a1, a2, a3, a4
+func OpenProcessToken_c a1, a2, a3
+func DuplicateToken_c a1, a2, a3
+func AllocateAndInitializeSid_c a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11
+func FreeSid_c a1
+func GetLengthSid_c a1
+func InitializeSecurityDescriptor_c a1, a2
+func IsValidSecurityDescriptor_c a1
+func SetSecurityDescriptorDacl_c a1, a2, a3, a4
+func SetSecurityDescriptorGroup_c a1, a2, a3
+func SetSecurityDescriptorOwner_c a1, a2, a3
+func InitializeAcl_c a1, a2, a3
+func AddAccessAllowedAce_c a1, a2, a3, a4
+func AccessCheck_c a1, a2, a3, a4, a5, a6, a7, a8
+func OpenClipboard_c a1
+func CloseClipboard_c
+func IsClipboardFormatAvailable_c a1
+func GetClipboardData_c a1
+
+proc hpimp_GetNumberOfConsoleInputEvents public
+        Call_Asm_Stack2 GetNumberOfConsoleInputEvents_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_ReadConsoleInputA public
+        Call_Asm_Stack4 ReadConsoleInputA_c
+        Call_Asm_Return 4
+endp
+
+proc hpimp_WriteConsoleA public
+        Call_Asm_Stack5 WriteConsoleA_c
+        Call_Asm_Return 5
+endp
+
+proc hpimp_GetConsoleScreenBufferInfo public
+        Call_Asm_Stack2 GetConsoleScreenBufferInfo_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_GetConsoleCursorInfo public
+        Call_Asm_Stack2 GetConsoleCursorInfo_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_SetConsoleCursorInfo public
+        Call_Asm_Stack2 SetConsoleCursorInfo_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_SetConsoleCursorPosition public
+        Call_Asm_Stack2 SetConsoleCursorPosition_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_FillConsoleOutputAttribute public
+        Call_Asm_Stack5 FillConsoleOutputAttribute_c
+        Call_Asm_Return 5
+endp
+
+proc hpimp_FillConsoleOutputCharacterA public
+        Call_Asm_Stack5 FillConsoleOutputCharacterA_c
+        Call_Asm_Return 5
+endp
+
+proc hpimp_WriteConsoleOutputCharacterA public
+        Call_Asm_Stack5 WriteConsoleOutputCharacterA_c
+        Call_Asm_Return 5
+endp
+
+proc hpimp_GetFileVersionInfoSizeA public
+        Call_Asm_Stack2 GetFileVersionInfoSizeA_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_GetFileVersionInfoA public
+        Call_Asm_Stack4 GetFileVersionInfoA_c
+        Call_Asm_Return 4
+endp
+
+proc hpimp_VerQueryValueA public
+        Call_Asm_Stack4 VerQueryValueA_c
+        Call_Asm_Return 4
+endp
+
+proc hpimp_OpenThreadToken public
+        Call_Asm_Stack4 OpenThreadToken_c
+        Call_Asm_Return 4
+endp
+
+proc hpimp_OpenProcessToken public
+        Call_Asm_Stack3 OpenProcessToken_c
+        Call_Asm_Return 3
+endp
+
+proc hpimp_DuplicateToken public
+        Call_Asm_Stack3 DuplicateToken_c
+        Call_Asm_Return 3
+endp
+
+proc hpimp_AllocateAndInitializeSid public
+        Call_Asm_Stack11 AllocateAndInitializeSid_c
+        Call_Asm_Return 11
+endp
+
+proc hpimp_FreeSid public
+        Call_Asm_Stack1 FreeSid_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_GetLengthSid public
+        Call_Asm_Stack1 GetLengthSid_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_InitializeSecurityDescriptor public
+        Call_Asm_Stack2 InitializeSecurityDescriptor_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_IsValidSecurityDescriptor public
+        Call_Asm_Stack1 IsValidSecurityDescriptor_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_SetSecurityDescriptorDacl public
+        Call_Asm_Stack4 SetSecurityDescriptorDacl_c
+        Call_Asm_Return 4
+endp
+
+proc hpimp_SetSecurityDescriptorGroup public
+        Call_Asm_Stack3 SetSecurityDescriptorGroup_c
+        Call_Asm_Return 3
+endp
+
+proc hpimp_SetSecurityDescriptorOwner public
+        Call_Asm_Stack3 SetSecurityDescriptorOwner_c
+        Call_Asm_Return 3
+endp
+
+proc hpimp_InitializeAcl public
+        Call_Asm_Stack3 InitializeAcl_c
+        Call_Asm_Return 3
+endp
+
+proc hpimp_AddAccessAllowedAce public
+        Call_Asm_Stack4 AddAccessAllowedAce_c
+        Call_Asm_Return 4
+endp
+
+proc hpimp_AccessCheck public
+        Call_Asm_Stack8 AccessCheck_c
+        Call_Asm_Return 8
+endp
+
+proc hpimp_OpenClipboard public
+        Call_Asm_Stack1 OpenClipboard_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_CloseClipboard public
+        Call_Asm_Stack0 CloseClipboard_c
+        Call_Asm_Return 0
+endp
+
+proc hpimp_IsClipboardFormatAvailable public
+        Call_Asm_Stack1 IsClipboardFormatAvailable_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_GetClipboardData public
+        Call_Asm_Stack1 GetClipboardData_c
+        Call_Asm_Return 1
+endp

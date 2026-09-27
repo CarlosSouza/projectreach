@@ -530,3 +530,27 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
 - All other suites (Direct3D still 198 checks, now on a USER32-owned window), the 15 slices and the unit tests still pass; the core still stops at the license.
 
 **Next:** the developer console's input path, version info, Bink (intro movie), then SEH, Vorbis and game controllers.
+
+## 2026-09-27 — Console, version resources, the administrator check, clipboard
+
+- **How Halo uses them** (reached from the main loop \`0x4ca9c0\`):
+  - Console input (\`0x499be0\`).
+  - A report header with the module path, date and time, and version resource (\`0x4ca2e0\`, through version.dll's delay stubs).
+  - "Is the player a local administrator" (\`0x545c50\`, via \`0x4e7680\`): thread/process tokens, a duplicate impersonation token, the Administrators SID, a security descriptor with an ACL and \`AccessCheck\`. The answer goes to \`0x6399a8\` and picks between two paths.
+  - Chat paste (\`0x544ed0\`): \`CF_TEXT\` through \`OpenClipboard\`/\`GetClipboardData\`/\`GlobalLock\`.
+- **What** (\`port/runtime/halopad_misc.c\`):
+  - **Console.** \`haloce.exe\` is a GUI program with no console, so console calls fail with \`ERROR_INVALID_HANDLE\` as on Windows.
+  - **Version.** \`GetFileVersionInfoSizeA\`/\`GetFileVersionInfoA\` read \`RT_VERSION\` from the PE file on disk. \`VerQueryValueA\` walks the version tree and returns ANSI copies of strings in the buffer's spare area, as Windows' ANSI API does.
+  - **Security.** \`OpenThreadToken\` (\`ERROR_NO_TOKEN\` when not impersonating), \`OpenProcessToken\`, \`DuplicateToken\`, SIDs, absolute security descriptors, ACLs with allowed ACEs, and an \`AccessCheck\` that maps generic rights and evaluates the DACL. It needs an impersonation token (\`ERROR_NO_IMPERSONATION_TOKEN\` otherwise).
+  - The player is a member of Everyone, Administrators, Users, INTERACTIVE and Authenticated Users, as Windows XP accounts were by default.
+  - **Clipboard.** \`CF_TEXT\` from the Mac pasteboard in Windows-1252 with CRLF, with Windows' open/close rules.
+- **Test** (\`tests/halo_misc_test.c\`, 24 checks, all passing):
+  - Console failure.
+  - \`haloce.exe\`'s version resource: \`VS_FIXEDFILEINFO\` 1.0.10.621, the translation, and \`FileVersion\` "01.00.10.0621" as ANSI text.
+  - The security calls step by step, including denial for a group the player is not in.
+  - Halo's own \`0x545c50\`, run from translated code, returning TRUE and recording it at \`0x6399a8\`.
+  - Clipboard rules. The test does not touch the Mac's clipboard contents.
+- **Contract case updated.** The "unimplemented import" slice now uses \`CreateProcessA\`, which HaloPad deliberately never implements (it launches the crash reporter), because \`SetSecurityDescriptorGroup\` is implemented now.
+- All suites, 15 slices and the unit tests pass; the core still stops at the license.
+
+**Next:** Bink (intro movie and its sound), then SEH, Vorbis, game controllers and file mapping.

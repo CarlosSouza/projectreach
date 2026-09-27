@@ -846,3 +846,17 @@ uint64_t halopad_metal_visibility_read(void *p, uint32_t first, uint32_t last, u
     for (uint32_t s = first;; s = (s + 1) % VIS_SLOTS) { n += v[s]; if (s == last) break; }
     return n;
 }
+
+/* The pasteboard's text in Windows-1252 (for CF_TEXT); its length, 0 if none. */
+int halopad_host_clipboard_text(char *out, size_t size)
+{
+    @autoreleasepool {
+        NSString *s = [NSPasteboard.generalPasteboard stringForType:NSPasteboardTypeString];
+        if (!s.length) return 0;
+        NSData *d = [s dataUsingEncoding:NSWindowsCP1252StringEncoding allowLossyConversion:YES];
+        size_t n = d.length < size - 1 ? d.length : size - 1;
+        memcpy(out, d.bytes, n);
+        out[n] = 0;
+        return (int)n;
+    }
+}

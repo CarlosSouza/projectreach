@@ -19,7 +19,7 @@
 #define INFINITE 0xFFFFFFFFu
 #define ERROR_ALREADY_EXISTS 183
 
-enum { FREE, MUTEX, EVENT, THREAD };   /* a thread object is signaled, for good, when the thread ends */
+enum { FREE, MUTEX, EVENT, THREAD, TOKEN };   /* a thread object is signaled, for good, when the thread ends */
 typedef struct { int kind; uint32_t refs; char *name; int manual, signaled; uint32_t owner, count; } object;
 
 static object objs[MAX_OBJ];
@@ -216,4 +216,24 @@ int halopad_object_thread_query(uint32_t h, uint32_t *code)
     if (is) *code = o->signaled ? o->count : 259;
     pthread_mutex_unlock(&lock);
     return is;
+}
+
+/* ---- access tokens (halopad_misc.c): manual holds "impersonation" ---- */
+
+uint32_t halopad_object_token_new(int impersonation)
+{
+    uint32_t e = halopad_last_error;
+    uint32_t h = create(TOKEN, 0, impersonation, 0);
+    halopad_last_error = e;
+    return h;
+}
+
+/* 1 impersonation, 0 primary, -1 not a token */
+int halopad_object_token_impersonation(uint32_t h)
+{
+    pthread_mutex_lock(&lock);
+    object *o = obj(h);
+    int r = o && o->kind == TOKEN ? o->manual : -1;
+    pthread_mutex_unlock(&lock);
+    return r;
 }
