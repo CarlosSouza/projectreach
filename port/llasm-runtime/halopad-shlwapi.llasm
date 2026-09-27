@@ -1,0 +1,176 @@
+;; HaloPad Windows runtime: SHLWAPI services msxml4.dll imports. Named exports bind to
+;; port/runtime/halopad_shlwapi.c. SRW names an unnamed ordinal import <DLL>_ord<n>; each is
+;; bound here to the service it forwards to on Windows XP, as Wine's dlls/shlwapi/shlwapi.spec
+;; records them. Ordinals not listed stay traps that name the ordinal. Pattern and macros from
+;; SR's Septerra Core port.
+
+include llasm.llinc
+include asm-calls.llinc
+
+func FindResourceW_c a1, a2, a3
+func CompareStringW_c a1, a2, a3, a4, a5, a6
+func PathIsURLW_c a1
+func PathIsRelativeW_c a1
+func UrlIsW_c a1, a2
+func StrCpyW_c a1, a2
+func StrCatW_c a1, a2
+func StrToIntW_c a1
+func StrCmpW_c a1, a2
+func StrCmpNW_c a1, a2, a3
+func StrCmpNIW_c a1, a2, a3
+func StrCmpCW_c a1, a2
+func StrCmpICW_c a1, a2
+func IsCharAlphaNumericW_c a1
+func IsCharSpaceW_c a1
+func CharUpperBuffW_c a1, a2
+func CharLowerW_c a1
+func OutputDebugStringA_c a1
+func OutputDebugStringW_c a1
+func GetAcceptLanguagesW_c a1, a2
+func CreateFileW_c a1, a2, a3, a4, a5, a6, a7
+
+;; 66: FindResourceWrapW(module, name, type) -> kernel32.FindResourceW
+proc hpimp_SHLWAPI_ord66 public
+        Call_Asm_Stack3 FindResourceW_c
+        Call_Asm_Return 3
+endp
+
+;; 45: CompareStringWrapW(lcid, flags, s1, n1, s2, n2) -> kernel32.CompareStringW
+proc hpimp_SHLWAPI_ord45 public
+        Call_Asm_Stack6 CompareStringW_c
+        Call_Asm_Return 6
+endp
+
+;; 15: GetAcceptLanguagesW(buffer, count)
+proc hpimp_SHLWAPI_ord15 public
+        Call_Asm_Stack2 GetAcceptLanguagesW_c
+        Call_Asm_Return 2
+endp
+
+;; 28: IsCharAlphaNumericWrapW -> user32.IsCharAlphaNumericW
+proc hpimp_SHLWAPI_ord28 public
+        Call_Asm_Stack1 IsCharAlphaNumericW_c
+        Call_Asm_Return 1
+endp
+
+;; 29: IsCharSpaceW
+proc hpimp_SHLWAPI_ord29 public
+        Call_Asm_Stack1 IsCharSpaceW_c
+        Call_Asm_Return 1
+endp
+
+;; 38: CharLowerWrapW -> user32.CharLowerW
+proc hpimp_SHLWAPI_ord38 public
+        Call_Asm_Stack1 CharLowerW_c
+        Call_Asm_Return 1
+endp
+
+;; 44: CharUpperBuffWrapW -> user32.CharUpperBuffW
+proc hpimp_SHLWAPI_ord44 public
+        Call_Asm_Stack2 CharUpperBuffW_c
+        Call_Asm_Return 2
+endp
+
+;; 52: CreateFileWrapW -> kernel32.CreateFileW
+proc hpimp_SHLWAPI_ord52 public
+        Call_Asm_Stack7 CreateFileW_c
+        Call_Asm_Return 7
+endp
+
+;; 115: OutputDebugStringWrapW -> kernel32.OutputDebugStringW
+proc hpimp_SHLWAPI_ord115 public
+        Call_Asm_Stack1 OutputDebugStringW_c
+        Call_Asm_Return 1
+endp
+
+;; 156: StrCmpCW
+proc hpimp_SHLWAPI_ord156 public
+        Call_Asm_Stack2 StrCmpCW_c
+        Call_Asm_Return 2
+endp
+
+;; 158: StrCmpICW
+proc hpimp_SHLWAPI_ord158 public
+        Call_Asm_Stack2 StrCmpICW_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_OutputDebugStringA public
+        Call_Asm_Stack1 OutputDebugStringA_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_PathIsURLW public
+        Call_Asm_Stack1 PathIsURLW_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_PathIsRelativeW public
+        Call_Asm_Stack1 PathIsRelativeW_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_UrlIsW public
+        Call_Asm_Stack2 UrlIsW_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_StrCpyW public
+        Call_Asm_Stack2 StrCpyW_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_StrCatW public
+        Call_Asm_Stack2 StrCatW_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_StrToIntW public
+        Call_Asm_Stack1 StrToIntW_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_StrCmpW public
+        Call_Asm_Stack2 StrCmpW_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_StrCmpNW public
+        Call_Asm_Stack3 StrCmpNW_c
+        Call_Asm_Return 3
+endp
+
+proc hpimp_StrCmpNIW public
+        Call_Asm_Stack3 StrCmpNIW_c
+        Call_Asm_Return 3
+endp
+
+func UrlUnescapeW_c a1, a2, a3, a4
+proc hpimp_UrlUnescapeW public
+        Call_Asm_Stack4 UrlUnescapeW_c
+        Call_Asm_Return 4
+endp
+
+func PathSearchAndQualifyW_c a1, a2, a3
+proc hpimp_PathSearchAndQualifyW public
+        Call_Asm_Stack3 PathSearchAndQualifyW_c
+        Call_Asm_Return 3
+endp
+
+func UrlCreateFromPathW_c a1, a2, a3, a4
+proc hpimp_UrlCreateFromPathW public
+        Call_Asm_Stack4 UrlCreateFromPathW_c
+        Call_Asm_Return 4
+endp
+
+func PathCreateFromUrlW_c a1, a2, a3, a4
+proc hpimp_PathCreateFromUrlW public
+        Call_Asm_Stack4 PathCreateFromUrlW_c
+        Call_Asm_Return 4
+endp
+
+func UrlCanonicalizeW_c a1, a2, a3, a4
+proc hpimp_UrlCanonicalizeW public
+        Call_Asm_Stack4 UrlCanonicalizeW_c
+        Call_Asm_Return 4
+endp

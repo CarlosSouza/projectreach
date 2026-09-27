@@ -4,6 +4,14 @@
 include llasm.llinc
 include asm-calls.llinc
 
+func VariantChangeTypeEx_c a1, a2, a3, a4, a5
+func SysAllocString_c a1
+func SysAllocStringLen_c a1, a2
+func SysAllocStringByteLen_c a1, a2
+func SysFreeString_c a1
+func SysStringLen_c a1
+func SysStringByteLen_c a1
+func OleRun_c a1
 func CoInitialize_c a1
 func CoUninitialize_c
 func CoCreateInstance_c a1, a2, a3, a4, a5
@@ -45,4 +53,65 @@ endp
 proc hpimp_VariantClear public
         Call_Asm_Stack1 VariantClear_c
         Call_Asm_Return 1
+endp
+
+proc hpimp_OleRun public
+        Call_Asm_Stack1 OleRun_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_SysAllocString public
+        Call_Asm_Stack1 SysAllocString_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_SysAllocStringLen public
+        Call_Asm_Stack2 SysAllocStringLen_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_SysAllocStringByteLen public
+        Call_Asm_Stack2 SysAllocStringByteLen_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_SysFreeString public
+        Call_Asm_Stack1 SysFreeString_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_SysStringLen public
+        Call_Asm_Stack1 SysStringLen_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_SysStringByteLen public
+        Call_Asm_Stack1 SysStringByteLen_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_VariantChangeTypeEx public
+        Call_Asm_Stack5 VariantChangeTypeEx_c
+        Call_Asm_Return 5
+endp
+
+
+;; OLE Automation error objects (port/runtime/halopad_errorinfo.c)
+func CreateErrorInfo_c a1
+func SetErrorInfo_c a1, a2
+func GetErrorInfo_c a1, a2
+
+proc hpimp_CreateErrorInfo public
+        Call_Asm_Stack1 CreateErrorInfo_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_SetErrorInfo public
+        Call_Asm_Stack2 SetErrorInfo_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_GetErrorInfo public
+        Call_Asm_Stack2 GetErrorInfo_c
+        Call_Asm_Return 2
 endp

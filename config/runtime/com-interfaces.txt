@@ -464,3 +464,38 @@ interface IDxDiagContainer
   GetNumberOfProps
   EnumPropNames
   GetProp
+
+# urlmon.h: the Internet security manager msxml4.dll consults for each document
+interface IInternetSecurityManager
+  QueryInterface
+  AddRef
+  Release
+  SetSecuritySite
+  GetSecuritySite
+  MapUrlToZone
+  GetSecurityId
+  ProcessUrlAction
+  QueryCustomPolicy
+  SetZoneMapping
+  GetZoneMappings
+
+# oaidl.h: OLE Automation error objects (CreateErrorInfo)
+interface ICreateErrorInfo
+  QueryInterface
+  AddRef
+  Release
+  SetGUID
+  SetSource
+  SetDescription
+  SetHelpFile
+  SetHelpContext
+
+interface IErrorInfo
+  QueryInterface
+  AddRef
+  Release
+  GetGUID
+  GetSource
+  GetDescription
+  GetHelpFile
+  GetHelpContext

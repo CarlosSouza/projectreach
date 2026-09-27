@@ -21,6 +21,7 @@ PROFILE_ID = 'custom-en-1.0.10.0621'
 PROFILE = json.loads((ROOT / 'config' / 'profiles' / f'{PROFILE_ID}.json').read_text())
 ANALYSIS = ROOT / 'generated' / 'analysis' / PROFILE_ID
 HAND = ROOT / 'config' / 'srw' / PROFILE_ID
+INSTALL_DIR = 'C:\\Program Files\\Microsoft Games\\Halo Custom Edition'   # as the guest sees it
 
 MODULES = {
     'haloce': {'file': PROFILE['executable'], 'sha256': PROFILE['accepted_sha256']},
@@ -37,7 +38,9 @@ class Module:
         self.relpath = m['file']                              # path in the install directory
         self.file = pathlib.PurePosixPath(self.relpath).name
         self.sha256 = m['sha256']
-        self.source = ROOT / PROFILE['original_root'] / self.relpath
+        self.source = ROOT / m.get('root', PROFILE['original_root']) / self.relpath
+        # where the guest finds it (GetModuleFileNameA): the install directory unless stated
+        self.guest_path = m.get('guest_path') or INSTALL_DIR + '\\' + self.relpath.replace('/', '\\')
         self.primary = name == 'haloce'
         self.analysis = ANALYSIS if self.primary else ANALYSIS / 'modules' / name
         self.hand = HAND if self.primary else HAND / name

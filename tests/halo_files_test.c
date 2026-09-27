@@ -300,6 +300,10 @@ int main(void)
     checks("  text on one line", P(buf), "The system cannot find the file specified. ");
     check("FormatMessageA of a Direct3D code: ERROR_MR_MID_NOT_FOUND", API("FormatMessageA", 0x12FF, 0, 0x8876086C, 0, buf, 0x800, 0) == 0 && LE() == 317, 1);
     check("FormatMessageA(ALLOCATE_BUFFER)", API("FormatMessageA", 0x1300, 0, 5, 0x400, buf, 0, 0) == 19 && !strcmp(P(rd(buf)), "Access is denied.\r\n"), 1);
+    check("FormatMessageA(FROM_HMODULE, NULL): the executable has no message table",
+          API("FormatMessageA", 0x2800, 0, 0xC00CE30A, 0x400, buf, 0x800, buf) == 0 && LE() == 1813, 1);
+    check("FormatMessageA(FROM_SYSTEM, E_OUTOFMEMORY), inserts processed: the Win32 message (msxml4.dll)",
+          API("FormatMessageA", 0x1000, 0, 0x8007000E, 0x400, buf, 0x800, 0) == 61 && !strcmp(P(buf), "Not enough storage is available to complete this operation.\r\n"), 1);
     uint32_t ms = halopad_heap_alloc(32, 1);
     API("GlobalMemoryStatus", ms);
     check("GlobalMemoryStatus: 32 bytes, a 2 GB address space", rd(ms) == 32 && rd(ms + 24) == 0x7FFE0000 && rd(ms + 8) > 0, 1);

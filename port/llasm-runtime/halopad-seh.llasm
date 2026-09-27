@@ -1,0 +1,18 @@
+;; HaloPad Windows runtime: structured exception handling (port/runtime/halopad_seh.c).
+;; Pattern and macros from SR's Septerra Core port.
+
+include llasm.llinc
+include asm-calls.llinc
+
+func RaiseException_c a1, a2, a3, a4
+func RtlUnwind_c a1, a2, a3, a4
+
+proc hpimp_RaiseException public
+        Call_Asm_Stack4 RaiseException_c
+        Call_Asm_Return 4
+endp
+
+proc hpimp_RtlUnwind public
+        Call_Asm_Stack4 RtlUnwind_c
+        Call_Asm_Return 4
+endp

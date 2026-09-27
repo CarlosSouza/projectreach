@@ -8,6 +8,8 @@
 
 #define CCALL
 
+void halopad_trace_guest_stack(void);
+
 void halopad_trap_unimplemented(uint32_t address)
 {
     fprintf(stderr, "HALOPAD TRAP: instruction at 0x%08x is not implemented by the translator\n", address);
@@ -23,12 +25,14 @@ void halopad_unreachable_simd(uint32_t address)
 void halopad_missing_import(const char *name)
 {
     fprintf(stderr, "HALOPAD TRAP: Windows import %s has no implementation in this runtime\n", name);
+    halopad_trace_guest_stack();   /* return address and arguments of the call */
     abort();
 }
 
 void halopad_missing_method(const char *name)
 {
     fprintf(stderr, "HALOPAD TRAP: COM method %s has no implementation in this runtime\n", name);
+    halopad_trace_guest_stack();
     abort();
 }
 
@@ -80,3 +84,11 @@ void CCALL X86_WriteMemProcedure(const uint32_t Address, const uint32_t MemSize,
 /* Written by popfd emulation (llasm_pushx.c). The interrupt flag has no effect on a
  * user-mode game; the value is kept so a later pushfd reproduces it. */
 uint32_t X86_InterruptFlag = 1;
+
+/* traps print the guest stack in the VA model (halopad_guest.c); the offset-model slices have none */
+__attribute__((weak)) void halopad_trace_guest_stack(void) {}
+
+/* SR's pointer-offset model: the CPU state is inside the guest window (llasm_float.c results) */
+#define PTROFS_64BIT 1
+#include "llasm_cpu.h"
+__attribute__((weak)) uint32_t halopad_x87_result(_cpu *cpu, const int64_t *value) { return (uint32_t)((uintptr_t)value - cpu->_pointer_offset); }

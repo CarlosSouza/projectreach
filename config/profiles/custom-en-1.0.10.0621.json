@@ -41,6 +41,13 @@
       "sha256": "ab96837c2886a701a79179be6f98b5ae53e4972ef5403592ce625514767af646",
       "rebase": "0x10330000",
       "role": "Keystone control library shipped with the game (edit box, list box, label); Keystone loads it by path. Its preferred base 0x10200000 is Keystone's, so the Windows loader relocates it; HaloPad applies its relocation table once, at 0x10330000 (the first 64 KiB boundary after Keystone), and translates that image"
+    },
+    "msxml4": {
+      "root": "ref/inputs/reference-machine",
+      "file": "system32/msxml4.dll",
+      "sha256": "9808f05f0da3775f07a88fd614f038e6f4ac5ff680c73d5fd40116a5a247a53d",
+      "guest_path": "C:\\WINDOWS\\system32\\msxml4.dll",
+      "role": "MSXML 4.0 SP2 (4.20.9818.0), installed by Halo's own setup (redist/msxmlenu.msi; scripts/extract-reference-components.py). Keystone.dll parses its .ksml layouts with CLSID_DOMDocument40 and has no fallback. An in-process COM server: CoCreateInstance loads it and calls DllGetClassObject"
     }
   }
 }

@@ -390,33 +390,163 @@ static const struct { uint32_t id; const char *text; } messages[] = {
     {11001, "No such host is known.\r\n"},
 };
 
-uint32_t FormatMessageA_c(uint32_t flags, uint32_t source, uint32_t id, uint32_t lang, uint32_t buf, uint32_t size, uint32_t args)
+/* FormatMessageA/W, as on Windows XP. The text comes from a module's own message table
+ * (FORMAT_MESSAGE_FROM_HMODULE; a NULL module is the executable, which has none), then the
+ * system table (FROM_SYSTEM; an HRESULT_FROM_WIN32 value, 0x8007xxxx, gives the Win32
+ * error's message). msxml4.dll takes its messages from msxml4r.dll's table this way. Unless
+ * IGNORE_INSERTS: %1..%99 inserts with an optional !printf format! (default !s!: a string
+ * of the caller's kind, narrow for A and wide for W), from an argument array
+ * (ARGUMENT_ARRAY) or a va_list; escapes %0 %n %% %. %! %<space> %t %r. MAX_WIDTH 0xFF
+ * drops the text's own line breaks. The work is done in UTF-16. */
+uint32_t FindResourceExA_c(uint32_t module, uint32_t type, uint32_t name, uint32_t lang);
+uint32_t LoadResource_c(uint32_t module, uint32_t hrsrc);
+uint32_t halopad_heap_alloc(uint32_t size, int zero);
+void halopad_heap_free(uint32_t p);
+static uint16_t rd16g(uint32_t a) { uint16_t v; memcpy(&v, G(a), 2); return v; }
+
+/* message text as UTF-16 into t (NUL-terminated); 0 or a Win32 error */
+static uint32_t fm_text(uint32_t flags, uint32_t source, uint32_t id, uint32_t lang, uint16_t *t, size_t cap)
 {
-    (void)source; (void)args;
-    if (!(flags & 0x1000u) || (flags & ~(0x1000u | 0x200u | 0x100u | 0xFFu))) hp_unsupported("FormatMessageA", "flags 0x%x", flags);
-    if (!(flags & 0x200u)) hp_unsupported("FormatMessageA", "message inserts (no FORMAT_MESSAGE_IGNORE_INSERTS)");
-    if (lang && (lang & 0x3FF) != 0x09 && lang != 0x400 && lang != 0x800) return err(15100);   /* ERROR_RESOURCE_LANG_NOT_FOUND */
-    const char *text = NULL;
-    for (size_t i = 0; i < sizeof messages / sizeof messages[0]; i++) if (messages[i].id == id) text = messages[i].text;
-    if (!text) return err(317);                                     /* ERROR_MR_MID_NOT_FOUND */
-    char out[512];
+    if (lang && (lang & 0x3FF) != 0x09 && lang != 0x400 && lang != 0x800) return 15100;   /* ERROR_RESOURCE_LANG_NOT_FOUND */
+    uint32_t module_error = 0;
+    if (flags & 0x800u) {                                            /* FROM_HMODULE */
+        uint32_t res = FindResourceExA_c(source ? source : HP_IMAGE_BASE, 11 /* RT_MESSAGETABLE */, 1, 0);
+        if (!res) module_error = 1813;                               /* ERROR_RESOURCE_TYPE_NOT_FOUND */
+        else {
+            uint32_t d = LoadResource_c(source ? source : HP_IMAGE_BASE, res);
+            uint32_t blocks = rd32(d);
+            module_error = 317;
+            for (uint32_t b = 0; b < blocks; b++) {
+                uint32_t lo = rd32(d + 4 + 12 * b), hi = rd32(d + 8 + 12 * b), off = rd32(d + 12 + 12 * b);
+                if (id < lo || id > hi) continue;
+                uint32_t e = d + off;
+                for (uint32_t k = lo; k < id; k++) e += rd16g(e);
+                uint32_t n = rd16g(e) - 4, uni = rd16g(e + 2) & 1;
+                size_t o = 0;
+                if (uni) for (uint32_t i = 0; i + 1 < n && o + 1 < cap; i += 2) { uint16_t c = rd16g(e + 4 + i); if (!c) break; t[o++] = c; }
+                else for (uint32_t i = 0; i < n && o + 1 < cap; i++) { uint8_t c = *(uint8_t *)G(e + 4 + i); if (!c) break; t[o++] = c; }
+                t[o] = 0;
+                return 0;
+            }
+        }
+    }
+    if (flags & 0x1000u) {                                           /* FROM_SYSTEM */
+        const char *text = NULL;
+        for (size_t i = 0; i < sizeof messages / sizeof messages[0]; i++) if (messages[i].id == id) text = messages[i].text;
+        if (!text && (id >> 16) == 0x8007u)
+            for (size_t i = 0; i < sizeof messages / sizeof messages[0]; i++) if (messages[i].id == (id & 0xFFFFu)) text = messages[i].text;
+        if (text) {
+            size_t o = 0;
+            for (; text[o] && o + 1 < cap; o++) t[o] = (uint8_t)text[o];
+            t[o] = 0;
+            return 0;
+        }
+        return 317;                                                  /* ERROR_MR_MID_NOT_FOUND */
+    }
+    return module_error ? module_error : 87;
+}
+
+static void fm_put(uint16_t *out, size_t *o, size_t cap, uint16_t c) { if (*o + 1 < cap) out[(*o)++] = c; }
+static void fm_puts(uint16_t *out, size_t *o, size_t cap, const char *s) { while (*s) fm_put(out, o, cap, (uint8_t)*s++); }
+
+/* formatted message as UTF-16; returns 0 or a Win32 error, *len the character count */
+static uint32_t fm_core(uint32_t flags, uint32_t source, uint32_t id, uint32_t lang, uint32_t args, int wide,
+                        uint16_t *out, size_t cap, size_t *len)
+{
+    if (flags & ~(0x100u | 0x200u | 0x800u | 0x1000u | 0x2000u | 0xFFu))
+        hp_unsupported(wide ? "FormatMessageW" : "FormatMessageA", "flags 0x%x, source 0x%08x, message 0x%08x", flags, source, id);
+    uint16_t t[2048];
+    uint32_t e = fm_text(flags, source, id, lang, t, sizeof t / sizeof t[0]);
+    if (e) return e;
+    int inserts = !(flags & 0x200u), nobreaks = (flags & 0xFFu) == 0xFFu;
+    if ((flags & 0xFFu) && !nobreaks) hp_unsupported(wide ? "FormatMessageW" : "FormatMessageA", "line width %u", flags & 0xFFu);
     size_t o = 0;
-    for (const char *p = text; *p && o < sizeof out - 1; p++) {
-        if ((flags & 0xFF) && (*p == '\r' || *p == '\n')) { if (*p == '\n') out[o++] = ' '; continue; }   /* no line breaks */
-        out[o++] = *p;
+    for (const uint16_t *p = t; *p; p++) {
+        if (inserts && *p == '%' && p[1]) {
+            uint16_t c = *++p;
+            if (c >= '1' && c <= '9') {
+                int n = c - '0';
+                if (p[1] >= '0' && p[1] <= '9') n = n * 10 + (*++p - '0');
+                char spec[16] = "s";
+                if (p[1] == '!') {                                   /* %n!format! */
+                    size_t k = 0;
+                    p += 2;
+                    while (*p && *p != '!' && k + 1 < sizeof spec) spec[k++] = (char)*p++;
+                    spec[k] = 0;
+                    if (!*p) break;
+                }
+                if (!args) return 87;                                /* ERROR_INVALID_PARAMETER */
+                uint32_t list = (flags & 0x2000u) ? args : rd32(args);   /* ARGUMENT_ARRAY, or a va_list */
+                uint32_t v = rd32(list + 4 * (uint32_t)(n - 1));
+                char last = spec[strlen(spec) - 1];
+                if (last == 's' || last == 'S') {
+                    int w = (last == 's') == (wide != 0);            /* !s! is the caller's kind, !S! the other */
+                    if (spec[0] != 's' && spec[0] != 'S') hp_unsupported("FormatMessage", "string insert format !%s!", spec);
+                    if (!v) { fm_puts(out, &o, cap, "(null)"); continue; }
+                    if (w) for (uint32_t i = 0; rd16g(v + 2 * i); i++) fm_put(out, &o, cap, rd16g(v + 2 * i));
+                    else for (const char *s = G(v); *s; s++) fm_put(out, &o, cap, (uint8_t)*s);
+                } else if (strchr("diuxXoc", last)) {
+                    char f[24], b[64];
+                    snprintf(f, sizeof f, "%%%s", spec);
+                    for (char *q = f; *q; q++) if (*q == 'l' || *q == 'h') memmove(q, q + 1, strlen(q));   /* 32-bit values */
+                    snprintf(b, sizeof b, f, v);
+                    fm_puts(out, &o, cap, b);
+                } else hp_unsupported("FormatMessage", "insert format !%s!", spec);
+                continue;
+            }
+            if (c == '0') break;                                     /* end, without a line break */
+            if (c == 'n') { fm_put(out, &o, cap, '\r'); fm_put(out, &o, cap, '\n'); continue; }
+            if (c == 't') { fm_put(out, &o, cap, '\t'); continue; }
+            if (c == 'r') { fm_put(out, &o, cap, '\r'); continue; }
+            fm_put(out, &o, cap, c);                                 /* %% %. %! %<space> */
+            continue;
+        }
+        if (nobreaks && (*p == '\r' || *p == '\n')) { if (*p == '\n') fm_put(out, &o, cap, ' '); continue; }
+        fm_put(out, &o, cap, *p);
     }
     out[o] = 0;
-    uint32_t len = (uint32_t)o;
-    if (flags & 0x100u) {                                           /* ALLOCATE_BUFFER: LocalAlloc, pointer stored at buf */
-        uint32_t m = LocalAlloc_c(0, len + 1 > size ? len + 1 : size);
-        memcpy(G(m), out, len + 1);
-        wr32(buf, m);
-        return len;
-    }
-    if (size < len + 1) return err(122);
-    memcpy(G(buf), out, len + 1);
-    return len;
+    *len = o;
+    return 0;
 }
+
+uint32_t FormatMessageA_c(uint32_t flags, uint32_t source, uint32_t id, uint32_t lang, uint32_t buf, uint32_t size, uint32_t args)
+{
+    uint16_t out[4096];
+    size_t len;
+    uint32_t e = fm_core(flags, source, id, lang, args, 0, out, sizeof out / sizeof out[0], &len);
+    if (e) return err(e);
+    uint32_t dst;
+    if (flags & 0x100u) {                                            /* ALLOCATE_BUFFER: LocalAlloc, pointer stored at buf */
+        dst = LocalAlloc_c(0, (uint32_t)len + 1 > size ? (uint32_t)len + 1 : size);
+        wr32(buf, dst);
+    } else {
+        if (size < len + 1) return err(122);
+        dst = buf;
+    }
+    char *d = G(dst);
+    for (size_t i = 0; i < len; i++) d[i] = out[i] < 0x100 ? (char)out[i] : '?';
+    d[len] = 0;
+    return (uint32_t)len;
+}
+
+uint32_t FormatMessageW_c(uint32_t flags, uint32_t source, uint32_t id, uint32_t lang, uint32_t buf, uint32_t size, uint32_t args)
+{
+    uint16_t out[4096];
+    size_t len;
+    uint32_t e = fm_core(flags, source, id, lang, args, 1, out, sizeof out / sizeof out[0], &len);
+    if (e) return err(e);
+    uint32_t dst;
+    if (flags & 0x100u) {
+        dst = LocalAlloc_c(0, 2 * ((uint32_t)len + 1 > size ? (uint32_t)len + 1 : size));
+        wr32(buf, dst);
+    } else {
+        if (size < len + 1) return err(122);
+        dst = buf;
+    }
+    memcpy(G(dst), out, 2 * (len + 1));
+    return (uint32_t)len;
+}
+
 
 /* ---- memory, pointers, process ---- */
 

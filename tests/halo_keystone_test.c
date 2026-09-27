@@ -119,6 +119,26 @@ int main(void)
     check("  ... and the range is free again", rd(mbi + 16), 0x10000);
     check("reload after unload: same base", LoadLibraryA_c(str("keystone.dll")), 0x10200000);
     check("  ... exports resolve again", GetProcAddress_c(0x10200000, str("Call_KsUpdate")), file_export(ks_path, "Call_KsUpdate"));
+    /* MSXML 4.0's message DLL, loaded as msxml4.dll does: LoadLibraryExA(AS_DATAFILE) */
+    uint32_t LoadLibraryExA_c(uint32_t name, uint32_t file, uint32_t flags);
+    uint32_t FormatMessageW_c(uint32_t flags, uint32_t source, uint32_t id, uint32_t lang, uint32_t buf, uint32_t size, uint32_t args);
+    uint32_t FormatMessageA_c(uint32_t flags, uint32_t source, uint32_t id, uint32_t lang, uint32_t buf, uint32_t size, uint32_t args);
+    uint32_t r4 = LoadLibraryExA_c(str("C:\\WINDOWS\\system32\\msxml4r.dll"), 0, 0xA);
+    check("LoadLibraryExA(msxml4r.dll, AS_DATAFILE): the base with the data-file bit", r4, 0x78AE0001);
+    check("  GetModuleHandleA does not see a data-file module", GetModuleHandleA_c(str("msxml4r.dll")), 0);
+    uint32_t wbuf = halopad_heap_alloc(512, 1), arg = halopad_heap_alloc(64, 1), argv = halopad_heap_alloc(4, 1);
+    static const char ins[] = "Out of memory";
+    for (unsigned i = 0; i < sizeof ins; i++) ((uint16_t *)halopad_guest_ptr(arg))[i] = (uint8_t)ins[i];
+    memcpy(halopad_guest_ptr(argv), &arg, 4);
+    uint32_t n = FormatMessageW_c(0x2800, r4, 0xC00CE30A, 0x400, wbuf, 256, argv);
+    if (!n) printf("    FormatMessageW failed, error %u\n", GetLastError_c());
+    char got[128] = {0};
+    for (uint32_t i = 0; i < n && i < 127; i++) got[i] = (char)((uint16_t *)halopad_guest_ptr(wbuf))[i];
+    check("  FormatMessageW(FROM_HMODULE|ARGUMENT_ARRAY) from its message table, %1 inserted",
+          !strncmp(got, "System error: Out of memory.", 28), 1);
+    uint32_t an = FormatMessageA_c(0x2A00, r4, 0xC00CE30A, 0x400, wbuf, 256, 0);
+    check("  FormatMessageA with IGNORE_INSERTS keeps %1", an >= 17 && !strncmp(P(wbuf), "System error: %1.", 17), 1);
+    check("  FreeLibrary of the data-file handle", FreeLibrary_c(r4), 1);
     printf("%s: %d failure(s)\n", failures ? "FAIL" : "PASS", failures);
     return failures != 0;
 }

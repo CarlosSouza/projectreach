@@ -653,3 +653,49 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   - Plan: translate it like Keystone and add in-process COM servers to `CoCreateInstance` (class → `DllGetClassObject` → `IClassFactory::CreateInstance`).
 - All 12 suites, 15 slices and the unit tests pass; the core still stops at the license.
 
+
+## 2026-09-27 — MSXML 4 runs translated; SEH works; the chat window parses and validates its layout
+
+- **MSXML 4.0 SP2 is a fifth translated module**:
+  - `msxml4.dll` and `msxml4r.dll` are extracted from Halo's own `redist/msxmlenu.msi` (`scripts/extract-reference-components.py`), and `msxml4.dll` is translated like Keystone (87,094 procedures).
+  - `CoCreateInstance` now serves in-process classes from `config/runtime/com-servers.txt`.
+- **Audit and SRW fixes needed because msxml4 keeps data in `.text`:**
+  - Probes may not start at a relocation fixup or at `int3`.
+  - Data pointers found inside `.text` are followed.
+  - Strings of 6 or more ASCII characters, or 3 or more UTF-16 characters, are not code.
+  - `ret imm` must be a multiple of 4 and at most 0x100.
+  - Fixups that point inside an instruction go to `literal_fixups.csv`, which the patched SRW honors. SRW also names any unnamed ordinal import `<DLL>_ord<n>`, skips fixups into the PE headers, and ends a code path after `ExitProcess`, `FatalAppExit*` and `ExitThread`.
+  - Halo's re-run differs only by the new no-return stops.
+- **Services added, each reached by running MSXML:**
+  - `FormatMessageA/W` from module message tables;
+  - `LoadLibraryExA(AS_DATAFILE)`;
+  - `FindResourceW`;
+  - BSTRs;
+  - semaphores, `DuplicateHandle`, `ResetEvent` and the remaining `Interlocked*` calls;
+  - an INI reader fix.
+- **x87 fix**: 64-bit and double results of `llasm_float.c` now go through a per-thread guest slot, where they were a host address before. The new slice `float_to_int` passes 200/200.
+- **SEH** (`halopad_seh.c`):
+  - `RaiseException` and `RtlUnwind` over the `fs:[0]` chain, as XP runs them.
+  - Translated code runs in continuation style, so a handler's jump to an outer `__except` block leaves host frames behind. Callbacks now carry per-level return sentinels, and a return to an outer level discards the inner frames with `longjmp` (`halopad_callback.c`).
+  - MSXML reports parse errors this way (code `0xE0000001`): the handler chain, the collided frame's unwind and the jump all run as on Windows.
+- **SHLWAPI and URL services**:
+  - path and URL services, with each ordinal wrap bound to its XP target (`halopad_shlwapi.c`);
+  - `UrlCanonicalizeW` ported from Wine for strings without a scheme;
+  - an Internet security manager that puts local files in the Local Machine zone (`halopad_urlmon.c`);
+  - OLE Automation error objects (`halopad_errorinfo.c`);
+  - `VariantClear` for `VT_DISPATCH` and `VT_UNKNOWN`.
+- **New test `halo_msxml_test.c` (18 checks, PASS):**
+  - DOM from a string;
+  - a malformed document rejected with MSXML's own text from `msxml4r.dll`;
+  - `480editbox.ksml` validated against `KSML.xsd`, both as a string and exactly as Keystone loads it;
+  - an element the schema lacks rejected with the schema's list of allowed elements.
+- **Found while debugging:**
+  - Keystone loads layouts asynchronously. It reads the file with `ReadFileEx` during `KsUpdate`, then parses it on a later frame.
+  - The UI test used to stop after one frame, which was a test artifact. It now draws frames with Halo's message pump until the controls exist, up to 600 frames.
+  - New diagnostics: `HALOPAD_WATCH` and `HALOPAD_WATCH_RANGE` log indirect transfers into chosen addresses or across modules, `HALOPAD_TRACE_FILES` and `HALOPAD_TRACE_BSTR` trace file I/O and BSTRs, and missing imports now print their caller.
+- **Where the chat UI stops now**: `480editbox.ksml` is parsed and schema-validated, and its `background` URI is canonicalized. Keystone then starts its glyph cache and stops at `SetMapMode` (GDI).
+  - Keystone's text path (`0x1021a7b5`) is: a memory DC, `MM_TEXT`, white on black, `CreateFontA(-MulDiv(pt, 96, 72), … ANTIALIASED_QUALITY, VARIABLE_PITCH, face)`, `GetTextMetricsA` and `GetTextExtentPoint32W(L"?")` for the cell, and a 32-bit top-down DIB section.
+  - Each glyph is then drawn with `ExtTextOutW(ETO_OPAQUE)`, and coverage is read from bits 4–7 of each pixel into A4R4G4B4 texels.
+- All 13 suites, 16 slices and the unit tests pass; the core still stops at the license.
+
+**Next:** GDI text on CoreText (fonts, metrics, extents, DIB sections, `ExtTextOutW`) until `KsUpdate` draws the chat box, then file mapping and DirectInput game controllers.

@@ -132,6 +132,41 @@ uint32_t CreateThread_c(uint32_t security, uint32_t stack_size, uint32_t start, 
     return h;
 }
 
+/* The calling thread's own kernel object (CreateThread made one for its threads; the main
+ * thread's is made on first use and lives as long as the process). */
+static uint32_t main_thread_object;
+uint32_t halopad_thread_self_object(void)
+{
+    if (self) return self->handle;
+    pthread_mutex_lock(&tlock);
+    if (!main_thread_object) main_thread_object = halopad_object_thread_new();
+    pthread_mutex_unlock(&tlock);
+    return main_thread_object;
+}
+
+int halopad_is_object_handle(uint32_t h);
+/* Within this process only. The pseudo handle GetCurrentThread() gives a real handle to the
+ * calling thread; a kernel-object handle gives another reference to the same object. HaloPad
+ * keeps one handle value per object (as for named objects), so the duplicate has the same
+ * value where Windows would hand out a new one; each still needs its own CloseHandle. The
+ * access and inheritance arguments cannot matter inside one process without child processes. */
+uint32_t DuplicateHandle_c(uint32_t src_process, uint32_t src, uint32_t dst_process, uint32_t out,
+                           uint32_t access, uint32_t inherit, uint32_t options)
+{
+    (void)access; (void)inherit;
+    if (src_process != 0xFFFFFFFFu || dst_process != 0xFFFFFFFFu)
+        hp_unsupported("DuplicateHandle", "another process (0x%08x -> 0x%08x)", src_process, dst_process);
+    if (options & ~3u) hp_unsupported("DuplicateHandle", "options 0x%x", options);
+    uint32_t h;
+    if (src == CURRENT_THREAD) h = halopad_thread_self_object();
+    else if (halopad_is_object_handle(src)) h = src;
+    else hp_unsupported("DuplicateHandle", "handle 0x%08x (not a kernel object HaloPad keeps)", src);
+    halopad_object_addref(h);
+    if ((options & 1u) && src != CURRENT_THREAD) halopad_object_close(src);   /* DUPLICATE_CLOSE_SOURCE */
+    if (out) wr32(out, h);
+    return 1;
+}
+
 uint32_t ExitThread_c(uint32_t code)
 {
     if (!self) hp_unsupported("ExitThread", "on the main thread (exit code %u)", code);

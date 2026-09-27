@@ -171,6 +171,36 @@ int main(void)
     for (int i = 0; i < 4; i++) pthread_join(st[i], NULL);
     check("heap: 4 host threads x 20,000 allocations, contents intact", stress_bad, 0);
 
+    /* DuplicateHandle (msxml4.dll turns GetCurrentThread() into a real handle) */
+    {
+        uint32_t out = halopad_heap_alloc(4, 1);
+        check("DuplicateHandle(GetCurrentThread()): a real thread handle",
+              API("DuplicateHandle", 0xFFFFFFFF, 0xFFFFFFFE, 0xFFFFFFFF, out, 0, 0, 2) == 1 && rd(out) >= 0x1000, 1);
+        uint32_t me = rd(out);
+        check("  not signaled while the thread runs", API("WaitForSingleObject", me, 0), 0x102);
+        check("  CloseHandle", API("CloseHandle", me), 1);
+        uint32_t e1 = API("CreateEventA", 0, 1, 0, 0);
+        API("DuplicateHandle", 0xFFFFFFFF, e1, 0xFFFFFFFF, out, 0, 0, 2);
+        uint32_t e2 = rd(out);
+        API("SetEvent", e2);
+        check("  a duplicated event is the same event", API("WaitForSingleObject", e1, 0), 0);
+        check("  closing the duplicate leaves the original", API("CloseHandle", e2) == 1 && API("WaitForSingleObject", e1, 0) == 0, 1);
+        check("ResetEvent: a signaled manual-reset event is unsignaled", API("ResetEvent", e1) == 1 && API("WaitForSingleObject", e1, 0) == 0x102, 1);
+        check("  DUPLICATE_CLOSE_SOURCE", API("DuplicateHandle", 0xFFFFFFFF, e1, 0xFFFFFFFF, out, 0, 0, 3) == 1 && API("CloseHandle", rd(out)) == 1, 1);
+    }
+    /* semaphores (msxml4.dll) */
+    {
+        uint32_t prev = halopad_heap_alloc(4, 1);
+        check("CreateSemaphoreA(initial 2 > maximum 1): invalid", API("CreateSemaphoreA", 0, 2, 1, 0), 0);
+        uint32_t sem = API("CreateSemaphoreA", 0, 1, 2, 0);
+        check("CreateSemaphoreA(1 of 2)", sem != 0, 1);
+        check("  first wait takes the one unit", API("WaitForSingleObject", sem, 0), 0);
+        check("  second wait times out", API("WaitForSingleObject", sem, 0), 0x102);
+        check("  ReleaseSemaphore(2) from 0, previous count 0", API("ReleaseSemaphore", sem, 2, prev) == 1 && rd(prev) == 0, 1);
+        check("  a further release beyond the maximum: ERROR_TOO_MANY_POSTS", API("ReleaseSemaphore", sem, 1, prev) == 0 && api("GetLastError", 0, NULL) == 298, 1);
+        check("  two waits succeed, a third times out", API("WaitForSingleObject", sem, 0) == 0 && API("WaitForSingleObject", sem, 0) == 0 && API("WaitForSingleObject", sem, 0) == 0x102, 1);
+        API("CloseHandle", sem);
+    }
     printf("%s: %d failure(s)\n", failures ? "FAIL" : "PASS", failures);
     return failures ? 1 : 0;
 }

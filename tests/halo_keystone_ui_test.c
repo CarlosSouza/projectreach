@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #define PTROFS_64BIT 1
 #include "llasm_cpu.h"
 
@@ -40,6 +41,7 @@ static uint32_t wstr(const char *s)
 }
 static void check(const char *what, uint32_t got, uint32_t want)
 {
+    fprintf(stderr, "HALOPAD TEST: %s\n", what);   /* orders the checks among runtime traces */
     printf("%-66s %s (got 0x%x, want 0x%x)\n", what, got == want ? "PASS" : "FAIL", got, want);
     failures += got != want;
 }
@@ -134,18 +136,33 @@ int main(void)
     check("KsGetWindow(\"KeystoneEditbox\")", ew != 0, 1);
     uint32_t lw = KS(G_GETWINDOW, k, rd(G_LOG_NAME));
     check("KsGetWindow(\"KeystoneChatLog\")", lw != 0, 1);
-    uint32_t edit = KS(G_GETCONTROL, ew, wstr("oEditbox"));
-    check("  edit box control oEditbox", edit != 0, 1);
-    uint32_t list = KS(G_GETCONTROL, lw, wstr("oListbox"));
-    check("  list box control oListbox", list != 0, 1);
 
-    /* a frame as Halo draws it */
+    /* Frames as Halo draws them (0x51b923), with its message pump. Keystone reads each .ksml
+       asynchronously (ReadFileEx) and lays the window out once MSXML has parsed and validated it,
+       so the controls appear after a few frames. */
     float one = 1.0f; uint32_t onebits; memcpy(&onebits, &one, 4);
-    check("BeginScene", method(device, 41, 0, NULL), 0);
-    method(device, 43, 6, (uint32_t[]){0, 0, 3, 0xFF000000, onebits, 0});
-    check("KsUpdate", (int32_t)KS(G_UPDATE, k) >= 0, 1);
-    check("EndScene", method(device, 42, 0, NULL), 0);
-    check("Present", method(device, 17, 4, (uint32_t[]){0, 0, 0, 0}), 0);
+    uint32_t peek = GetProcAddress_c(user32, str("PeekMessageA")), translate = GetProcAddress_c(user32, str("TranslateMessage"));
+    uint32_t dispatch = GetProcAddress_c(user32, str("DispatchMessageA")), msg = halopad_heap_alloc(28, 1);
+    uint32_t edit = 0, list = 0, frames = 0, bad = 0;
+    uint32_t oe = wstr("oEditbox"), ol = wstr("oListbox");
+    for (; frames < 600 && !(edit && list); frames++) {
+        while (halopad_call_guest(peek, 5, (uint32_t[]){msg, 0, 0, 0, 1})) {
+            halopad_call_guest(translate, 1, &msg);
+            halopad_call_guest(dispatch, 1, &msg);
+        }
+        bad += method(device, 41, 0, NULL) != 0;                                         /* BeginScene */
+        method(device, 43, 6, (uint32_t[]){0, 0, 3, 0xFF000000, onebits, 0});             /* Clear */
+        bad += (int32_t)KS(G_UPDATE, k) < 0;
+        bad += method(device, 42, 0, NULL) != 0;                                         /* EndScene */
+        bad += method(device, 17, 4, (uint32_t[]){0, 0, 0, 0}) != 0;                     /* Present */
+        usleep(5000);
+        edit = KS(G_GETCONTROL, ew, oe);
+        list = KS(G_GETCONTROL, lw, ol);
+    }
+    fprintf(stderr, "HALOPAD TEST: %u frames drawn\n", frames);
+    check("frames: BeginScene, KsUpdate, EndScene and Present all succeed", bad, 0);
+    check("  edit box control oEditbox (content/480editbox.ksml laid out)", edit != 0, 1);
+    check("  list box control oListbox (content/480log.ksml laid out)", list != 0, 1);
     printf("%s: %d failure(s)\n", failures ? "FAIL" : "PASS", failures);
     return failures != 0;
 }

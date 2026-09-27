@@ -121,3 +121,28 @@ uint32_t LCMapStringA_c(uint32_t lcid, uint32_t flags, uint32_t src, uint32_t co
     }
     return count;
 }
+
+/* For SHLWAPI and USER32's wide character services: CT_CTYPE1 and case of one character. */
+uint16_t halopad_ctype1(const char *service, uint16_t w) { return char_info(service, w)[1]; }
+uint16_t halopad_upper(const char *service, uint16_t w) { return char_info(service, w)[2]; }
+uint16_t halopad_lower(const char *service, uint16_t w) { return char_info(service, w)[3]; }
+
+/* A wide guest string copied to a new code page 1252 string on the process heap, for wide
+   services that forward to their ANSI form. Characters code page 1252 lacks stop. */
+uint32_t halopad_heap_alloc(uint32_t size, int zero);
+uint32_t halopad_guest_ansi(const char *service, uint32_t src)
+{
+    if (!src) return 0;
+    const uint16_t *s = G(src);
+    uint32_t n = 0;
+    while (s[n]) n++;
+    uint32_t out = halopad_heap_alloc(n + 1, 0);
+    s = G(src);
+    for (uint32_t i = 0; i <= n; i++) {
+        uint8_t b;
+        if (!wc_to_mb(s[i], &b)) hp_unsupported(service, "character U+%04X, which code page 1252 lacks", s[i]);
+        ((uint8_t *)G(out))[i] = b;
+    }
+    return out;
+}
+uint16_t halopad_wide_of_ansi(uint8_t b) { return nls1252_mb2wc[b]; }

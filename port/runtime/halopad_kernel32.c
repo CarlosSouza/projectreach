@@ -54,6 +54,9 @@ enum { E_FILE_NOT_FOUND = 2, E_PATH_NOT_FOUND = 3, E_ACCESS_DENIED = 5, E_INVALI
        E_NEGATIVE_SEEK = 131, E_DIR_NOT_EMPTY = 145, E_ALREADY_EXISTS = 183 };
 
 static uint32_t err(uint32_t e) { halopad_last_error = e; return 0; }
+/* HALOPAD_TRACE_FILES=1 prints file opens, reads and writes (diagnostics only) */
+static int trace_files(void) { static int v = -1; if (v < 0) v = getenv("HALOPAD_TRACE_FILES") != NULL; return v; }
+static uint32_t create_file(uint32_t name, uint32_t access, uint32_t share, uint32_t security, uint32_t disp, uint32_t flags, uint32_t tmpl);
 static uint32_t err_errno(void)
 {
     switch (errno) {
@@ -175,6 +178,9 @@ static int find_ci(const char *root, const char *rel, char *out, size_t size, in
 }
 
 enum { NONE, UPPER, LOWER };
+
+/* GetFullPathName's normalization of a fully qualified guest path, for SHLWAPI's path services */
+int halopad_full_path(const char *in, char *out, size_t size) { return normalize(in, out, size); }
 typedef struct { int where, parent_exists, isdir, in_install; char host[1024]; char upper[1024]; } node;
 
 /* Where a normalized path lives: the state layer, or for the install directory the
@@ -305,6 +311,15 @@ uint32_t halopad_file_handle_valid(uint32_t h) { return F(h) != NULL; }
 
 uint32_t CreateFileA_c(uint32_t name, uint32_t access, uint32_t share, uint32_t security, uint32_t disp, uint32_t flags, uint32_t tmpl)
 {
+    uint32_t h = create_file(name, access, share, security, disp, flags, tmpl);
+    if (trace_files())
+        fprintf(stderr, "HALOPAD FILE: CreateFile(\"%s\", access 0x%x, disposition %u) = 0x%x, error %u\n", name ? (const char *)G(name) : "(null)",
+                access, disp, h, halopad_last_error);
+    return h;
+}
+
+static uint32_t create_file(uint32_t name, uint32_t access, uint32_t share, uint32_t security, uint32_t disp, uint32_t flags, uint32_t tmpl)
+{
     (void)share;                                                    /* one process: sharing never conflicts */
     if (security) hp_unsupported("CreateFileA", "security attributes 0x%08x", security);
     if (tmpl) hp_unsupported("CreateFileA", "a template file");
@@ -378,6 +393,7 @@ int halopad_apc_deliver(void)
     while (napc) {
         apc a = apcs[0];
         memmove(apcs, apcs + 1, (--napc) * sizeof apcs[0]);
+        if (trace_files()) fprintf(stderr, "HALOPAD FILE: completion routine 0x%08x (error %u, %u bytes)\n", a.routine, a.error, a.bytes);
         uint32_t args[3] = {a.error, a.bytes, a.ov};
         halopad_call_guest(a.routine, 3, args);
         n++;
@@ -402,6 +418,7 @@ static ssize_t io(file *f, int write_op, uint32_t buf, uint32_t n, uint32_t ov)
 static uint32_t rw(uint32_t h, int write_op, uint32_t buf, uint32_t n, uint32_t done, uint32_t ov)
 {
     file *f = F(h);
+    if (trace_files()) fprintf(stderr, "HALOPAD FILE: %s(0x%x, %u bytes)%s\n", write_op ? "WriteFile" : "ReadFile", h, n, f ? "" : " on an invalid handle");
     if (!f) return err(E_INVALID_HANDLE);
     if (!(f->access & (write_op ? 0x40000000u : 0x80000000u))) return err(E_ACCESS_DENIED);
     if (f->overlapped && !ov) return err(E_INVALID_PARAMETER);
@@ -430,6 +447,7 @@ uint32_t WriteFile_c(uint32_t h, uint32_t buf, uint32_t n, uint32_t done, uint32
 uint32_t ReadFileEx_c(uint32_t h, uint32_t buf, uint32_t n, uint32_t ov, uint32_t routine)
 {
     file *f = F(h);
+    if (trace_files()) fprintf(stderr, "HALOPAD FILE: ReadFileEx(0x%x, %u bytes)\n", h, n);
     if (!f) return err(E_INVALID_HANDLE);
     if (!f->overlapped || !ov || !routine) return err(E_INVALID_PARAMETER);
     if (!(f->access & 0x80000000u)) return err(E_ACCESS_DENIED);

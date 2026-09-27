@@ -110,7 +110,7 @@ uint32_t GetModuleFileNameA_c(uint32_t module, uint32_t buf, uint32_t size)
     if (module && module != HP_IMAGE_BASE) {
         const char *file = halopad_module_file(module);
         if (!file) hp_unsupported("GetModuleFileNameA", "module 0x%08x", module);
-        snprintf(dll, sizeof dll, "%s\\%s", HP_INSTALL_DIR, file);
+        snprintf(dll, sizeof dll, "%s", file);                    /* the module's full guest path */
         path = dll;
     }
     uint32_t n = (uint32_t)strlen(path);
@@ -286,6 +286,13 @@ uint32_t InterlockedExchange_c(uint32_t target, uint32_t value)
 
 uint32_t InterlockedIncrement_c(uint32_t target) { return __atomic_add_fetch((uint32_t *)G(target), 1, __ATOMIC_SEQ_CST); }
 uint32_t InterlockedDecrement_c(uint32_t target) { return __atomic_sub_fetch((uint32_t *)G(target), 1, __ATOMIC_SEQ_CST); }
+/* returns the initial value; stores 'exchange' only if it equalled 'comparand' */
+uint32_t InterlockedCompareExchange_c(uint32_t target, uint32_t exchange, uint32_t comparand)
+{
+    __atomic_compare_exchange_n((uint32_t *)G(target), &comparand, exchange, 0, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
+    return comparand;
+}
+uint32_t InterlockedExchangeAdd_c(uint32_t target, uint32_t value) { return __atomic_fetch_add((uint32_t *)G(target), value, __ATOMIC_SEQ_CST); }
 
 /* ---- time ---- */
 

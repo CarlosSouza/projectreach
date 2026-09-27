@@ -17,7 +17,8 @@
 
 #define ERROR_MOD_NOT_FOUND 126
 enum { LOADED, LOADABLE, ABSENT, DATAFILE, TRANSLATED };
-typedef struct { const char *name; uint32_t handle; int state; uint32_t refs; int translated; } module;
+typedef struct { const char *name; uint32_t handle; int state; uint32_t refs; int translated; const char *dir; int datafile_only; } module;
+/* dir: where a DATAFILE module's file is (NULL: the game directory; otherwise under HALOPAD_REFERENCE_ROOT) */
 
 static module modules[] = {
     {"haloce.exe", HP_IMAGE_BASE, LOADED, 1},
@@ -41,6 +42,9 @@ static module modules[] = {
     {"dinput8.dll", 0x4C000000, LOADABLE, 0},
     {"winspool.drv", 0x73000000, LOADABLE, 0},     /* static import of Keystone.dll */
     {"imm32.dll", 0x76390000, LOADABLE, 0},        /* static import of ksimeui.dll */
+    {"shlwapi.dll", 0x77F60000, LOADABLE, 0},      /* msxml4.dll's imports (static and delay-loaded) */
+    {"urlmon.dll", 0x78130000, LOADABLE, 0},
+    {"crypt32.dll", 0x77A80000, LOADABLE, 0},
     /* shipped with the game and replaced by HaloPad services. Their handles are not mapped
        memory; they stay clear of the translated DLLs' bases (on Windows the loader would
        relocate whichever of these loads after ksimeui.dll at 0x10000000). */
@@ -51,11 +55,13 @@ static module modules[] = {
        mapped at the preferred base, imports bound, DllMain run, exports from the image */
     {"keystone.dll", 0x10200000, TRANSLATED, 0},
     {"ksimeui.dll", 0x10000000, TRANSLATED, 0},
-    {"controls.dll", 0x10330000, TRANSLATED, 0},   /* Keystone's controls; relocated from 0x10200000 (profile 'rebase') */
+    {"controls.dll", 0x10330000, TRANSLATED, 0},
+    {"msxml4.dll", 0x69B10000, TRANSLATED, 0},     /* MSXML 4.0 SP2, installed by Halo's setup; Keystone's XML parser */   /* Keystone's controls; relocated from 0x10200000 (profile 'rebase') */
     /* game DLLs Halo uses only for resources: mapped as read-only images from the game
        directory at their preferred base; their code never runs (no DllMain; no dispatch
        entries, so any transfer into them traps with the address) */
     {"strings.dll", 0x3F800000, DATAFILE, 0},
+    {"msxml4r.dll", 0x78AE0000, DATAFILE, 0, 0, "system32"},   /* MSXML 4.0's messages; msxml4.dll loads it with LoadLibraryExA(AS_DATAFILE) */
     /* not installed on the reference machine */
     {"mscoree.dll", 0, ABSENT, 0},                 /* no .NET runtime */
     {"nvcpl.dll", 0, ABSENT, 0},                   /* no NVIDIA control panel */
@@ -100,7 +106,7 @@ uint32_t GetModuleHandleA_c(uint32_t name)
 {
     if (!name) return HP_IMAGE_BASE;
     module *m = find_module("GetModuleHandleA", name);
-    if (m->state == LOADED) return m->handle;
+    if (m->state == LOADED && !m->datafile_only) return m->handle;
     halopad_last_error = ERROR_MOD_NOT_FOUND;
     return 0;
 }
@@ -110,6 +116,7 @@ static uint32_t nmapped;
 
 uint32_t halopad_module_mapped(uint32_t handle)
 {
+    handle &= ~1u;
     if (handle == HP_IMAGE_BASE) return 1;
     for (uint32_t i = 0; i < nmapped; i++) if (mapped[i] == handle) return 1;
     return 0;
@@ -122,10 +129,11 @@ uint32_t VirtualProtect_c(uint32_t address, uint32_t size, uint32_t prot, uint32
    base, no imports are bound and no entry point runs. */
 static void map_datafile(module *m)
 {
-    const char *root = getenv("HALOPAD_GAME_ROOT");
-    if (!root) hp_unsupported("LoadLibraryA", "no HALOPAD_GAME_ROOT for \"%s\"", m->name);
+    const char *root = getenv(m->dir ? "HALOPAD_REFERENCE_ROOT" : "HALOPAD_GAME_ROOT");
+    if (!root) hp_unsupported("LoadLibraryA", "no %s for \"%s\"", m->dir ? "HALOPAD_REFERENCE_ROOT" : "HALOPAD_GAME_ROOT", m->name);
     char path[1024];
-    snprintf(path, sizeof path, "%s/%s", root, m->name);
+    if (m->dir) snprintf(path, sizeof path, "%s/%s/%s", root, m->dir, m->name);
+    else snprintf(path, sizeof path, "%s/%s", root, m->name);
     FILE *f = fopen(path, "rb");
     if (!f) hp_unsupported("LoadLibraryA", "cannot open %s", path);
     fseek(f, 0, SEEK_END);
@@ -366,13 +374,36 @@ uint32_t LoadLibraryA_c(uint32_t name)
     }
     if (m->state == DATAFILE) map_datafile(m);
     m->state = LOADED;
+    m->datafile_only = 0;
     m->refs++;
     return m->handle;
+}
+
+/* LoadLibraryExA. LOAD_LIBRARY_AS_DATAFILE maps a resource module without running it; as on
+ * Windows XP the handle has its low bit set (LDR_IS_DATAFILE), resource services accept it,
+ * and GetModuleHandleA does not see a module loaded only this way. A module already loaded
+ * normally is returned as it is. LOAD_WITH_ALTERED_SEARCH_PATH changes only how a full
+ * path's dependencies are searched, which the module table decides. */
+uint32_t LoadLibraryExA_c(uint32_t name, uint32_t file, uint32_t flags)
+{
+    if (file) hp_unsupported("LoadLibraryExA", "a file handle (0x%08x)", file);
+    if (flags & ~0xAu) hp_unsupported("LoadLibraryExA", "flags 0x%x", flags);
+    if (!(flags & 2u)) return LoadLibraryA_c(name);
+    module *m = find_module("LoadLibraryExA", name);
+    if (m->state == ABSENT) { halopad_last_error = ERROR_MOD_NOT_FOUND; return 0; }
+    if (m->state == LOADED) { m->refs++; return m->datafile_only ? (m->handle | 1u) : m->handle; }
+    if (m->state != DATAFILE) hp_unsupported("LoadLibraryExA", "\"%s\" as a data file", m->name);
+    map_datafile(m);
+    m->state = LOADED;
+    m->datafile_only = 1;
+    m->refs++;
+    return m->handle | 1u;
 }
 
 /* Modules stay loaded; the reference count is kept for FreeLibrary's result only. */
 uint32_t FreeLibrary_c(uint32_t handle)
 {
+    handle &= ~1u;                                                  /* a data-file handle */
     for (size_t i = 0; i < NMOD; i++)
         if (modules[i].handle == handle && modules[i].translated) {
             pthread_mutex_lock(&loader_lock);

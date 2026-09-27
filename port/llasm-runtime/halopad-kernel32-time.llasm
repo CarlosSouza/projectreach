@@ -21,6 +21,7 @@ func GetTimeFormatA_c a1, a2, a3, a4, a5, a6
 func CompareStringA_c a1, a2, a3, a4, a5, a6
 func CompareStringW_c a1, a2, a3, a4, a5, a6
 func FormatMessageA_c a1, a2, a3, a4, a5, a6, a7
+func FormatMessageW_c a1, a2, a3, a4, a5, a6, a7
 func GlobalMemoryStatus_c a1
 func IsBadReadPtr_c a1, a2
 func IsBadWritePtr_c a1, a2
@@ -153,4 +154,9 @@ endp
 proc hpimp_TerminateProcess public
         Call_Asm_Stack2 TerminateProcess_c
         Call_Asm_Return 2
+endp
+
+proc hpimp_FormatMessageW public
+        Call_Asm_Stack7 FormatMessageW_c
+        Call_Asm_Return 7
 endp

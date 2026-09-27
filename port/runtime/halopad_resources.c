@@ -17,6 +17,7 @@ static uint16_t rd16(uint32_t a) { uint16_t v; memcpy(&v, halopad_guest_ptr(a), 
 static uint32_t resource_root(const char *service, uint32_t module)
 {
     if (!module) module = HP_IMAGE_BASE;
+    module &= ~1u;                                  /* LoadLibraryExA(AS_DATAFILE) handles carry the low bit */
     if (!halopad_module_mapped(module)) hp_unsupported(service, "module 0x%08x without a mapped image", module);
     uint32_t pe = module + rd32(module + 0x3C);
     uint32_t rva = rd32(pe + 0x78 + 2 * 8);            /* data directory 2: resources */
@@ -86,11 +87,38 @@ uint32_t FindResourceExA_c(uint32_t module, uint32_t type, uint32_t name, uint32
 
 uint32_t FindResourceA_c(uint32_t module, uint32_t name, uint32_t type) { return FindResourceExA_c(module, type, name, 0); }
 
+uint32_t halopad_heap_alloc(uint32_t size, int zero);
+void halopad_heap_free(uint32_t p);
+/* a wide name or type (or an integer id) as the ANSI key FindResourceExA takes */
+static uint32_t ansi_key(uint32_t w)
+{
+    if (w < 0x10000) return w;
+    uint32_t n = 0;
+    while (rd16(w + 2 * n)) n++;
+    uint32_t a = halopad_heap_alloc(n + 1, 1);
+    for (uint32_t i = 0; i < n; i++) {
+        uint16_t c = rd16(w + 2 * i);
+        if (c >= 0x80) hp_unsupported("FindResourceW", "a resource name or type outside ASCII (U+%04X)", c);
+        ((char *)G(a))[i] = (char)c;
+    }
+    return a;
+}
+uint32_t FindResourceW_c(uint32_t module, uint32_t name, uint32_t type)
+{
+    uint32_t n = ansi_key(name), t = ansi_key(type);
+    uint32_t r = FindResourceExA_c(module, t, n, 0);
+    uint32_t e = halopad_last_error;
+    if (n != name) halopad_heap_free(n);
+    if (t != type) halopad_heap_free(t);
+    halopad_last_error = e;
+    return r;
+}
+
 uint32_t LoadResource_c(uint32_t module, uint32_t hrsrc)
 {
     if (!hrsrc) { halopad_last_error = HP_ERROR_INVALID_HANDLE; return 0; }
     if (!module) module = HP_IMAGE_BASE;
-    return module + rd32(hrsrc);
+    return (module & ~1u) + rd32(hrsrc);                          /* data-file handles carry the low bit */
 }
 
 uint32_t LockResource_c(uint32_t data) { return data; }

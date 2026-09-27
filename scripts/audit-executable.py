@@ -46,7 +46,7 @@ FILLERS = [bytes.fromhex(h) for h in ('8da42400000000', '8d9b00000000', '8da4000
 # test-decoding means the bytes are data.
 JUNK = {'in', 'out', 'insb', 'insd', 'outsb', 'outsd', 'arpl', 'bound', 'les', 'lds', 'into', 'aaa', 'aas',
         'daa', 'das', 'aam', 'aad', 'salc', 'hlt', 'iretd', 'retf', 'lcall', 'ljmp', 'sti', 'cli', 'wait',
-        'enter', 'pushal', 'popal', 'pushfd', 'sahf', 'lahf', 'xlatb', 'icebp', 'int1', 'fwait'}
+        'enter', 'pushal', 'popal', 'pushfd', 'sahf', 'lahf', 'xlatb', 'icebp', 'int1', 'fwait', 'int'}
 
 
 def sha256(path):
@@ -58,6 +58,9 @@ class Audit:
         # pe_relocs: the file's own base-relocation table (DLLs). It is ground truth for
         # which dwords are addresses, so data pointers come from it instead of the scan.
         self.pe_relocs = pe_relocs
+        # With a relocation table, an address the table lists is inside an instruction's
+        # operand or in data, never at an instruction's first byte (opcodes precede operands).
+        self.pe_fixups = {f for f, _ in pe_relocs} if pe_relocs is not None else set()
         self.pe = pefile.PE(str(exe))
         self.img = self.pe.get_memory_mapped_image()
         self.base = self.pe.OPTIONAL_HEADER.ImageBase
@@ -171,9 +174,13 @@ class Audit:
                     break
                 if a in self.owner or a in self.table_bytes:
                     return 'lands inside known code'
+                if a in self.pe_fixups:
+                    return 'starts at a relocation fixup (data)'
                 ins = self.decode(a)
                 if ins is None:
                     return 'undecodable'
+                if a == start and ins.mnemonic == 'int3':
+                    return 'starts with int3 (padding or data)'   # no compiled function begins with a breakpoint
                 if any((a + k) in self.insn or (a + k) in self.owner or (a + k) in self.table_bytes
                        for k in range(1, ins.size)):
                     return 'overlaps known code'
@@ -189,6 +196,10 @@ class Audit:
                 if len(seen) > limit:
                     return 'too long'
                 m = ins.mnemonic
+                if m == 'ret' and ins.operands and ins.operands[0].type == X.X86_OP_IMM:
+                    n = ins.operands[0].imm & 0xFFFF
+                    if n % 4 or n > 0x100:                  # compiled code pops a few whole arguments
+                        return 'data-like instruction'
                 if m in ENDS or m.startswith('ret'):
                     break
                 op = ins.operands[0] if ins.operands else None
@@ -207,9 +218,30 @@ class Audit:
                 return 'self-overlapping'
         return None
 
+    def is_string_at(self, t):
+        """A NUL-terminated run of printable characters (ASCII at least 6, UTF-16LE at least 3): a string
+        that an immediate or data pointer names (msxml4.dll keeps its strings in .text)."""
+        o = t - self.base
+        b = self.img[o:o + 256]
+        pr = lambda c: 0x20 <= c < 0x7F or c in (9, 10, 13)
+        n = 0
+        while n < len(b) and pr(b[n]):
+            n += 1
+        # 6: 'push imm32' of an address in a low image ('h8@b' + NUL) is code with 4 printable bytes
+        if n >= 6 and n < len(b) and b[n] == 0:
+            return True
+        k = 0
+        while 2 * k + 1 < len(b) and pr(b[2 * k]) and b[2 * k + 1] == 0:
+            k += 1
+        return k >= 3 and 2 * k + 1 < len(b) and b[2 * k] == 0 and b[2 * k + 1] == 0
+
     def try_entry(self, target, source):
         if target in self.insn:
             return True
+        if not source.startswith(('call@', 'entry', 'export:', 'tls-callback')) and self.is_string_at(target):
+            self.probe_rejects['string'] += 1
+            self.data_in_text.setdefault(target, source)
+            return False
         reason = self.probe(target)
         if reason:
             self.probe_rejects[reason] += 1
@@ -552,7 +584,9 @@ class Audit:
                 if t not in self.insn and t not in self.owner and t not in self.table_bytes:
                     self.try_entry(t, src)
                     self.drain_pending()
+        self.follow_text_data_ptrs()
         self.sweep_gaps()
+        self.follow_text_data_ptrs()
         self.classify_data_ptrs()
         self.resolve_negative_index_jumps()
 
@@ -651,6 +685,38 @@ class Audit:
             else:
                 self.add_reloc(fixup, v, f'data-ptr:{self.section_of(v) or "header"}')
                 self.data_ptr_counts[f'{s}->{self.section_of(v)}'] += 1
+
+    def follow_text_data_ptrs(self):
+        """Constant data inside .text (vtables and tables of a DLL built without .rdata, such as
+        msxml4.dll): a listed fixup that no decoded instruction covers is a data pointer; code
+        it points at is traced, which can uncover more such tables. Repeats until stable."""
+        if self.pe_relocs is None:
+            return
+        while True:
+            found = 0
+            for fixup, v in self.pe_relocs:
+                if not self.in_text(fixup) or fixup in self.insn or fixup in self.owner or fixup in self.table_bytes:
+                    continue
+                if fixup in self.data_code_ptrs or fixup in self.relocs or fixup in self.uncertain:
+                    continue
+                if self.in_text(v):
+                    self.data_code_ptrs[fixup] = v
+                    if v not in self.insn and v not in self.owner and v not in self.table_bytes:
+                        self.pending.append((v, f'text-data-ptr@{fixup:#x}'))
+                        found += 1
+                elif self.section_of(v) == '.rsrc':
+                    self.uncertain[fixup] = (v, 'data-ptr:rsrc-literal')
+                else:
+                    self.add_reloc(fixup, v, f'data-ptr:{self.section_of(v) or "header"}')
+            self.drain_pending()
+            while self.deferred:
+                batch, self.deferred = self.deferred, []
+                for t, src in batch:
+                    if t not in self.insn and t not in self.owner and t not in self.table_bytes:
+                        self.try_entry(t, src)
+                        self.drain_pending()
+            if not found:
+                return
 
     def check_against_pe_relocs(self):
         """Every address the audit found in code must be in the file's table; report the
@@ -880,6 +946,13 @@ def main():
     srw.mkdir(exist_ok=True)
     (srw / 'fixup_interpret_as_code.sci').write_text(''.join(f'loc_{t:X}\n' for t in code_targets))
     (srw / 'fixup_do_not_interpret_as_code.sci').write_text(''.join(f'loc_{t:X}\n' for t in data_targets))
+    if pe_relocs is not None:
+        # A listed address that points inside a decoded instruction (msxml4.dll computes an array
+        # base as 'table - k' with lea) is a real address that SRW cannot label. The image is
+        # never relocated here, so SRW keeps these as literals (port/patches: literal_fixups.csv).
+        literal = sorted(f for f, t in pe_relocs if audit.in_text(t) and t in audit.owner)
+        (srw / 'literal_fixups.csv').write_text(''.join(f'{f:#x}\n' for f in literal))
+        r['literal_fixups'] = [hex(f) for f in literal]
     noret = sorted(t for t, v in audit.noret.items() if v and t in audit.insn)
     (srw / 'noret_procedures.sci').write_text(''.join(f'loc_{t:X}\n' for t in noret))
     r['noret_procedures'] = [hex(t) for t in noret]

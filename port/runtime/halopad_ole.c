@@ -11,6 +11,7 @@
  * Containers and properties outside that description, and other COM classes, stop with
  * their names. */
 #include "halopad_win32.h"
+#include <strings.h>
 
 uint32_t halopad_com_new(const char *iface, uint32_t size, void *state, void (*destroy)(void *));
 uint32_t halopad_com_addref(uint32_t g);
@@ -82,9 +83,13 @@ static int guid_is(uint32_t g, const char *text)
     guid_text(G(g), t);
     return !strcmp(t, text);
 }
+int halopad_guid_is(uint32_t g, const char *text) { return guid_is(g, text); }
+void halopad_guid_text(uint32_t g, char out[39]) { guid_text(G(g), out); }
+int halopad_urlmon_create(uint32_t clsid, uint32_t iid, uint32_t out, uint32_t *hr);   /* halopad_urlmon.c */
 
 /* ---- oleaut32: VARIANTs with BSTRs ---- */
 
+static uint16_t rd16g(uint32_t a) { uint16_t v; memcpy(&v, G(a), 2); return v; }
 static uint32_t bstr_of(const char *s)
 {
     uint32_t n = (uint32_t)strlen(s);
@@ -94,17 +99,87 @@ static uint32_t bstr_of(const char *s)
     return m + 4;
 }
 
+/* ---- BSTRs: a 4-byte byte-length prefix, the characters, a terminating L'\0'; the BSTR
+ * points past the prefix. LocalAlloc'd (VariantClear frees VT_BSTR the same way). ---- */
+static uint32_t bstr_new(uint32_t bytes)
+{
+    uint32_t m = LocalAlloc_c(0, 4 + bytes + 2);
+    if (!m) return 0;
+    wr32(m, bytes);
+    wr16(m + 4 + bytes, 0);
+    if (bytes & 1) wr16(m + 4 + bytes - 1 + 2, 0);                  /* an odd byte count: still two zero bytes after */
+    return m + 4;
+}
+static uint32_t wlen(uint32_t s) { uint32_t n = 0; while (rd16g(s + 2 * n)) n++; return n; }
+uint32_t SysAllocStringLen_c(uint32_t src, uint32_t len)
+{
+    uint32_t b = bstr_new(2 * len);
+    if (b && src) memmove(G(b), G(src), 2 * len);                  /* NULL source: the text is left as it is */
+    static int trace = -1;                                          /* HALOPAD_TRACE_BSTR=1: diagnostics only */
+    if (trace < 0) trace = getenv("HALOPAD_TRACE_BSTR") != NULL;
+    if (trace && b && src && len > 1) {
+        fprintf(stderr, "HALOPAD BSTR: \"");
+        for (uint32_t i = 0; i < len && i < 400; i++) { uint16_t c = rd16g(b + 2 * i); fputc(c >= 0x20 && c < 0x7F ? (int)c : '.', stderr); }
+        fprintf(stderr, "%s\"\n", len > 400 ? "..." : "");
+    }
+    return b;
+}
+uint32_t SysAllocString_c(uint32_t src) { return src ? SysAllocStringLen_c(src, wlen(src)) : 0; }
+uint32_t SysAllocStringByteLen_c(uint32_t src, uint32_t len)
+{
+    uint32_t b = bstr_new(len);
+    if (b && src) memmove(G(b), G(src), len);
+    return b;
+}
+uint32_t SysFreeString_c(uint32_t b) { if (b) LocalFree_c(b - 4); return 0; }
+uint32_t SysStringLen_c(uint32_t b) { return b ? rd32(b - 4) / 2 : 0; }
+uint32_t SysStringByteLen_c(uint32_t b) { return b ? rd32(b - 4) : 0; }
+
 uint32_t VariantInit_c(uint32_t v) { memset(G(v), 0, 16); return 0; }   /* VT_EMPTY */
+
+/* VariantChangeType(Ex): the conversions reached are implemented below; any other pair
+ * stops with its types. */
+uint32_t VariantClear_c(uint32_t v);
+static int plain_type(uint16_t vt) { return vt <= 5 || vt == 11 || vt == 18 || vt == 19 || vt == 8; }   /* EMPTY..R8, BOOL, UI2, UI4, BSTR */
+uint32_t VariantChangeTypeEx_c(uint32_t dst, uint32_t src, uint32_t lcid, uint32_t flags, uint32_t vt)
+{
+    uint16_t from;
+    memcpy(&from, G(src), 2);
+    if (from == vt && plain_type(from)) {                           /* the same type: VariantCopy */
+        if (dst == src) return S_OK;
+        uint8_t copy[16];
+        memcpy(copy, G(src), 16);
+        VariantClear_c(dst);
+        memcpy(G(dst), copy, 16);
+        if (vt == 8) {                                              /* VT_BSTR: a byte-exact duplicate */
+            uint32_t b;
+            memcpy(&b, copy + 8, 4);
+            uint32_t nb = b ? SysAllocStringByteLen_c(b, SysStringByteLen_c(b)) : 0;
+            if (b && !nb) { memset(G(dst), 0, 16); return 0x8007000Eu; }   /* E_OUTOFMEMORY */
+            wr32(dst + 8, nb);
+        }
+        return S_OK;
+    }
+    hp_unsupported("VariantChangeTypeEx", "variant type %u to %u (flags 0x%x, locale 0x%x)", from, vt, flags, lcid);
+}
 
 uint32_t VariantClear_c(uint32_t v)
 {
+    uint32_t halopad_call_guest(uint32_t va, uint32_t nargs, const uint32_t *args);
     if (!v) return E_INVALIDARG;
     uint16_t vt;
     memcpy(&vt, G(v), 2);
     switch (vt) {
     case 0: case 1: case 2: case 3: case 4: case 5: case 11: case 18: case 19: break;   /* EMPTY, NULL, numbers, BOOL */
     case 8: { uint32_t b = rd32(v + 8); if (b) LocalFree_c(b - 4); break; }             /* VT_BSTR */
-    default: hp_unsupported("VariantClear", "variant type %u", vt);
+    case 9: case 13: {                                                                  /* VT_DISPATCH, VT_UNKNOWN: Release */
+        uint32_t p = rd32(v + 8);
+        if (p) { uint32_t a = p; halopad_call_guest(rd32(rd32(p) + 8), 1, &a); }
+        break;
+    }
+    default:
+        if ((vt & 0x4000) && (vt & 0xFFF) <= 19 && !(vt & 0x2000)) break;             /* VT_BYREF: nothing is owned */
+        hp_unsupported("VariantClear", "variant type %u", vt);
     }
     memset(G(v), 0, 16);
     return S_OK;
@@ -136,13 +211,85 @@ static void wtext(uint32_t w, char *out, size_t size)
 
 uint32_t halopad_ole_create(uint32_t clsid, uint32_t iid, uint32_t out);
 
+/* In-process servers of the reference machine (config/runtime/com-servers.txt, compiled into
+ * dispatch.ll by scripts/va-model.py): the server is a translated DLL. As ole32 does, it is
+ * loaded (and stays loaded), DllGetClassObject gives the class factory for IID_IClassFactory,
+ * IClassFactory::CreateInstance(outer, iid) the object, and the factory is released. */
+extern const uint32_t halopad_com_server_count;
+extern const char *const halopad_com_server_clsids[], *const halopad_com_server_dlls[];
+uint32_t LoadLibraryA_c(uint32_t name);
+uint32_t GetProcAddress_c(uint32_t module, uint32_t name);
+uint32_t halopad_call_guest(uint32_t va, uint32_t nargs, const uint32_t *args);
+uint32_t halopad_heap_alloc(uint32_t size, int zero);
+void halopad_heap_free(uint32_t p);
+
+static uint32_t guest_string(const char *s)
+{
+    uint32_t g = halopad_heap_alloc((uint32_t)strlen(s) + 1, 0);
+    memcpy(G(g), s, strlen(s) + 1);
+    return g;
+}
+
+static int inproc_server(uint32_t clsid, uint32_t outer, uint32_t iid, uint32_t out, uint32_t *hr)
+{
+    char t[39];
+    guid_text(G(clsid), t);
+    for (uint32_t i = 0; i < halopad_com_server_count; i++) {
+        if (strcasecmp(halopad_com_server_clsids[i], t)) continue;
+        uint32_t name = guest_string(halopad_com_server_dlls[i]);
+        uint32_t module = LoadLibraryA_c(name);
+        halopad_heap_free(name);
+        if (!module) { *hr = 0x8007007Eu; return 1; }                /* HRESULT_FROM_WIN32(ERROR_MOD_NOT_FOUND) */
+        uint32_t fn = guest_string("DllGetClassObject");
+        uint32_t dgco = GetProcAddress_c(module, fn);
+        halopad_heap_free(fn);
+        if (!dgco) { *hr = 0x8004014Fu; return 1; }                 /* CO_E_ERRORINDLL */
+        static const uint8_t iid_factory[16] = {1, 0, 0, 0, 0, 0, 0, 0, 0xC0, 0, 0, 0, 0, 0, 0, 0x46};
+        uint32_t giid = halopad_heap_alloc(16, 0), pfactory = halopad_heap_alloc(4, 1);
+        memcpy(G(giid), iid_factory, 16);
+        uint32_t a[3] = {clsid, giid, pfactory};
+        *hr = halopad_call_guest(dgco, 3, a);
+        uint32_t factory = rd32(pfactory);
+        halopad_heap_free(giid);
+        halopad_heap_free(pfactory);
+        if ((int32_t)*hr < 0) return 1;
+        uint32_t c[4] = {factory, outer, iid, out};
+        *hr = halopad_call_guest(rd32(rd32(factory) + 12), 4, c);   /* IClassFactory::CreateInstance */
+        halopad_call_guest(rd32(rd32(factory) + 8), 1, &factory);  /* Release */
+        return 1;
+    }
+    return 0;
+}
+
+/* OleRun, as ole32 does it: an object that has IRunnableObject is Run(NULL); any other is
+ * already running (S_OK). Keystone.dll calls it on its MSXML document. */
+uint32_t OleRun_c(uint32_t unk)
+{
+    static const uint8_t iid_runnable[16] = {0x26, 1, 0, 0, 0, 0, 0, 0, 0xC0, 0, 0, 0, 0, 0, 0, 0x46};
+    uint32_t giid = halopad_heap_alloc(16, 0), pout = halopad_heap_alloc(4, 1);
+    memcpy(G(giid), iid_runnable, 16);
+    uint32_t q[3] = {unk, giid, pout};
+    uint32_t hr = halopad_call_guest(rd32(rd32(unk)), 3, q);        /* QueryInterface */
+    uint32_t runnable = rd32(pout);
+    halopad_heap_free(giid);
+    halopad_heap_free(pout);
+    if ((int32_t)hr < 0 || !runnable) return S_OK;
+    uint32_t run[2] = {runnable, 0};
+    hr = halopad_call_guest(rd32(rd32(runnable) + 16), 2, run);     /* IRunnableObject::Run(NULL) */
+    halopad_call_guest(rd32(rd32(runnable) + 8), 1, &runnable);    /* Release */
+    return hr;
+}
+
 uint32_t CoCreateInstance_c(uint32_t clsid, uint32_t outer, uint32_t ctx, uint32_t iid, uint32_t out)
 {
     if (!out) return E_POINTER;
     wr32(out, 0);
     if (!com_inits) return CO_E_NOTINITIALIZED;
-    if (outer) return CLASS_E_NOAGGREGATION;
     if (!(ctx & 0x1)) hp_unsupported("CoCreateInstance", "class context 0x%x", ctx);   /* CLSCTX_INPROC_SERVER */
+    uint32_t hr;
+    if (inproc_server(clsid, outer, iid, out, &hr)) return hr;
+    if (outer) return CLASS_E_NOAGGREGATION;
+    if (halopad_urlmon_create(clsid, iid, out, &hr)) return hr;
     if (guid_is(clsid, "{A65B8071-3BFE-4213-9A5B-491DA4461CA7}")) {                    /* CLSID_DxDiagProvider */
         if (!guid_is(iid, "{9C6B4CB0-23F8-49CC-A3ED-45A55000A6D2}")) return E_NOINTERFACE;
         provider *p = calloc(1, sizeof *p);

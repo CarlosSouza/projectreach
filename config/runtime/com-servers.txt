@@ -1,0 +1,19 @@
+# In-process COM servers of the reference machine: class, server DLL, class name.
+# Read by port/runtime/halopad_ole.c (CoCreateInstance): the server DLL is loaded (a translated
+# module), DllGetClassObject gives its class factory, IClassFactory::CreateInstance the object.
+#
+# MSXML 4.0 SP2, installed by Halo's own setup (redist/msxmlenu.msi). The classes are those the
+# MSXML 4.0 SDK header in the same installer (XML_SDK.cab, msxml2.h) declares with names ending
+# in 40. Keystone.dll uses DOMDocument40.
+{88D969C0-F192-11D4-A65F-0040963251E5} msxml4.dll DOMDocument40
+{88D969C1-F192-11D4-A65F-0040963251E5} msxml4.dll FreeThreadedDOMDocument40
+{88D969C2-F192-11D4-A65F-0040963251E5} msxml4.dll XMLSchemaCache40
+{88D969C3-F192-11D4-A65F-0040963251E5} msxml4.dll XSLTemplate40
+{88D969C4-F192-11D4-A65F-0040963251E5} msxml4.dll DSOControl40
+{88D969C5-F192-11D4-A65F-0040963251E5} msxml4.dll XMLHTTP40
+{88D969C6-F192-11D4-A65F-0040963251E5} msxml4.dll ServerXMLHTTP40
+{7C6E29BC-8B8B-4C3D-859E-AF6CD158BE0F} msxml4.dll SAXXMLReader40
+{88D969C8-F192-11D4-A65F-0040963251E5} msxml4.dll MXXMLWriter40
+{88D969C9-F192-11D4-A65F-0040963251E5} msxml4.dll MXHTMLWriter40
+{88D969CA-F192-11D4-A65F-0040963251E5} msxml4.dll SAXAttributes40
+{88D969D6-F192-11D4-A65F-0040963251E5} msxml4.dll MXNamespaceManager40

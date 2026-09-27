@@ -271,6 +271,20 @@ def build_modules(a, va, llasm, triple, registry, seen, table):
                 i = next(k for k, (d, n, _) in enumerate(registry) if (d, n) == (dll, name))
                 values[name] = IMPORT_VA_BASE + IMPORT_VA_STRIDE * i
                 redirect[name] = registry[i][2]
+        # Delay imports: the module's own delay-load helper resolves them with GetProcAddress,
+        # by name or by ordinal ('#<n>', bound to the named service where the ordinal is known).
+        pe = pefile.PE(str(mw / mod.file), fast_load=True)
+        pe.parse_data_directories(directories=[pefile.DIRECTORY_ENTRY['IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT']])
+        for e in getattr(pe, 'DIRECTORY_ENTRY_DELAY_IMPORT', []):
+            dll = e.dll.decode().lower()
+            for imp in e.imports:
+                name = imp.name.decode() if imp.name else None
+                sym = import_symbol(name) if name else symbol_for(f'{e.dll.decode().split(".")[0]}_ord{imp.ordinal}')
+                keys = ([(dll, name)] if name else []) + ([(dll, f'#{imp.ordinal}')] if imp.import_by_ordinal else [])
+                for key in keys:
+                    if key not in seen:
+                        seen.add(key)
+                        registry.append((key[0], key[1], sym))
         body = '\n'.join(main_src + kept_extern)
         extern_out = '\n'.join([f'define {n} {redirect[n]}' for n in sorted(redirect)] + kept_extern
                                + [f'proc {sym} external' for sym in sorted(set(redirect.values()))
@@ -324,6 +338,24 @@ def build_modules(a, va, llasm, triple, registry, seen, table):
     return records
 
 
+def com_server_table():
+    """config/runtime/com-servers.txt: in-process COM servers (class -> server DLL) for CoCreateInstance."""
+    rows = []
+    for line in (ROOT / 'config' / 'runtime' / 'com-servers.txt').read_text().splitlines():
+        s = line.strip()
+        if s and not s.startswith('#'):
+            clsid, dll, name = s.split()[:3]
+            rows.append((clsid.upper(), dll.lower(), name))
+    ll = ['', '; In-process COM servers (config/runtime/com-servers.txt).', f'@halopad_com_server_count = constant i32 {len(rows)}']
+    for i, (c, d, n) in enumerate(rows):
+        ll.append(f'@.hp_cs_c{i} = private unnamed_addr constant [{len(c) + 1} x i8] c"{c}\\00"')
+        ll.append(f'@.hp_cs_d{i} = private unnamed_addr constant [{len(d) + 1} x i8] c"{d}\\00"')
+    arr = lambda xs: f'[{len(xs)} x ptr] [' + ', '.join(f'ptr {x}' for x in xs) + ']' if xs else '[0 x ptr] zeroinitializer'
+    ll.append('@halopad_com_server_clsids = constant ' + arr([f'@.hp_cs_c{i}' for i in range(len(rows))]))
+    ll.append('@halopad_com_server_dlls = constant ' + arr([f'@.hp_cs_d{i}' for i in range(len(rows))]))
+    return ll
+
+
 def module_tables(records, registry):
     """dispatch.ll data for the runtime loader (port/runtime/halopad_modules.c)."""
     ll = ['', '; Translated DLLs: name, base, size, entry, import slots (slot VA -> bound value).']
@@ -338,9 +370,10 @@ def module_tables(records, registry):
         ll.append(f'@.hp_tmod_{i} = private unnamed_addr constant [{len(nm) + 1} x i8] c"{nm}\\00"')
     arr = lambda ty, xs: f'[{len(xs)} x {ty}] [' + ', '.join(f'{ty} {x}' for x in xs) + ']' if xs else f'[0 x {ty}] zeroinitializer'
     ll.append(f'@halopad_tmodule_names = constant ' + arr('ptr', [f'@.hp_tmod_{i}' for i in range(n)]))
-    for i, r in enumerate(records):
-        pth = r['mod'].relpath.replace('/', '\\5C')                 # LLVM's escape for a backslash
-        ll.append(f'@.hp_tpath_{i} = private unnamed_addr constant [{len(r["mod"].relpath) + 1} x i8] c"{pth}\\00"')
+    for i, r in enumerate(records):                        # full guest paths (GetModuleFileNameA)
+        gp = r['mod'].guest_path
+        pth = gp.replace('\\', '\\5C')                            # LLVM's escape for a backslash
+        ll.append(f'@.hp_tpath_{i} = private unnamed_addr constant [{len(gp) + 1} x i8] c"{pth}\\00"')
     ll.append(f'@halopad_tmodule_paths = constant ' + arr('ptr', [f'@.hp_tpath_{i}' for i in range(n)]))
     ll.append(f'@halopad_tmodule_bases = constant ' + arr('i32', [r['mod'].base for r in records]))
     ll.append(f'@halopad_tmodule_sizes = constant ' + arr('i32', [r['mod'].size for r in records]))
@@ -549,6 +582,7 @@ def main():
         ll.append(f'@.hp_method_{k2} = private unnamed_addr constant [{len(name) + 1} x i8] c"{name}\\00"')
     ll.append(f'@halopad_com_methods = constant [{len(com)} x ptr] [' + ', '.join(f'ptr @.hp_method_{k2}' for k2 in range(len(com))) + ']')
     ll.extend(module_tables(modules, registry))
+    ll.extend(com_server_table())
     ll.append(f'''
 declare ptr @halopad_lookup(i32)
 
@@ -574,8 +608,15 @@ define hidden fastcc void @halopad_return_to_host(ptr %cpu) nounwind {{
   ret void
 }}
 
-; Host -> guest: push the host-return sentinel and run the procedure at 'va'.
+; Host -> guest: push a host-return sentinel and run the procedure at 'va'. Nested entries
+; (runtime callbacks) push their own sentinel (halopad_callback.c), so a guest return that
+; skips inner entries, as an SEH handler's jump to an outer __except block does, is recognized.
 define void @halopad_enter(ptr %cpu, i32 %va) nounwind {{
+  call void @halopad_enter_with(ptr %cpu, i32 %va, i32 {HOST_RETURN_VA})
+  ret void
+}}
+
+define void @halopad_enter_with(ptr %cpu, i32 %va, i32 %sentinel) nounwind {{
   %espp = getelementptr i8, ptr %cpu, i64 16
   %esp = load i32, ptr %espp
   %esp2 = sub i32 %esp, 4
@@ -585,7 +626,7 @@ define void @halopad_enter(ptr %cpu, i32 %va) nounwind {{
   %e64 = zext i32 %esp2 to i64
   %addr = add i64 %ofs, %e64
   %ap = inttoptr i64 %addr to ptr
-  store i32 {HOST_RETURN_VA}, ptr %ap, align 1
+  store i32 %sentinel, ptr %ap, align 1
   %fn = call ptr @halopad_lookup(i32 %va)
   call fastcc void %fn(ptr %cpu)
   ret void

@@ -31,7 +31,8 @@ Run it: `.venv/bin/python scripts/run-core.py` (links the VA-model translation w
 - **Static TLS.** From the image's TLS directory: the template is copied, the index is set to 0, and there are no TLS callbacks (checked).
 - **`TlsAlloc` slots** live in the TEB at `+0xE10` (64 slots).
 - **Critical sections** are host recursive mutexes keyed by the guest address. `InterlockedExchange` is a host atomic exchange on guest memory.
-- **Structured exceptions** are not delivered. A guest fault stops the program with its address, and `SetUnhandledExceptionFilter` only records the filter.
+- **Structured exceptions** (`port/runtime/halopad_seh.c`). `RaiseException` walks the `fs:[0]` chain as XP's `RtlDispatchException` does: records and a `CONTEXT_FULL` go on the guest stack below the raiser, and each handler is called as cdecl `(record, frame, context, dispatcher context)`. Registrations must lie on the thread's stack and be 4-byte aligned. `ExceptionRecord.ExceptionAddress` is `RaiseException` itself, as XP records it. `RtlUnwind` calls each handler with `EXCEPTION_UNWINDING` down to the target and unlinks it, and then returns `ReturnValue` (x86 Windows ignores `TargetIp`). The following stop the program with the exception code: nested and collided dispositions, a handler that changes `eip` or `esp` in the context, continuing a non-continuable exception, and an unhandled exception. Guest faults (access violations) still stop the program; they are not delivered as exceptions yet. `SetUnhandledExceptionFilter` only records the filter. `HALOPAD_TRACE_SEH=1` logs each handler and its disposition.
+- **Host entry levels** (`port/runtime/halopad_callback.c`). Translated code runs in continuation style, so the host stack only grows when a service calls back into guest code. Each callback gets its own return sentinel, `0xFFFFF000 + 16·level`. An SEH handler that accepts an exception jumps to its `__except` block or catch continuation from inside `RaiseException`'s callback, which abandons the inner host frames. When the guest later returns to an outer level's sentinel, those frames are discarded with `longjmp` and the outer call returns normally. A return to a level deeper than the current one, or past level 0, stops the program.
 
 ## Imports, dynamic lookups and delay-loading
 
@@ -51,6 +52,28 @@ Halo loads `keystone.dll` in WinMain (`0x545f9d`, skipped only with `-safemode`)
   - Until a DLL loads, its range reads as free, but automatic placement never uses it; an explicit reservation there stops the program, because translated code cannot be relocated.
   - HaloPad's handles for the DLLs it replaces natively (vorbisfile, binkw32, eula) moved to `0x6E000000`+, clear of `ksimeui.dll` at `0x10000000`.
 - **Test** (`tests/halo_keystone_test.c`, 18 checks): the load, both DllMains in translated code, all 17 names Halo resolves matching the file's export table, the ordinal and missing-name cases, reference counting, unload through `DLL_PROCESS_DETACH` (which needed `TryEnterCriticalSection`), the range free again, and a clean reload.
+
+## MSXML 4 and what it needs (shlwapi, urlmon, OLE Automation errors)
+
+Keystone parses and validates every `.ksml` layout with MSXML 4.0 SP2, and has no fallback. `msxml4.dll` (4.20.9818.0, SHA-256 `9808f05f…`, base `0x69b10000`) and its message DLL `msxml4r.dll` come from Halo's own installer (`redist/msxmlenu.msi`, extracted by `scripts/extract-reference-components.py` into `ref/inputs/reference-machine/system32/`). `msxml4.dll` is translated like Keystone (87,094 procedures). `msxml4r.dll` is only loaded as data (`LoadLibraryExA(LOAD_LIBRARY_AS_DATAFILE)`, whose handle has its low bit set, as on XP) for its message table.
+
+- **In-process COM servers.** `CoCreateInstance` looks the class up in `config/runtime/com-servers.txt` (the twelve MSXML 4.0 classes), loads the translated DLL, and calls `DllGetClassObject` and then `IClassFactory::CreateInstance`.
+- **SHLWAPI** (`port/runtime/halopad_shlwapi.c`). This covers the string, path and URL services msxml4 imports, plus the ordinal "wrap" exports, bound to what they forward to on XP (Wine's `shlwapi.spec` ordinals). These are: `PathIsURLW`, `PathIsRelativeW`, `UrlIsW` (`URLIS_URL`, `URLIS_FILEURL`), `UrlUnescapeW`, `PathSearchAndQualifyW` (fully qualified paths), `UrlCreateFromPathW` (`C:\a b\x` becomes `file:///C:/a%20b/x`), `PathCreateFromUrlW` (the slash forms Wine's tests record), `UrlCanonicalizeW` (strings without a scheme, as msxml4 canonicalizes `xs:anyURI` values), the `StrCmp*` family (locale compares go through `CompareStringW`; `StrCmpCW`/`StrCmpICW` are ordinal), `CharUpperBuffW`, `CharLowerW`, `IsCharSpaceW`, `IsCharAlphaNumericW`, `GetAcceptLanguagesW` (`en-us`), `CreateFileW` and `OutputDebugStringA/W` (`HALOPAD_DEBUG_OUTPUT=1` copies the text to stderr). URL schemes other than plain paths and `file:`, UNC paths, non-ASCII paths and escaping flags stop with the value. `HALOPAD_TRACE_SHLWAPI=1` prints the URLs and paths.
+- **Internet security manager** (`port/runtime/halopad_urlmon.c`). MSXML creates `CLSID_InternetSecurityManager` for each document. Local files and `file:` URLs are in the Local Machine zone. Any other URL, a site object, and the zone mapping and policy methods stop.
+- **OLE Automation errors** (`port/runtime/halopad_errorinfo.c`). `CreateErrorInfo` returns one object that answers both `ICreateErrorInfo` and `IErrorInfo` with one reference count. Each thread holds one current error object: `SetErrorInfo` replaces it, and `GetErrorInfo` hands it over and clears it. MSXML's error text comes from `msxml4r.dll` through `FormatMessage`.
+- **VARIANTs**: `VariantClear` releases `VT_DISPATCH` and `VT_UNKNOWN` and leaves `VT_BYREF` values alone.
+- **Test** (`tests/halo_msxml_test.c`, 18 checks): a DOM from a string (`nodeName`, `text`, `xml`), a malformed document rejected with MSXML's own message ("End tag 'a' does not match the start tag 'b'."), and `content/480editbox.ksml` validated against `KSML.xsd`. It is loaded both as a string and exactly as Keystone loads it: schema cache, `putref_schemas`, `validateOnParse`, no external resolution, and the file's UTF-16 text with its byte-order mark skipped. An element the schema lacks is rejected ("Element content is invalid according to the DTD/Schema. Expecting: font, b, i, …").
+
+## Diagnostics
+
+These are environment switches that only print; none of them changes behavior.
+
+- `HALOPAD_TRACE_FILES=1`: file opens, reads, writes and completion routines.
+- `HALOPAD_TRACE_BSTR=1`: every BSTR allocated.
+- `HALOPAD_WATCH=va[,va…]`: every indirect transfer to those addresses, with the return address, arguments, `eax` and `esp`.
+- `HALOPAD_WATCH_RANGE=to_lo:to_hi:from_lo:from_hi`: indirect calls from one module into another, for example Keystone into msxml4.
+- A missing import or COM method now prints the guest stack, so its caller and arguments are visible.
+
 
 ## x87 additions
 

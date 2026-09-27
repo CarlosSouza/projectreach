@@ -27,6 +27,7 @@ func GetFileType_c a1
 func SetHandleCount_c a1
 func GetModuleHandleA_c a1
 func LoadLibraryA_c a1
+func LoadLibraryExA_c a1, a2, a3
 func FreeLibrary_c a1
 func GetProcAddress_c a1, a2
 func InitializeCriticalSectionAndSpinCount_c a1, a2
@@ -52,6 +53,8 @@ funcv DeleteCriticalSection_c a1
 func InterlockedExchange_c a1, a2
 func InterlockedIncrement_c a1
 func InterlockedDecrement_c a1
+func InterlockedCompareExchange_c a1, a2, a3
+func InterlockedExchangeAdd_c a1, a2
 funcv GetSystemTimeAsFileTime_c a1
 func GetTickCount_c
 func QueryPerformanceFrequency_c a1
@@ -72,6 +75,9 @@ func LockResource_c a1
 func SizeofResource_c a1, a2
 func CreateMutexA_c a1, a2, a3
 func CreateEventA_c a1, a2, a3, a4
+func ResetEvent_c a1
+func CreateSemaphoreA_c a1, a2, a3, a4
+func ReleaseSemaphore_c a1, a2, a3
 func ReleaseMutex_c a1
 func SetEvent_c a1
 func WaitForSingleObject_c a1, a2
@@ -539,5 +545,35 @@ endp
 
 proc hpimp_InterlockedDecrement public
         Call_Asm_Stack1 InterlockedDecrement_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_InterlockedCompareExchange public
+        Call_Asm_Stack3 InterlockedCompareExchange_c
+        Call_Asm_Return 3
+endp
+
+proc hpimp_InterlockedExchangeAdd public
+        Call_Asm_Stack2 InterlockedExchangeAdd_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_CreateSemaphoreA public
+        Call_Asm_Stack4 CreateSemaphoreA_c
+        Call_Asm_Return 4
+endp
+
+proc hpimp_ReleaseSemaphore public
+        Call_Asm_Stack3 ReleaseSemaphore_c
+        Call_Asm_Return 3
+endp
+
+proc hpimp_LoadLibraryExA public
+        Call_Asm_Stack3 LoadLibraryExA_c
+        Call_Asm_Return 3
+endp
+
+proc hpimp_ResetEvent public
+        Call_Asm_Stack1 ResetEvent_c
         Call_Asm_Return 1
 endp

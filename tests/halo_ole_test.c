@@ -123,6 +123,17 @@ int main(void)
     checks("  szDescription", text, "HaloPad Audio (Core Audio)");
     C(oa, "VariantClear", v);
     check("  a device index past the last: E_INVALIDARG", M(devs, 5, wstr("1"), pobj), 0x80070057);
+    /* BSTRs (Keystone.dll and msxml4.dll) */
+    uint32_t bs = C(oa, "SysAllocString", wstr("chat"));
+    check("SysAllocString: byte-length prefix 8, 4 characters, terminated", rd(bs - 4) == 8 && C(oa, "SysStringLen", bs) == 4 && ((uint16_t *)P(bs))[4] == 0, 1);
+    check("  SysStringByteLen", C(oa, "SysStringByteLen", bs), 8);
+    check("SysAllocString(NULL): NULL", C(oa, "SysAllocString", 0), 0);
+    uint32_t bl = C(oa, "SysAllocStringLen", wstr("abcdef"), 3);
+    char t3[8]; narrow(bl, t3, 8);
+    checks("SysAllocStringLen(\"abcdef\", 3)", t3, "abc");
+    uint32_t bb = C(oa, "SysAllocStringByteLen", str("xyz"), 3);
+    check("SysAllocStringByteLen(\"xyz\", 3): bytes kept, length 3", rd(bb - 4) == 3 && !memcmp(P(bb), "xyz", 3), 1);
+    C(oa, "SysFreeString", bs); C(oa, "SysFreeString", bl); C(oa, "SysFreeString", bb); C(oa, "SysFreeString", 0);
     M0(d0, 2); M0(devs, 2); M0(rootc, 2);
     check("  Release the provider", M0(prov, 2), 0);
     call(ole, "CoUninitialize", 0, NULL); call(ole, "CoUninitialize", 0, NULL);

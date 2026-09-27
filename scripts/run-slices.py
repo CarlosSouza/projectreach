@@ -82,6 +82,17 @@ def cases_vec4(rng):
     return [[b'\0' * 16, rnd_floats(rng, 4), rnd_floats(rng, 16)] for _ in range(300)]
 
 
+def cases_ftol(rng):
+    """0x48d7c0: 'fld dword [esp+4]; jmp _ftol2' (CRT float -> integer, which stores a 64-bit
+    fistp result through memory): halves, negative halves, exact integers, the int32 edges
+    and random magnitudes; the argument is the float's bit pattern."""
+    vals = [0.0, -0.0, 0.5, -0.5, 1.5, -1.5, 2.5, -2.5, 0.49999997, 1.0, -1.0, 7.99, -7.99,
+            2147483520.0, -2147483648.0, 4294967296.0, 1e10, -1e10, 3.4e38, -3.4e38]
+    while len(vals) < 200:
+        vals.append(rng.choice([rng.uniform(-1e3, 1e3), rng.uniform(-1e7, 1e7), rng.uniform(-10, 10)]))
+    return [[struct.unpack('<I', struct.pack('<f', v))[0]] for v in vals]
+
+
 def cases_strncmp(rng):
     """CRT strncmp (0x5c88f0): jecxz for n = 0, then repe cmpsb; strings share prefixes."""
     out = []
@@ -183,6 +194,7 @@ SLICES = {
     'memmove': {'address': 0x5C83F0, 'alias': 'halo_memmove', 'conv': 'cdecl', 'cases': cases_memmove, 'x87': False},
     'strrchr': {'address': 0x5C88C0, 'alias': 'halo_strrchr', 'conv': 'cdecl', 'cases': cases_strrchr, 'x87': False},
     'strncmp': {'address': 0x5C88F0, 'conv': 'cdecl', 'cases': cases_strncmp, 'x87': False},
+    'float_to_int': {'address': 0x48D7C0, 'conv': 'cdecl', 'cases': cases_ftol, 'x87': True},
     'vec3_transform_coord': {'address': 0x5834D7, 'alias': 'halo_vec3_transform_coord', 'conv': 'stdcall', 'cases': cases_vec3, 'x87': True},
     'vec4_transform': {'address': 0x583B65, 'alias': 'halo_vec4_transform', 'conv': 'stdcall', 'cases': cases_vec4, 'x87': True},
     'map_header': {'address': 0x4434A0, 'alias': 'halo_map_header_valid', 'conv': 'cdecl', 'cases': cases_map_header, 'x87': False,

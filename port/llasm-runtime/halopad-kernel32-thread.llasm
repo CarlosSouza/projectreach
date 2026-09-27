@@ -4,6 +4,7 @@
 include llasm.llinc
 include asm-calls.llinc
 
+func DuplicateHandle_c a1, a2, a3, a4, a5, a6, a7
 func CreateThread_c a1, a2, a3, a4, a5, a6
 func ExitThread_c a1
 func ResumeThread_c a1
@@ -51,4 +52,9 @@ endp
 proc hpimp_SleepEx public
         Call_Asm_Stack2 SleepEx_c
         Call_Asm_Return 2
+endp
+
+proc hpimp_DuplicateHandle public
+        Call_Asm_Stack7 DuplicateHandle_c
+        Call_Asm_Return 7
 endp

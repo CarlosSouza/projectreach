@@ -117,6 +117,12 @@ const static double const_ln2 = M_LN2;
 
 #define st cpu->_st
 #define st_result cpu->_st_result
+/* HaloPad: results wider than a register (64-bit integers, doubles) are returned by address.
+   In HaloPad's original-address model the CPU state is not in guest memory, so
+   halopad_x87_result (port/runtime) copies st_result to a per-thread guest slot and returns
+   that slot's guest address; SR's pointer-offset builds keep PTR2REG (weak default). */
+EXTERNC uint32_t halopad_x87_result(_cpu *cpu, const int64_t *value);
+#define X87_RESULT() halopad_x87_result(cpu, (const int64_t *)&(st_result))
 
 #define st_top cpu->_st_top
 #define st_sw_cond cpu->_st_sw_cond
@@ -533,10 +539,10 @@ EXTERNC uint32_t CCALL x87_fistp_int64(CPU)
         presult->low = uval.low;
         presult->high = uval.high;
 
-        return PTR2REG(presult);
+        return X87_RESULT();
 #else
         st_result = INT64_C(0x8000000000000000);
-        return PTR2REG(&(st_result));
+        return X87_RESULT();
 #endif
     }
 
@@ -573,10 +579,10 @@ EXTERNC uint32_t CCALL x87_fistp_int64(CPU)
     presult->low = uval.low;
     presult->high = uval.high;
 
-    return PTR2REG(presult);
+    return X87_RESULT();
 #else
     st_result = ival;
-    return PTR2REG(&(st_result));
+    return X87_RESULT();
 #endif
 }
 
@@ -800,14 +806,14 @@ EXTERNC uint32_t CCALL x87_fst_double(CPU)
     presult->low = pst0->low;
     presult->high = pst0->high;
 
-    return PTR2REG(presult);
+    return X87_RESULT();
 #else
     void *presult;
 
     CLEAR_X87_FLAGS;
     presult = &(ST0);
 
-    return PTR2REG(presult);
+    return X87_RESULT();
 #endif
 }
 
@@ -839,13 +845,13 @@ EXTERNC uint32_t CCALL x87_fstp_double(CPU)
     presult->high = pst0->high;
 
     POP_REGS;
-    return PTR2REG(presult);
+    return X87_RESULT();
 #else
     void *presult;
 
     presult = &(ST0);
     POP_REGS;
-    return PTR2REG(presult);
+    return X87_RESULT();
 #endif
 }
 
@@ -1173,10 +1179,10 @@ EXTERNC uint32_t CCALL x87_ftol_int64(CPU)
     presult->low = ret.low;
     presult->high = ret.high;
 
-    return PTR2REG(presult);
+    return X87_RESULT();
 #else
     st_result = ((orig < 9223372036854775808.0) && (orig > -9223372036854775808.0))?((int64_t) trunc(orig)):INT64_C(0x8000000000000000);
-    return PTR2REG(&(st_result));
+    return X87_RESULT();
 #endif
 }
 

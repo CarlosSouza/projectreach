@@ -283,12 +283,12 @@ __attribute__((constructor)) static void heap_lock_init(void)
     pthread_mutexattr_settype(&a, PTHREAD_MUTEX_RECURSIVE);
     pthread_mutex_init(&heap_lock, &a);
 }
-uint32_t HeapCreate_c(uint32_t options, uint32_t initial, uint32_t maximum) { pthread_mutex_lock(&heap_lock); uint32_t r = HeapCreate_c_unlocked(options, initial, maximum); pthread_mutex_unlock(&heap_lock); return r; }
+uint32_t HeapCreate_c(uint32_t options, uint32_t initial, uint32_t maximum) { pthread_mutex_lock(&heap_lock); uint32_t r = HeapCreate_c_unlocked(options, initial, maximum); pthread_mutex_unlock(&heap_lock); if (!r) HP_TRACE_FAIL("HeapCreate(0x%x, 0x%x, 0x%x)", options, initial, maximum); return r; }
 uint32_t GetProcessHeap_c(void) { pthread_mutex_lock(&heap_lock); uint32_t r = GetProcessHeap_c_unlocked(); pthread_mutex_unlock(&heap_lock); return r; }
 uint32_t HeapDestroy_c(uint32_t handle) { pthread_mutex_lock(&heap_lock); uint32_t r = HeapDestroy_c_unlocked(handle); pthread_mutex_unlock(&heap_lock); return r; }
-uint32_t HeapAlloc_c(uint32_t handle, uint32_t flags, uint32_t size) { pthread_mutex_lock(&heap_lock); uint32_t r = HeapAlloc_c_unlocked(handle, flags, size); pthread_mutex_unlock(&heap_lock); return r; }
+uint32_t HeapAlloc_c(uint32_t handle, uint32_t flags, uint32_t size) { pthread_mutex_lock(&heap_lock); uint32_t r = HeapAlloc_c_unlocked(handle, flags, size); pthread_mutex_unlock(&heap_lock); if (!r) HP_TRACE_FAIL("HeapAlloc(0x%08x, 0x%x, 0x%x)", handle, flags, size); return r; }
 uint32_t HeapFree_c(uint32_t handle, uint32_t flags, uint32_t a) { pthread_mutex_lock(&heap_lock); uint32_t r = HeapFree_c_unlocked(handle, flags, a); pthread_mutex_unlock(&heap_lock); return r; }
 uint32_t HeapSize_c(uint32_t handle, uint32_t flags, uint32_t a) { pthread_mutex_lock(&heap_lock); uint32_t r = HeapSize_c_unlocked(handle, flags, a); pthread_mutex_unlock(&heap_lock); return r; }
-uint32_t HeapReAlloc_c(uint32_t handle, uint32_t flags, uint32_t a, uint32_t size) { pthread_mutex_lock(&heap_lock); uint32_t r = HeapReAlloc_c_unlocked(handle, flags, a, size); pthread_mutex_unlock(&heap_lock); return r; }
+uint32_t HeapReAlloc_c(uint32_t handle, uint32_t flags, uint32_t a, uint32_t size) { pthread_mutex_lock(&heap_lock); uint32_t r = HeapReAlloc_c_unlocked(handle, flags, a, size); pthread_mutex_unlock(&heap_lock); if (!r) HP_TRACE_FAIL("HeapReAlloc(0x%08x, 0x%x, 0x%08x, 0x%x)", handle, flags, a, size); return r; }
 uint32_t GlobalLock_c(uint32_t a) { pthread_mutex_lock(&heap_lock); uint32_t r = GlobalLock_c_unlocked(a); pthread_mutex_unlock(&heap_lock); return r; }
 uint32_t GlobalUnlock_c(uint32_t a) { pthread_mutex_lock(&heap_lock); uint32_t r = GlobalUnlock_c_unlocked(a); pthread_mutex_unlock(&heap_lock); return r; }

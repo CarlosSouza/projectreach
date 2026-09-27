@@ -19,7 +19,8 @@
 #define INFINITE 0xFFFFFFFFu
 #define ERROR_ALREADY_EXISTS 183
 
-enum { FREE, MUTEX, EVENT, THREAD, TOKEN };   /* a thread object is signaled, for good, when the thread ends */
+enum { FREE, MUTEX, EVENT, THREAD, TOKEN, SEMAPHORE };   /* a thread object is signaled, for good, when the thread ends;
+                                                          a semaphore keeps its count in count and its maximum in owner */
 typedef struct { int kind; uint32_t refs; char *name; int manual, signaled; uint32_t owner, count; } object;
 
 static object objs[MAX_OBJ];
@@ -90,6 +91,48 @@ uint32_t ReleaseMutex_c(uint32_t h)
     return 1;
 }
 
+uint32_t CreateSemaphoreA_c(uint32_t security, uint32_t initial, uint32_t maximum, uint32_t name)
+{
+    if (security) hp_unsupported("CreateSemaphoreA", "security attributes 0x%08x", security);
+    if ((int32_t)maximum <= 0 || (int32_t)initial < 0 || initial > maximum) { halopad_last_error = HP_ERROR_INVALID_PARAMETER; return 0; }
+    uint32_t h = create(SEMAPHORE, name, 0, 0);
+    if (h && halopad_last_error != ERROR_ALREADY_EXISTS) {
+        pthread_mutex_lock(&lock);
+        object *o = obj(h);
+        o->count = initial;
+        o->owner = maximum;
+        pthread_mutex_unlock(&lock);
+    }
+    return h;
+}
+
+uint32_t ReleaseSemaphore_c(uint32_t h, uint32_t n, uint32_t previous)
+{
+    pthread_mutex_lock(&lock);
+    object *o = obj(h);
+    if (!o || o->kind != SEMAPHORE) { pthread_mutex_unlock(&lock); halopad_last_error = HP_ERROR_INVALID_HANDLE; return 0; }
+    if ((int32_t)n <= 0 || n > o->owner - o->count) {
+        pthread_mutex_unlock(&lock);
+        halopad_last_error = (int32_t)n <= 0 ? HP_ERROR_INVALID_PARAMETER : 298;   /* ERROR_TOO_MANY_POSTS */
+        return 0;
+    }
+    if (previous) wr32(previous, o->count);
+    o->count += n;
+    pthread_cond_broadcast(&changed);
+    pthread_mutex_unlock(&lock);
+    return 1;
+}
+
+uint32_t ResetEvent_c(uint32_t h)
+{
+    pthread_mutex_lock(&lock);
+    object *o = obj(h);
+    if (!o || o->kind != EVENT) { pthread_mutex_unlock(&lock); halopad_last_error = HP_ERROR_INVALID_HANDLE; return 0; }
+    o->signaled = 0;
+    pthread_mutex_unlock(&lock);
+    return 1;
+}
+
 uint32_t SetEvent_c(uint32_t h)
 {
     pthread_mutex_lock(&lock);
@@ -104,6 +147,11 @@ uint32_t SetEvent_c(uint32_t h)
 /* Called with the lock held: take the object if it is signaled for this thread. */
 static int try_acquire(object *o)
 {
+    if (o->kind == SEMAPHORE) {
+        if (!o->count) return 0;
+        o->count--;
+        return 1;
+    }
     if (o->kind == MUTEX) {
         if (o->count && o->owner != halopad_current_tid) return 0;
         o->owner = halopad_current_tid;
