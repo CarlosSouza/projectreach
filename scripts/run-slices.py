@@ -199,20 +199,122 @@ def oracle_observe(orc, s, args, regs=None):
 
 
 def main():
+    return _main()
+
+
+def compare(s, cases, native, run, image, evid, name):
+    modes = [HALO_FPCW, 0x027F] if s['x87'] else [None]
+    per_mode, mismatches = {}, []
+    for mode in modes:
+        handlers = oracle_file_handlers(s['game_root']) if s.get('game_root') else None
+        orc = oracle.Oracle(image, handlers, fpcw=mode)
+        ok = 0
+        for i, case in enumerate(cases):
+            args, regs = split_case(case)
+            o = oracle_observe(orc, s, args, regs)
+            if i >= len(native):
+                continue
+            n = native[i]
+            n_eax, n_delta, n_ref, n_bufs = int(n[0], 16), int(n[1]), n[2], n[3:]
+            same = (n_ref == o['ref'] and n_delta + 4 == o['stack_delta'] and n_bufs == o['buffers']
+                    and (n_ref.startswith('B') or n_eax == o['eax']))
+            ok += same
+            if not same and mode in (None, HALO_FPCW) and len(mismatches) < 5:
+                mismatches.append({'case': i, 'native': n, 'oracle': o})
+        per_mode[hex(mode) if mode is not None else 'default'] = f'{ok}/{len(cases)}'
+    primary = per_mode[hex(HALO_FPCW) if s['x87'] else 'default']
+    passed = primary == f'{len(cases)}/{len(cases)}' and run.returncode == 0 and len(native) == len(cases)
+    return {'address': hex(s['address']), 'result': 'PASS' if passed else 'FAIL', 'agreement': per_mode,
+            'native_exit': run.returncode, 'native_lines': len(native), 'first_mismatches': mismatches}, passed
+
+
+def run_va(a, names, work, target, evid, build):
+    """Original-address model: link the VA-model translation with guest memory + dispatch."""
+    va = work / 'va'
+    if not (va / 'haloce.va.ll').exists():
+        sys.exit('run scripts/va-model.py first')
+    obj = build / 'haloce.va.o'
+    if not obj.exists() or obj.stat().st_mtime < (va / 'haloce.va.ll').stat().st_mtime:
+        subprocess.run(['clang', '-target', target, '-c', '-O1', '-fno-fast-math', '-ffp-contract=off', '-Wno-override-module',
+                        str(va / 'haloce.va.ll'), '-o', str(obj)], check=True)
+    subprocess.run([sys.executable, str(ROOT / 'scripts/gen-import-stubs.py'), str(va / 'haloce.va.ll'), str(build / 'stubs.ll')],
+                   check=True, capture_output=True)
+    exe = build / 'halo-va-slices'
+    cmd = ['clang', '-target', target, '-O2', '-fno-fast-math', '-ffp-contract=off', '-w', '-DPTROFS_64BIT=1', '-std=c2x',
+           '-Wno-override-module', '-I', str(SUPPORT),
+           str(ROOT / 'tests/halo_va_harness.c'), str(ROOT / 'port/runtime/halopad_guest.c'),
+           str(ROOT / 'port/runtime/halopad_slice_runtime.c'), str(ROOT / 'port/runtime/halopad_kernel32.c'),
+           *[str(p) for p in sorted(SUPPORT.glob('llasm_*.c'))], str(va / 'dispatch.ll'),
+           *[str(p) for p in sorted(va.glob('halopad-*.ll'))], str(build / 'stubs.ll'), str(obj), '-o', str(exe)]
+    link = subprocess.run(cmd, capture_output=True, text=True)
+    (evid / 'link.log').write_text(' '.join(cmd) + '\n' + link.stdout + link.stderr)
+    if link.returncode:
+        print('FAIL link:', link.stderr[-1500:])
+        return 1
+    image = oracle.Image()
+    image_bin = ROOT / 'generated/analysis/custom-en-1.0.10.0621/image.bin'
+    summary, overall = {}, True
+    for name in names:
+        s = SLICES[name]
+        rng = random.Random(a.seed ^ s['address'])
+        cases = s['cases'](rng)
+        blob = b''
+        for case in cases:
+            args, regs = split_case(case)
+            blob += encode(s['address'], HALO_FPCW, args, regs)
+        (build / f'{name}.bin').write_bytes(blob)
+        env = dict(os.environ, HALOPAD_IMAGE=str(image_bin))
+        if s.get('game_root'):
+            env['HALOPAD_GAME_ROOT'] = str(s['game_root'])
+        prefix = list(a.run_prefix)
+        if prefix:
+            # simctl spawn passes the environment through SIMCTL_CHILD_ variables
+            for k in ('HALOPAD_IMAGE', 'HALOPAD_GAME_ROOT'):
+                if k in env:
+                    env['SIMCTL_CHILD_' + k] = env[k]
+        run = subprocess.run(prefix + [str(exe), str(build / f'{name}.bin')], capture_output=True, text=True, timeout=900, env=env)
+        (evid / f'{name}.native.txt').write_text(run.stdout)
+        if run.stderr:
+            (evid / f'{name}.native.stderr').write_text(run.stderr)
+        native = [l.split() for l in run.stdout.splitlines()]
+        summary[name], passed = compare(s, cases, native, run, image, evid, name)
+        overall &= passed
+        print(f"{name:22} {summary[name]['result']:4} " + ' '.join(f'{k}:{v}' for k, v in summary[name]['agreement'].items())
+              + (f" exit {run.returncode}" if run.returncode else ''))
+        if run.stderr:
+            print('   stderr:', run.stderr.strip()[:300])
+    arch = subprocess.run(['lipo', '-archs', str(exe)], capture_output=True, text=True).stdout.strip()
+    platform = subprocess.run(['vtool', '-show-build', str(exe)], capture_output=True, text=True).stdout
+    report = {'model': 'va', 'target': target, 'architecture': arch, 'build_platform': platform.strip().splitlines()[-4:],
+              'run_prefix': a.run_prefix, 'work': str(work.relative_to(ROOT)), 'dispatch_entries': sum(1 for _ in open(va / 'dispatch.ll') if _.startswith('declare hidden')),
+              'identities': {'image_sha256': image.sha256, 'haloce.va.o': sha(obj), 'executable': sha(exe)}, 'slices': summary}
+    (evid / 'result.json').write_text(json.dumps(report, indent=1) + '\n')
+    print('evidence', evid.relative_to(ROOT))
+    return 0 if overall else 1
+
+
+def _main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--only', nargs='*')
     ap.add_argument('--work', type=pathlib.Path)
     ap.add_argument('--seed', type=int, default=0x48414C4F)
+    ap.add_argument('--model', choices=['offset', 'va'], default='va',
+                    help="va: original-address guest memory + dispatch (G2e); offset: SR's pointer-offset model")
+    ap.add_argument('--target', help='clang target triple (default: toolchains.lock.json target)')
+    ap.add_argument('--run-prefix', nargs='*', default=[], help='command prefix to run the harness (e.g. xcrun simctl spawn booted)')
     a = ap.parse_args()
     names = a.only or list(SLICES)
     runs = sorted((ROOT / 'generated/srw/custom-en-1.0.10.0621').glob('run-*/haloce.o'), key=lambda p: p.stat().st_mtime)
     work = a.work or runs[-1].parent
-    target = json.loads((ROOT / 'toolchains.lock.json').read_text())['target']
+    target = a.target or json.loads((ROOT / 'toolchains.lock.json').read_text())['target']
     stamp = datetime.datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')
-    evid = ROOT / 'docs' / 'artifacts' / datetime.date.today().isoformat() / 'G2d' / f'slices-{stamp}'
+    goal = 'G2e' if a.model == 'va' else 'G2d'
+    evid = ROOT / 'docs' / 'artifacts' / datetime.date.today().isoformat() / goal / f'slices-{a.model}-{target}-{stamp}'
     evid.mkdir(parents=True, exist_ok=True)
-    build = work / 'slices'
+    build = work / ('slices' if a.model == 'offset' else f'slices-va-{target}')
     build.mkdir(exist_ok=True)
+    if a.model == 'va':
+        return run_va(a, names, work, target, evid, build)
     table = ['#define PTROFS_64BIT 1', '#include "llasm_cpu.h"']
     table += [f'extern void c_{SLICES[n]["alias"]}(_cpu *);' for n in SLICES]
     table += ['void (*const halopad_slice_fns[])(_cpu *) = {' + ', '.join(f'c_{SLICES[n]["alias"]}' for n in SLICES) + '};',

@@ -1,0 +1,103 @@
+/* HaloPad guest memory and dispatch (G2e, original-address model).
+ *
+ * Guest addresses are Halo's own 32-bit addresses. A 4 GiB region is reserved with no
+ * access, so every 32-bit guest address lands inside it: unmapped addresses (including
+ * the null page) fault, and the fault handler reports them as guest addresses. Only
+ * the image, a guest stack and a guest heap are made readable and writable. Nothing is
+ * mapped executable; all control flow goes to procedures compiled ahead of time. */
+#include <signal.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/mman.h>
+#include <unistd.h>
+
+#define HOST_RETURN_VA 0xFFFFF000u
+#define GUEST_SPAN ((uint64_t)1 << 32)
+
+uint64_t halopad_guest_base;
+static uint32_t heap_next, heap_end;
+
+extern const uint32_t halopad_dispatch_count;
+extern const uint32_t halopad_dispatch_vas[];
+extern void *const halopad_dispatch_fns[];
+extern void *halopad_return_to_host_address(void);
+
+static void guest_fault(int sig, siginfo_t *info, void *ctx)
+{
+    (void)ctx;
+    uint64_t a = (uint64_t)(uintptr_t)info->si_addr;
+    if (halopad_guest_base && a >= halopad_guest_base && a < halopad_guest_base + GUEST_SPAN)
+        fprintf(stderr, "HALOPAD FAULT: guest access to 0x%08x (signal %d)\n", (uint32_t)(a - halopad_guest_base), sig);
+    else
+        fprintf(stderr, "HALOPAD FAULT: host address %p (signal %d)\n", info->si_addr, sig);
+    _exit(70);
+}
+
+static void commit(uint32_t guest, uint32_t size)
+{
+    long page = sysconf(_SC_PAGESIZE);
+    uint64_t lo = (uint64_t)guest & ~(uint64_t)(page - 1);
+    uint64_t hi = ((uint64_t)guest + size + page - 1) & ~(uint64_t)(page - 1);
+    if (mprotect((void *)(uintptr_t)(halopad_guest_base + lo), hi - lo, PROT_READ | PROT_WRITE) != 0) {
+        perror("HALOPAD: mprotect");
+        exit(2);
+    }
+}
+
+/* Reserve guest memory, load the prepared image at its original address, and set up a
+ * guest stack and heap. Returns the guest stack top. */
+uint32_t halopad_guest_init(const char *image_path, uint32_t image_base)
+{
+    void *base = mmap(NULL, GUEST_SPAN, PROT_NONE, MAP_PRIVATE | MAP_ANON, -1, 0);
+    if (base == MAP_FAILED) { perror("HALOPAD: reserving guest address space"); exit(2); }
+    halopad_guest_base = (uint64_t)(uintptr_t)base;
+    FILE *f = fopen(image_path, "rb");
+    if (!f) { perror(image_path); exit(2); }
+    fseek(f, 0, SEEK_END);
+    long size = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    commit(image_base, (uint32_t)size);
+    if (fread((void *)(uintptr_t)(halopad_guest_base + image_base), 1, (size_t)size, f) != (size_t)size) {
+        fprintf(stderr, "HALOPAD: short read of %s\n", image_path);
+        exit(2);
+    }
+    fclose(f);
+    commit(0x00100000, 0x00200000);            /* guest stack: 0x00100000-0x00300000 */
+    heap_next = 0x10000000; heap_end = 0x20000000;
+    commit(heap_next, heap_end - heap_next);   /* guest heap for harness buffers */
+    struct sigaction sa;
+    memset(&sa, 0, sizeof sa);
+    sa.sa_sigaction = guest_fault;
+    sa.sa_flags = SA_SIGINFO;
+    sigaction(SIGSEGV, &sa, NULL);
+    sigaction(SIGBUS, &sa, NULL);
+    return 0x00300000 - 0x100;
+}
+
+uint32_t halopad_guest_alloc(uint32_t size, uint32_t align)
+{
+    uint32_t a = (heap_next + align - 1) & ~(align - 1);
+    if (a + size > heap_end) { fprintf(stderr, "HALOPAD: guest heap exhausted\n"); exit(2); }
+    heap_next = a + size;
+    return a;
+}
+
+void *halopad_guest_ptr(uint32_t guest) { return (void *)(uintptr_t)(halopad_guest_base + guest); }
+
+/* Original address -> compiled procedure (finite table generated at build time). */
+void *halopad_lookup(uint32_t va)
+{
+    uint32_t lo = 0, hi = halopad_dispatch_count;
+    while (lo < hi) {
+        uint32_t mid = lo + (hi - lo) / 2;
+        uint32_t v = halopad_dispatch_vas[mid];
+        if (v == va) return halopad_dispatch_fns[mid];
+        if (v < va) lo = mid + 1; else hi = mid;
+    }
+    if (va == HOST_RETURN_VA) return halopad_return_to_host_address();
+    fprintf(stderr, "HALOPAD TRAP: indirect transfer to 0x%08x, which has no compiled procedure\n", va);
+    abort();
+}
+

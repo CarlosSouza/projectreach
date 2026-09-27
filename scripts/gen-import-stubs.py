@@ -13,7 +13,8 @@ def main():
     text = open(src, errors='replace').read()
     names = sorted(set(re.findall(r'^declare hidden fastcc void @([A-Za-z0-9_$@?.]+)\(%_cpu\*\)', text, re.M)))
     # <name>_asm2c procedures are implemented by HaloPad's llasm runtime object.
-    names = [n for n in names if not n.endswith('_asm2c')]
+    # halopad_* procedures come from the dispatch module (VA model).
+    names = [n for n in names if not n.endswith('_asm2c') and not n.startswith('halopad_')]
     lines = ['declare void @halopad_missing_import(ptr)', '']
     for i, n in enumerate(names):
         s = n.encode() + b'\0'
