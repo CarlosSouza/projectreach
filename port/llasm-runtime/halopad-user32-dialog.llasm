@@ -1,0 +1,78 @@
+;; HaloPad Windows runtime: user32 dialog boxes, shell32 ShellExecuteA (port/runtime/halopad_user32.c, part 3)
+;; and gdi32 CreateFontIndirectA (halopad_gdi.c). Pattern and macros from SR's Septerra Core port (asm-calls.llinc).
+
+include llasm.llinc
+include asm-calls.llinc
+
+func DialogBoxIndirectParamA_c a1, a2, a3, a4, a5
+func DialogBoxParamA_c a1, a2, a3, a4, a5
+func EndDialog_c a1, a2
+func GetDlgItem_c a1, a2
+func SetDlgItemTextA_c a1, a2, a3
+func IsDlgButtonChecked_c a1, a2
+func CheckDlgButton_c a1, a2, a3
+func DefDlgProcA_c a1, a2, a3, a4
+func HaloPadButtonWndProc_c a1, a2, a3, a4
+func HaloPadStaticWndProc_c a1, a2, a3, a4
+func ShellExecuteA_c a1, a2, a3, a4, a5, a6
+func CreateFontIndirectA_c a1
+
+proc hpimp_DialogBoxIndirectParamA public
+        Call_Asm_Stack5 DialogBoxIndirectParamA_c
+        Call_Asm_Return 5
+endp
+
+proc hpimp_DialogBoxParamA public
+        Call_Asm_Stack5 DialogBoxParamA_c
+        Call_Asm_Return 5
+endp
+
+proc hpimp_EndDialog public
+        Call_Asm_Stack2 EndDialog_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_GetDlgItem public
+        Call_Asm_Stack2 GetDlgItem_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_SetDlgItemTextA public
+        Call_Asm_Stack3 SetDlgItemTextA_c
+        Call_Asm_Return 3
+endp
+
+proc hpimp_IsDlgButtonChecked public
+        Call_Asm_Stack2 IsDlgButtonChecked_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_CheckDlgButton public
+        Call_Asm_Stack3 CheckDlgButton_c
+        Call_Asm_Return 3
+endp
+
+proc hpimp_DefDlgProcA public
+        Call_Asm_Stack4 DefDlgProcA_c
+        Call_Asm_Return 4
+endp
+
+proc hpimp_HaloPadButtonWndProc public
+        Call_Asm_Stack4 HaloPadButtonWndProc_c
+        Call_Asm_Return 4
+endp
+
+proc hpimp_HaloPadStaticWndProc public
+        Call_Asm_Stack4 HaloPadStaticWndProc_c
+        Call_Asm_Return 4
+endp
+
+proc hpimp_ShellExecuteA public
+        Call_Asm_Stack6 ShellExecuteA_c
+        Call_Asm_Return 6
+endp
+
+proc hpimp_CreateFontIndirectA public
+        Call_Asm_Stack1 CreateFontIndirectA_c
+        Call_Asm_Return 1
+endp

@@ -59,9 +59,11 @@ def main():
     ap.add_argument('--device', default='E129A00F-D338-4FDC-8AE8-BB243E9BA61B', help='Simulator UDID ("HaloPad iPad Pro 13")')
     ap.add_argument('--launch', action='store_true')
     ap.add_argument('--wait', type=int, default=20, help='seconds to let the app run before the screenshot')
+    ap.add_argument('--scene', type=pathlib.Path,
+                    help='development only: a C file whose halopad_app_entry replaces the core start (evidence scenes in tests/)')
     a = ap.parse_args()
     work = (a.work or max(run_core.PROFILE.glob('run-*/va/haloce.va.ll'), key=lambda p: p.stat().st_mtime).parent.parent).resolve()
-    exe, _ = run_core.build(work, TARGET, ROOT / 'port' / 'ios' / 'HaloPadApp.m')
+    exe, _ = run_core.build(work, TARGET, ROOT / 'port' / 'ios' / 'HaloPadApp.m', extra=[a.scene.resolve()] if a.scene else [])
     app = package(exe, work / f'ios-app-{TARGET}')
     print('built', app.relative_to(ROOT))
     if not a.launch:

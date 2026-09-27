@@ -29,7 +29,10 @@ uint32_t FindResourceExA_c(uint32_t module, uint32_t type, uint32_t name, uint32
 /* ---- handles: icons, cursors, windows, classes ---- */
 enum { H_FREE, H_ICON, H_CURSOR, H_WINDOW };
 typedef struct { int kind; uint32_t resource; uint32_t cls; uint32_t style, exstyle; int32_t x, y, w, h; uint32_t parent, instance;
-                 char text[256]; uint32_t userdata; int visible;
+                 char text[1024]; uint32_t userdata; int visible;
+                 uint32_t id; int ctl;                   /* dialogs and their controls (part 3): control id, CTL_* */
+                 uint32_t check, font, icon;             /* controls: check state, WM_SETFONT's font, a static's icon id */
+                 uint32_t dlgproc, msgresult, dlguser, dlgresult; int ended;   /* dialogs: DWL_*, EndDialog */
                  uint32_t wndproc;                       /* the window's procedure (the class's, unless subclassed) */
                  int disabled, minimized, invalid, sizemove_sent;
                  void *host;                             /* the host window, once shown (top-level windows) */
@@ -37,6 +40,7 @@ typedef struct { int kind; uint32_t resource; uint32_t cls; uint32_t style, exst
 #define UBASE 0x00010010u
 #define MAXU 256
 static uobj uobjs[MAXU];
+enum { CTL_NONE, CTL_DIALOG, CTL_BUTTON, CTL_STATIC };
 
 static uint32_t unew(int kind)
 {
@@ -164,8 +168,15 @@ uint32_t GetWindowRect_c(uint32_t hwnd, uint32_t rect)
 {
     uobj *w = uget(hwnd, H_WINDOW);
     if (!w) { halopad_last_error = 1400; return 0; }                    /* ERROR_INVALID_WINDOW_HANDLE */
-    wr32(rect, (uint32_t)w->x); wr32(rect + 4, (uint32_t)w->y);
-    wr32(rect + 8, (uint32_t)(w->x + w->w)); wr32(rect + 12, (uint32_t)(w->y + w->h));
+    int32_t x = w->x, y = w->y;
+    if (w->style & WS_CHILD) {                                          /* a child's rectangle is kept in its parent's client space */
+        void halopad_window_client_origin(uint32_t hwnd, int32_t *x, int32_t *y);
+        int32_t px, py;
+        halopad_window_client_origin(w->parent, &px, &py);
+        x += px; y += py;
+    }
+    wr32(rect, (uint32_t)x); wr32(rect + 4, (uint32_t)y);
+    wr32(rect + 8, (uint32_t)(x + w->w)); wr32(rect + 12, (uint32_t)(y + w->h));
     return 1;
 }
 
@@ -223,7 +234,13 @@ uint32_t CreateWindowExA_c(uint32_t exstyle, uint32_t clsname, uint32_t title, u
     if (!c) { halopad_last_error = 1407; return 0; }                    /* ERROR_CANNOT_FIND_WND_CLASS */
     if (exstyle || menu || (style & (WS_CHILD | 0x10000000u /* WS_VISIBLE */)) || (parent && parent != DESKTOP))
         hp_unsupported("CreateWindowExA", "exstyle 0x%x, style 0x%x, parent 0x%x, menu 0x%x", exstyle, style, parent, menu);
-    if ((int32_t)x == (int32_t)0x80000000 || (int32_t)w == (int32_t)0x80000000) hp_unsupported("CreateWindowExA", "CW_USEDEFAULT");
+    if ((int32_t)x == (int32_t)0x80000000 || (int32_t)w == (int32_t)0x80000000) {
+        /* CW_USEDEFAULT: a pop-up window gets position (0, 0) and, for the size, 0 by 0 (Windows'
+           rule; only overlapped windows get a default placement) */
+        if (!(style & WS_POPUP)) hp_unsupported("CreateWindowExA", "CW_USEDEFAULT for an overlapped window (default placement)");
+        if ((int32_t)x == (int32_t)0x80000000) x = y = 0;
+        if ((int32_t)w == (int32_t)0x80000000) w = h = 0;
+    }
     uint32_t hwnd = unew(H_WINDOW);
     uobj *o = uget(hwnd, H_WINDOW);
     o->cls = (uint32_t)(c - classes); o->style = style; o->exstyle = exstyle; o->instance = instance; o->parent = parent;
@@ -402,6 +419,15 @@ static void window_screen_client(uobj *w, int32_t *x, int32_t *y)
     int32_t l, t, r, b;
     frame_insets(w->style, &l, &t, &r, &b);
     *x = w->x + l; *y = w->y + t;
+    uobj *p = (w->style & WS_CHILD) ? uget(w->parent, H_WINDOW) : NULL;
+    if (p) { int32_t px, py; window_screen_client(p, &px, &py); *x += px; *y += py; }
+}
+/* the screen position of a window's client area (0,0 for none or the desktop) */
+void halopad_window_client_origin(uint32_t hwnd, int32_t *x, int32_t *y)
+{
+    uobj *w = hwnd == DESKTOP ? NULL : uget(hwnd, H_WINDOW);
+    *x = *y = 0;
+    if (w) window_screen_client(w, x, y);
 }
 
 /* ---- host windows ---- */
@@ -415,7 +441,7 @@ void halopad_host_window_resize(void *w, uint32_t width, uint32_t height);
 static void host_sync(uint32_t hwnd)
 {
     uobj *w = uget(hwnd, H_WINDOW);
-    if (!w || hwnd == DESKTOP || (w->style & WS_CHILD)) return;
+    if (!w || hwnd == DESKTOP || (w->style & WS_CHILD) || w->ctl == CTL_DIALOG) return;   /* dialogs: the host shows them (part 3) */
     int32_t cw, ch;
     halopad_window_client_size(hwnd, &cw, &ch);
     int shown = w->visible && !w->minimized;
@@ -599,6 +625,10 @@ uint32_t DestroyWindow_c(uint32_t hwnd)
     }
     if (capture == hwnd) capture = 0;
     send(hwnd, WM_DESTROY, 0, 0);
+    for (uint32_t i = 1; i < MAXU; i++) {                           /* then its children, as Windows destroys them */
+        uobj *c = &uobjs[i];
+        if (c->kind == H_WINDOW && (c->style & WS_CHILD) && c->parent == hwnd) DestroyWindow_c(UBASE + 4 * i);
+    }
     send(hwnd, WM_NCDESTROY, 0, 0);
     uint32_t n = 0;
     for (uint32_t i = 0; i < qcount; i++) if (queue[i].hwnd != hwnd) queue[n++] = queue[i];
@@ -726,7 +756,10 @@ uint32_t GetWindowLongA_c(uint32_t hwnd, uint32_t index)
     case -4: return w->wndproc;                                     /* GWL_WNDPROC */
     case -6: return w->instance;                                    /* GWL_HINSTANCE */
     case -8: return w->parent == DESKTOP ? 0 : w->parent;           /* GWL_HWNDPARENT */
-    case -12: return 0;                                             /* GWL_ID */
+    case -12: return w->id;                                         /* GWL_ID */
+    case 0: case 4: case 8:                                         /* DWL_MSGRESULT, DWL_DLGPROC, DWL_USER */
+        if (w->ctl != CTL_DIALOG) break;
+        return (int32_t)index == 0 ? w->msgresult : (int32_t)index == 4 ? w->dlgproc : w->dlguser;
     case -16: return w->style | (w->visible ? WS_VISIBLE : 0) | (w->disabled ? WS_DISABLED : 0) | (w->minimized ? WS_MINIMIZE : 0);
     case -20: return w->exstyle;
     case -21: return w->userdata;
@@ -742,6 +775,13 @@ uint32_t SetWindowLongA_c(uint32_t hwnd, uint32_t index, uint32_t v)
     switch ((int32_t)index) {
     case -4: old = w->wndproc; w->wndproc = v; return old;
     case -21: old = w->userdata; w->userdata = v; return old;
+    case -12: old = w->id; w->id = v; return old;
+    case 0: case 4: case 8:
+        if (w->ctl != CTL_DIALOG) break;
+        if ((int32_t)index == 0) { old = w->msgresult; w->msgresult = v; }
+        else if ((int32_t)index == 4) { old = w->dlgproc; w->dlgproc = v; }
+        else { old = w->dlguser; w->dlguser = v; }
+        return old;
     case -16: case -20: {
         int ex = (int32_t)index == -20;
         old = ex ? w->exstyle : GetWindowLongA_c(hwnd, index);
@@ -1232,4 +1272,523 @@ uint32_t CharNextExA_c(uint32_t cp, uint32_t p, uint32_t flags)
     if (c != 1252 && c != 437) hp_unsupported("CharNextExA", "code page %u", cp);
     if (!p) return 0;
     return *(uint8_t *)G(p) ? p + 1 : p;
+}
+
+
+/* ==== part 3 (G3): dialog boxes ====
+ *
+ * DialogBoxParamA/DialogBoxIndirectParamA build a real dialog from its template
+ * (DLGTEMPLATE or DLGTEMPLATEEX): the dialog window (class #32770, window procedure
+ * DefDlgProcA calling the application's dialog procedure) and its controls as child windows
+ * of the built-in Button and Static classes, whose window procedures have guest addresses so
+ * that an application can subclass them (Halo's hyperlink does). Messages follow Windows:
+ * WM_SETFONT to the dialog and to each control, WM_INITDIALOG, WM_COMMAND notifications from
+ * the controls, DefDlgProc's WM_CLOSE (IDCANCEL). Dialog units map to pixels with Windows XP's
+ * MS Shell Dlg 2 (Tahoma 8 pt) at 96 DPI: 6 by 13 base units.
+ *
+ * The modal loop shows the dialog's current state through the host (halopad_dialog.h) and
+ * turns the player's action into the message Windows would send: BM_CLICK to a button or
+ * checkbox, button down and up to a notifying static (a link), SC_CLOSE to the dialog. Without
+ * a screen, HALOPAD_DIALOG_ACTIONS scripts the actions (control ids, or "close", separated by
+ * commas); with neither, the dialog is printed and the run stops, since only the player can
+ * answer it. */
+#include "halopad_dialog.h"
+
+#define WM_SETFONT 0x0030
+#define WM_GETFONT 0x0031
+#define WM_INITDIALOG 0x0110
+#define WM_COMMAND 0x0111
+#define WM_CTLCOLORMSGBOX 0x0132
+#define WM_CTLCOLORBTN 0x0135
+#define WM_CTLCOLORDLG 0x0136
+#define WM_CTLCOLORSTATIC 0x0138
+#define WM_LBUTTONUP 0x0202
+#define BM_GETCHECK 0x00F0
+#define BM_SETCHECK 0x00F1
+#define BM_GETSTATE 0x00F2
+#define BM_SETSTATE 0x00F3
+#define BM_CLICK 0x00F5
+#define DS_FIXEDSYS 0x08u
+#define DS_SETFONT 0x40u
+#define SS_NOTIFY 0x100u
+#define WS_TABSTOP 0x00010000u
+
+uint32_t CreateFontA_c(uint32_t args);
+uint32_t CreateCompatibleDC_c(uint32_t dc);
+uint32_t DeleteDC_c(uint32_t dc);
+uint32_t GetTextColor_c(uint32_t dc);
+uint32_t SetTextColor_c(uint32_t dc, uint32_t color);
+uint32_t LoadResource_c(uint32_t module, uint32_t hrsrc);
+int halopad_host_path(const char *guest, char *out, size_t size);
+extern const uint32_t halopad_import_count, halopad_import_base, halopad_import_stride;
+extern const char *const halopad_import_names[];
+
+/* no screen: the macOS runner and tests (the iPadOS app shell provides both) */
+__attribute__((weak)) int halopad_host_dialog(const halopad_dialog_view *v) { (void)v; return HPD_NO_SCREEN; }
+__attribute__((weak)) int halopad_host_open_url(const char *url) { (void)url; return 0; }
+__attribute__((weak)) void halopad_host_dialog_done(void) {}
+/* Test support: when set, ShellExecuteA hands URLs here instead of to the host. */
+int (*halopad_shell_open_hook)(const char *url);
+
+static uint32_t runtime_proc(const char *name)
+{
+    for (uint32_t i = 0; i < halopad_import_count; i++)
+        if (!strcmp(halopad_import_names[i], name)) return halopad_import_base + halopad_import_stride * i;
+    hp_unsupported("USER32", "window procedure %s has no guest address (config/runtime/dynamic-exports.txt)", name);
+}
+
+/* the built-in classes, registered on first use */
+static uint32_t builtin_class(const char *name, const char *proc)
+{
+    for (int i = 0; i < 32; i++) if (classes[i].used && !strcasecmp(classes[i].name, name)) return (uint32_t)i;
+    for (int i = 0; i < 32; i++) {
+        if (classes[i].used) continue;
+        memset(&classes[i], 0, sizeof classes[i]);
+        snprintf(classes[i].name, sizeof classes[i].name, "%s", name);
+        classes[i].wndproc = runtime_proc(proc);
+        classes[i].used = 1;
+        return (uint32_t)i;
+    }
+    hp_unsupported("USER32", "more than 32 classes");
+}
+
+static uint16_t g16(uint32_t a) { uint16_t v; memcpy(&v, G(a), 2); return v; }
+
+/* a template field: an ordinal (returned) or a UTF-16 string (as Windows-1252 in out; 0 returned) */
+static uint32_t tmpl_field(uint32_t *p, char *out, size_t n)
+{
+    out[0] = 0;
+    if (g16(*p) == 0xFFFF) { uint32_t o = g16(*p + 2); *p += 4; return o; }
+    size_t k = 0;
+    for (uint16_t c; (c = g16(*p)) != 0; *p += 2) if (k + 1 < n) out[k++] = c < 0x100 ? (char)c : '?';
+    out[k] = 0;
+    *p += 2;
+    return 0;
+}
+
+#define DLG_BASE_X 6
+#define DLG_BASE_Y 13
+static int32_t dlu_x(int32_t v) { return (v * DLG_BASE_X + (v >= 0 ? 2 : -2)) / 4; }   /* MapDialogRect: MulDiv(v, base, 4 or 8) */
+static int32_t dlu_y(int32_t v) { return (v * DLG_BASE_Y + (v >= 0 ? 4 : -4)) / 8; }
+
+static uint32_t guest_text(const char *s)
+{
+    uint32_t g = halopad_heap_alloc((uint32_t)strlen(s) + 1, 0);
+    memcpy(G(g), s, strlen(s) + 1);
+    return g;
+}
+
+/* One window with the creation messages CreateWindowExA sends, for the dialog manager's own
+   windows (the dialog and its controls). title_ord: a resource ordinal as the title (icons). */
+static uint32_t dlg_window(uint32_t cls, int ctl, uint32_t style, uint32_t exstyle, int32_t x, int32_t y, int32_t w, int32_t h,
+                           uint32_t parent, uint32_t id, const char *title, uint32_t title_ord, uint32_t instance, uint32_t param)
+{
+    uint32_t hwnd = unew(H_WINDOW);
+    uobj *o = uget(hwnd, H_WINDOW);
+    o->cls = cls; o->ctl = ctl; o->style = style & ~(WS_VISIBLE | WS_DISABLED);
+    o->visible = !!(style & WS_VISIBLE); o->disabled = !!(style & WS_DISABLED);
+    o->exstyle = exstyle; o->instance = instance; o->parent = parent; o->id = id;
+    o->wndproc = classes[cls].wndproc;
+    o->x = x; o->y = y; o->w = w; o->h = h;
+    uint32_t t;
+    if (title_ord) { t = halopad_heap_alloc(4, 0); wr32(t, 0xFFFFu | title_ord << 16); }
+    else t = guest_text(title);
+    uint32_t cs = halopad_heap_alloc(48, 1);
+    wr32(cs + 0, param); wr32(cs + 4, instance); wr32(cs + 8, (style & WS_CHILD) ? id : 0); wr32(cs + 12, parent);
+    wr32(cs + 16, (uint32_t)h); wr32(cs + 20, (uint32_t)w); wr32(cs + 24, (uint32_t)y); wr32(cs + 28, (uint32_t)x);
+    wr32(cs + 32, style); wr32(cs + 36, t); wr32(cs + 40, 0); wr32(cs + 44, exstyle);
+    uint32_t ok = send(hwnd, WM_NCCREATE, 0, cs);
+    if (ok) {
+        uint32_t rc = halopad_heap_alloc(16, 1);
+        wr32(rc, (uint32_t)x); wr32(rc + 4, (uint32_t)y); wr32(rc + 8, (uint32_t)(x + w)); wr32(rc + 12, (uint32_t)(y + h));
+        send(hwnd, WM_NCCALCSIZE, 0, rc);
+        halopad_heap_free(rc);
+        if (send(hwnd, WM_CREATE, 0, cs) == 0xFFFFFFFFu) ok = 0;
+    }
+    halopad_heap_free(cs);
+    halopad_heap_free(t);
+    if (!ok) { if ((o = uget(hwnd, H_WINDOW))) o->kind = H_FREE; return 0; }
+    return hwnd;
+}
+
+/* The dialog font: LOGFONT height -MulDiv(points, 96, 72). */
+static uint32_t dialog_font(uint32_t points, uint32_t weight, uint32_t italic, uint32_t charset, const char *face)
+{
+    uint32_t a = halopad_heap_alloc(56, 1), f = guest_text(face);
+    wr32(a, (uint32_t)-(int32_t)((points * 96 + 36) / 72)); wr32(a + 16, weight ? weight : 400);
+    wr32(a + 20, italic); wr32(a + 32, charset); wr32(a + 52, f);
+    uint32_t h = CreateFontA_c(a);
+    halopad_heap_free(a);
+    halopad_heap_free(f);
+    return h;
+}
+
+static uint32_t create_dialog(uint32_t instance, uint32_t tmpl, uint32_t owner, uint32_t proc, uint32_t param)
+{
+    int ext = g16(tmpl) == 1 && g16(tmpl + 2) == 0xFFFF;
+    uint32_t style, exstyle, n, p;
+    int16_t x, y, cx, cy;
+    if (ext) { exstyle = rd32(tmpl + 8); style = rd32(tmpl + 12); n = g16(tmpl + 16); p = tmpl + 18; }
+    else { style = rd32(tmpl); exstyle = rd32(tmpl + 4); n = g16(tmpl + 8); p = tmpl + 10; }
+    x = (int16_t)g16(p); y = (int16_t)g16(p + 2); cx = (int16_t)g16(p + 4); cy = (int16_t)g16(p + 6); p += 8;
+    char menu[64], cls[64], title[256], face[64] = "";
+    uint32_t menu_ord = tmpl_field(&p, menu, sizeof menu), cls_ord = tmpl_field(&p, cls, sizeof cls);
+    tmpl_field(&p, title, sizeof title);
+    if (menu_ord || menu[0] || cls_ord || cls[0]) hp_unsupported("DialogBox", "a dialog with a menu or its own class (\"%s\", \"%s\")", menu, cls);
+    uint32_t points = 0, weight = 0, italic = 0, charset = 1;           /* DEFAULT_CHARSET */
+    if (style & DS_SETFONT) {
+        points = g16(p); p += 2;
+        if (ext) { weight = g16(p); italic = *(uint8_t *)G(p + 2); charset = *(uint8_t *)G(p + 3); p += 4; }
+        tmpl_field(&p, face, sizeof face);
+    }
+    if ((style & (DS_SETFONT | DS_FIXEDSYS)) == (DS_SETFONT | DS_FIXEDSYS) && !strcmp(face, "MS Shell Dlg")) snprintf(face, sizeof face, "MS Shell Dlg 2");
+    if (!(style & DS_SETFONT) || points != 8 || (strcmp(face, "MS Shell Dlg 2") && strcmp(face, "MS Shell Dlg")))
+        hp_unsupported("DialogBox", "dialog font %u pt \"%s\" (only MS Shell Dlg 8 pt has base units)", points, face);
+    if (style & 0x1u /* DS_ABSALIGN */) hp_unsupported("DialogBox", "DS_ABSALIGN");
+
+    uint32_t dcls = builtin_class("#32770", "DefDlgProcA");
+    uint32_t bcls = builtin_class("Button", "HaloPadButtonWndProc"), scls = builtin_class("Static", "HaloPadStaticWndProc");
+    int32_t l, t, r, b;
+    frame_insets(style, &l, &t, &r, &b);
+    int32_t ox, oy;
+    halopad_window_client_origin(owner, &ox, &oy);
+    uint32_t font = dialog_font(points, weight, italic, charset, face);
+
+    /* the dialog procedure sees the messages from WM_SETFONT on; creation messages go to DefDlgProc alone */
+    uint32_t dlg = dlg_window(dcls, CTL_DIALOG, style & ~WS_VISIBLE, exstyle, ox + dlu_x(x), oy + dlu_y(y),
+                              dlu_x(cx) + l + r, dlu_y(cy) + t + b, owner, 0, title, 0, instance, param);
+    if (!dlg) hp_unsupported("DialogBox", "the dialog window refused creation");
+    uobj *d = uget(dlg, H_WINDOW);
+    d->dlgproc = proc;
+    d->font = font;
+    send(dlg, WM_SETFONT, font, 0);
+
+    for (uint32_t i = 0; i < n; i++) {
+        p = (p + 3) & ~3u;
+        uint32_t istyle, iex, id;
+        int16_t ix, iy, icx, icy;
+        if (ext) { iex = rd32(p + 4); istyle = rd32(p + 8); ix = (int16_t)g16(p + 12); iy = (int16_t)g16(p + 14);
+                   icx = (int16_t)g16(p + 16); icy = (int16_t)g16(p + 18); id = rd32(p + 20); p += 24; }
+        else { istyle = rd32(p); iex = rd32(p + 4); ix = (int16_t)g16(p + 8); iy = (int16_t)g16(p + 10);
+               icx = (int16_t)g16(p + 12); icy = (int16_t)g16(p + 14); id = g16(p + 16); p += 18; }
+        char icls[64], itext[1024];
+        uint32_t icls_ord = tmpl_field(&p, icls, sizeof icls), itext_ord = tmpl_field(&p, itext, sizeof itext);
+        uint32_t extra = g16(p);
+        p += 2 + extra;
+        if (extra) hp_unsupported("DialogBox", "control %u with creation data", id);
+        uint32_t c; int ctl;
+        if (icls_ord == 0x80 || (!icls_ord && !strcasecmp(icls, "Button"))) { c = bcls; ctl = CTL_BUTTON; }
+        else if (icls_ord == 0x82 || (!icls_ord && !strcasecmp(icls, "Static"))) { c = scls; ctl = CTL_STATIC; }
+        else hp_unsupported("DialogBox", "control %u of class %s%u", id, icls, icls_ord);
+        uint32_t k = istyle & (ctl == CTL_BUTTON ? 0xFu : 0x1Fu);
+        if (ctl == CTL_BUTTON && k != 0 && k != 1 && k != 2 && k != 3) hp_unsupported("DialogBox", "button %u of type %u", id, k);
+        if (ctl == CTL_STATIC && k != 0 && k != 1 && k != 2 && k != 3) hp_unsupported("DialogBox", "static %u of type %u", id, k);
+        uint32_t hc = dlg_window(c, ctl, istyle | WS_CHILD, iex, dlu_x(ix), dlu_y(iy), dlu_x(icx), dlu_y(icy), dlg, id & 0xFFFF,
+                                 itext, itext_ord, instance, 0);
+        if (!hc) hp_unsupported("DialogBox", "control %u refused creation", id);
+        send(hc, WM_SETFONT, font, 0);
+    }
+
+    uint32_t first = 0;                                             /* the first tab stop that can take the focus */
+    for (uint32_t i = 1; i < MAXU && !first; i++) {
+        uobj *c = &uobjs[i];
+        if (c->kind == H_WINDOW && c->parent == dlg && (c->style & WS_TABSTOP) && c->visible && !c->disabled) first = UBASE + 4 * i;
+    }
+    if (send(dlg, WM_INITDIALOG, first, param) && first && is_window(first)) set_focus(first);
+    return dlg;
+}
+
+/* Mnemonics: "&Exit" shows as "Exit", "&&" as "&". */
+static void plain_text(const char *in, char *out, size_t n)
+{
+    size_t k = 0;
+    for (; *in && k + 1 < n; in++) {
+        if (*in == '&') { if (in[1] == '&') in++; else continue; }
+        out[k++] = *in;
+    }
+    out[k] = 0;
+}
+
+static uint32_t text_color(uint32_t dlg, uint32_t ctl)
+{
+    uint32_t dc = CreateCompatibleDC_c(0);
+    SetTextColor_c(dc, 0);                                          /* COLOR_WINDOWTEXT */
+    send(dlg, WM_CTLCOLORSTATIC, dc, ctl);
+    uint32_t c = GetTextColor_c(dc);
+    DeleteDC_c(dc);
+    return c;
+}
+
+/* The dialog's visible controls as the host shows them; hwnds[i] is item i's window. */
+static void dialog_view(uint32_t dlg, halopad_dialog_view *v, uint32_t *hwnds)
+{
+    uobj *d = uget(dlg, H_WINDOW);
+    memset(v, 0, sizeof *v);
+    snprintf(v->title, sizeof v->title, "%s", d->text);
+    halopad_window_client_size(dlg, &v->w, &v->h);
+    for (uint32_t i = 1; i < MAXU; i++) {
+        uobj *c = &uobjs[i];
+        if (c->kind != H_WINDOW || c->parent != dlg || !(c->style & WS_CHILD) || !c->visible) continue;
+        if (v->count == HPD_MAX_ITEMS) hp_unsupported("DialogBox", "more than %d visible controls", HPD_MAX_ITEMS);
+        uint32_t h = UBASE + 4 * i;
+        halopad_dialog_item *it = &v->item[v->count];
+        it->id = c->id; it->enabled = !c->disabled && !d->disabled;
+        it->x = c->x; it->y = c->y; it->w = c->w; it->h = c->h;
+        plain_text(c->text, it->text, sizeof it->text);
+        uint32_t k = c->style & 0x1F;
+        if (c->ctl == CTL_BUTTON) {
+            it->kind = (k & 0xF) >= 2 ? HPD_CHECKBOX : HPD_BUTTON;
+            it->is_default = (k & 0xF) == 1;
+            it->checked = c->check == 1;
+        } else if (k == 3) {
+            it->kind = HPD_ICON;
+            snprintf(it->text, sizeof it->text, "#%u", c->icon);
+        } else {
+            it->kind = (c->style & SS_NOTIFY) ? HPD_LINK : HPD_TEXT;
+            it->align = (int)k;
+            it->color = text_color(dlg, h);
+            if (!(c = uget(h, H_WINDOW))) continue;                 /* destroyed while asked for its colour */
+        }
+        hwnds[v->count++] = h;
+    }
+}
+
+static void print_dialog(const halopad_dialog_view *v)
+{
+    static const char *kinds[] = {"button", "checkbox", "text", "link", "icon"};
+    fprintf(stderr, "HALOPAD DIALOG: \"%s\" (%dx%d)\n", v->title, v->w, v->h);
+    for (int i = 0; i < v->count; i++) {
+        const halopad_dialog_item *it = &v->item[i];
+        fprintf(stderr, "HALOPAD DIALOG:   %-8s %5d %s%s%s \"%s\"\n", kinds[it->kind], (int32_t)it->id, it->enabled ? "" : "(disabled) ",
+                it->kind == HPD_CHECKBOX ? (it->checked ? "[x] " : "[ ] ") : "", it->is_default ? "(default) " : "", it->text);
+    }
+}
+
+/* the next scripted action (HALOPAD_DIALOG_ACTIONS), consumed as it is used */
+static int scripted_action(const halopad_dialog_view *v)
+{
+    static char actions[512];
+    static int loaded, pos;
+    if (!loaded) { const char *e = getenv("HALOPAD_DIALOG_ACTIONS"); snprintf(actions, sizeof actions, "%s", e ? e : ""); loaded = 1; }
+    while (actions[pos] == ',' || actions[pos] == ' ') pos++;
+    if (!actions[pos]) return HPD_NO_SCREEN;
+    char tok[32];
+    int n = 0;
+    while (actions[pos] && actions[pos] != ',' && n < 31) tok[n++] = actions[pos++];
+    tok[n] = 0;
+    if (!strcmp(tok, "close")) return HPD_CLOSE;
+    uint32_t id = (uint32_t)strtoul(tok, NULL, 0);
+    for (int i = 0; i < v->count; i++)
+        if (v->item[i].id == id && v->item[i].enabled && v->item[i].kind != HPD_TEXT && v->item[i].kind != HPD_ICON) return i;
+    print_dialog(v);
+    hp_unsupported("DialogBox", "scripted action \"%s\": no enabled button, checkbox or link with that id", tok);
+}
+
+static uint32_t modal_loop(uint32_t dlg, uint32_t owner)
+{
+    int owner_was_disabled = owner && is_window(owner) ? (int)EnableWindow_c(owner, 0) : 1;
+    uobj *d = uget(dlg, H_WINDOW);
+    if (d && !d->ended && !d->visible) ShowWindow_c(dlg, 1);
+    halopad_dialog_view *v = malloc(sizeof *v);
+    uint32_t hwnds[HPD_MAX_ITEMS];
+    while ((d = uget(dlg, H_WINDOW)) && !d->ended) {
+        dialog_view(dlg, v, hwnds);
+        if (!(d = uget(dlg, H_WINDOW)) || d->ended) break;
+        int k = scripted_action(v);
+        if (k == HPD_NO_SCREEN) k = halopad_host_dialog(v);
+        if (k == HPD_NO_SCREEN) {
+            print_dialog(v);
+            hp_unsupported("DialogBox", "dialog \"%s\" needs the player, and this host has no screen to show it on "
+                           "(the iPadOS app shows dialogs; HALOPAD_DIALOG_ACTIONS scripts them)", v->title);
+        }
+        if (k == HPD_CLOSE) { send(dlg, WM_SYSCOMMAND, SC_CLOSE, 0); continue; }
+        if (k < 0 || k >= v->count) hp_unsupported("DialogBox", "host action %d", k);
+        uint32_t c = hwnds[k];
+        uobj *cw = uget(c, H_WINDOW);
+        if (!cw || !cw->visible || cw->disabled) continue;          /* changed meanwhile */
+        if (v->item[k].kind == HPD_LINK) {
+            uint32_t pt = (uint32_t)(cw->w / 2 & 0xFFFF) | (uint32_t)(cw->h / 2) << 16;
+            send(c, WM_LBUTTONDOWN, 1 /* MK_LBUTTON */, pt);
+            if (is_window(c)) send(c, WM_LBUTTONUP, 0, pt);
+        } else if (v->item[k].kind == HPD_BUTTON || v->item[k].kind == HPD_CHECKBOX) {
+            send(c, BM_CLICK, 0, 0);
+        }
+    }
+    free(v);
+    halopad_host_dialog_done();
+    uint32_t result = d ? d->dlgresult : 0;
+    if (owner && is_window(owner)) {
+        if (!owner_was_disabled) EnableWindow_c(owner, 1);
+        uobj *o = uget(owner, H_WINDOW);
+        if (o && o->visible) activate(owner);
+    }
+    if (d) DestroyWindow_c(dlg);
+    return result;
+}
+
+uint32_t DialogBoxIndirectParamA_c(uint32_t instance, uint32_t tmpl, uint32_t owner, uint32_t proc, uint32_t param)
+{
+    if (owner && !is_window(owner)) { halopad_last_error = 1400; return 0xFFFFFFFFu; }
+    uint32_t dlg = create_dialog(instance, tmpl, owner, proc, param);
+    return modal_loop(dlg, owner);
+}
+
+uint32_t DialogBoxParamA_c(uint32_t instance, uint32_t name, uint32_t owner, uint32_t proc, uint32_t param)
+{
+    uint32_t r = FindResourceExA_c(instance, 5 /* RT_DIALOG */, name, 0);
+    uint32_t t = r ? LoadResource_c(instance, r) : 0;
+    if (!t) { halopad_last_error = 1814; return 0xFFFFFFFFu; }      /* ERROR_RESOURCE_NAME_NOT_FOUND */
+    return DialogBoxIndirectParamA_c(instance, t, owner, proc, param);
+}
+
+static uobj *dialog_of(const char *service, uint32_t hwnd)
+{
+    uobj *w = uget(hwnd, H_WINDOW);
+    if (w && w->ctl != CTL_DIALOG) hp_unsupported(service, "window 0x%x is not a dialog", hwnd);
+    if (!w) halopad_last_error = 1400;
+    return w;
+}
+
+uint32_t EndDialog_c(uint32_t hwnd, uint32_t result)
+{
+    uobj *w = dialog_of("EndDialog", hwnd);
+    if (!w) return 0;
+    w->dlgresult = result;
+    w->ended = 1;
+    return 1;
+}
+
+uint32_t GetDlgItem_c(uint32_t hwnd, uint32_t id)
+{
+    for (uint32_t i = 1; i < MAXU; i++) {
+        uobj *c = &uobjs[i];
+        if (c->kind == H_WINDOW && (c->style & WS_CHILD) && c->parent == hwnd && c->id == (id & 0xFFFF)) return UBASE + 4 * i;
+    }
+    halopad_last_error = 1421;                                      /* ERROR_CONTROL_ID_NOT_FOUND */
+    return 0;
+}
+
+uint32_t SetDlgItemTextA_c(uint32_t hwnd, uint32_t id, uint32_t text)
+{
+    uint32_t c = GetDlgItem_c(hwnd, id);
+    return c ? SetWindowTextA_c(c, text) : 0;
+}
+
+uint32_t IsDlgButtonChecked_c(uint32_t hwnd, uint32_t id)
+{
+    uint32_t c = GetDlgItem_c(hwnd, id);
+    return c ? send(c, BM_GETCHECK, 0, 0) : 0;
+}
+
+uint32_t CheckDlgButton_c(uint32_t hwnd, uint32_t id, uint32_t check)
+{
+    uint32_t c = GetDlgItem_c(hwnd, id);
+    if (!c) return 0;
+    send(c, BM_SETCHECK, check, 0);
+    return 1;
+}
+
+/* DefDlgProc: the dialog procedure first; its TRUE means handled (the result is DWL_MSGRESULT,
+   or the procedure's own value for the messages that return one). */
+uint32_t DefDlgProcA_c(uint32_t hwnd, uint32_t msg, uint32_t wp, uint32_t lp)
+{
+    uobj *w = dialog_of("DefDlgProcA", hwnd);
+    if (!w) return 0;
+    uint32_t r = 0;
+    if (w->dlgproc) {
+        uint32_t args[4] = {hwnd, msg, wp, lp};
+        r = halopad_call_guest(w->dlgproc, 4, args);
+        if (!(w = uget(hwnd, H_WINDOW))) return r;
+    }
+    if (r) {
+        if (msg == WM_INITDIALOG || (msg >= WM_CTLCOLORMSGBOX && msg <= WM_CTLCOLORSTATIC)) return r;
+        return w->msgresult;
+    }
+    switch (msg) {
+    case WM_SETFONT: w->font = wp; return 0;
+    case WM_GETFONT: return w->font;
+    case WM_INITDIALOG: return 0;
+    case WM_COMMAND: return 0;
+    case WM_CLOSE: {                                                /* IDCANCEL, if the dialog can cancel */
+        uint32_t c = GetDlgItem_c(hwnd, 2);
+        uobj *cw = c ? uget(c, H_WINDOW) : NULL;
+        if (!cw || !cw->disabled) send(hwnd, WM_COMMAND, 2 /* IDCANCEL, BN_CLICKED */, c);
+        return 0;
+    }
+    }
+    if (msg >= WM_CTLCOLORMSGBOX && msg <= WM_CTLCOLORSTATIC) return 0;   /* the dialog face: the host draws the background */
+    return DefWindowProcA_c(hwnd, msg, wp, lp);
+}
+
+static uobj *control_of(const char *service, uint32_t hwnd, int ctl)
+{
+    uobj *w = uget(hwnd, H_WINDOW);
+    if (w && w->ctl != ctl) hp_unsupported(service, "window 0x%x is not a control of this class", hwnd);
+    return w;
+}
+
+/* the Button class: push buttons and check boxes (auto or not) */
+uint32_t HaloPadButtonWndProc_c(uint32_t hwnd, uint32_t msg, uint32_t wp, uint32_t lp)
+{
+    uobj *w = control_of("Button", hwnd, CTL_BUTTON);
+    if (!w) return 0;
+    switch (msg) {
+    case WM_SETFONT: w->font = wp; return 0;
+    case WM_GETFONT: return w->font;
+    case BM_GETCHECK: return w->check;
+    case BM_SETCHECK: if ((w->style & 0xF) >= 2) w->check = wp; return 0;
+    case BM_GETSTATE: return w->check | (focus == hwnd ? 8u : 0);
+    case BM_SETSTATE: return 0;
+    case BM_CLICK:
+        if (w->disabled || !w->visible) return 0;
+        if ((w->style & 0xF) == 3) w->check = !w->check;             /* BS_AUTOCHECKBOX */
+        send(w->parent, WM_COMMAND, w->id & 0xFFFF /* BN_CLICKED */, hwnd);
+        return 0;
+    }
+    return DefWindowProcA_c(hwnd, msg, wp, lp);
+}
+
+/* the Static class: text (left, centred, right) and icons; SS_NOTIFY reports clicks */
+uint32_t HaloPadStaticWndProc_c(uint32_t hwnd, uint32_t msg, uint32_t wp, uint32_t lp)
+{
+    uobj *w = control_of("Static", hwnd, CTL_STATIC);
+    if (!w) return 0;
+    switch (msg) {
+    case WM_NCCREATE: {
+        uint32_t t = rd32(lp + 36);
+        if (t && g16(t) == 0xFFFF) { w->icon = g16(t + 2); w->text[0] = 0; return 1; }   /* an icon's resource ordinal */
+        break;
+    }
+    case WM_SETFONT: w->font = wp; return 0;
+    case WM_GETFONT: return w->font;
+    case WM_LBUTTONUP:
+        if (w->style & SS_NOTIFY) send(w->parent, WM_COMMAND, w->id & 0xFFFF /* STN_CLICKED */, hwnd);
+        return 0;
+    }
+    return DefWindowProcA_c(hwnd, msg, wp, lp);
+}
+
+/* ---- ShellExecuteA (shell32): opening a URL or a document ---- */
+
+uint32_t ShellExecuteA_c(uint32_t hwnd, uint32_t verb, uint32_t file, uint32_t params, uint32_t dir, uint32_t show)
+{
+    (void)hwnd; (void)dir; (void)show;
+    const char *v = verb ? (const char *)G(verb) : "open";
+    if (strcasecmp(v, "open")) hp_unsupported("ShellExecuteA", "verb \"%s\"", v);
+    if (params && *(const char *)G(params)) hp_unsupported("ShellExecuteA", "parameters \"%s\"", (const char *)G(params));
+    if (!file) return 2;                                            /* SE_ERR_FNF */
+    const char *f = G(file);
+    char url[1200];
+    if (strstr(f, "://")) snprintf(url, sizeof url, "%s", f);
+    else {
+        char host[1024];
+        if (!halopad_host_path(f, host, sizeof host)) return 2;     /* SE_ERR_FNF */
+        FILE *probe = fopen(host, "rb");
+        if (!probe) return 2;
+        fclose(probe);
+        snprintf(url, sizeof url, "file://%s", host);
+    }
+    int ok = halopad_shell_open_hook ? halopad_shell_open_hook(url) : halopad_host_open_url(url);
+    fprintf(stderr, "HALOPAD: ShellExecuteA open %s: %s\n", url, ok ? "opened" : "no handler on this host");
+    return ok ? 42 : 31;                                            /* above 32 succeeds; SE_ERR_NOASSOC */
 }

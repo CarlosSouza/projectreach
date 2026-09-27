@@ -834,3 +834,21 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   - `ProcessVertices`: Halo's only call site (`0x51ff05`) is in dead code (`0x51fe90` has no callers and no stored address). Every device method in the static inventory is now implemented.
   - The file-mapping traps (`CreateFileMappingA`/`MapViewOfFile`, `0x5466df`) sit in Halo's crash dialog, after `CreateDialogIndirectParamA`. Normal play does not reach them, so they stay loud traps.
 - **Next:** the license is still the gate. Beyond the splash, the core's next steps (the rest of `0x519630`, the main menu and map loading) need the player's choice.
+
+
+## 2026-09-27 — Halo's warning and error dialogs; the product ID gates start-up
+
+- **What start-up does after the license.** Static reading of `WinMain` (`0x5449c7`–`0x544c38`) lists every check, each reported through `0x582060` with a text from `strings.dll`:
+  - Direct3D 9, the Ctrl key held, DirectSound, DirectInput, `shfolder.dll`;
+  - an unclean last exit, memory, CPU speed, temporary disk space;
+  - the product ID. `0x5829e0` reads `DigitalProductID` from `HKLM\...\Halo CE`, and when it is missing, Halo shows "Your product key is invalid" as a fatal error (flag 1 → `ExitProcess(1)`).
+- **Consequence.** The product key gates more than online play: without the product ID its installer writes, Halo stops right after the license. HaloPad never writes product IDs. STATUS now parks everything past start-up on Chris's key, entered through the original installer.
+- **Dialogs implemented** (they were traps), since every player without a key, and every start-up warning, reaches them:
+  - USER32 dialog manager: templates, `#32770`/`DefDlgProcA`, Button and Static controls with subclassable window procedures, the `Dlg*` calls and `EndDialog`, and a modal loop that presents through the host.
+  - GDI: `CreateFontIndirectA`, `GetObjectA` on fonts, `GetTextColor`.
+  - `ShellExecuteA` for URLs and documents.
+  - `CW_USEDEFAULT` for pop-up windows.
+- **Tests.**
+  - `tests/halo_dialog_test.c` (26 checks) runs Halo's own `0x582060` and `0x5817e0`, passing on macOS and the iPad Simulator (all 16 suites pass on both): the warning's contents, the link to Halo's support page, "don't show again" honoured on a second call, and the fatal product-key error with only Exit enabled.
+  - On the iPad Simulator, a scene (`build-ios-app.py --scene`) shows Halo's Ctrl-key warning as the app's sheet. Screenshot: `ios-app-20260927T124014Z`. Nothing was tapped.
+- **Next:** the other start-up checks can be run the same way: `0x580a00` on HaloPad's `IDirect3D9`, the CPU-speed measurement `0x580e70`, the memory and disk figures. That shows which warnings a HaloPad player would see.

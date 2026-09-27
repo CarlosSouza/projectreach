@@ -43,7 +43,7 @@ def sdk_path(target):
     return subprocess.run(['xcrun', '--sdk', sdk, '--show-sdk-path'], check=True, capture_output=True, text=True).stdout.strip()
 
 
-def build(work, target, main_src):
+def build(work, target, main_src, extra=()):
     va = work / 'va'
     if not (va / 'haloce.va.ll').exists():
         sys.exit('run scripts/va-model.py first')
@@ -65,7 +65,7 @@ def build(work, target, main_src):
     sdk = sdk_path(target)
     cmd = ['clang', '-target', target, *(['-isysroot', sdk] if sdk else []), '-O2', '-fno-fast-math', '-ffp-contract=off', '-w', '-DPTROFS_64BIT=1', '-std=c2x',
            '-Wno-override-module', '-I', str(SUPPORT), '-I', str(ROOT / 'generated' / 'runtime'), *xiph.include_flags(),
-           str(main_src), *map(str, sorted((ROOT / 'port/runtime').glob('*.c'))),
+           str(main_src), *map(str, extra), *map(str, sorted((ROOT / 'port/runtime').glob('*.c'))),
            *map(str, sorted(SUPPORT.glob('llasm_*.c'))), str(va / 'dispatch.ll'), *map(str, runtime_ll),
            str(out / 'stubs.ll'), str(obj), *map(str, mod_objs), *[str(m) for m in sorted((ROOT / 'port/apple').glob('*.m'))], str(xiph.archive(target, sdk)), '-fobjc-arc', '-framework', 'CoreGraphics', '-framework', 'CoreText', '-framework', 'UIKit' if ios else 'Cocoa', '-framework', 'Metal', '-framework', 'GameController', '-framework', 'QuartzCore', '-framework', 'AudioToolbox', '-o', str(exe)]
     link = subprocess.run(cmd, capture_output=True, text=True)

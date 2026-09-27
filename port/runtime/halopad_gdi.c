@@ -249,11 +249,14 @@ uint32_t DeleteObject_c(uint32_t obj)
     return 1;
 }
 
+static uint32_t font_logfont(gobj *o, uint32_t size, uint32_t out);   /* text section below */
+
 uint32_t GetObjectA_c(uint32_t obj, uint32_t size, uint32_t out)
 {
     pthread_mutex_lock(&glock);
     gobj *o = gget(obj, -1);
     if (!o) { pthread_mutex_unlock(&glock); return 0; }
+    if (o->kind == G_FONT) { uint32_t n = font_logfont(o, size, out); pthread_mutex_unlock(&glock); return n; }
     if (o->kind != G_BITMAP) { pthread_mutex_unlock(&glock); hp_unsupported("GetObjectA", "a non-bitmap object"); }
     uint32_t w = o->w, h = o->h;
     pthread_mutex_unlock(&glock);
@@ -542,6 +545,45 @@ uint32_t CreateFontA_c(uint32_t args)                                /* the 14 s
     gget(h, G_FONT)->f = f;
     pthread_mutex_unlock(&glock);
     return h;
+}
+
+/* CreateFontIndirectA: the LOGFONTA's fields, as CreateFontA takes them */
+uint32_t CreateFontIndirectA_c(uint32_t lf)
+{
+    if (!lf) return 0;
+    uint32_t a = halopad_heap_alloc(56, 1);
+    for (int i = 0; i < 5; i++) wr32(a + 4 * i, rd32(lf + 4 * i));
+    for (int i = 0; i < 8; i++) wr32(a + 20 + 4 * i, *(const uint8_t *)G(lf + 20 + i));
+    wr32(a + 52, lf + 28);                                           /* lfFaceName, in place */
+    uint32_t h = CreateFontA_c(a);
+    halopad_heap_free(a);
+    return h;
+}
+
+/* GetObjectA on a font: its LOGFONTA (60 bytes), as created. Called with glock held. */
+static uint32_t font_logfont(gobj *o, uint32_t size, uint32_t out)
+{
+    if (o->is_stock) hp_unsupported("GetObjectA", "the System font's LOGFONT");
+    if (!out) return 60;
+    if (size < 60) return 0;
+    const font *f = o->f;
+    uint8_t lf[60] = {0};
+    int32_t v[5] = {f->height, f->width, f->escapement, f->orientation, f->weight};
+    memcpy(lf, v, 20);
+    uint8_t b[8] = {f->italic, f->underline, f->strikeout, f->charset, f->out_precision, f->clip_precision, f->quality, f->pitch_family};
+    memcpy(lf + 20, b, 8);
+    memcpy(lf + 28, f->face, 31);
+    memcpy(G(out), lf, 60);
+    return 60;
+}
+
+uint32_t GetTextColor_c(uint32_t dc)
+{
+    pthread_mutex_lock(&glock);
+    gobj *d = gget(dc, -1);
+    uint32_t c = d && (d->kind == G_MEMORY_DC || d->kind == G_WINDOW_DC) ? d->text_color : 0xFFFFFFFFu;   /* CLR_INVALID */
+    pthread_mutex_unlock(&glock);
+    return c;
 }
 
 /* the DC's realized font, or a stop for the System font, which is not provided */

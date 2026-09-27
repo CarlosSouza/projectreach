@@ -6,7 +6,9 @@
  * shows the game's own Eula.rtf with Accept and Decline and returns the player's choice
  * (halopad_host_license_prompt); nothing is chosen for the player. A hardware keyboard, touch
  * (as the left mouse button), an iPad pointer (buttons, hover, scrolling) and scene activation
- * are queued for Halo's thread (halopad_host_post_input).
+ * are queued for Halo's thread (halopad_host_post_input). Halo's warning and error dialogs
+ * appear as a sheet laid out from their templates (halopad_host_dialog), and its "more
+ * information" links open in Safari (halopad_host_open_url).
  *
  * Development builds on the Simulator get their data paths from the environment
  * (scripts/build-ios-app.py passes HALOPAD_* through simctl launch). */
@@ -17,6 +19,9 @@
 #include "../runtime/halopad_input.h"
 
 int halopad_core_run(void);
+/* what the core thread runs: Halo from its entry point, unless a development scene replaces it
+   (scripts/build-ios-app.py --scene) */
+__attribute__((weak, noinline)) int halopad_app_entry(void) { return halopad_core_run(); }
 void halopad_host_set_window_handler(void (*handler)(void *window));
 void halopad_host_attach_view(void *window, UIView *view);
 void halopad_host_window_size(void *window, uint32_t *w, uint32_t *h);
@@ -59,7 +64,7 @@ static void on_window(void *w)
     started = 1;
     halopad_host_set_window_handler(on_window);
     NSThread *t = [[NSThread alloc] initWithBlock:^{
-        int code = halopad_core_run();
+        int code = halopad_app_entry();
         fprintf(stderr, "HALOPAD: Halo returned %d\n", code);
         exit(code);
     }];
@@ -232,6 +237,145 @@ int halopad_host_license_prompt(const char *rtf_path)
     });
     dispatch_semaphore_wait(done, DISPATCH_TIME_FOREVER);
     return choice;
+}
+
+/* ---- Halo's dialogs (its warnings and errors), shown to the player ---- */
+
+#include "../runtime/halopad_dialog.h"
+
+@interface HPDialogViewController : UIViewController
+@property(nonatomic) halopad_dialog_view model;
+@property(nonatomic, copy) void (^choose)(int index);
+- (void)rebuild;
+@end
+
+static NSString *cp1252(const char *s) { return [[NSString alloc] initWithCString:s encoding:NSWindowsCP1252StringEncoding] ?: @""; }
+static UIColor *colorref(uint32_t c) { return [UIColor colorWithRed:(c & 0xFF) / 255.0 green:(c >> 8 & 0xFF) / 255.0 blue:(c >> 16 & 0xFF) / 255.0 alpha:1]; }
+
+@implementation HPDialogViewController {
+    UIView *_canvas;
+    CGFloat _scale;
+}
+- (void)viewDidLoad
+{
+    [super viewDidLoad];
+    self.view.backgroundColor = UIColor.secondarySystemBackgroundColor;
+    [self rebuild];
+}
+/* The controls at the template's positions (client pixels, scaled for the iPad), in the
+   state Halo left them: text, enabled, checked, the link colour its WM_CTLCOLORSTATIC set. */
+- (void)rebuild
+{
+    [_canvas removeFromSuperview];
+    halopad_dialog_view m = self.model;
+    _scale = 1.75;
+    CGFloat title_h = 44;
+    self.preferredContentSize = CGSizeMake(m.w * _scale + 32, m.h * _scale + title_h + 32);
+    _canvas = [[UIView alloc] initWithFrame:CGRectMake(16, 16, m.w * _scale, m.h * _scale + title_h)];
+    [self.view addSubview:_canvas];
+    UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(0, 0, m.w * _scale, title_h - 8)];
+    title.text = cp1252(m.title);
+    title.font = [UIFont boldSystemFontOfSize:19];
+    [_canvas addSubview:title];
+    UIFont *font = [UIFont systemFontOfSize:11 * _scale * 0.85];
+    for (int i = 0; i < m.count; i++) {
+        const halopad_dialog_item *it = &m.item[i];
+        CGRect r = CGRectMake(it->x * _scale, title_h + it->y * _scale, it->w * _scale, it->h * _scale);
+        NSString *text = cp1252(it->text);
+        UIView *v = nil;
+        switch (it->kind) {
+        case HPD_TEXT: {
+            UILabel *l = [[UILabel alloc] initWithFrame:r];
+            l.text = text; l.font = font; l.numberOfLines = 0; l.textColor = colorref(it->color);
+            l.textAlignment = it->align == 1 ? NSTextAlignmentCenter : it->align == 2 ? NSTextAlignmentRight : NSTextAlignmentLeft;
+            [l sizeToFit];
+            l.frame = CGRectMake(r.origin.x, r.origin.y, r.size.width, MAX(r.size.height, l.frame.size.height));
+            if (it->align == 2) l.frame = r;
+            v = l;
+            break;
+        }
+        case HPD_ICON: {
+            UIImageView *img = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@"exclamationmark.triangle.fill"]];
+            img.tintColor = UIColor.systemYellowColor;
+            img.contentMode = UIViewContentModeScaleAspectFit;
+            img.frame = r;
+            v = img;
+            break;
+        }
+        case HPD_LINK: case HPD_BUTTON: case HPD_CHECKBOX: {
+            UIButton *b = [UIButton buttonWithType:UIButtonTypeSystem];
+            b.frame = r;
+            b.tag = i;
+            b.enabled = it->enabled;
+            b.titleLabel.font = it->is_default ? [UIFont boldSystemFontOfSize:font.pointSize] : font;
+            if (it->kind == HPD_CHECKBOX) {
+                [b setImage:[UIImage systemImageNamed:it->checked ? @"checkmark.square.fill" : @"square"] forState:UIControlStateNormal];
+                b.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeft;
+                [b setTitle:[@" " stringByAppendingString:text] forState:UIControlStateNormal];
+            } else if (it->kind == HPD_LINK) {
+                NSDictionary *a = @{NSForegroundColorAttributeName: colorref(it->color), NSUnderlineStyleAttributeName: @(NSUnderlineStyleSingle), NSFontAttributeName: font};
+                [b setAttributedTitle:[[NSAttributedString alloc] initWithString:text attributes:a] forState:UIControlStateNormal];
+                b.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeft;
+            } else {
+                [b setTitle:text forState:UIControlStateNormal];
+                b.backgroundColor = UIColor.tertiarySystemFillColor;
+                b.layer.cornerRadius = 6;
+            }
+            [b addTarget:self action:@selector(activated:) forControlEvents:UIControlEventPrimaryActionTriggered];
+            v = b;
+            break;
+        }
+        }
+        if (v) [_canvas addSubview:v];
+    }
+}
+- (void)activated:(UIButton *)b { if (self.choose) { void (^c)(int) = self.choose; self.choose = nil; c((int)b.tag); } }
+@end
+
+static HPDialogViewController *dialog_vc;
+
+/* Called on Halo's thread by USER32's modal loop: shows the dialog's state and blocks until the
+   player activates a control; the sheet stays up until Halo ends the dialog. */
+int halopad_host_dialog(const halopad_dialog_view *v)
+{
+    if ([NSThread isMainThread] || !game_vc) return HPD_NO_SCREEN;
+    __block int choice = HPD_CLOSE;
+    dispatch_semaphore_t done = dispatch_semaphore_create(0);
+    halopad_dialog_view copy = *v;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        void (^choose)(int) = ^(int i) { choice = i; dispatch_semaphore_signal(done); };
+        if (dialog_vc) {
+            dialog_vc.model = copy;
+            dialog_vc.choose = choose;
+            [dialog_vc rebuild];
+            return;
+        }
+        dialog_vc = [HPDialogViewController new];
+        dialog_vc.model = copy;
+        dialog_vc.choose = choose;
+        dialog_vc.modalPresentationStyle = UIModalPresentationFormSheet;
+        dialog_vc.modalInPresentation = YES;            /* only the dialog's own buttons close it */
+        [game_vc presentViewController:dialog_vc animated:YES completion:nil];
+    });
+    dispatch_semaphore_wait(done, DISPATCH_TIME_FOREVER);
+    return choice;
+}
+
+void halopad_host_dialog_done(void)
+{
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [dialog_vc dismissViewControllerAnimated:YES completion:nil];
+        dialog_vc = nil;
+    });
+}
+
+/* ShellExecuteA "open" on a web address: Safari */
+int halopad_host_open_url(const char *url)
+{
+    NSURL *u = [NSURL URLWithString:[NSString stringWithUTF8String:url]];
+    if (!u || !([u.scheme isEqualToString:@"http"] || [u.scheme isEqualToString:@"https"])) return 0;
+    dispatch_async(dispatch_get_main_queue(), ^{ [UIApplication.sharedApplication openURL:u options:@{} completionHandler:nil]; });
+    return 1;
 }
 
 /* ---- application and scene ---- */

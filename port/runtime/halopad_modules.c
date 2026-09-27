@@ -433,6 +433,7 @@ uint32_t GetProcAddress_c(uint32_t handle, uint32_t name)
     char want[64];
     if (name < 0x10000) snprintf(want, sizeof want, "#%u", name);
     else snprintf(want, sizeof want, "%s", (const char *)G(name));
+    if (!strncmp(want, "HaloPad", 7)) { halopad_last_error = 127; return 0; }   /* HaloPad's own entries (built-in window procedures) are not exports */
     for (uint32_t i = 0; i < halopad_import_count; i++)
         if (!strcmp(halopad_import_dlls[i], m->name) && !strcmp(halopad_import_names[i], want))
             return halopad_import_base + halopad_import_stride * i;
