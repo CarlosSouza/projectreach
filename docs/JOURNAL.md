@@ -963,3 +963,11 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   - Nothing is fabricated or patched. WinMain's own check still stops the normal start-up without a key, and public servers still need a real one.
 - 23 suites, the join and 11 slices pass on macOS and on the iPad Simulator. No server is left running, and the Simulator is shut down.
 
+## 2026-09-27 — Two HaloPad clients: Halo's one-key-per-game rule
+
+- **Two clients at once.** `scripts/run-core.py --clients N` builds once and starts N HaloPad instances, each with its own state and evidence folders. `scripts/reference-join.sh` takes `--test` and `--clients`. It now judges every client's result itself, because `run-core.py` exits 0 either way.
+- **Separate ports.** Each client needs its own `-port` as well as `-cport` (2320+i, 2305+i), or the second one's bind fails.
+- **Result.** Both clients complete the handshake and are logged as joined. The original server then drops whichever arrived second, which shows "Your CD Key is invalid." Both carry the same key hash (the MD5 of Halo's empty no-key string).
+- **What it means.** A two-player match needs two legitimate keys, the parked second player. No key is made up.
+- **Test status.** `tests/halo_match_test.c` is ready for when a second key exists and stays out of the suites. Its firing check now counts projectile objects, since the spawn weapon may be a plasma pistol, which has no magazine.
+

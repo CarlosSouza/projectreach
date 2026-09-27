@@ -80,6 +80,9 @@ def main():
     ap.add_argument('--work', type=pathlib.Path)
     ap.add_argument('--target')
     ap.add_argument('--timeout', type=int, default=120)
+    ap.add_argument('--clients', type=int, default=1,
+                    help='run this many instances at once (network tests): each gets HALOPAD_CLIENT=<i>, its own state\n'
+                         'folder generated/halopad-disk-client<i> and evidence under client-<i>/')
     ap.add_argument('--run-prefix', nargs='*', default=[], help='command prefix to run the binary (e.g. xcrun simctl spawn <device>)')
     ap.add_argument('--main', type=pathlib.Path, default=ROOT / 'port/core/halopad_core_main.c',
                     help='program to link in place of the core (e.g. tests/halo_d3d9_test.c)')
@@ -97,21 +100,42 @@ def main():
     acceptance = ROOT / 'generated' / 'runtime-state' / 'eula-acceptance.txt'   # written only by scripts/accept-eula.sh
     if acceptance.exists():
         env['HALOPAD_EULA_ACCEPTANCE'] = str(acceptance)
-    try:
-        if a.run_prefix:                                    # e.g. xcrun simctl spawn <device>: it passes SIMCTL_CHILD_* variables on
-            env.update({'SIMCTL_CHILD_' + k: v for k, v in list(env.items()) if k.startswith('HALOPAD_')})
-        run = subprocess.run([*a.run_prefix, str(exe)], capture_output=True, text=True, timeout=a.timeout, env=env)
-        code, out, err = run.returncode, run.stdout, run.stderr
-    except subprocess.TimeoutExpired as t:
-        code, out, err = 'timeout', (t.stdout or b'').decode(errors='replace'), (t.stderr or b'').decode(errors='replace')
-    (evid / 'stdout.txt').write_text(out)
-    (evid / 'stderr.txt').write_text(err)
-    stop = next((l for l in reversed(err.splitlines()) if l.startswith('HALOPAD TRAP') or l.startswith('HALOPAD FAULT')), None)
-    report = {'target': target, 'work': str(work.relative_to(ROOT)), 'exit': code, 'stopped_at': stop,
-              'identities': {'image.bin': sha(IMAGE), 'haloce.va.o': sha(obj), 'executable': sha(exe)}}
-    (evid / 'result.json').write_text(json.dumps(report, indent=1) + '\n')
-    print(err[-1500:])
-    print('exit', code, '| stopped at:', stop)
+    if a.run_prefix:                                    # e.g. xcrun simctl spawn <device>: it passes SIMCTL_CHILD_* variables on
+        env.update({'SIMCTL_CHILD_' + k: v for k, v in list(env.items()) if k.startswith('HALOPAD_')})
+    if a.clients == 1:
+        runs = [(evid, env)]
+    else:
+        runs = []
+        for i in range(a.clients):
+            d = evid / f'client-{i}'
+            d.mkdir()
+            e = dict(env, HALOPAD_CLIENT=str(i), HALOPAD_STATE_ROOT=str(ROOT / 'generated' / f'halopad-disk-client{i}'),
+                     HALOPAD_REGISTRY=str(d / 'registry.txt'))
+            if a.run_prefix:
+                e.update({'SIMCTL_CHILD_' + k: v for k, v in list(e.items()) if k.startswith('HALOPAD_')})
+            runs.append((d, e))
+    procs = [(d, subprocess.Popen([*a.run_prefix, str(exe)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=e))
+             for d, e in runs]
+    codes = []
+    for d, p in procs:
+        try:
+            out, err = p.communicate(timeout=a.timeout)
+            code = p.returncode
+        except subprocess.TimeoutExpired:
+            p.kill()
+            out, err = p.communicate()
+            code = 'timeout'
+        (d / 'stdout.txt').write_text(out)
+        (d / 'stderr.txt').write_text(err)
+        stop = next((l for l in reversed(err.splitlines()) if l.startswith('HALOPAD TRAP') or l.startswith('HALOPAD FAULT')), None)
+        report = {'target': target, 'work': str(work.relative_to(ROOT)), 'exit': code, 'stopped_at': stop,
+                  'identities': {'image.bin': sha(IMAGE), 'haloce.va.o': sha(obj), 'executable': sha(exe)}}
+        (d / 'result.json').write_text(json.dumps(report, indent=1) + '\n')
+        if a.clients > 1:
+            print(f'--- client {len(codes)}')
+        print(err[-1500:])
+        print('exit', code, '| stopped at:', stop)
+        codes.append(code)
     print('evidence', evid.relative_to(ROOT))
 
 

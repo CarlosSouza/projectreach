@@ -215,6 +215,16 @@ Nothing is written to the registry, no key is made up, and nothing in Halo is pa
   - only the machine's own name and `localhost` resolve, and others fail with `WSAHOST_NOT_FOUND`.
   So the version check's lookup of `hpcup.bungie.net` fails as it would offline, and no test reaches a public host.
 
+**Two HaloPad clients in one game** (`tests/halo_match_test.c`, run with `scripts/reference-join.sh --test tests/halo_match_test.c --clients 2`).
+
+`scripts/run-core.py --clients N` builds once and starts N instances. Each has `HALOPAD_CLIENT=<i>`, its own state folder (`generated/halopad-disk-client<i>`) and its own evidence folder (`client-<i>/`). Two installations on one machine need their own ports: `-cport 2305+i` and `-port 2320+i` (`[0x6337f8]`, WinMain `0x544c63`). With the same `-port` the second client's bind fails, and Halo gives up before sending anything.
+
+Client 0 walks and fires. Client 1 is meant to watch the other player's unit move through the server.
+
+**Result: the original server accepts only one of them.** Both complete the handshake and are logged as `JOIN SUCCESS`. About a second later the server drops the later one (`QUIT <No Player> machine 2`), which shows "Your CD Key is invalid.". Both present the same key hash (the MD5 of the empty key string), and Custom Edition refuses a second player with a key already in the game. Which client stays is decided by arrival order.
+
+So a two-player match needs two different legitimate keys: the parked "second legitimately provisioned player". No key is generated to get around this. The test and runner are ready for that day, and they are not in the regression suites because they cannot pass without it. The client that stays is spawned, walks (10.7 units in 200 frames of W) and fires, as in the single-client join.
+
 ## Rasterizer initialization (Halo's graphics start-up)
 
 `0x51a240` (reached from `WinMain` through `0x5442e0` and `0x515610`) is Halo's whole graphics start-up. In order:
