@@ -184,6 +184,10 @@ SLICES = {
     'vec4_transform': {'address': 0x583B65, 'alias': 'halo_vec4_transform', 'conv': 'stdcall', 'cases': cases_vec4, 'x87': True},
     'map_header': {'address': 0x4434A0, 'alias': 'halo_map_header_valid', 'conv': 'cdecl', 'cases': cases_map_header, 'x87': False,
                    'game_root': MAPS_ROOT},
+    # VA model only: CRC32 entered through halopad_call_guest, the host -> guest callback
+    # path runtime services use for window procedures (stdcall convention checked)
+    'crc32_via_host_callback': {'address': 0x59F2A2, 'conv': 'stdcall', 'cases': cases_crc32, 'x87': False,
+                                'env': {'HALOPAD_VIA_CALLBACK': '1'}},
     # VA model only: host -> translated guest -> translated guest callback through dispatch
     'vector_iterate': {'address': 0x582D1A, 'conv': 'stdcall', 'cases': cases_vector_iterate, 'x87': False},
 }
@@ -337,7 +341,7 @@ def run_va(a, names, work, target, evid, build):
             args, regs = split_case(case)
             blob += encode(s['address'], HALO_FPCW, args, regs)
         (build / f'{name}.bin').write_bytes(blob)
-        env = dict(os.environ, HALOPAD_IMAGE=str(image_bin))
+        env = dict(os.environ, HALOPAD_IMAGE=str(image_bin), **s.get('env', {}))
         if s.get('game_root'):
             env['HALOPAD_GAME_ROOT'] = str(s['game_root'])
         prefix = list(a.run_prefix)

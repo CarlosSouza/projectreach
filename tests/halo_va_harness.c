@@ -16,6 +16,7 @@ uint32_t halopad_guest_init(const char *image_path, uint32_t image_base);
 uint32_t halopad_guest_alloc(uint32_t size, uint32_t align);
 void *halopad_guest_ptr(uint32_t guest);
 void halopad_enter(_cpu *cpu, uint32_t va);
+uint32_t halopad_call_guest(uint32_t va, uint32_t nargs, const uint32_t *args);
 extern _Thread_local _cpu *halopad_cpu;
 extern void (*ptr_initialize_pointers)(uint64_t) __attribute__((weak));
 
@@ -31,6 +32,8 @@ int main(int argc, char **argv)
     FILE *f = fopen(argv[1], "rb");
     if (!f) { perror(argv[1]); return 2; }
     const char *via = getenv("HALOPAD_ENTER_VIA_SLOT");
+    const char *cbk = getenv("HALOPAD_VIA_CALLBACK");   /* stdcall only: enter through halopad_call_guest */
+    int via_callback = cbk && cbk[0] == '1';
     int via_slot = via && via[0] == '1';
     uint32_t va, fpcw, nargs;
     while (rd(f, &va) && rd(f, &fpcw) && rd(f, &nargs)) {
@@ -75,7 +78,15 @@ int main(int argc, char **argv)
         halopad_cpu = &state;
         uint32_t entry = va;
         if (via_slot) memcpy(&entry, halopad_guest_ptr(va), 4);
-        halopad_enter(&state, entry);
+        if (via_callback) {
+            /* the path runtime services use for window procedures: arguments pushed by the
+               callback helper, stdcall convention checked; the stack effect is reported as
+               if the harness had pushed them */
+            state._esp = sp + 4 * nargs;
+            halopad_call_guest(entry, nargs, values);
+        } else {
+            halopad_enter(&state, entry);
+        }
         printf("%08" PRIx32 " %" PRId32, state._eax, (int32_t)(state._esp - sp));
         int found = 0;
         for (uint32_t i = 0; i < nargs && !found; i++)
