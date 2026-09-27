@@ -25,3 +25,4 @@ Format: `loc_<hex addr>,<name>`. Exports a translated procedure as the C-callabl
 | `0x5834d7` | `halo_vec3_transform_coord` | `scripts/run-slices.py` (x87 math, generic D3DX-style transform) |
 | `0x583b65` | `halo_vec4_transform` | `scripts/run-slices.py` (x87 math) |
 | `0x4434a0` | `halo_map_header_valid` | `scripts/run-slices.py` (reads a map file's 0x800-byte header through CreateFileA/ReadFile/CloseHandle and validates it; eax = name, esi = buffer) |
+| `0x5ccac7` | `halo_entry` | G3: the PE entry point (MSVC CRT startup, which calls WinMain `0x5445e0`). SRW's llasm mode does not root the entry point, and a global alias is SRW's way to add a translation root. Without it, the CRT startup and WinMain are not translated. |

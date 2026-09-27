@@ -415,7 +415,7 @@ def _main():
     a = ap.parse_args()
     names = a.only or [n for n in SLICES if a.model == 'va' or 'alias' in SLICES[n]]
     runs = sorted((ROOT / 'generated/srw/custom-en-1.0.10.0621').glob('run-*/haloce.o'), key=lambda p: p.stat().st_mtime)
-    work = a.work or runs[-1].parent
+    work = (a.work or runs[-1].parent).resolve()
     target = a.target or json.loads((ROOT / 'toolchains.lock.json').read_text())['target']
     stamp = datetime.datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')
     goal = 'G2e' if a.model == 'va' else 'G2d'

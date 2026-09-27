@@ -186,7 +186,12 @@ def main():
     # (c_<alias>) are SR's pointer-offset entry path: they store a host function
     # address minus the pointer offset as a guest return address. The VA model enters
     # through halopad_enter, so they are removed.
-    triple = next(l for l in (work / 'haloce.target.ll').open() if l.startswith('target triple'))
+    target_ll = work / 'haloce.target.ll'
+    if target_ll.exists():
+        triple = next(l for l in target_ll.open() if l.startswith('target triple'))
+    else:
+        import json
+        triple = 'target triple = "%s"\n' % json.loads((ROOT / 'toolchains.lock.json').read_text())['target']
     procs, dropped, in_wrapper = [], 0, False
     with open(va / 'haloce.va.raw.ll') as fin, open(va / 'haloce.va.ll', 'w') as fout:
         fout.write(triple)

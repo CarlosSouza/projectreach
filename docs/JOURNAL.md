@@ -146,3 +146,9 @@ Append-only. Evidence directories are ignored private records.
 
 **Next:** G3. Root the entry point, rerun the pipeline, enter `0x5ccac7`, and implement the startup's imports as real services.
 
+
+## 2026-09-26 — G3 step 1: the entry point is a translation root
+
+Added `loc_5CCAC7,halo_entry` to `config/srw/.../global_aliases.sci` (documented in its README) and reran `scripts/srw-pipeline.sh` (about 56 s). SRW now emits `halo_entry` and `loc_5445E0` (WinMain): 119,963 procedures, up from 119,439. The VA model has 120,230 dispatch entries and 184 import values (10 new, in the startup code), and removed 8 C wrappers. Untranslated audited entries dropped from 304 to 274: 173 gap-probe and 79 prologue-heuristic entries with no known reference, plus 22 reached only from them. `va-model.py` now takes the target triple from `toolchains.lock.json` when no `haloce.target.ll` exists, and `run-slices.py` resolves `--work`. All 7 slices and 6 contract cases still pass on macOS (`docs/artifacts/2026-09-26/G2e/slices-va-arm64-apple-macosx14.0.0-20260927T035330Z`).
+
+**Next:** a core runner that sets up the guest thread environment (TEB through `fs`, the SEH chain, TLS) and enters `0x5ccac7`. Then implement imports in the order the startup path traps on them.
