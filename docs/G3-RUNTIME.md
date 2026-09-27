@@ -176,6 +176,50 @@ How it was found (the tools stay available):
 - A temporary check in the x87 helpers found the first NaN: the 80-bit load in `acos`'s domain-error path.
 
 
+## Hosting a game from Halo's menus (G4)
+
+**Test** (`tests/halo_host_test.c`, run with `scripts/run-core.py --fresh-state`). Halo starts at its main menu with an empty profile folder. The test presses keys as a player would:
+
+1. Multiplayer. Halo asks for a profile name, and Enter accepts "New001".
+2. Create Game > LAN.
+3. Select Map: the first map, Battle Creek.
+4. Select Gametype: Slayer, then focus down to OK.
+5. Server Setup > Start Game.
+
+Halo then hosts the game itself: the Slayer rules screen, "Welcome New001", the map `beavercreek`. That makes it a second stock map, with Blood Gulch as the first.
+
+**Checks, each in Halo's game state:**
+
+- **Fire:** the trigger adds a projectile object.
+- **Melee:** F swings, and unit `+0x2ac` is set during the swing.
+- **Look down:** the mouse turns the look vector's k below −0.5.
+- **Grenades:** the right button throws a frag. Unit `+0x31e`, the frag count, goes from 2 to 1.
+- **Damage:** two frags at the player's feet take the shields to 0 and the health down.
+- **Death:** "New001 committed suicide", then "Rejoin in 5".
+- **Respawn:** Slayer spawns the player again as a new unit at a spawn point.
+
+It passes on macOS and on the iPad Simulator, and it passed on repeated runs. The frames are saved as `host-01` to `host-06.ppm`.
+
+**Fixes this needed:**
+
+- **A jump table with a hole.** `0x4a77a4` (`jmp [edx*4+0x4a7810]`, index from a loop count, no bound) has a NULL fourth slot. The audit stopped there and missed the cases `0x4a77dd` and `0x4a77fa`, so Create Game > LAN trapped with "indirect transfer to 0x004a77fa".
+  - The audit now skips a NULL slot in an unbounded table when a code pointer follows and it is not in known code.
+  - That adds 2 relocations and changes nothing else. Translation run `20260927T182330Z-93072`.
+- **`GlobalReAlloc` with `GMEM_MOVEABLE`** on a fixed block (the create-game screen grows a list this way). With the flag the block may move; without it, it is resized in place or the call fails.
+- **What WinMain sets up for GameSpy.** The test calls WinMain's GameSpy set-up (`0x5797e0`: game name "halom", the port, and a key read from WinMain's own instructions at `0x544d27`). That set-up registers Halo's query keys (`qr2_register_key` `0x5c0850`). Without it, the lobby's server query read a NULL key name.
+  - The key string at `[0x6e1468]` comes from Halo's own `0x5829e0` as in the join test. It is empty without a `DigitalProductID`.
+  - Opening the Internet lobby shows "An error has occurred trying to contact the GameSpy master server.", as it would offline.
+- **Fault reports name the translated procedure.** A fault now prints the host program counter and return addresses. `run-core.py` turns them into procedure names with `atos`, for example `loc_5BBE18`. Translated code has no guest program counter, so this is how a fault's location is found.
+- **`run-core.py --fresh-state`:** the run starts from an empty state folder, kept in the evidence.
+
+**Not done yet for G4.** The G4 list still needs:
+
+- **Vehicles.** Near a Warthog, E does nothing on Blood Gulch in the `map_name` test game. That game is not a multiplayer game with a game type. The next step is a vehicle in the hosted Slayer game.
+- **Pickups.**
+- **Audio verified by ear or by capture.**
+- **Menu return and map reload.**
+- **Clean relaunch.**
+
 ## Joining a server (G5, step 1)
 
 HaloPad's Halo joins the original Custom Edition 1.10 dedicated server and plays on it. The server runs as `haloceded.exe` in the project's CrossOver bottle: private, `sv_public 0`, bound to 127.0.0.1:2310.

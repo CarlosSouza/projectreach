@@ -5,7 +5,10 @@
  * the null page) fault, and the fault handler reports them as guest addresses. Only
  * the image, a guest stack and a guest heap are made readable and writable. Nothing is
  * mapped executable; all control flow goes to procedures compiled ahead of time. */
+#include <execinfo.h>
+#include <mach-o/dyld.h>
 #include <signal.h>
+#include <sys/ucontext.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -44,13 +47,31 @@ extern const char *const halopad_com_methods[];
 void halopad_trace_guest_stack(void);
 static void guest_fault(int sig, siginfo_t *info, void *ctx)
 {
-    (void)ctx;
     uint64_t a = (uint64_t)(uintptr_t)info->si_addr;
     if (halopad_guest_base && a >= halopad_guest_base && a < halopad_guest_base + GUEST_SPAN)
         fprintf(stderr, "HALOPAD FAULT: guest access to 0x%08x (signal %d)\n", (uint32_t)(a - halopad_guest_base), sig);
     else
         fprintf(stderr, "HALOPAD FAULT: host address %p (signal %d)\n", info->si_addr, sig);
     halopad_trace_guest_stack();                                    /* diagnostics only; not async-signal-safe */
+    /* Translated code has no guest program counter, but its procedures are host functions named
+       loc_<guest address>: the host pc, lr and return addresses name them after the run
+       (scripts/run-core.py runs atos on this line). */
+    {
+        uint64_t pc = 0, lr = 0;
+#if defined(__aarch64__)
+        const ucontext_t *uc = ctx;
+        pc = uc->uc_mcontext->__ss.__pc;
+        lr = uc->uc_mcontext->__ss.__lr;
+#else
+        (void)ctx;
+#endif
+        void *bt[32];
+        int n = backtrace(bt, 32);
+        fprintf(stderr, "HALOPAD HOSTPCS load=%p pcs=0x%llx 0x%llx", (const void *)_dyld_get_image_header(0),
+                (unsigned long long)pc, (unsigned long long)lr);
+        for (int i = 0; i < n; i++) fprintf(stderr, " %p", bt[i]);
+        fprintf(stderr, "\n");
+    }
     _exit(70);
 }
 

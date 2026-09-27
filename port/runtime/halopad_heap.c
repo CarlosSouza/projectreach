@@ -265,10 +265,13 @@ uint32_t GlobalAlloc_c(uint32_t flags, uint32_t size) { return fixed_alloc("Glob
 uint32_t LocalAlloc_c(uint32_t flags, uint32_t size) { return fixed_alloc("LocalAlloc", flags, size); }
 uint32_t GlobalFree_c(uint32_t a) { return HeapFree_c(GetProcessHeap_c(), 0, a) ? 0 : a; }
 uint32_t LocalFree_c(uint32_t a) { return HeapFree_c(GetProcessHeap_c(), 0, a) ? 0 : a; }
+/* Fixed blocks: without GMEM_MOVEABLE the block is resized in place or the call fails; with it the
+   block may move (Halo's create-game screen grows a list this way). */
 uint32_t GlobalReAlloc_c(uint32_t a, uint32_t size, uint32_t flags)
 {
-    if (flags & ~GMEM_ZEROINIT) hp_unsupported("GlobalReAlloc", "flags 0x%x", flags);
-    return HeapReAlloc_c(GetProcessHeap_c(), (flags & GMEM_ZEROINIT) ? HEAP_ZERO_MEMORY : 0, a, size);
+    if (flags & ~(GMEM_ZEROINIT | GMEM_MOVEABLE)) hp_unsupported("GlobalReAlloc", "flags 0x%x", flags);
+    return HeapReAlloc_c(GetProcessHeap_c(), ((flags & GMEM_ZEROINIT) ? HEAP_ZERO_MEMORY : 0)
+                         | ((flags & GMEM_MOVEABLE) ? 0 : HEAP_REALLOC_IN_PLACE_ONLY), a, size);
 }
 /* For fixed memory the handle is the pointer; the lock count is not tracked. */
 static uint32_t GlobalLock_c_unlocked(uint32_t a) { if (a && !lookup(a)) hp_unsupported("GlobalLock", "handle 0x%08x", a); return a; }

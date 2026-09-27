@@ -971,3 +971,20 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
 - **What it means.** A two-player match needs two legitimate keys, the parked second player. No key is made up.
 - **Test status.** `tests/halo_match_test.c` is ready for when a second key exists and stays out of the suites. Its firing check now counts projectile objects, since the spawn weapon may be a plasma pistol, which has no magazine.
 
+## 2026-09-27 — A game started from Halo's menus: Battle Creek Slayer, fire, melee, grenades, death, respawn
+
+- **The menus work.** `tests/halo_host_test.c` goes from the main menu with a fresh profile folder: Multiplayer (profile "New001"), Create Game > LAN, Battle Creek, Slayer, Start Game. Halo hosts the game.
+- **What it checks in Halo's game state:**
+  - firing, and melee;
+  - looking down, and throwing both frags at the player's feet;
+  - shields to 0 and health down;
+  - death ("New001 committed suicide") and Slayer's respawn as a new unit.
+  It passes on macOS and on the iPad Simulator, on repeated runs.
+- **Fixes on the way:**
+  - an unbounded jump table with a NULL slot (`0x4a7810`), which hid two cases. The audit fix adds 2 relocations; run `20260927T182330Z-93072`.
+  - `GlobalReAlloc` with `GMEM_MOVEABLE`.
+  - WinMain's GameSpy set-up, now called in the test, which registers Halo's query keys.
+- **Tooling:** fault reports now name the translated procedure (host pc and return addresses through `atos`), and `run-core.py --fresh-state` starts from an empty state folder.
+- **G4 still open:** vehicles, pickups, audio checked by ear or capture, menu return and map reload, and clean relaunch.
+- 24 suites, the join and 11 slices pass on macOS and on the iPad Simulator.
+

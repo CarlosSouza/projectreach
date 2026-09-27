@@ -80,6 +80,8 @@ def main():
     ap.add_argument('--work', type=pathlib.Path)
     ap.add_argument('--target')
     ap.add_argument('--timeout', type=int, default=120)
+    ap.add_argument('--fresh-state', action='store_true',
+                    help='start from an empty state folder (no profile, settings or saves), kept in the evidence')
     ap.add_argument('--clients', type=int, default=1,
                     help='run this many instances at once (network tests): each gets HALOPAD_CLIENT=<i>, its own state\n'
                          'folder generated/halopad-disk-client<i> and evidence under client-<i>/')
@@ -96,6 +98,8 @@ def main():
     # each run starts from the reference machine's registry; the final state is evidence
     env = dict(os.environ, HALOPAD_IMAGE=str(IMAGE), HALOPAD_MODULE_IMAGES=str(IMAGE.parent / 'modules'), HALOPAD_REFERENCE_ROOT=str(ROOT / 'ref' / 'inputs' / 'reference-machine'), HALOPAD_GAME_ROOT=str(GAME_ROOT), HALOPAD_STATE_ROOT=str(ROOT / 'generated' / 'halopad-disk'), HALOPAD_REPO_ROOT=str(ROOT),
                HALOPAD_REGISTRY=str(evid / 'registry.txt'))
+    if a.fresh_state:
+        env['HALOPAD_STATE_ROOT'] = str(evid / 'state')
     env.setdefault('HALOPAD_NET', 'lan')                   # tests never reach public hosts (halopad_winsock.c)
     acceptance = ROOT / 'generated' / 'runtime-state' / 'eula-acceptance.txt'   # written only by scripts/accept-eula.sh
     if acceptance.exists():
@@ -126,6 +130,12 @@ def main():
             out, err = p.communicate()
             code = 'timeout'
         (d / 'stdout.txt').write_text(out)
+        hostpcs = next((l for l in err.splitlines() if l.startswith('HALOPAD HOSTPCS ')), None)
+        if hostpcs:                                         # name the translated procedures the fault happened in
+            load = hostpcs.split('load=')[1].split()[0]
+            pcs = hostpcs.split('pcs=')[1].split()
+            sym = subprocess.run(['xcrun', 'atos', '-o', str(exe), '-l', load, *pcs], capture_output=True, text=True).stdout
+            err += 'HALOPAD HOSTPCS symbolized: ' + ' | '.join(l.strip() for l in sym.splitlines()) + '\n'
         (d / 'stderr.txt').write_text(err)
         stop = next((l for l in reversed(err.splitlines()) if l.startswith('HALOPAD TRAP') or l.startswith('HALOPAD FAULT')), None)
         report = {'target': target, 'work': str(work.relative_to(ROOT)), 'exit': code, 'stopped_at': stop,

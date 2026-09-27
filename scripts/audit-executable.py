@@ -488,6 +488,14 @@ class Audit:
             if bound is None and va != table and (va in self.insn or va in self.owner or va in self.blocks):
                 break
             t = self.dword(va)
+            if not self.in_text(t) and bound is None and t == 0 and targets and holes < 2 \
+                    and self.in_text(self.dword(va + 4)) and (va + 4) not in self.insn and (va + 4) not in self.owner:
+                # A NULL slot inside an unbounded table (a case that cannot occur) with more
+                # entries after it: 0x4a7810 (index from a loop count) has 0 as its fourth of six
+                # entries, and the cases after it (0x4a77dd, 0x4a77fa) are reached.
+                holes += 1
+                va += 4
+                continue
             if not self.in_text(t):
                 if bound_kind == 'mask' and len(targets) + holes < bound:
                     # e.g. 'and eax, 3' with index 0 never used: an unused slot, not the end
