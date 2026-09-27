@@ -424,3 +424,30 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
 - The Direct3D, USER32, DirectInput and DirectSound tests, 15 slices and the unit tests still pass; the core still stops at the license.
 
 **Next:** sockets (WS2_32/WSOCK32) for network play, then the remaining KERNEL32 file and time services, Vorbis, Bink and game controllers.
+
+## 2026-09-27 — Winsock on BSD sockets (network play groundwork)
+
+- **How Halo uses it.**
+  - WS2_32 and WSOCK32 are delay-loaded. Callers call the \`jmp [slot]\` stubs (e.g. \`socket\` at \`0x582b88\`), not the slots.
+  - All the calls come from Halo's GameSpy networking library (\`0x5b9000\`–\`0x5c7000\`):
+    - UDP sockets (\`socket(2, 2, 0|17)\`) for game traffic and server queries, with 15 \`sendto\` sites and 6 \`recvfrom\`.
+    - TCP (\`socket(2, 1, 6)\`) with \`connect\`/\`send\`/\`recv\`/\`shutdown(SD_BOTH)\` for the master-server list.
+    - \`setsockopt(SOL_SOCKET, …)\` including \`SO_RCVBUF\`, \`ioctlsocket(FIONBIO)\`, and \`select\` loops.
+  - Addresses come from \`gethostname\`/\`gethostbyname\`/\`inet_addr\`/\`inet_ntoa\`.
+- **What** (\`port/runtime/halopad_winsock.c\`):
+  - \`SOCKET\` values are handles mapped to host descriptors. Addresses convert between Winsock's and the host's \`sockaddr_in\`. Winsock's counted \`fd_set\`s are served with \`poll\`.
+  - Errors are \`WSAE*\`, per thread, and also the thread's last error.
+  - Winsock behaviours kept:
+    - An oversized datagram fills the buffer and fails with \`WSAEMSGSIZE\`.
+    - A non-blocking \`connect\` gives \`WSAEWOULDBLOCK\`, and a refused one shows in select's exception set.
+    - \`select\` with no sockets and no timeout is invalid.
+    - \`inet_addr("")\` is 0, and there is one \`inet_ntoa\`/\`hostent\` buffer per thread.
+  - \`SO_NOSIGPIPE\` keeps a broken connection an error instead of a signal. Options, ioctls and families outside the set stop with their values.
+- **Test** (\`tests/halo_winsock_test.c\`, 42 checks, all passing, and the same in 5 repeated runs), on real loopback sockets through the delay-load path:
+  - Start-up rules, UDP send/select/receive with the sender's address, truncation, non-blocking reads, \`select\` timeout, \`FIONREAD\`.
+  - TCP against a host listener: blocking and non-blocking connect, a refused connect both ways, send/recv/shutdown.
+  - Byte order, address parsing and formatting, host names and lookup failures.
+- All other suites, the 15 slices and the unit tests still pass; the core still stops at the license.
+- **Limits:** these are loopback checks. Joining a real Custom Edition server (G5/G6) still needs the game past its license, and later a product key.
+
+**Next:** the remaining KERNEL32 file and time services, then Vorbis, Bink and game controllers.

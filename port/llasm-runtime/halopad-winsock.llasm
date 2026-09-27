@@ -1,0 +1,156 @@
+;; HaloPad Windows runtime: ws2_32.dll and wsock32.dll (port/runtime/halopad_winsock.c).
+;; Pattern and macros from SR's Septerra Core port (asm-calls.llinc).
+
+include llasm.llinc
+include asm-calls.llinc
+
+func WSAStartup_c a1, a2
+func WSACleanup_c
+func WSAGetLastError_c
+func socket_c a1, a2, a3
+func closesocket_c a1
+func bind_c a1, a2, a3
+func connect_c a1, a2, a3
+func getsockname_c a1, a2, a3
+func shutdown_c a1, a2
+func send_c a1, a2, a3, a4
+func sendto_c a1, a2, a3, a4, a5, a6
+func recv_c a1, a2, a3, a4
+func recvfrom_c a1, a2, a3, a4, a5, a6
+func setsockopt_c a1, a2, a3, a4, a5
+func ioctlsocket_c a1, a2, a3
+func __WSAFDIsSet_c a1, a2
+func select_c a1, a2, a3, a4, a5
+func htonl_c a1
+func ntohl_c a1
+func htons_c a1
+func ntohs_c a1
+func inet_addr_c a1
+func inet_ntoa_c a1
+func gethostname_c a1, a2
+func gethostbyname_c a1
+
+proc hpimp_WSAStartup public
+        Call_Asm_Stack2 WSAStartup_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_WSACleanup public
+        Call_Asm_Stack0 WSACleanup_c
+        Call_Asm_Return 0
+endp
+
+proc hpimp_WSAGetLastError public
+        Call_Asm_Stack0 WSAGetLastError_c
+        Call_Asm_Return 0
+endp
+
+proc hpimp_socket public
+        Call_Asm_Stack3 socket_c
+        Call_Asm_Return 3
+endp
+
+proc hpimp_closesocket public
+        Call_Asm_Stack1 closesocket_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_bind public
+        Call_Asm_Stack3 bind_c
+        Call_Asm_Return 3
+endp
+
+proc hpimp_connect public
+        Call_Asm_Stack3 connect_c
+        Call_Asm_Return 3
+endp
+
+proc hpimp_getsockname public
+        Call_Asm_Stack3 getsockname_c
+        Call_Asm_Return 3
+endp
+
+proc hpimp_shutdown public
+        Call_Asm_Stack2 shutdown_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_send public
+        Call_Asm_Stack4 send_c
+        Call_Asm_Return 4
+endp
+
+proc hpimp_sendto public
+        Call_Asm_Stack6 sendto_c
+        Call_Asm_Return 6
+endp
+
+proc hpimp_recv public
+        Call_Asm_Stack4 recv_c
+        Call_Asm_Return 4
+endp
+
+proc hpimp_recvfrom public
+        Call_Asm_Stack6 recvfrom_c
+        Call_Asm_Return 6
+endp
+
+proc hpimp_setsockopt public
+        Call_Asm_Stack5 setsockopt_c
+        Call_Asm_Return 5
+endp
+
+proc hpimp_ioctlsocket public
+        Call_Asm_Stack3 ioctlsocket_c
+        Call_Asm_Return 3
+endp
+
+proc hpimp___WSAFDIsSet public
+        Call_Asm_Stack2 __WSAFDIsSet_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_select public
+        Call_Asm_Stack5 select_c
+        Call_Asm_Return 5
+endp
+
+proc hpimp_htonl public
+        Call_Asm_Stack1 htonl_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_ntohl public
+        Call_Asm_Stack1 ntohl_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_htons public
+        Call_Asm_Stack1 htons_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_ntohs public
+        Call_Asm_Stack1 ntohs_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_inet_addr public
+        Call_Asm_Stack1 inet_addr_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_inet_ntoa public
+        Call_Asm_Stack1 inet_ntoa_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_gethostname public
+        Call_Asm_Stack2 gethostname_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_gethostbyname public
+        Call_Asm_Stack1 gethostbyname_c
+        Call_Asm_Return 1
+endp
