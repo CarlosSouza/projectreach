@@ -749,3 +749,17 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
 - The first iOS build compiles Halo and the four translated DLLs for the Simulator in about 3.5 minutes.
 
 **Next:** an iPadOS app shell (UIKit scene, the layer in a view, touch/keyboard/pointer into `halopad_input_event`, game controllers) so the chat UI shows on the Simulator's screen; then the physical-device capsule once Chris provides a device.
+
+## 2026-09-27 — HaloPad for iPadOS: the native core starts in an app and shows the license
+
+- **App shell** (`port/ios/HaloPadApp.m`):
+  - a UIKit scene app that runs the native core from Halo's PE entry point on its own thread;
+  - Halo's windows attach to the app's view through `halopad_host_set_window_handler` and `halopad_host_attach_view`;
+  - Halo's first-run license check (`EBUEula`) presents the game's `Eula.rtf` with Decline and I Accept, and only the player's choice is recorded.
+- **Builds.** `scripts/build-ios-app.py` builds `HaloPad.app` for the Simulator (the same link as the core, ad-hoc signed). With `--launch` it installs and launches the app, then screenshots it; it never taps.
+- **Core entry.** It is now `halopad_core_run` (`port/runtime/halopad_core.c`), shared by the macOS runner and the app.
+- **Result on the "HaloPad iPad Pro 13" Simulator.** Translated Halo runs its C runtime start-up and WinMain to the license check, and the app shows the license (`ios-app-20260927T113055Z/screen.png`). The Simulator was shut down afterwards without a choice being made.
+  - On the Mac the core still declines at the license without a record, as before.
+- **For Chris.** Accepting can now be done in the app: run `scripts/build-ios-app.py --launch`, open Simulator, read the license and tap. The Mac runner still uses `scripts/accept-eula.sh`.
+
+**Next:** touch, keyboard and pointer input from the shell into `halopad_input_event` (and game controllers), so that once the player accepts, the splash, menus and chat can be driven on the iPad.

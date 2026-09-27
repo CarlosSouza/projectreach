@@ -97,6 +97,12 @@ The Metal core behind `IDirect3DDevice9` (`port/apple/halopad_metal.m`: back buf
   - Input reaches the Windows side through `halopad_input_event` from the shell's UIKit callbacks.
   - The exclusive mouse and cursor visibility are recorded for the shell to apply with UIKit's pointer lock and hiding.
   - The clipboard is `UIPasteboard`, and the desktop is the main screen's native size, in landscape.
+- **The iPadOS app shell** (`port/ios/HaloPadApp.m`, built by `scripts/build-ios-app.py`):
+  - A UIKit scene app runs the core (`halopad_core_run`: Halo from its PE entry point) on its own 16 MiB-stack thread. It shows each window Halo creates by attaching the window's layer to its view, letterboxed.
+  - At Halo's first-run license check, it presents the game's own `Eula.rtf` in a form sheet with **Decline** and **I Accept**, which cannot be dismissed any other way. It returns the player's choice to `EBUEula`, which records an acceptance in `HALOPAD_STATE_ROOT/eula-acceptance.txt` (the SHA-256 of the license, and the time).
+  - Automation only launches the app and screenshots it; it never taps.
+  - Simulator builds are ad-hoc signed and get their data paths from `simctl launch`. The app's state lives in `generated/halopad-disk-ios/`.
+  - Evidence: `docs/artifacts/2026-09-27/G3/ios-app-20260927T113055Z/screen.png`, the license screen shown by the native core running on the iPad Simulator.
 - **Builds.** `scripts/run-core.py --target arm64-apple-ios17.0-simulator --run-prefix xcrun simctl spawn <device>` builds against the iOS Simulator SDK and links UIKit. Translated modules are compiled with the same SDK. The `HALOPAD_*` variables reach the process as `SIMCTL_CHILD_*`.
 - **Evidence (2026-09-27).** On the project's "HaloPad iPad Pro 13" Simulator:
   - all 14 suites pass, including the Direct3D 9 suite's Metal readbacks and the chat UI with its frame (`chat.ppm` matches the Mac's);
@@ -151,3 +157,4 @@ Relative guest paths and paths under the install directory map into the game dir
 
 `EBUEula` replaces the game's `Eula.dll`. It accepts only when the player has accepted this exact `Eula.rtf` (SHA-256) with `scripts/accept-eula.sh` at an interactive terminal, then writes REG_DWORD `FIRSTRUN=1` under `HKCU\Software\Microsoft\Microsoft Games\Halo CE` as the real DLL does. Otherwise it declines and Halo exits with code 1. HaloPad never accepts on the player's behalf.
 
+The macOS runner has no screen to ask on, so it declines unless `scripts/accept-eula.sh` has recorded the player's acceptance. In the iPadOS app the player chooses on the license screen (see "Apple hosts"). Either record must name the exact license file's SHA-256.

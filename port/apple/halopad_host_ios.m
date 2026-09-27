@@ -38,9 +38,13 @@ void halopad_host_cursor(int visible) { cursor_visible = visible; }
 int halopad_host_pointer_captured(void) { return pointer_captured; }
 int halopad_host_cursor_visible(void) { return cursor_visible; }
 
+/* The app shell's handler for new windows (it attaches their layers to its view). */
+static void (*window_handler)(void *window);
+void halopad_host_set_window_handler(void (*handler)(void *window)) { window_handler = handler; }
+
 void *halopad_host_window_create(uint32_t width, uint32_t height, const char *title, int visible)
 {
-    (void)title; (void)visible;
+    (void)title;
     id<MTLDevice> gpu = halopad_metal_gpu();
     hp_window *w = calloc(1, sizeof *w);
     w->refs = 1;
@@ -51,8 +55,15 @@ void *halopad_host_window_create(uint32_t width, uint32_t height, const char *ti
         w->layer.pixelFormat = MTLPixelFormatBGRA8Unorm;
         w->layer.framebufferOnly = YES;
         w->layer.drawableSize = CGSizeMake(width, height);
+        w->layer.contentsGravity = kCAGravityResizeAspect;   /* letterboxed in the shell's view */
+        w->layer.hidden = !visible;
     }
     w->w = width; w->h = height;
+    if (window_handler) {
+        w->refs++;                                       /* held until the shell has seen it */
+        void (*h)(void *) = window_handler;
+        dispatch_async(dispatch_get_main_queue(), ^{ h(w); halopad_host_window_unref(w); });
+    }
     return w;
 }
 
