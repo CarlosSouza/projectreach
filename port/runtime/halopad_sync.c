@@ -19,7 +19,7 @@
 #define INFINITE 0xFFFFFFFFu
 #define ERROR_ALREADY_EXISTS 183
 
-enum { FREE, MUTEX, EVENT };
+enum { FREE, MUTEX, EVENT, THREAD };   /* a thread object is signaled, for good, when the thread ends */
 typedef struct { int kind; uint32_t refs; char *name; int manual, signaled; uint32_t owner, count; } object;
 
 static object objs[MAX_OBJ];
@@ -175,4 +175,42 @@ int halopad_wait_poll(uint32_t n, uint32_t handles)
     }
     pthread_mutex_unlock(&lock);
     return -1;
+}
+
+/* ---- thread objects (halopad_k32_thread.c): count holds the exit code ---- */
+
+uint32_t halopad_object_thread_new(void)
+{
+    uint32_t e = halopad_last_error;                                /* CreateThread leaves the caller's last error */
+    uint32_t h = create(THREAD, 0, 1, 0);
+    halopad_last_error = e;
+    return h;
+}
+
+void halopad_object_addref(uint32_t h)
+{
+    pthread_mutex_lock(&lock);
+    object *o = obj(h);
+    if (o) o->refs++;
+    pthread_mutex_unlock(&lock);
+}
+
+void halopad_object_thread_exit(uint32_t h, uint32_t code)
+{
+    pthread_mutex_lock(&lock);
+    object *o = obj(h);
+    if (o && o->kind == THREAD) { o->signaled = 1; o->count = code; }
+    pthread_cond_broadcast(&changed);
+    pthread_mutex_unlock(&lock);
+}
+
+/* 1 for a thread handle, with its exit code (STILL_ACTIVE, 259, while it runs) */
+int halopad_object_thread_query(uint32_t h, uint32_t *code)
+{
+    pthread_mutex_lock(&lock);
+    object *o = obj(h);
+    int is = o && o->kind == THREAD;
+    if (is) *code = o->signaled ? o->count : 259;
+    pthread_mutex_unlock(&lock);
+    return is;
 }

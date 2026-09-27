@@ -7,6 +7,7 @@
  * region, as the Windows heap does. HeapSize returns the size that was requested. An
  * unknown pointer passed to free/size/realloc stops the program. */
 #include "halopad_win32.h"
+#include <pthread.h>
 
 #define HEAP_NO_SERIALIZE 0x1u
 #define HEAP_GENERATE_EXCEPTIONS 0x4u
@@ -145,7 +146,17 @@ static void check_flags(const char *what, uint32_t flags, uint32_t allowed)
     if (flags & ~allowed) hp_unsupported(what, "flags 0x%x", flags);
 }
 
-uint32_t HeapCreate_c(uint32_t options, uint32_t initial, uint32_t maximum)
+uint32_t HeapCreate_c(uint32_t options, uint32_t initial, uint32_t maximum);
+uint32_t GetProcessHeap_c(void);
+uint32_t HeapDestroy_c(uint32_t handle);
+uint32_t HeapAlloc_c(uint32_t handle, uint32_t flags, uint32_t size);
+uint32_t HeapFree_c(uint32_t handle, uint32_t flags, uint32_t a);
+uint32_t HeapSize_c(uint32_t handle, uint32_t flags, uint32_t a);
+uint32_t HeapReAlloc_c(uint32_t handle, uint32_t flags, uint32_t a, uint32_t size);
+uint32_t GlobalLock_c(uint32_t a);
+uint32_t GlobalUnlock_c(uint32_t a);
+
+static uint32_t HeapCreate_c_unlocked(uint32_t options, uint32_t initial, uint32_t maximum)
 {
     (void)initial;
     check_flags("HeapCreate", options, HEAP_NO_SERIALIZE);
@@ -159,13 +170,13 @@ uint32_t HeapCreate_c(uint32_t options, uint32_t initial, uint32_t maximum)
     hp_unsupported("HeapCreate", "more than %d heaps", MAX_HEAPS);
 }
 
-uint32_t GetProcessHeap_c(void)
+static uint32_t GetProcessHeap_c_unlocked(void)
 {
     if (!process_heap) process_heap = HeapCreate_c(0, 0, 0);
     return process_heap;
 }
 
-uint32_t HeapDestroy_c(uint32_t handle)
+static uint32_t HeapDestroy_c_unlocked(uint32_t handle)
 {
     heap *h = heap_of(handle);
     if (!h || handle == process_heap) { halopad_last_error = HP_ERROR_INVALID_HANDLE; return 0; }
@@ -177,7 +188,7 @@ uint32_t HeapDestroy_c(uint32_t handle)
     return 1;
 }
 
-uint32_t HeapAlloc_c(uint32_t handle, uint32_t flags, uint32_t size)
+static uint32_t HeapAlloc_c_unlocked(uint32_t handle, uint32_t flags, uint32_t size)
 {
     check_flags("HeapAlloc", flags, HEAP_NO_SERIALIZE | HEAP_ZERO_MEMORY | HEAP_GENERATE_EXCEPTIONS);
     heap *h = heap_of(handle);
@@ -196,7 +207,7 @@ static block *owned(const char *what, uint32_t handle, uint32_t a)
     return b;
 }
 
-uint32_t HeapFree_c(uint32_t handle, uint32_t flags, uint32_t a)
+static uint32_t HeapFree_c_unlocked(uint32_t handle, uint32_t flags, uint32_t a)
 {
     check_flags("HeapFree", flags, HEAP_NO_SERIALIZE);
     if (!a) return 1;
@@ -205,13 +216,13 @@ uint32_t HeapFree_c(uint32_t handle, uint32_t flags, uint32_t a)
     return 1;
 }
 
-uint32_t HeapSize_c(uint32_t handle, uint32_t flags, uint32_t a)
+static uint32_t HeapSize_c_unlocked(uint32_t handle, uint32_t flags, uint32_t a)
 {
     check_flags("HeapSize", flags, HEAP_NO_SERIALIZE);
     return owned("HeapSize", handle, a)->requested;
 }
 
-uint32_t HeapReAlloc_c(uint32_t handle, uint32_t flags, uint32_t a, uint32_t size)
+static uint32_t HeapReAlloc_c_unlocked(uint32_t handle, uint32_t flags, uint32_t a, uint32_t size)
 {
     check_flags("HeapReAlloc", flags, HEAP_NO_SERIALIZE | HEAP_ZERO_MEMORY | HEAP_REALLOC_IN_PLACE_ONLY | HEAP_GENERATE_EXCEPTIONS);
     block *b = owned("HeapReAlloc", handle, a);
@@ -260,5 +271,24 @@ uint32_t GlobalReAlloc_c(uint32_t a, uint32_t size, uint32_t flags)
     return HeapReAlloc_c(GetProcessHeap_c(), (flags & GMEM_ZEROINIT) ? HEAP_ZERO_MEMORY : 0, a, size);
 }
 /* For fixed memory the handle is the pointer; the lock count is not tracked. */
-uint32_t GlobalLock_c(uint32_t a) { if (a && !lookup(a)) hp_unsupported("GlobalLock", "handle 0x%08x", a); return a; }
-uint32_t GlobalUnlock_c(uint32_t a) { if (a && !lookup(a)) hp_unsupported("GlobalUnlock", "handle 0x%08x", a); halopad_last_error = 0; return 0; }
+static uint32_t GlobalLock_c_unlocked(uint32_t a) { if (a && !lookup(a)) hp_unsupported("GlobalLock", "handle 0x%08x", a); return a; }
+static uint32_t GlobalUnlock_c_unlocked(uint32_t a) { if (a && !lookup(a)) hp_unsupported("GlobalUnlock", "handle 0x%08x", a); halopad_last_error = 0; return 0; }
+
+/* ---- thread safety (Halo allocates from several threads): every entry point holds one recursive lock ---- */
+static pthread_mutex_t heap_lock;
+__attribute__((constructor)) static void heap_lock_init(void)
+{
+    pthread_mutexattr_t a;
+    pthread_mutexattr_init(&a);
+    pthread_mutexattr_settype(&a, PTHREAD_MUTEX_RECURSIVE);
+    pthread_mutex_init(&heap_lock, &a);
+}
+uint32_t HeapCreate_c(uint32_t options, uint32_t initial, uint32_t maximum) { pthread_mutex_lock(&heap_lock); uint32_t r = HeapCreate_c_unlocked(options, initial, maximum); pthread_mutex_unlock(&heap_lock); return r; }
+uint32_t GetProcessHeap_c(void) { pthread_mutex_lock(&heap_lock); uint32_t r = GetProcessHeap_c_unlocked(); pthread_mutex_unlock(&heap_lock); return r; }
+uint32_t HeapDestroy_c(uint32_t handle) { pthread_mutex_lock(&heap_lock); uint32_t r = HeapDestroy_c_unlocked(handle); pthread_mutex_unlock(&heap_lock); return r; }
+uint32_t HeapAlloc_c(uint32_t handle, uint32_t flags, uint32_t size) { pthread_mutex_lock(&heap_lock); uint32_t r = HeapAlloc_c_unlocked(handle, flags, size); pthread_mutex_unlock(&heap_lock); return r; }
+uint32_t HeapFree_c(uint32_t handle, uint32_t flags, uint32_t a) { pthread_mutex_lock(&heap_lock); uint32_t r = HeapFree_c_unlocked(handle, flags, a); pthread_mutex_unlock(&heap_lock); return r; }
+uint32_t HeapSize_c(uint32_t handle, uint32_t flags, uint32_t a) { pthread_mutex_lock(&heap_lock); uint32_t r = HeapSize_c_unlocked(handle, flags, a); pthread_mutex_unlock(&heap_lock); return r; }
+uint32_t HeapReAlloc_c(uint32_t handle, uint32_t flags, uint32_t a, uint32_t size) { pthread_mutex_lock(&heap_lock); uint32_t r = HeapReAlloc_c_unlocked(handle, flags, a, size); pthread_mutex_unlock(&heap_lock); return r; }
+uint32_t GlobalLock_c(uint32_t a) { pthread_mutex_lock(&heap_lock); uint32_t r = GlobalLock_c_unlocked(a); pthread_mutex_unlock(&heap_lock); return r; }
+uint32_t GlobalUnlock_c(uint32_t a) { pthread_mutex_lock(&heap_lock); uint32_t r = GlobalUnlock_c_unlocked(a); pthread_mutex_unlock(&heap_lock); return r; }

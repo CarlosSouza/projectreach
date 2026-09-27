@@ -1,0 +1,54 @@
+;; HaloPad Windows runtime: kernel32 threads (port/runtime/halopad_k32_thread.c).
+;; Pattern and macros from SR's Septerra Core port (asm-calls.llinc).
+
+include llasm.llinc
+include asm-calls.llinc
+
+func CreateThread_c a1, a2, a3, a4, a5, a6
+func ExitThread_c a1
+func ResumeThread_c a1
+func GetExitCodeThread_c a1, a2
+func SetThreadPriority_c a1, a2
+func GetThreadPriority_c a1
+func TerminateThread_c a1, a2
+func SleepEx_c a1, a2
+
+proc hpimp_CreateThread public
+        Call_Asm_Stack6 CreateThread_c
+        Call_Asm_Return 6
+endp
+
+proc hpimp_ExitThread public
+        Call_Asm_Stack1 ExitThread_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_ResumeThread public
+        Call_Asm_Stack1 ResumeThread_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_GetExitCodeThread public
+        Call_Asm_Stack2 GetExitCodeThread_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_SetThreadPriority public
+        Call_Asm_Stack2 SetThreadPriority_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_GetThreadPriority public
+        Call_Asm_Stack1 GetThreadPriority_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_TerminateThread public
+        Call_Asm_Stack2 TerminateThread_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_SleepEx public
+        Call_Asm_Stack2 SleepEx_c
+        Call_Asm_Return 2
+endp

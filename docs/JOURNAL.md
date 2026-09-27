@@ -399,3 +399,28 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
 - **Still open for sound:** the \`DSOUND\` ordinal 9 import (\`GetDeviceID\`, likely Bink's), Ogg Vorbis (\`vorbisfile.dll\`, 4 imports) and Bink (\`binkw32.dll\`, 9) are not done.
 
 **Next:** threads (\`CreateThread\` and friends), sockets (WS2_32/WSOCK32) for network play, the remaining KERNEL32 file and time services, then Vorbis, Bink and game controllers.
+
+## 2026-09-27 — Threads, and a runtime that is safe to share between them
+
+- **How Halo uses them.**
+  - Ten \`CreateThread\` sites (\`0x4404b0\` … \`0x57a409\`), with stacks of \`0x4000\` or \`0x10400\` bytes; some are \`CREATE_SUSPENDED\` and then given \`SetThreadPriority\` and \`ResumeThread\`.
+  - The C runtime's \`_beginthreadex\`/\`_endthreadex\` (\`ResumeThread\` at \`0x5cb649\`, \`ExitThread\` at \`0x5cb54f\`).
+  - \`GetExitCodeThread\` polling at 8 sites, \`TerminateThread\` at two shutdown sites, and \`SleepEx\`.
+  - The translated code keeps no mutable globals, and \`halopad_enter\` is reentrant, so host threads can run it side by side, each with its own guest CPU.
+- **What** (\`port/runtime/halopad_k32_thread.c\`, \`halopad_thread.c\`, \`halopad_sync.c\`):
+  - Each guest thread is a host thread (16 MiB host stack) with its own guest CPU (x87 control word \`0x27F\`) and a guest stack of the image's reserve size, or the requested size if larger.
+  - Each thread gets its own TEB (now also carrying the process and thread IDs) and a fresh copy of the static TLS template.
+  - The thread procedure is entered through \`halopad_call_guest\`, so the stdcall contract is checked. \`ExitThread\` unwinds to the thread's root.
+  - The handle is a kernel object, signaled for good with the exit code (\`STILL_ACTIVE\` until then). The thread holds its own reference, so the handle can be closed early.
+  - Also: \`ResumeThread\`, priorities (recorded and reported; the host schedules all threads normally), and \`SleepEx\`. \`CreateThread\` leaves the caller's last error alone.
+  - \`TerminateThread\` works on a thread that has ended or never started. Stopping a running thread stops the program with the thread named, because it cannot be done safely in the middle of translated code.
+- **Shared runtime state made thread-safe:**
+  - Per thread: \`GetLastError\`'s value, the TEB, and TLS slots (\`TlsAlloc\` clears the new slot in every thread).
+  - Behind recursive locks: the heap and \`Global\`/\`Local\` memory, virtual memory, the COM table (which Direct3D, DirectInput and DirectSound use), and the critical-section table.
+- **Test** (\`tests/halo_thread_test.c\`, 27 checks, all passing, and the same in 10 repeated runs):
+  - Thread procedures are real one-argument KERNEL32 services entered at their guest addresses.
+  - Covered: suspended start and resume, exit codes and signaled handles, \`ExitThread\`, per-thread TLS and last error, 16 threads at once (events, then heap frees), a critical section blocking a worker, priorities, termination before start, and \`SleepEx\`.
+  - Four host threads make 20,000 heap operations each with contents intact.
+- The Direct3D, USER32, DirectInput and DirectSound tests, 15 slices and the unit tests still pass; the core still stops at the license.
+
+**Next:** sockets (WS2_32/WSOCK32) for network play, then the remaining KERNEL32 file and time services, Vorbis, Bink and game controllers.

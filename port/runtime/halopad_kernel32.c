@@ -13,7 +13,7 @@
 #define HP_MAX_FILES 64
 
 static FILE *hp_files[HP_MAX_FILES];
-uint32_t halopad_last_error;
+_Thread_local uint32_t halopad_last_error;
 
 static void hp_trap(const char *what, uint32_t a, uint32_t b)
 {

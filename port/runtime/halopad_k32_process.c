@@ -10,7 +10,7 @@
 #include <time.h>
 #include <unistd.h>
 
-extern uint32_t halopad_last_error;   /* defined in halopad_kernel32.c */
+extern _Thread_local uint32_t halopad_last_error;   /* defined in halopad_kernel32.c */
 uint32_t GetLastError_c(void) { return halopad_last_error; }
 void SetLastError_c(uint32_t e) { halopad_last_error = e; }
 
@@ -144,37 +144,57 @@ uint32_t SetUnhandledExceptionFilter_c(uint32_t filter)
     return old;
 }
 
-/* ---- thread-local storage (TEB TlsSlots at +0xE10, 64 slots) ---- */
+/* ---- thread-local storage (each TEB's TlsSlots at +0xE10, 64 slots) ---- */
 
-#define TEB_VA 0x7FFDE000u
+uint32_t halopad_teb(void);
+void halopad_teb_each(void (*fn)(uint32_t teb_address, uint32_t arg), uint32_t arg);
 static uint64_t tls_used;
+static pthread_mutex_t tls_lock = PTHREAD_MUTEX_INITIALIZER;
+static void clear_slot(uint32_t teb, uint32_t i) { wr32(teb + 0xE10 + 4 * i, 0); }
 
 uint32_t TlsAlloc_c(void)
 {
+    pthread_mutex_lock(&tls_lock);
     for (uint32_t i = 0; i < 64; i++)
-        if (!(tls_used >> i & 1)) { tls_used |= 1ull << i; wr32(TEB_VA + 0xE10 + 4 * i, 0); return i; }
+        if (!(tls_used >> i & 1)) {
+            tls_used |= 1ull << i;
+            halopad_teb_each(clear_slot, i);                    /* a new index reads 0 in every thread */
+            pthread_mutex_unlock(&tls_lock);
+            return i;
+        }
+    pthread_mutex_unlock(&tls_lock);
     halopad_last_error = 259;           /* ERROR_NO_MORE_ITEMS */
     return 0xFFFFFFFFu;
 }
 
+static int tls_valid(uint32_t i)
+{
+    pthread_mutex_lock(&tls_lock);
+    int ok = i < 64 && (tls_used >> i & 1);
+    pthread_mutex_unlock(&tls_lock);
+    return ok;
+}
+
 uint32_t TlsGetValue_c(uint32_t i)
 {
-    if (i >= 64 || !(tls_used >> i & 1)) { halopad_last_error = HP_ERROR_INVALID_PARAMETER; return 0; }
+    if (!tls_valid(i)) { halopad_last_error = HP_ERROR_INVALID_PARAMETER; return 0; }
     halopad_last_error = 0;
-    return rd32(TEB_VA + 0xE10 + 4 * i);
+    return rd32(halopad_teb() + 0xE10 + 4 * i);
 }
 
 uint32_t TlsSetValue_c(uint32_t i, uint32_t v)
 {
-    if (i >= 64 || !(tls_used >> i & 1)) { halopad_last_error = HP_ERROR_INVALID_PARAMETER; return 0; }
-    wr32(TEB_VA + 0xE10 + 4 * i, v);
+    if (!tls_valid(i)) { halopad_last_error = HP_ERROR_INVALID_PARAMETER; return 0; }
+    wr32(halopad_teb() + 0xE10 + 4 * i, v);
     return 1;
 }
 
 uint32_t TlsFree_c(uint32_t i)
 {
-    if (i >= 64 || !(tls_used >> i & 1)) { halopad_last_error = HP_ERROR_INVALID_PARAMETER; return 0; }
+    if (!tls_valid(i)) { halopad_last_error = HP_ERROR_INVALID_PARAMETER; return 0; }
+    pthread_mutex_lock(&tls_lock);
     tls_used &= ~(1ull << i);
+    pthread_mutex_unlock(&tls_lock);
     return 1;
 }
 
@@ -184,7 +204,16 @@ uint32_t TlsFree_c(uint32_t i)
 typedef struct { uint32_t addr; pthread_mutex_t *m; } cs_entry;
 static cs_entry cs_table[1024];
 
+static pthread_mutex_t cs_table_lock = PTHREAD_MUTEX_INITIALIZER;
+static cs_entry *cs_find_locked(uint32_t addr, int create);
 static cs_entry *cs_find(uint32_t addr, int create)
+{
+    pthread_mutex_lock(&cs_table_lock);
+    cs_entry *e = cs_find_locked(addr, create);
+    pthread_mutex_unlock(&cs_table_lock);
+    return e;
+}
+static cs_entry *cs_find_locked(uint32_t addr, int create)
 {
     for (uint32_t i = (addr >> 3) & 1023, n = 0; n < 1024; i = (i + 1) & 1023, n++) {
         if (cs_table[i].addr == addr) return &cs_table[i];
@@ -225,12 +254,14 @@ void LeaveCriticalSection_c(uint32_t cs)
 
 void DeleteCriticalSection_c(uint32_t cs)
 {
-    cs_entry *e = cs_find(cs, 0);
-    if (!e) return;
+    pthread_mutex_lock(&cs_table_lock);
+    cs_entry *e = cs_find_locked(cs, 0);
+    if (!e) { pthread_mutex_unlock(&cs_table_lock); return; }
     pthread_mutex_destroy(e->m);
     free(e->m);
     e->m = NULL;                        /* keep the slot as a tombstone for probing */
     e->addr = 0xFFFFFFFFu;
+    pthread_mutex_unlock(&cs_table_lock);
 }
 
 uint32_t InterlockedExchange_c(uint32_t target, uint32_t value)

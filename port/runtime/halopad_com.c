@@ -7,6 +7,7 @@
  * Vtables are built once and are read-only. Reference counts and native state live in
  * a host-side pool, found through a hash table keyed by the object's guest address. */
 #include "halopad_win32.h"
+#include <pthread.h>
 
 extern const uint32_t halopad_com_base, halopad_com_interface_count;
 extern const uint32_t halopad_com_first[], halopad_com_count[];
@@ -52,6 +53,15 @@ static uint32_t *index_find(uint32_t g)
 }
 static uint32_t vtables[64];
 
+uint32_t halopad_com_vtable(const char *iface);
+uint32_t halopad_com_new(const char *iface, uint32_t size, void *state, void (*destroy)(void *));
+void *halopad_com_state(const char *iface, uint32_t g);
+uint32_t halopad_com_addref(uint32_t g);
+uint32_t halopad_com_release(uint32_t g);
+void halopad_com_bind(uint32_t g);
+void halopad_com_unbind(uint32_t g);
+const char *halopad_com_interface(uint32_t g);
+
 static int iface_index(const char *iface)
 {
     for (uint32_t i = 0; i < halopad_com_interface_count; i++)
@@ -59,7 +69,7 @@ static int iface_index(const char *iface)
     hp_unsupported("COM", "interface %s missing from config/runtime/com-interfaces.txt", iface);
 }
 
-uint32_t halopad_com_vtable(const char *iface)
+static uint32_t halopad_com_vtable_unlocked(const char *iface)
 {
     int i = iface_index(iface);
     if (!vtables[i]) {
@@ -72,7 +82,7 @@ uint32_t halopad_com_vtable(const char *iface)
 }
 
 /* New object: 'size' guest bytes (at least 4, for the vtable pointer), reference count 1. */
-uint32_t halopad_com_new(const char *iface, uint32_t size, void *state, void (*destroy)(void *))
+static uint32_t halopad_com_new_unlocked(const char *iface, uint32_t size, void *state, void (*destroy)(void *))
 {
     uint32_t g = halopad_heap_alloc(size < 4 ? 4 : size, 1);
     wr32(g, halopad_com_vtable(iface));
@@ -93,7 +103,7 @@ static comobj *find(const char *what, uint32_t g)
 }
 
 /* Native state of an object, checking its interface. */
-void *halopad_com_state(const char *iface, uint32_t g)
+static void *halopad_com_state_unlocked(const char *iface, uint32_t g)
 {
     comobj *o = find(iface, g);
     if (strcmp(halopad_com_interfaces[o->iface], iface))
@@ -101,7 +111,7 @@ void *halopad_com_state(const char *iface, uint32_t g)
     return o->state;
 }
 
-uint32_t halopad_com_addref(uint32_t g) { return ++find("AddRef", g)->refs; }
+static uint32_t halopad_com_addref_unlocked(uint32_t g) { return ++find("AddRef", g)->refs; }
 
 static void destroy_if_unused(comobj *o)
 {
@@ -117,7 +127,7 @@ static void destroy_if_unused(comobj *o)
 /* Public reference count, as Direct3D reports it. An object the device still has bound
    (a texture, stream, index buffer, declaration or shader) survives its last Release
    until it is unbound, as in Direct3D 9, whose device keeps internal references. */
-uint32_t halopad_com_release(uint32_t g)
+static uint32_t halopad_com_release_unlocked(uint32_t g)
 {
     comobj *o = find("Release", g);
     if (!o->refs) hp_unsupported("Release", "object 0x%08x whose reference count is already 0", g);
@@ -126,8 +136,8 @@ uint32_t halopad_com_release(uint32_t g)
     return n;
 }
 
-void halopad_com_bind(uint32_t g) { if (g) find("bind", g)->binds++; }
-void halopad_com_unbind(uint32_t g)
+static void halopad_com_bind_unlocked(uint32_t g) { if (g) find("bind", g)->binds++; }
+static void halopad_com_unbind_unlocked(uint32_t g)
 {
     if (!g) return;
     comobj *o = find("unbind", g);
@@ -136,4 +146,23 @@ void halopad_com_unbind(uint32_t g)
 }
 
 /* The interface name of a live object (resource type checks). */
-const char *halopad_com_interface(uint32_t g) { return halopad_com_interfaces[find("interface", g)->iface]; }
+static const char *halopad_com_interface_unlocked(uint32_t g) { return halopad_com_interfaces[find("interface", g)->iface]; }
+
+/* ---- thread safety: Direct3D, DirectInput and DirectSound calls come from several
+   threads; every entry point holds one recursive lock (destroy callbacks run under it) ---- */
+static pthread_mutex_t com_lock;
+__attribute__((constructor)) static void com_lock_init(void)
+{
+    pthread_mutexattr_t a;
+    pthread_mutexattr_init(&a);
+    pthread_mutexattr_settype(&a, PTHREAD_MUTEX_RECURSIVE);
+    pthread_mutex_init(&com_lock, &a);
+}
+uint32_t halopad_com_vtable(const char *iface) { pthread_mutex_lock(&com_lock); uint32_t r = halopad_com_vtable_unlocked(iface); pthread_mutex_unlock(&com_lock); return r; }
+uint32_t halopad_com_new(const char *iface, uint32_t size, void *state, void (*destroy)(void *)) { pthread_mutex_lock(&com_lock); uint32_t r = halopad_com_new_unlocked(iface, size, state, destroy); pthread_mutex_unlock(&com_lock); return r; }
+void *halopad_com_state(const char *iface, uint32_t g) { pthread_mutex_lock(&com_lock); void *r = halopad_com_state_unlocked(iface, g); pthread_mutex_unlock(&com_lock); return r; }
+uint32_t halopad_com_addref(uint32_t g) { pthread_mutex_lock(&com_lock); uint32_t r = halopad_com_addref_unlocked(g); pthread_mutex_unlock(&com_lock); return r; }
+uint32_t halopad_com_release(uint32_t g) { pthread_mutex_lock(&com_lock); uint32_t r = halopad_com_release_unlocked(g); pthread_mutex_unlock(&com_lock); return r; }
+void halopad_com_bind(uint32_t g) { pthread_mutex_lock(&com_lock); halopad_com_bind_unlocked(g); pthread_mutex_unlock(&com_lock); }
+void halopad_com_unbind(uint32_t g) { pthread_mutex_lock(&com_lock); halopad_com_unbind_unlocked(g); pthread_mutex_unlock(&com_lock); }
+const char *halopad_com_interface(uint32_t g) { pthread_mutex_lock(&com_lock); const char *r = halopad_com_interface_unlocked(g); pthread_mutex_unlock(&com_lock); return r; }

@@ -11,7 +11,7 @@
 
 void *halopad_guest_ptr(uint32_t guest);
 uint32_t halopad_guest_commit(uint32_t guest, uint32_t size);
-extern uint32_t halopad_last_error;
+extern _Thread_local uint32_t halopad_last_error;   /* per thread, as GetLastError is */
 
 static inline void *G(uint32_t guest) { return guest ? halopad_guest_ptr(guest) : NULL; }
 static inline uint32_t rd32(uint32_t guest) { uint32_t v; memcpy(&v, halopad_guest_ptr(guest), 4); return v; }

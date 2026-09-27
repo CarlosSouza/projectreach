@@ -5,6 +5,7 @@
  * but nothing in guest memory is ever executed: control flow only reaches compiled code
  * through dispatch, so running generated code would stop there with its address. */
 #include "halopad_win32.h"
+#include <pthread.h>
 #include <sys/mman.h>
 #include <unistd.h>
 
@@ -41,7 +42,15 @@ static int overlaps(uint32_t base, uint32_t size)
 }
 
 /* Fixed ranges already in use (image, stack, thread pages) are registered at startup. */
-void halopad_vm_mark(uint32_t base, uint32_t size)
+void halopad_vm_mark(uint32_t base, uint32_t size);
+uint32_t halopad_vm_reserve(uint32_t address, uint32_t size, int commit_now);
+int halopad_vm_release(uint32_t address);
+uint32_t VirtualAlloc_c(uint32_t address, uint32_t size, uint32_t type, uint32_t prot);
+uint32_t VirtualFree_c(uint32_t address, uint32_t size, uint32_t type);
+uint32_t VirtualQuery_c(uint32_t address, uint32_t info, uint32_t length);
+uint32_t VirtualProtect_c(uint32_t address, uint32_t size, uint32_t prot, uint32_t old);
+
+static void halopad_vm_mark_unlocked(uint32_t base, uint32_t size)
 {
     if (nregions == sizeof regions / sizeof regions[0]) hp_unsupported("VirtualAlloc", "more than %u regions", nregions);
     uint32_t *pp = malloc(size / PAGE * sizeof *pp);
@@ -80,7 +89,7 @@ static void protect(uint32_t a, uint32_t size, int rw)
     }
 }
 
-uint32_t halopad_vm_reserve(uint32_t address, uint32_t size, int commit_now)
+static uint32_t halopad_vm_reserve_unlocked(uint32_t address, uint32_t size, int commit_now)
 {
     size = (size + PAGE - 1) & ~(PAGE - 1);
     uint32_t span = (size + GRAN - 1) & ~(GRAN - 1);
@@ -101,7 +110,7 @@ uint32_t halopad_vm_reserve(uint32_t address, uint32_t size, int commit_now)
     return address ? address : base;
 }
 
-int halopad_vm_release(uint32_t address)
+static int halopad_vm_release_unlocked(uint32_t address)
 {
     region *r = find(address);
     if (!r || r->base != address || !r->committed) return 0;
@@ -112,7 +121,7 @@ int halopad_vm_release(uint32_t address)
     return 1;
 }
 
-uint32_t VirtualAlloc_c(uint32_t address, uint32_t size, uint32_t type, uint32_t prot)
+static uint32_t VirtualAlloc_c_unlocked(uint32_t address, uint32_t size, uint32_t type, uint32_t prot)
 {
     uint32_t known = MEM_COMMIT | MEM_RESERVE | MEM_TOP_DOWN;
     if (type & ~known) hp_unsupported("VirtualAlloc", "allocation type 0x%x", type);
@@ -135,7 +144,7 @@ uint32_t VirtualAlloc_c(uint32_t address, uint32_t size, uint32_t type, uint32_t
     return got;
 }
 
-uint32_t VirtualFree_c(uint32_t address, uint32_t size, uint32_t type)
+static uint32_t VirtualFree_c_unlocked(uint32_t address, uint32_t size, uint32_t type)
 {
     region *r = find(address);
     if (!r || !r->committed) { halopad_last_error = 487; return 0; }
@@ -153,7 +162,7 @@ uint32_t VirtualFree_c(uint32_t address, uint32_t size, uint32_t type)
     hp_unsupported("VirtualFree", "free type 0x%x", type);
 }
 
-uint32_t VirtualQuery_c(uint32_t address, uint32_t info, uint32_t length)
+static uint32_t VirtualQuery_c_unlocked(uint32_t address, uint32_t info, uint32_t length)
 {
     if (length < 28) { halopad_last_error = HP_ERROR_INSUFFICIENT_BUFFER; return 0; }
     region *r = find(address);
@@ -173,7 +182,7 @@ uint32_t VirtualQuery_c(uint32_t address, uint32_t info, uint32_t length)
     return 28;
 }
 
-uint32_t VirtualProtect_c(uint32_t address, uint32_t size, uint32_t prot, uint32_t old)
+static uint32_t VirtualProtect_c_unlocked(uint32_t address, uint32_t size, uint32_t prot, uint32_t old)
 {
     region *r = find(address);
     if (!r) hp_unsupported("VirtualProtect", "address 0x%08x outside known regions", address);
@@ -230,3 +239,20 @@ void halopad_protect_image(uint32_t image_base)
     }
     free(ro);
 }
+
+/* ---- thread safety (thread stacks and heaps reserve from any thread): every entry point holds one recursive lock ---- */
+static pthread_mutex_t vm_lock;
+__attribute__((constructor)) static void vm_lock_init(void)
+{
+    pthread_mutexattr_t a;
+    pthread_mutexattr_init(&a);
+    pthread_mutexattr_settype(&a, PTHREAD_MUTEX_RECURSIVE);
+    pthread_mutex_init(&vm_lock, &a);
+}
+void halopad_vm_mark(uint32_t base, uint32_t size) { pthread_mutex_lock(&vm_lock); halopad_vm_mark_unlocked(base, size); pthread_mutex_unlock(&vm_lock); }
+uint32_t halopad_vm_reserve(uint32_t address, uint32_t size, int commit_now) { pthread_mutex_lock(&vm_lock); uint32_t r = halopad_vm_reserve_unlocked(address, size, commit_now); pthread_mutex_unlock(&vm_lock); return r; }
+int halopad_vm_release(uint32_t address) { pthread_mutex_lock(&vm_lock); int r = halopad_vm_release_unlocked(address); pthread_mutex_unlock(&vm_lock); return r; }
+uint32_t VirtualAlloc_c(uint32_t address, uint32_t size, uint32_t type, uint32_t prot) { pthread_mutex_lock(&vm_lock); uint32_t r = VirtualAlloc_c_unlocked(address, size, type, prot); pthread_mutex_unlock(&vm_lock); return r; }
+uint32_t VirtualFree_c(uint32_t address, uint32_t size, uint32_t type) { pthread_mutex_lock(&vm_lock); uint32_t r = VirtualFree_c_unlocked(address, size, type); pthread_mutex_unlock(&vm_lock); return r; }
+uint32_t VirtualQuery_c(uint32_t address, uint32_t info, uint32_t length) { pthread_mutex_lock(&vm_lock); uint32_t r = VirtualQuery_c_unlocked(address, info, length); pthread_mutex_unlock(&vm_lock); return r; }
+uint32_t VirtualProtect_c(uint32_t address, uint32_t size, uint32_t prot, uint32_t old) { pthread_mutex_lock(&vm_lock); uint32_t r = VirtualProtect_c_unlocked(address, size, prot, old); pthread_mutex_unlock(&vm_lock); return r; }
