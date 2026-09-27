@@ -6,9 +6,24 @@
   "executable": "haloce.exe",
   "version": "1.0.10.0621",
   "machine": "IMAGE_FILE_MACHINE_I386",
-  "input_state": "UNVERIFIED",
-  "accepted_sha256": null,
+  "input_state": "ENGINEERING_DERIVED",
+  "accepted_sha256": "feea46fce285ec071016cf5534abe47ecf36f6cfac8f1973ee6919851ea5a037",
+  "provenance": {
+    "tier": "engineering",
+    "installer": "ref/HaloCESetup.exe (Custom Edition 1.00 file set, haloce.exe 1.0.0.609)",
+    "installer_sha256": "150e430dc54ffb265cbe96605ef8909c9ba0065fa11bdbf170bfd88391cf98ba",
+    "patch": "ref/inputs/patches/haloce-patch-1.0.10.exe (official Custom Edition 1.10 update, Microsoft Authenticode, from Bungie's original URL via the Wayback Machine)",
+    "patch_sha256": "33818f3f56b7dddc8c61d654af6567c9c5b9220ca75d6ac23a52611038257508",
+    "method": "scripts/prepare-patched-client.sh then scripts/assemble-custom-original.py; no installation, no product key",
+    "reproductions": [
+      "docs/artifacts/2026-09-26/G1a/prepare-20260927T013752Z-91939",
+      "docs/artifacts/2026-09-26/G1a/prepare-20260927T013822Z-92133"
+    ],
+    "decision": "Chris directed on 2026-09-26 that the supplied repo copy be used to proceed with engineering.",
+    "not_established": "Key-installed original-client baseline (G1b); independent third-party hash confirmation; distribution rights (G12)."
+  },
   "core_namespace": "halopad_custom",
   "original_root": "ref/inputs/custom-original",
   "prepared_root": "generated/prepared/custom-en-1.0.10.0621"
 }
+

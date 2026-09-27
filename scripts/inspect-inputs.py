@@ -106,7 +106,9 @@ def main():
         return 2
     errors = profile_errors(report, profile)
     report.update({'profile': args.profile, 'identity_result': 'FAIL' if errors else 'PASS',
-                   'errors': errors, 'baseline_result': 'NOT_RUN'})
+                   'errors': errors, 'baseline_result': 'NOT_RUN',
+                   'input_state': profile.get('input_state'),
+                   'provenance': profile.get('provenance') or report['provenance']})
     out = ROOT / 'docs/artifacts' / datetime.date.today().isoformat() / 'G1' / ('inspect-' + uuid.uuid4().hex[:12])
     out.mkdir(parents=True)
     (out / 'pe-inventory.json').write_text(json.dumps(report, indent=2) + '\n')

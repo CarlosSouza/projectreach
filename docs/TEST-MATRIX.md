@@ -5,7 +5,7 @@ All original acceptance conditions remain in `HaloPad-PRD.md` Section 10. No row
 | Row | Test | Status | Evidence / unmet requirement |
 |---|---|---|---|
 | M01 | Workspace and private-rights state | NOT_RUN | Protection and license inventory checks executed; complete environment gate still open. |
-| M02 | Custom Edition identity | BLOCKED_EXTERNAL | Supplied client is 1.0.0.609; accepted patched profile and original baseline missing. |
+| M02 | Custom Edition identity | PARTIAL (engineering tier) | G1a: reproducible derived 1.0.10.621 client accepted (`INPUTS.md`, `docs/artifacts/2026-09-26/G1a/`). Original-client baseline (G1b) and independent hash confirmation outstanding. |
 | M03 | Retail identity | BLOCKED_EXTERNAL | Separate retail input and campaign baseline missing. |
 | M04 | Static translation coverage | NOT_RUN | Required behavior has not been executed. |
 | M05 | CPU/ABI differential tests | NOT_RUN | Required behavior has not been executed. |
