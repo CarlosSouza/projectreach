@@ -29,12 +29,16 @@ EXTERNC void CCALL x86_cpuid(CPU)
     abort();
 }
 
-/* Time-stamp counter: nanoseconds from the host's monotonic clock (a 1 GHz counter). */
+/* Time-stamp counter: the reference machine's 2.4 GHz, from the host's monotonic clock
+   (nanoseconds times 12/5). Halo measures it against the performance counter at start-up
+   (0x580e70) and reads 2400 MHz: its Radeon 9700 PRO class, not the low-spec branch it takes at
+   1000 MHz or less (default resolution, detail defaults: 0x51a2ad, 0x53d70a, 0x53e3c0). */
 EXTERNC void CCALL x86_rdtsc(CPU)
 {
     struct timespec t;
     clock_gettime(CLOCK_MONOTONIC, &t);
-    uint64_t v = (uint64_t)t.tv_sec * 1000000000u + (uint64_t)t.tv_nsec;
+    uint64_t ns = (uint64_t)t.tv_sec * 1000000000u + (uint64_t)t.tv_nsec;
+    uint64_t v = ns / 5 * 12 + ns % 5 * 12 / 5;
     eax = (uint32_t)v;
     edx = (uint32_t)(v >> 32);
 }

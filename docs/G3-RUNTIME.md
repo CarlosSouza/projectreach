@@ -16,7 +16,7 @@ Run it: `.venv/bin/python scripts/run-core.py` (links the VA-model translation w
 | Standard handles | none (`GetStdHandle` returns NULL) | a GUI process started from Explorer |
 | Startup info | `STARTF_USESHOWWINDOW`, `SW_SHOWNORMAL` | as Explorer starts a program |
 | Code pages | ANSI 1252, OEM 437; conversions, character types and case mapping come from Microsoft's `bestfit1252.txt` (pinned hash) via `scripts/gen-nls-tables.py` | US English Windows. Character types follow Unicode categories with the Windows XP-era overrides listed in the generator. |
-| Time | real wall clock (`GetSystemTimeAsFileTime`); `GetTickCount` and a 10 MHz `QueryPerformanceCounter` from the monotonic clock | |
+| Time | real wall clock (`GetSystemTimeAsFileTime`); `GetTickCount` and a 10 MHz `QueryPerformanceCounter` from the monotonic clock; `rdtsc` at 2.4 GHz | |
 | Modules | fixed handles: XP SP3 base addresses for the system DLLs, HaloPad-chosen addresses for dinput8.dll and the game's DLLs; `mscoree.dll` and `nvcpl.dll` are absent (no .NET, no NVIDIA control panel) | see `port/runtime/halopad_modules.c` |
 
 ## Memory
@@ -81,6 +81,31 @@ D3DX's loader has a staging path for surfaces it cannot lock (`0x58d1d9`: a syst
 
 **Unreachable device method.** Halo's only `ProcessVertices` call (`0x51ff05`) is in `0x51fe90`, which nothing calls: there is no direct call, and its address appears nowhere in the image. With that, every `IDirect3DDevice9` method in the static inventory (41) is implemented.
 
+## Rasterizer initialization (Halo's graphics start-up)
+
+`0x51a240` (reached from `WinMain` through `0x5442e0` and `0x515610`) is Halo's whole graphics start-up. In order:
+
+- the display settings (`0x51a140`), with a default of 800 × 600 at 60 Hz, or 640 × 480 on a machine at 1000 MHz or less, with 128 MB or less, or in safe mode;
+- the game window (`0x5191d0`);
+- the adapter and its caps, and `0x580a00` again (`config.txt`);
+- the shader path from the card's caps and the `-use*` switches;
+- the NVIDIA control-panel query (`NVCPL.dll`, absent on the reference machine), the desktop's `GetDeviceCaps`, and the presentation parameters (`0x519860`);
+- `CreateDevice` and the splash (`0x519080`);
+- the vertex shaders and effect collection (`0x51a0b0`: `shaders\vsh.enc`, `shaders\EffectCollection_ps_2_0.enc`);
+- the rasterizer's subsystems (`0x532bb0`, `0x51f290`, `0x518a60`, `0x5180c0`, `0x51ea70`, `0x52fb00`, `0x53a260`, `0x525860`, `0x4d3730`, `0x444e30`, `0x51adb0`, `0x51b440`);
+- the chat windows (`0x51cdb0`).
+
+**Test** (`tests/halo_raster_test.c`): a component test that sets only what `0x51a240` reads from `WinMain` (the window class values, the Direct3D library pointers, the machine measurement, `strings.dll` and the Keystone loader), then runs it. The results:
+
+- It succeeds with no dialog: the game window, and a device with an 800 × 600 back buffer, the reference machine's default resolution.
+- It reads `config.txt`, `shaders\vsh.enc` and the pixel shader 2.0 effect collection. That is the path Halo picks for the Radeon 9700 PRO.
+- It lays out the chat from `content/600editbox.ksml` with its schema.
+- The splash is left stretched over the back buffer.
+
+It passes on macOS and on the iPad Simulator. The core runner is still the only path through `WinMain`, and it stops at the license and the product ID.
+
+**The time-stamp counter.** HaloPad's `rdtsc` runs at the reference machine's 2.4 GHz (the host's nanoseconds × 12/5), so `0x580e70` measures 2400 MHz. It first ran at 1 GHz. Halo reads exactly 1000 MHz as its low-spec class (`0x51a2ad`: a 640 × 480 default; `0x53d70a`, `0x53e3c0`, `0x53e5ac`: lower detail defaults for new profiles), which contradicts the Radeon 9700 PRO machine the other answers describe.
+
 ## Dialog boxes (Halo's warnings and errors)
 
 Halo reports problems with `0x582060(text id, link id, fatal)`. It loads the texts from `strings.dll` (in the player's language, falling back to English), then shows template `0x66` ("Halo - Warning") with `DialogBoxIndirectParamA` through `0x5817e0`, and its dialog procedure `0x581b90` runs it:
@@ -103,7 +128,7 @@ After the license, `WinMain` checks the machine (`0x5449c7`–`0x544c38`) and re
 
 | Check | Halo's code | HaloPad's answer | Result |
 |---|---|---|---|
-| Memory, CPU speed | `0x580e70`: `GlobalMemoryStatus` (capped at 1 GB), `rdtsc` over a quarter second of `QueryPerformanceCounter` | 1024 MB; 1000 MHz (HaloPad's time-stamp counter counts nanoseconds) | above the minimums 128 MB and 733 MHz |
+| Memory, CPU speed | `0x580e70`: `GlobalMemoryStatus` (capped at 1 GB), `rdtsc` over a quarter second of `QueryPerformanceCounter` | 1024 MB; 2400 MHz (HaloPad's time-stamp counter runs at the reference machine's 2.4 GHz) | above the minimums 128 MB and 733 MHz, and above the 1000 MHz and 128 MB Halo requires for its normal defaults |
 | Video memory | `0x580e70`: DirectDraw 7 (`DirectDrawEnumerateExA`, `DirectDrawCreateEx`, `GetAvailableVidMem` for four surface kinds) | one device, "Primary Display Driver", 128 MB | stored as the card's memory |
 | Direct3D 9 and `config.txt` | `0x580a00`: `GetAdapterIdentifier`, `GetDeviceCaps`, the game's `config.txt` card database | Radeon 9700 PRO (ATI, `0x1002`/`0x4E44`) | accepted: "ATI" "Radeon 9700 PRO", 128 MB, no error text |
 | DirectSound, DirectInput, `shfolder.dll` | `LoadLibraryA` + `GetProcAddress` | provided | pass |

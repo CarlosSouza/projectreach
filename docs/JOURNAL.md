@@ -866,3 +866,15 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   - DirectDraw 7 for Halo's video memory query (`halopad_ddraw.c`): one primary device, `SetCooperativeLevel(DDSCL_NORMAL)`, `GetAvailableVidMem` at 128 MB. Its absence would have been fatal (string `0x79`).
   - `GetLastActivePopup`, `GetActiveWindow` and `MessageBoxA` as run-time exports for the CRT's message box.
 - **Consequence.** Once Chris accepts the license, a HaloPad player sees no start-up warning. The product key, through Halo's original installer, is the only remaining gate before the splash and menus.
+
+
+## 2026-09-27 — Halo's graphics start-up runs on HaloPad; the reference CPU is 2.4 GHz
+
+- **The time-stamp counter now runs at 2.4 GHz** (it was 1 GHz). Halo compares the measured speed with 1000 MHz in four places (`0x51a2ad`, `0x53d70a`, `0x53e3c0`, `0x53e5ac`). At exactly 1000 MHz it took its low-spec branch: a 640 × 480 default resolution and lower detail defaults. That contradicted the Radeon 9700 PRO machine HaloPad describes everywhere else. Halo now measures 2400 MHz, and the startup suite checks it.
+- **Rasterizer initialization.** `tests/halo_raster_test.c` runs Halo's own `0x51a240`, the graphics start-up, as a component: it sets only the `WinMain` values the function reads.
+  - It succeeds with no dialog: the game window and an 800 × 600 device.
+  - It reads `config.txt`, `shaders\vsh.enc` and `shaders\EffectCollection_ps_2_0.enc`, the pixel shader 2.0 path chosen for the Radeon 9700 PRO.
+  - It runs every rasterizer subsystem's initialization and lays out the 800 × 600 chat (`600editbox.ksml`).
+  - The splash is on the back buffer.
+  - No runtime service trapped on the way.
+- **Scope.** This is a component test. The core runner remains the only path through `WinMain`, and it stops at the license and then the product ID, as Halo does.

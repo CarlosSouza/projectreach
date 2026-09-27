@@ -135,6 +135,7 @@ int main(void)
     printf("    measured: %u MB, %u MHz; minimums %u MB (less 16), %u MHz, %u MB free\n", mb, mhz, rd(0x68af8c), rd(0x68afa0), rd(0x68af94));
     check("memory at least the minimum (else string 0x65)", mb >= rd(0x68af8c) - 16, 1);
     check("CPU speed at least the minimum (else string 0x66)", mhz >= rd(0x68afa0), 1);
+    check("  measured as the reference machine's 2400 MHz (rdtsc at 2.4 GHz, rounded by Halo)", mhz, 2400);
 
     /* temporary folder space */
     uint32_t tmp = halopad_heap_alloc(260, 1), fr = halopad_heap_alloc(8, 1);
