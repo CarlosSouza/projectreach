@@ -878,3 +878,19 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   - The splash is on the back buffer.
   - No runtime service trapped on the way.
 - **Scope.** This is a component test. The core runner remains the only path through `WinMain`, and it stops at the license and then the product ID, as Halo does.
+
+
+## 2026-09-27 — The game's systems start, and Halo loads ui.map and Blood Gulch
+
+- **Component test** `tests/halo_maps_test.c`: `WinMain`'s set-up values, then Halo's `0x5442e0` (resource maps, graphics, input, sound), then `0x443c50` + `0x442290` for the main menu and Blood Gulch.
+  - The systems start with no dialog.
+  - Both maps load into tag memory at `0x40440000`: 1,412 and 2,455 tags, with the right `scnr` scenario tags.
+  - It passes on macOS and on the iPad Simulator.
+- **Translation work it took** (lifter `161d2b412a4a-89ccc7fb`, run `20260927T140130Z-31169`):
+  - 80-bit `fld`/`fstp`: 146 sites, with helpers checked against x86 encodings of 1.0, −2.5, 1e10, 0, ∞ and π, and a denormal round trip.
+  - `rol`/`ror` of low bytes; mixed low/high-byte `test`.
+  - `fprem`; `fsubr`/`fdivr st(i), st(0)`.
+  - An audit fix for the x87 status idiom, which recovers the CRT's `fmod` and 16 math functions.
+  - Untranslated instruction sites went from 153 to 6.
+- **A silent miscompile found and fixed.** A HaloPad translator guard accepted "no code" for `test`/`cmp` of registers as "flags not needed". For `test ch, cl` the real cause was an unimplemented form, and the following `jz` read a stale condition, which compiled to a trap. The forms are implemented now, and a scan of the whole translation finds no remaining case.
+- **On the product key.** Chris asked to get around the key so development continues. The key check is not bypassed: no product ID is written, and nothing is skipped in the run path. Development continues through component tests of Halo's own functions, like this one. The full run still stops at the license and then the product ID.

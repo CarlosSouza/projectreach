@@ -84,3 +84,7 @@ Evidence: `docs/artifacts/2026-09-26/G2c/run-*/census.json` (diagnostic run), `g
 ### x87 fidelity finding
 
 SR's llasm support (`SR/llasm-support/llasm_float.c`) keeps the x87 stack as C `double` and ignores the precision-control bits of the control word (only rounding control is used, for integer conversion). The PRD forbids assuming this is equivalent. It is repairable in the support code, which is plain C: if Halo runs with single-precision control (the Direct3D default), rounding each arithmetic result to `float` after computing in `double` reproduces x87 results exactly for add, subtract, multiply, divide and square root (53 ≥ 2×24+2); transcendentals and exponent-range edge cases need oracle comparison. The 80-bit load/store gap becomes exact conversion helpers. The oracle's QEMU-based x87 implements precision control, so it can settle this per function. Measuring Halo's actual control word is part of the first x87 slice.
+
+## Update 2026-09-27: 6 sites left
+
+With lifter `161d2b412a4a-89ccc7fb` the whole-image translation has 6 untranslated instruction sites, down from 153. The 80-bit x87 loads and stores, low-byte rotates, mixed-byte `test`, `fprem` and `fsubr`/`fdivr st(i), st(0)` are now translated. The six left are `rcl bl` ×4 (`0x551d1e`–`0x551d3f`), `imul byte [ecx+0x1d]` (`0x598198`) and `fnstenv`/`fldenv` (`0x5dac13`, `0x5dac22`, the CRT's Pentium FDIV workaround). Each is a named trap. See [G3-RUNTIME.md](G3-RUNTIME.md), "Map loading".

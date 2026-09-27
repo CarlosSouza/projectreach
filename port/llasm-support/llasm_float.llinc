@@ -70,6 +70,8 @@ funcv x87_fisubr_int32 $, num
 
 funcv x87_fld_float $, num
 funcv x87_fld_double $, num_low, num_high
+funcv x87_fld_tword $, adr
+funcv x87_fstp_tword $, adr
 funcv x87_fld_st $, num
 funcv x87_fld1_void $
 funcv x87_fldlg2_void $
@@ -107,6 +109,8 @@ funcv x87_fsub_float $, num
 funcv x87_fsub_double $, num_low, num_high
 funcv x87_fsub_st $, num
 funcv x87_fsub_to_st $, num
+funcv x87_fsubr_to_st $, num
+funcv x87_fdivr_to_st $, num
 funcv x87_fsubp_st $, num
 funcv x87_fsubr_float $, num
 funcv x87_fsubr_double $, num_low, num_high
@@ -307,6 +311,14 @@ macro FLD_DOUBLE num_low, num_high
     call x87_fld_double $, \num_low, \num_high
 endm
 
+macro FLD_TWORD adr
+    call x87_fld_tword $, \adr
+endm
+
+macro FSTP_TWORD adr
+    call x87_fstp_tword $, \adr
+endm
+
 macro FLD_ST num
     call x87_fld_st $, \num
 endm
@@ -440,6 +452,14 @@ macro FSUBR_DOUBLE num_low, num_high
     call x87_fsubr_double $, \num_low, \num_high
 endm
 
+macro FSUBR_TO_ST num
+    call x87_fsubr_to_st $, \num
+endm
+
+macro FDIVR_TO_ST num
+    call x87_fdivr_to_st $, \num
+endm
+
 macro FSUBR_ST num
     call x87_fsubr_st $, \num
 endm
@@ -548,6 +568,10 @@ macro FRNDINT_VOID
     call x87_frndint_void $
 endm
 
+macro FPREM_VOID
+    call x87_fprem_void $
+endm
+
 macro FSCALE_VOID
     call x87_fscale_void $
 endm
@@ -568,6 +592,7 @@ endm
 funcv x87_fpatan_void $
 funcv x87_frndint_void $
 funcv x87_fscale_void $
+funcv x87_fprem_void $
 funcv x87_f2xm1_void $
 funcv x87_fsincos_void $
 funcv x87_fxam_void $

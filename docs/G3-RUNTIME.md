@@ -81,6 +81,29 @@ D3DX's loader has a staging path for surfaces it cannot lock (`0x58d1d9`: a syst
 
 **Unreachable device method.** Halo's only `ProcessVertices` call (`0x51ff05`) is in `0x51fe90`, which nothing calls: there is no direct call, and its address appears nowhere in the image. With that, every `IDirect3DDevice9` method in the static inventory (41) is implemented.
 
+## Map loading (Halo's cache files)
+
+Custom Edition keeps shared resources in `maps\bitmaps.map`, `maps\sounds.map` and `maps\loc.map`, which `0x442ff0` opens during the game's system start-up (`0x5442e0`). It also starts Halo's I/O thread (`0x4441c0`: alertable waits, `ReadFileEx`).
+
+- **Opening a scenario:** `0x443c50`(path in `eax`, fatal flag) reads the 2 KB header through the I/O thread and validates it into a cache slot (`0x644318`, `0x80c` bytes each; `0x443ed0`). The checks are "head" and "foot", the size, the name, and version 609.
+- **Loading it:** `0x442290` copies the header into the current map's (`0x643044`) and reads the tag data into tag memory at `0x40440000`. It sets the tag index (`0x817144`, 32-byte entries), fixes up every tag's references, including sounds and bitmaps held in the shared resource maps, and returns the scenario tag's datum handle, or −1.
+
+**Test** (`tests/halo_maps_test.c`): a component test. It sets what `WinMain` has set up by then (window class values, the machine measurement, memory, Keystone, the DirectX library pointers), runs `0x5442e0`, and loads two maps:
+
+- the systems start with no dialog, and the texture and sound caches exist;
+- `ui.map` loads with 1,412 tags, scenario `scnr` "levels\ui\ui";
+- `bloodgulch.map` loads with 2,455 tags, scenario `scnr` "levels\test\bloodgulch\bloodgulch".
+
+It passes on macOS and on the iPad Simulator.
+
+**Translation gaps this closed** (lifter `161d2b412a4a-89ccc7fb`, run `20260927T140130Z-31169`). The system start-up formats a number with the C runtime's `printf`, whose long-double conversion (`0x5d70c7`, `0x5da220` and on) and math intrinsics (`_trandisp`, `fmod`) use forms the translator lacked:
+
+- **80-bit loads and stores** (`fld m80`, `fstp m80`: 146 sites). The address goes to a register, and helpers convert between the ten bytes and the stack's `double`. A load rounds the 64-bit significand once; a store is exact.
+- **Byte rotates and mixed-byte tests:** `rol`/`ror` of a low byte by a constant, and `test` between a low and a high byte (`test ch, cl`, `test dl, ch`, `test bl, ah`). The missing `test` forms had produced no code, so the next `jz` read a stale condition. LLVM made that a trap at `0x5cd153`, and the translator had reported the other two as "unprocessed flags". A scan of the whole translation finds no other "flags not needed" site followed by a flag read.
+- **`fprem`** (`fmod`'s loop; always complete on the `double` stack, so C2 is clear) and **`fsubr`/`fdivr st(i), st(0)`**.
+- **The audit's data-like instruction heuristic** now accepts the x87 status idiom (`wait` after `fnstsw ax` or before an x87 instruction, `sahf` after `fnstsw ax`). It had rejected `fmod`'s body (`0x5cdc14`), which is reached only from its descriptor table at `0x61fac0`. The audit gains 16 functions (the math thunks and dispatchers) and 15 relocations, and loses nothing reachable.
+- **Still untranslated:** 6 sites. Four are `rcl bl` (`0x551d1e`–`0x551d3f`); one is `imul byte [ecx+0x1d]` (`0x598198`); two are `fnstenv`/`fldenv` (`0x5dac13`, `0x5dac22`) in the CRT's Pentium FDIV workaround, which runs only when `0x63e304` is set.
+
 ## Rasterizer initialization (Halo's graphics start-up)
 
 `0x51a240` (reached from `WinMain` through `0x5442e0` and `0x515610`) is Halo's whole graphics start-up. In order:

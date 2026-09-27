@@ -162,6 +162,21 @@ class Audit:
                 demoted += 1
         return demoted
 
+    def x87_idiom(self, a, ins):
+        """'wait' before an x87 instruction, and 'sahf' after 'fnstsw ax' (with or without a
+        'wait' between): the x87 status idiom compiled code uses to branch on a comparison.
+        The CRT's fmod (0x5cdc14, reached only from its _trandisp table at 0x61fac0) loops
+        on 'fprem; wait; fnstsw ax; wait; sahf; jp'."""
+        o = a - self.base
+        if ins.mnemonic in ('wait', 'fwait'):
+            if self.img[o - 2:o] == b'\xdf\xe0':                  # after 'fnstsw ax'
+                return True
+            nxt = self.decode(a + ins.size)
+            return nxt is not None and nxt.mnemonic.startswith('f')
+        if ins.mnemonic == 'sahf':
+            return self.img[o - 2:o] == b'\xdf\xe0' or (self.img[o - 1] == 0x9b and self.img[o - 3:o - 1] == b'\xdf\xe0')
+        return False
+
     def probe(self, start, limit=20000):
         """Side-effect-free test decode of the code reachable from start (intra-procedural)."""
         seen, work = {}, [start]
@@ -185,7 +200,7 @@ class Audit:
                        for k in range(1, ins.size)):
                     return 'overlaps known code'
                 o = a - self.base
-                if ins.mnemonic in JUNK or self.img[o:o + 2] == b'\0\0':
+                if (ins.mnemonic in JUNK or self.img[o:o + 2] == b'\0\0') and not self.x87_idiom(a, ins):
                     # The CRT's CPUID-availability check uses 'pushfd; pop r32'
                     # (0x5cf251, reached from the initializer table): that idiom is code.
                     nxt = self.decode(a + ins.size) if ins.mnemonic == 'pushfd' else None

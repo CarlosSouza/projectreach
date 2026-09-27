@@ -60,11 +60,10 @@
          while (FixupOffset < FixupSize)
          {
              PageAddress = *((uint32_t *) &(Fixups[FixupOffset])) + Header->OptionalHeader.ImageBase;
-@@ -1033,6 +1056,26 @@
-                 if (FixupType == 3)
+@@ -1034,6 +1057,26 @@
                  {
                      SR_get_section_reladr(FixupAddress, &SourceObject, &SourceOffset);
-+
+ 
 +                    {
 +                        size_t li;
 +                        int literal = 0;
@@ -84,8 +83,9 @@
 +                            continue;
 +                        }
 +                    }
- 
++
                      SR_get_section_reladr( *((uint32_t *)&(section[SourceObject].adr[SourceOffset])) , &TargetObject, &TargetOffset);
+ 
  
 @@ -1125,6 +1168,40 @@
                          }
@@ -289,7 +289,7 @@
      }
 --- a/SR_full_llasm_instr.c
 +++ b/SR_full_llasm_instr.c
-@@ -23,11 +23,21 @@
+@@ -23,12 +23,22 @@
   */
  
  #include <stdio.h>
@@ -299,7 +299,7 @@
  #include "SR_defs.h"
  #include "SR_vars.h"
  #include "udis86_dep.h"
-+
+ 
 +/* HaloPad diagnostic mode (HALOPAD_SRW_DIAG=1): log every conversion failure and
 +   continue, so one run enumerates all gaps. Output produced in this mode is a census,
 +   not a build input. */
@@ -309,8 +309,9 @@
 +    if (value < 0) value = (getenv("HALOPAD_SRW_DIAG") != NULL);
 +    return value;
 +}
- 
++
  #undef DISPLAY_DISASSEMBLY
+ 
  
 @@ -201,7 +211,7 @@
  };
@@ -394,11 +395,10 @@
                              OUTPUT_PARAMSTRING("PUSH %s\n", cLabel);
                              OUTPUT_PARAMSTRING("tcall %s\n", extrn[0]->proc);
                          }
-@@ -2989,7 +3036,58 @@
-                 }
+@@ -2990,6 +3037,57 @@
  
              }
-+            break;
+             break;
 +        case UD_Icpuid:
 +            /* HaloPad: plain-CPU contract (llasm_halopad.c); no flags affected */
 +            OUTPUT_STRING("call x86_cpuid $\n");
@@ -406,7 +406,7 @@
 +        case UD_Irdtsc:
 +            /* HaloPad: no flags affected */
 +            OUTPUT_STRING("call x86_rdtsc $\n");
-             break;
++            break;
 +        case UD_Icmpsw:
 +        case UD_Icmpsd:
 +            {
@@ -453,12 +453,10 @@
          case UD_Icwd:
              {
                  /* no flags affected */
-@@ -4151,6 +4249,26 @@
-                     OUTPUT_STRING("cmovz tmp2, tmp2, 2, -2\n");
-                     OUTPUT_STRING("add esi, esi, tmp2\n");
+@@ -4153,6 +4251,26 @@
                  }
-+            }
-+            break;
+             }
+             break;
 +        case UD_Ijecxz:
 +            {
 +                /* HaloPad: jump if ecx is zero; no flags affected (same structure as loop) */
@@ -477,10 +475,61 @@
 +                OUTPUT_PARAMSTRING("ctcallz ecx, %s\n", cAddress);
 +
 +                SR_add_label(Entry, cur_ofs + decoded_length);
-             }
-             break;
++            }
++            break;
          case UD_Iloop:
-@@ -7127,6 +7245,14 @@
+         case UD_Iloope:
+         //case UD_Iloopn:
+@@ -5921,6 +6039,19 @@
+                     }
+                     else if (ud_obj.operand[0].base >= UD_R_AL && ud_obj.operand[0].base <= UD_R_BL)
+                     {
++                        /* HaloPad: rol/ror of a low byte register by a constant (the CRT's
++                           long double formatting, 0x5d7134: rol cl, 1); the helper handles
++                           byte position 0 as it does position 8 */
++                        if (ud_obj.operand[1].type == UD_OP_IMM || ud_obj.operand[1].type == UD_OP_CONST)
++                        {
++                            uint32_t value;
++
++                            if (ud_obj.operand[1].type == UD_OP_CONST) value = 1;
++                            else value = (SR_disassemble_get_value(&(ud_obj.operand[1]), ZERO_EXTEND) & 0x1f) % 8;
++
++                            if (value == 0) flags_write = 0;
++                            else SR_llasm_helper_rol_8(ud_obj.mnemonic, X868L2LLREG(ud_obj.operand[0].base), 0, value);
++                        }
+                     }
+                     else if (ud_obj.operand[0].base >= UD_R_AH && ud_obj.operand[0].base <= UD_R_BH)
+                     {
+@@ -6710,6 +6841,15 @@
+                                     flags_write = flags_to_write;
+                                 }
+                             }
++                            else if (ud_obj.operand[1].base >= UD_R_AH && ud_obj.operand[1].base <= UD_R_BH)
++                            {
++                                /* HaloPad: test r8l, r8h (test dl, ch at 0x4b647c): the low byte
++                                   against the high byte of the other register */
++                                if (SR_llasm_helper_and_8l(ud_obj.mnemonic, LR_TMP1, X868L2LLREG(ud_obj.operand[0].base), X868H2LLREG(ud_obj.operand[1].base), 8))
++                                {
++                                    flags_write = flags_to_write;
++                                }
++                            }
+                         }
+                         else if (ud_obj.operand[1].type == UD_OP_MEM)
+                         {
+@@ -6732,6 +6872,12 @@
+                         {
+                             if (ud_obj.operand[1].base >= UD_R_AL && ud_obj.operand[1].base <= UD_R_BL)
+                             {
++                                /* HaloPad: test r8h, r8l (test ch, cl at 0x5cd153, test bl, ah):
++                                   test is commutative, so the low byte against the high one */
++                                if (SR_llasm_helper_and_8l(ud_obj.mnemonic, LR_TMP1, X868L2LLREG(ud_obj.operand[1].base), X868H2LLREG(ud_obj.operand[0].base), 8))
++                                {
++                                    flags_write = flags_to_write;
++                                }
+                             }
+                             else if (ud_obj.operand[1].base >= UD_R_AH && ud_obj.operand[1].base <= UD_R_BH)
+                             {
+@@ -7127,6 +7273,15 @@
          case UD_Ifsqrt:
          case UD_Ifucompp:
          case UD_Ifyl2x:
@@ -492,10 +541,11 @@
 +        case UD_If2xm1:
 +        case UD_Ifsincos:
 +        case UD_Ifxam:
++        case UD_Ifprem:     /* HaloPad: the CRT's fmod */
              {
                  /* no flags affected */
  
-@@ -7150,6 +7276,14 @@
+@@ -7150,6 +7305,15 @@
                  else if (ud_obj.mnemonic == UD_Ifsin) instr = "FSIN";
                  else if (ud_obj.mnemonic == UD_Ifsqrt) instr = "FSQRT";
                  else if (ud_obj.mnemonic == UD_Ifucompp) instr = "FUCOMPP";
@@ -507,10 +557,39 @@
 +                else if (ud_obj.mnemonic == UD_If2xm1) instr = "F2XM1";
 +                else if (ud_obj.mnemonic == UD_Ifsincos) instr = "FSINCOS";
 +                else if (ud_obj.mnemonic == UD_Ifxam) instr = "FXAM";
++                else if (ud_obj.mnemonic == UD_Ifprem) instr = "FPREM";
                  else /*if (ud_obj.mnemonic == UD_Ifyl2x)*/ instr = "FYL2X";
  
                  if (ud_obj.operand[0].type == UD_NONE)
-@@ -7640,6 +7774,13 @@
+@@ -7283,6 +7447,11 @@
+                                     {
+                                         OUTPUT_PARAMSTRING("%s_ST %i\n", instr, X87REGNUM(ud_obj.operand[1].base));
+                                     }
++                                    else if (ud_obj.operand[1].base == UD_R_ST0)
++                                    {
++                                        /* HaloPad: fsubr/fdivr st(i), st(0) */
++                                        OUTPUT_PARAMSTRING("%s_TO_ST %i\n", instr, X87REGNUM(ud_obj.operand[0].base));
++                                    }
+                                 }
+                             }
+                         }
+@@ -7548,6 +7717,15 @@
+ 
+                             OUTPUT_STRING("FLD_FLOAT tmp1\n");
+                         }
++                        else if (ud_obj.operand[0].size == 80)
++                        {
++                            /* HaloPad: 80-bit extended load; the address goes to a register
++                               (MADR_REG: the read and write modes take 8 to 64-bit operands) and
++                               the helper converts the ten bytes there to the stack's double */
++                            SR_disassemble_get_madr(cOutput, &(ud_obj.operand[0]), fixup[0], extrn[0], UD_NONE, MADR_REG, ZERO_EXTEND, &memadr);
++
++                            OUTPUT_PARAMSTRING("FLD_TWORD %s\n", memadr.madr);
++                        }
+                     }
+                 }
+                 else
+@@ -7640,6 +7818,13 @@
                  }
              }
              break;
@@ -524,7 +603,22 @@
          case UD_Ifst:
          case UD_Ifstp:
              {
-@@ -7749,14 +7890,36 @@
+@@ -7686,6 +7871,14 @@
+ 
+                             SR_disassemble_write_mem_word(cOutput, &memadr, LR_TMP0);
+                         }
++                        else if (ud_obj.operand[0].size == 80 && ud_obj.mnemonic == UD_Ifstp)
++                        {
++                            /* HaloPad: 80-bit extended store (fstp only); the helper writes the
++                               ten bytes of the stack's double at the address and pops */
++                            SR_disassemble_get_madr(cOutput, &(ud_obj.operand[0]), fixup[0], extrn[0], UD_NONE, MADR_REG, ZERO_EXTEND, &memadr);
++
++                            OUTPUT_PARAMSTRING("FSTP_TWORD %s\n", memadr.madr);
++                        }
+                     }
+                 }
+ 
+@@ -7749,14 +7942,36 @@
          default:
              fprintf(stderr, "Error: unknown instruction - %i - %i - %s\n", Entry, (unsigned int)cur_ofs, output->str);
  
@@ -574,11 +668,10 @@
  #include <string.h>
  #include "SR_defs.h"
  #include "SR_vars.h"
-@@ -36,6 +36,16 @@
- // from udis86
+@@ -37,6 +37,16 @@
  extern const char* ud_reg_tab[];
  #endif
-+
+ 
 +unsigned int SR_diag_last_address = 0; /* HaloPad diagnostic: last decoded instruction */
 +
 +/* HaloPad: imports that never return; a call through one ends the path (CRT exit code is
@@ -588,9 +681,10 @@
 +    return !strcmp(proc, "ExitProcess") || !strcmp(proc, "ExitThread") ||
 +           !strcmp(proc, "FatalAppExitA") || !strcmp(proc, "FatalAppExitW");
 +}
- 
++
  int SR_disassemble_remove_segment(const char *ostr, char *dst, uint8_t pfx_seg)
  {
+     char *seg, *str1, *str2;
 @@ -57,8 +67,9 @@
              seg = "ds:";
              break;
@@ -724,7 +818,7 @@
  	SET_FLAGS(UD_Icwd, FL_NONE, FL_NONE);
  	SET_FLAGS(UD_Icwde, FL_NONE, FL_NONE);
  
-@@ -122,6 +127,17 @@
+@@ -122,6 +127,18 @@
  	SET_FLAGS(UD_Ifucompp, FL_NONE, FL_NONE);
  	SET_FLAGS(UD_Ifxch, FL_NONE, FL_NONE);
  	SET_FLAGS(UD_Ifyl2x, FL_NONE, FL_NONE);
@@ -737,6 +831,7 @@
 +	SET_FLAGS(UD_Ifxam, FL_NONE, FL_NONE);
 +	SET_FLAGS(UD_Ifldpi, FL_NONE, FL_NONE);
 +	SET_FLAGS(UD_Ifldl2e, FL_NONE, FL_NONE);
++	SET_FLAGS(UD_Ifprem, FL_NONE, FL_NONE);
 +	SET_FLAGS(UD_Ifclex, FL_NONE, FL_NONE);
 +	SET_FLAGS(UD_Iffree, FL_NONE, FL_NONE);
  

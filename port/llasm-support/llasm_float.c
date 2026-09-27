@@ -24,6 +24,7 @@
  *
  */
 
+#include <string.h>
 #include "llasm_cpu.h"
 #if !defined(__USE_ISOC99)
     #define __USE_ISOC99
@@ -1265,4 +1266,115 @@ EXTERNC void CCALL x87_fxam_void(CPU)
     default: c = X87_C2; break;
     }
     st_sw_cond = c | (signbit(v) ? X87_C1 : 0);
+}
+
+
+/* HaloPad: 80-bit extended loads and stores (fld m80, fstp m80). The stack holds doubles, so
+   a load rounds the 64-bit significand to 53 bits once (round to nearest even); a store is
+   exact, since every double is representable in the extended format. Zeros, denormals,
+   infinities and NaNs (payload kept) are converted; the address is a guest address. */
+EXTERNC void CCALL x87_fld_tword(CPU, uint32_t adr)
+{
+    uint8_t b[10];
+    uint64_t mant;
+    uint16_t se;
+    int e;
+    double v;
+
+    memcpy(b, REG2PTR(adr), 10);
+    memcpy(&mant, b, 8);
+    se = (uint16_t)(b[8] | (b[9] << 8));
+    e = se & 0x7fff;
+    if (e == 0x7fff)
+    {
+        if ((mant << 1) == 0) v = INFINITY;
+        else
+        {
+            uint64_t bits = 0x7ff8000000000000ull | ((mant >> 11) & 0x0007ffffffffffffull);
+            memcpy(&v, &bits, 8);
+        }
+    }
+    else if (mant == 0) v = 0.0;
+    else v = ldexp((double)mant, (e ? e : 1) - 16383 - 63);   /* exponent 0: denormal, scaled as exponent 1 */
+    if (se & 0x8000) v = -v;
+    PUSH_REGS;
+    ST0 = v;
+}
+
+EXTERNC void CCALL x87_fstp_tword(CPU, uint32_t adr)
+{
+    uint8_t b[10];
+    double v = ST0;
+    uint64_t mant, bits;
+    uint16_t se;
+
+    memcpy(&bits, &v, 8);
+    se = (bits >> 63) ? 0x8000 : 0;
+    if (isnan(v))
+    {
+        mant = 0xc000000000000000ull | ((bits & 0x0007ffffffffffffull) << 11);
+        se |= 0x7fff;
+    }
+    else if (isinf(v))
+    {
+        mant = 0x8000000000000000ull;
+        se |= 0x7fff;
+    }
+    else if (v == 0.0) mant = 0;
+    else
+    {
+        int e;
+        double m = frexp(fabs(v), &e);                  /* v = m * 2^e, m in [0.5, 1) */
+        mant = (uint64_t)ldexp(m, 64);                   /* exact: 53 significant bits, bit 63 set */
+        se |= (uint16_t)(e + 16382);
+    }
+    memcpy(b, &mant, 8);
+    b[8] = (uint8_t)se;
+    b[9] = (uint8_t)(se >> 8);
+    memcpy(REG2PTR(adr), b, 10);
+    POP_REGS;
+}
+
+
+/* HaloPad: fprem (the CRT's fmod, 0x5cdc1f). The partial remainder of ST0 by ST1 with a
+   truncated quotient, as C's fmod computes it; with the double stack the reduction is always
+   complete, so C2 is clear, and C0, C3, C1 get the quotient's low three bits (when it is an
+   exact integer). An invalid operand (NaN, infinite ST0, zero ST1) gives the default NaN. */
+EXTERNC void CCALL x87_fprem_void(CPU)
+{
+    double x = ST0, y = ST1, r, q;
+    uint32_t cond = 0;
+
+    if (isnan(x) || isnan(y) || isinf(x) || y == 0.0)
+    {
+        ST0 = NAN;
+        CLEAR_X87_FLAGS;
+        return;
+    }
+    r = fmod(x, y);
+    q = trunc((x - r) / y);
+    if (fabs(q) < 9007199254740992.0)
+    {
+        uint64_t qi = (uint64_t) fabs(q);
+        if (qi & 1) cond |= X87_C1;
+        if (qi & 2) cond |= X87_C3;
+        if (qi & 4) cond |= X87_C0;
+    }
+    ST0 = r;
+    st_sw_cond = cond;
+}
+
+
+/* HaloPad: fsubr/fdivr st(i), st(0): ST(i) = ST0 - ST(i) and ST0 / ST(i) (the CRT's exp and
+   pow core, 0x5d7294) */
+EXTERNC void CCALL x87_fsubr_to_st(CPU, int num)
+{
+    ST(num) = x87_pc_round(cpu, ST0 - ST(num));
+    CLEAR_X87_FLAGS;
+}
+
+EXTERNC void CCALL x87_fdivr_to_st(CPU, int num)
+{
+    ST(num) = x87_pc_round(cpu, ST0 / ST(num));
+    CLEAR_X87_FLAGS;
 }
