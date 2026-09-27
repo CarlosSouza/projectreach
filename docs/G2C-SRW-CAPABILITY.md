@@ -25,7 +25,7 @@ Diagnostics added to the patch: SRW now prints the address and bytes of an inval
 
 ## Static capability scan (exact, with SRW's decoder)
 
-`tools/udis-scan.c` decodes all 583,266 audited instruction starts with SRW's bundled udis86 1.7.2: **0 invalid**, confirming the audit's boundaries. Halo uses 264 udis86 mnemonics; SRW's llasm backend has cases for **127**. The other 137 cover **11,769 instructions (2.0%) in 267 of 7,247 functions (3.7%)**.
+`tools/udis-scan.c` (built and run by `scripts/srw-capability-scan.py`) decodes all 582,765 audited instruction starts with SRW's bundled udis86 1.7.2: **0 invalid**, confirming the audit's boundaries. Halo uses 263 udis86 mnemonics; SRW's llasm backend has cases for **127**. The other 136 cover **11,767 instructions (2.0%) in 265 of 7,219 functions (3.7%)**. (Figures after the audit stopped probing a switch index table at `0x4dec9c` as code; the table in this section predates that correction by a handful of instructions: SSE float 3,753, other 25, and `repe cmpsd`/`cmpsw` counted separately as 17 string compares.)
 
 | Family | Instances | Mnemonics | Functions | Largest |
 |---|---|---|---|---|
@@ -53,4 +53,3 @@ The gap is concentrated: 96% of functions contain nothing SRW's llasm backend la
 **Bounded alternate (reference comparison only).** xboxrecomp's lifter (`tools/recomp/lifter.py`, Capstone names) matches 226 of Halo's 270 Capstone mnemonics, including MMX via a generic handler and many SSE forms. But it models the x87 stack as C `double` (the PRD rejects this without evidence), emits `/* TODO */` no-ops for unhandled forms (silent stubs), models some packed SSE operations in the low lane only, has no PE frontend and no 3DNow!. It is not a drop-in improvement; it is kept as the comparison point for the G2 selection report.
 
 **G2c status: PASS as a capability report** (every failure category counted by instruction, mnemonic and containing function; whole-image run reproducible). SRW has not produced llasm for Halo yet. That is G2d's work, after the SIMD-optionality experiment decides the scope.
-

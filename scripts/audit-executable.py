@@ -310,6 +310,10 @@ class Audit:
                 v = op.mem.disp & 0xFFFFFFFF
                 if self.in_image(v):
                     self.add_reloc(ins.address + enc.disp_offset, v, 'code-disp')
+                    if self.in_text(v):
+                        # A .text address used as a memory operand is read as data
+                        # (switch index tables, constants); never probe it as code.
+                        self.data_in_text.setdefault(v, f'memory-operand@{ins.address:#x}')
                     if self.in_text(v) and (op.mem.index != 0 or op.mem.base != 0) and m == 'movzx':
                         self.index_tables.append({'address': v, 'user': ins.address})
             elif op.type == X.X86_OP_IMM and enc.imm_size == 4 and not branch:

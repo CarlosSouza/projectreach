@@ -30,7 +30,7 @@ import zlib
 
 import pefile
 from unicorn import (Uc, UcError, UC_ARCH_X86, UC_MODE_32, UC_HOOK_CODE, UC_HOOK_MEM_WRITE,
-                     UC_HOOK_MEM_UNMAPPED, UC_PROT_ALL)
+                     UC_HOOK_MEM_UNMAPPED, UC_HOOK_INSN, UC_PROT_ALL)
 from unicorn import x86_const as X
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -94,10 +94,14 @@ class Image:
 
 
 class Oracle:
-    def __init__(self, image=None, import_handlers=None, max_instructions=50_000_000):
+    def __init__(self, image=None, import_handlers=None, max_instructions=50_000_000, cpuid=None):
+        """cpuid: optional callable(leaf, subleaf) -> (eax, ebx, ecx, edx). When set, every
+        CPUID instruction returns these values instead of the emulator's own CPU model."""
         self.image = image or Image()
         self.import_handlers = import_handlers or {}
         self.max_instructions = max_instructions
+        self.cpuid = cpuid
+        self.cpuid_calls = []
 
     # -- machine setup -------------------------------------------------
     def _machine(self):
@@ -207,6 +211,15 @@ class Oracle:
         mu.hook_add(UC_HOOK_CODE, on_trap, begin=TRAP_BASE, end=TRAP_BASE + TRAP_SIZE - 1)
         mu.hook_add(UC_HOOK_MEM_WRITE, on_write)
         mu.hook_add(UC_HOOK_MEM_UNMAPPED, on_unmapped)
+        if self.cpuid is not None:
+            def on_cpuid(uc, _):
+                leaf, sub = uc.reg_read(X.UC_X86_REG_EAX), uc.reg_read(X.UC_X86_REG_ECX)
+                a, b, c, d = self.cpuid(leaf, sub)
+                self.cpuid_calls.append(leaf)
+                for reg, v in ((X.UC_X86_REG_EAX, a), (X.UC_X86_REG_EBX, b), (X.UC_X86_REG_ECX, c), (X.UC_X86_REG_EDX, d)):
+                    uc.reg_write(reg, v & 0xFFFFFFFF)
+                return 1  # skip the emulator's own CPUID
+            mu.hook_add(UC_HOOK_INSN, on_cpuid, None, 1, 0, X.UC_X86_INS_CPUID)
         try:
             mu.emu_start(function, STOP_ADDR, count=self.max_instructions)
         except UcError as exc:
