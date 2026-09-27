@@ -10,6 +10,7 @@ include asm-calls.llinc
 func CreateFileA_c *lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile
 func ReadFile_c hFile, *lpBuffer, nNumberOfBytesToRead, *lpNumberOfBytesRead, lpOverlapped
 func CloseHandle_c hObject
+func GetFileSize_c hFile, lpFileSizeHigh
 
 proc hpimp_CreateFileA public
 ; [esp + 7*4] hTemplateFile ... [esp + 4] lpFileName, [esp] return address
@@ -29,3 +30,9 @@ proc hpimp_CloseHandle public
         Call_Asm_Return 1
 endp
 
+
+proc hpimp_GetFileSize public
+; [esp + 2*4] lpFileSizeHigh, [esp + 4] hFile
+        Call_Asm_Stack2 GetFileSize_c
+        Call_Asm_Return 2
+endp

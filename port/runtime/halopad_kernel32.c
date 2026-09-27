@@ -89,3 +89,16 @@ uint32_t CloseHandle_c(uint32_t handle)
     hp_files[(handle - HP_FILE_BASE) / 4] = NULL;
     return 1;
 }
+
+void *halopad_guest_ptr(uint32_t guest);
+uint32_t GetFileSize_c(uint32_t handle, uint32_t high)
+{
+    FILE *f = hp_lookup(handle);
+    if (!f) { halopad_last_error = 6; return 0xFFFFFFFFu; }
+    long pos = ftell(f);
+    fseek(f, 0, SEEK_END);
+    long size = ftell(f);
+    fseek(f, pos, SEEK_SET);
+    if (high) { uint32_t hi = (uint32_t)((uint64_t)size >> 32); memcpy(halopad_guest_ptr(high), &hi, 4); }   /* guest address */
+    return (uint32_t)size;
+}

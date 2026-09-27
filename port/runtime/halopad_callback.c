@@ -17,7 +17,16 @@ void *halopad_guest_ptr(uint32_t guest);
 
 _Thread_local _cpu *halopad_cpu;   /* this thread's guest CPU state, set before entering guest code */
 
+uint32_t halopad_call_guest_ex(uint32_t va, uint32_t nargs, const uint32_t *args, uint32_t entry_ecx, int callee_pops);
+
 uint32_t halopad_call_guest(uint32_t va, uint32_t nargs, const uint32_t *args)
+{
+    return halopad_call_guest_ex(va, nargs, args, halopad_cpu ? halopad_cpu->_ecx : 0, 1);
+}
+
+/* General form: ecx is set on entry (thiscall/fastcall), and callee_pops selects stdcall
+   (callee pops the arguments) or cdecl (the caller, here, pops them). */
+uint32_t halopad_call_guest_ex(uint32_t va, uint32_t nargs, const uint32_t *args, uint32_t entry_ecx, int callee_pops)
 {
     _cpu *cpu = halopad_cpu;
     if (!cpu) { fprintf(stderr, "HALOPAD TRAP: guest callback 0x%08x with no guest CPU on this thread\n", va); abort(); }
@@ -26,7 +35,9 @@ uint32_t halopad_call_guest(uint32_t va, uint32_t nargs, const uint32_t *args)
         cpu->_esp -= 4;
         memcpy(halopad_guest_ptr(cpu->_esp), &args[i], 4);
     }
+    cpu->_ecx = entry_ecx;
     halopad_enter(cpu, va);
+    if (!callee_pops) cpu->_esp += 4 * nargs;
     if (cpu->_esp != esp0 || cpu->_ebx != ebx0 || cpu->_esi != esi0 || cpu->_edi != edi0 || cpu->_ebp != ebp0
         || (cpu->_eflags & 0x400)) {
         fprintf(stderr, "HALOPAD TRAP: guest callback 0x%08x broke the stdcall convention "

@@ -225,3 +225,11 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
 
 **Next:** draws, meaning shader bytecode → Metal Shading Language translation, pipeline state from render states, and upload of dirty textures and buffers.
 
+## 2026-09-27 — Halo's shaders extracted with Halo's own code; translator scope measured
+
+- **Extraction.** Halo loads `shaders\vsh.enc` and `shaders\EffectCollection_ps_%d_%d.enc` through `0x51d0f0`: ecx is the file name, cdecl, and it reads the file and then decrypts it with `0x51d080`. `tools/halo_shader_extract.c` (`run-core.py --main tools/halo_shader_extract.c`) runs that translated routine and writes the plaintext to `generated/analysis/shaders/`, for analysis only. Added `GetFileSize` and `halopad_call_guest_ex` (sets ecx; stdcall or cdecl). Fixed on the way: `GetFileSize`'s wrapper at first declared its output pointer as a host pointer; it now takes a guest address like the other services.
+- **Formats.** `vsh.bin` is `[u32 bytes][bytecode]` records (64 vs_1_1 programs). An effect collection is a u32 effect count, then per effect a name and shader count, then per shader a name, a **u32 token count** and the tokens, ending with a 32-hex-digit checksum string.
+- **Census** ([SHADER-CENSUS.md](SHADER-CENSUS.md), `scripts/shader-census.py`, aggregate counts only). There are 804 programs. The collection Halo loads under the contract (ps 2.0) holds 128 ps_1_1, 12 ps_1_4 and 128 ps_2_0 shaders, so the translator needs ps_1_1 in every configuration. Vertex shaders use 13 opcodes plus relative constant addressing. Pixel shaders are dominated by `mul`/`tex`/`mad`/`lrp` with the ps_1_x source modifiers (1−x, bx2, bias, x2), co-issue, `phase`, destination shifts, `_sat`/`_pp` and a few `texm3x2`/`texm3x3` bump and specular operations.
+
+**Next:** the translator (Direct3D shader bytecode → Metal Shading Language), checked against all 804 programs compiling with Metal, then pipeline state and draws.
+
