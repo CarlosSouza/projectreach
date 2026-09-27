@@ -1,0 +1,18 @@
+;; HaloPad Windows runtime: ddraw exports (port/runtime/halopad_ddraw.c).
+;; Pattern and macros from SR's Septerra Core port (asm-calls.llinc).
+
+include llasm.llinc
+include asm-calls.llinc
+
+func DirectDrawEnumerateExA_c a1, a2, a3
+func DirectDrawCreateEx_c a1, a2, a3, a4
+
+proc hpimp_DirectDrawEnumerateExA public
+        Call_Asm_Stack3 DirectDrawEnumerateExA_c
+        Call_Asm_Return 3
+endp
+
+proc hpimp_DirectDrawCreateEx public
+        Call_Asm_Stack4 DirectDrawCreateEx_c
+        Call_Asm_Return 4
+endp

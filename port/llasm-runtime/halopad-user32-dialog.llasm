@@ -16,6 +16,7 @@ func HaloPadButtonWndProc_c a1, a2, a3, a4
 func HaloPadStaticWndProc_c a1, a2, a3, a4
 func ShellExecuteA_c a1, a2, a3, a4, a5, a6
 func CreateFontIndirectA_c a1
+func GetLastActivePopup_c a1
 
 proc hpimp_DialogBoxIndirectParamA public
         Call_Asm_Stack5 DialogBoxIndirectParamA_c
@@ -74,5 +75,10 @@ endp
 
 proc hpimp_CreateFontIndirectA public
         Call_Asm_Stack1 CreateFontIndirectA_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_GetLastActivePopup public
+        Call_Asm_Stack1 GetLastActivePopup_c
         Call_Asm_Return 1
 endp

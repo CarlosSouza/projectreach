@@ -852,3 +852,17 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   - `tests/halo_dialog_test.c` (26 checks) runs Halo's own `0x582060` and `0x5817e0`, passing on macOS and the iPad Simulator (all 16 suites pass on both): the warning's contents, the link to Halo's support page, "don't show again" honoured on a second call, and the fatal product-key error with only Exit enabled.
   - On the iPad Simulator, a scene (`build-ios-app.py --scene`) shows Halo's Ctrl-key warning as the app's sheet. Screenshot: `ios-app-20260927T124014Z`. Nothing was tapped.
 - **Next:** the other start-up checks can be run the same way: `0x580a00` on HaloPad's `IDirect3D9`, the CPU-speed measurement `0x580e70`, the memory and disk figures. That shows which warnings a HaloPad player would see.
+
+
+## 2026-09-27 — Start-up checks on HaloPad: all pass except the product ID
+
+- **Test.** `tests/halo_startup_test.c` runs Halo's own start-up checks in `WinMain`'s order, with a host that records any dialog. The C runtime starts as the entry point starts it, `_cinit` included; without it, `config.txt` parsing raised R6002 through the CRT's message box.
+- **Results.**
+  - Machine measurement (`0x580e70`): 1024 MB, 1000 MHz, one display device with 128 MB. Above the minimums of 128 MB and 733 MHz.
+  - Hardware check (`0x580a00`): accepts HaloPad's Radeon 9700 PRO through the game's `config.txt`, with no error text.
+  - DirectSound, DirectInput and `shfolder.dll` load; no unclean exit is recorded; there is 100 GB free against a 100 MB minimum.
+  - No dialog appears before the product-ID check, which fails, as expected on HaloPad.
+- **New services this needed.**
+  - DirectDraw 7 for Halo's video memory query (`halopad_ddraw.c`): one primary device, `SetCooperativeLevel(DDSCL_NORMAL)`, `GetAvailableVidMem` at 128 MB. Its absence would have been fatal (string `0x79`).
+  - `GetLastActivePopup`, `GetActiveWindow` and `MessageBoxA` as run-time exports for the CRT's message box.
+- **Consequence.** Once Chris accepts the license, a HaloPad player sees no start-up warning. The product key, through Halo's original installer, is the only remaining gate before the splash and menus.

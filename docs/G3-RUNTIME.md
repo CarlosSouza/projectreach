@@ -99,6 +99,22 @@ The modal loop hands the dialog's current state to the host (`port/runtime/halop
 
 After the license, `WinMain` checks the machine (`0x5449c7`–`0x544c38`) and reports each problem through `0x582060`: Direct3D 9 (`d3d9.dll`, then `0x580a00` on the `IDirect3D9`), the Ctrl key held (a warning offering safe mode), DirectSound, DirectInput, `shfolder.dll`, an unclean last exit (`0x581e40`), physical memory, CPU speed (`0x580e70`), free space in the temporary folder, and then **the product ID**: `0x5829e0` reads `DigitalProductID` (REG_BINARY, 164 bytes, version 3) from `HKLM\Software\Microsoft\Microsoft Games\Halo CE`, checks it and derives a string with CryptoAPI; when it is missing, Halo shows string `0xa0`, "Your product key is invalid. We recommend removing and reinstalling the game.", as a **fatal** error and exits. The value is written by Halo's installer when the player types a product key. HaloPad's reference registry deliberately has none (`config/runtime/registry-machine.txt`), and the loop's rules forbid writing product IDs, so without Chris's key entered through the original installer the core will stop there, right after the license, with that dialog.
 
+**What start-up concludes on HaloPad** (`tests/halo_startup_test.c`, Halo's own code in `WinMain`'s order, the C runtime started as the entry point starts it):
+
+| Check | Halo's code | HaloPad's answer | Result |
+|---|---|---|---|
+| Memory, CPU speed | `0x580e70`: `GlobalMemoryStatus` (capped at 1 GB), `rdtsc` over a quarter second of `QueryPerformanceCounter` | 1024 MB; 1000 MHz (HaloPad's time-stamp counter counts nanoseconds) | above the minimums 128 MB and 733 MHz |
+| Video memory | `0x580e70`: DirectDraw 7 (`DirectDrawEnumerateExA`, `DirectDrawCreateEx`, `GetAvailableVidMem` for four surface kinds) | one device, "Primary Display Driver", 128 MB | stored as the card's memory |
+| Direct3D 9 and `config.txt` | `0x580a00`: `GetAdapterIdentifier`, `GetDeviceCaps`, the game's `config.txt` card database | Radeon 9700 PRO (ATI, `0x1002`/`0x4E44`) | accepted: "ATI" "Radeon 9700 PRO", 128 MB, no error text |
+| DirectSound, DirectInput, `shfolder.dll` | `LoadLibraryA` + `GetProcAddress` | provided | pass |
+| Unclean last exit | `0x581e40` (HKCU `ExitFlag`) | none | pass |
+| Temporary folder space | `GetDiskFreeSpaceExA` | the host volume's free space | above 100 MB |
+| Product ID | `0x5829e0` | none (HaloPad never writes one) | **fatal: "Your product key is invalid"** |
+
+No dialog appears before the product-ID check, so the key is the only thing between the license and the rest of start-up. The test passes on macOS and on the iPad Simulator.
+
+**DirectDraw 7** (`halopad_ddraw.c`): only what `0x580e70` asks. One device (the primary, NULL GUID); `IDirectDraw7` with `QueryInterface`, `AddRef`, `Release`, `SetCooperativeLevel(DDSCL_NORMAL)` and `GetAvailableVidMem` (128 MB of local video memory, the card class `GetAvailableTextureMem` also reports). Every drawing method (surfaces, clippers, palettes, modes) stops with its name. `GetLastActivePopup` was added for the C runtime's message box, which reports runtime errors such as R6002.
+
 ## GDI text (Keystone's glyph cache)
 
 Keystone draws every character it shows through GDI and copies the coverage into Direct3D textures (`0x1021a7b5`). The sequence is: a memory DC in `MM_TEXT`, white text on black, `CreateFontA(-MulDiv(points, 96, 72), …, ANTIALIASED_QUALITY, VARIABLE_PITCH, face)`, `GetTextMetricsA` and `GetTextExtentPoint32W(L"?")` for the cell, and a 32-bit top-down DIB section. Each glyph is then drawn with `ExtTextOutW(ETO_OPAQUE)` and read back into A4R4G4B4 texels, which go to a system-memory texture and then to the GPU with `UpdateTexture`. HaloPad implements this in `port/runtime/halopad_gdi.c` on CoreText.

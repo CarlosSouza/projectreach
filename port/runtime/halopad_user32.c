@@ -667,6 +667,14 @@ uint32_t SetFocus_c(uint32_t hwnd)
     return old;
 }
 uint32_t GetForegroundWindow_c(void) { return app_active ? active : 0; }
+/* the owned pop-up last active for a window: HaloPad's only owned pop-ups are dialogs, and a
+   modal dialog is the active window while it runs */
+uint32_t GetLastActivePopup_c(uint32_t hwnd)
+{
+    if (!is_window(hwnd)) return hwnd;
+    uobj *a = uget(active, H_WINDOW);
+    return a && a->parent == hwnd && !(a->style & WS_CHILD) ? active : hwnd;
+}
 uint32_t GetActiveWindow_c(void) { return active; }
 uint32_t GetFocus_c(void) { return focus; }
 /* Classes are registered only through the A functions (RegisterClassW and the other W forms

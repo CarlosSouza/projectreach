@@ -499,3 +499,36 @@ interface IErrorInfo
   GetDescription
   GetHelpFile
   GetHelpContext
+
+# DirectDraw 7 (ddraw.h), only for Halo's video memory query (port/runtime/halopad_ddraw.c)
+interface IDirectDraw7
+  QueryInterface
+  AddRef
+  Release
+  Compact
+  CreateClipper
+  CreatePalette
+  CreateSurface
+  DuplicateSurface
+  EnumDisplayModes
+  EnumSurfaces
+  FlipToGDISurface
+  GetCaps
+  GetDisplayMode
+  GetFourCCCodes
+  GetGDISurface
+  GetMonitorFrequency
+  GetScanLine
+  GetVerticalBlankStatus
+  Initialize
+  RestoreDisplayMode
+  SetCooperativeLevel
+  SetDisplayMode
+  WaitForVerticalBlank
+  GetAvailableVidMem
+  GetSurfaceFromDC
+  RestoreAllSurfaces
+  TestCooperativeLevel
+  GetDeviceIdentifier
+  StartModeTest
+  EvaluateMode

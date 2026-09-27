@@ -39,6 +39,7 @@ static module modules[] = {
     {"version.dll", 0x77C00000, LOADABLE, 0},
     {"shfolder.dll", 0x76780000, LOADABLE, 0},      /* SHGetFolderPathA (My Documents) */
     {"d3d9.dll", 0x4FDD0000, LOADABLE, 0},
+    {"ddraw.dll", 0x73760000, LOADABLE, 0},        /* DirectDraw 7: Halo's video memory query (halopad_ddraw.c) */
     {"dinput8.dll", 0x4C000000, LOADABLE, 0},
     {"winspool.drv", 0x73000000, LOADABLE, 0},     /* static import of Keystone.dll */
     {"imm32.dll", 0x76390000, LOADABLE, 0},        /* static import of ksimeui.dll */

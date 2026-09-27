@@ -26,3 +26,10 @@ d3d9.dll!DebugSetMute
 user32.dll!DefDlgProcA
 user32.dll!HaloPadButtonWndProc
 user32.dll!HaloPadStaticWndProc
+# the C runtime's message box (__crtMessageBoxA, 0x5dc1f0) resolves these at run time
+user32.dll!MessageBoxA
+user32.dll!GetActiveWindow
+user32.dll!GetLastActivePopup
+# DirectDraw: Halo's video memory query (0x580e70)
+ddraw.dll!DirectDrawCreateEx
+ddraw.dll!DirectDrawEnumerateExA
