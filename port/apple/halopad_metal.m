@@ -132,7 +132,14 @@ void halopad_host_pump(void)
                 case NSEventTypeFlagsChanged: modifier_event(e); continue;
                 case NSEventTypeMouseMoved: case NSEventTypeLeftMouseDragged: case NSEventTypeRightMouseDragged:
                 case NSEventTypeOtherMouseDragged:
-                    if (mouse_event(e, &in)) { in.kind = HPI_MOUSEMOVE; halopad_input_event(&in); }
+                    if (mouse_event(e, &in)) {
+                        static double rx, ry;                /* relative counts for DirectInput, fractions kept */
+                        rx += e.deltaX; ry += e.deltaY;
+                        in.dx = (int32_t)rx; in.dy = (int32_t)ry;
+                        rx -= in.dx; ry -= in.dy;
+                        in.kind = HPI_MOUSEMOVE;
+                        halopad_input_event(&in);
+                    }
                     break;
                 case NSEventTypeLeftMouseDown: case NSEventTypeLeftMouseUp: case NSEventTypeRightMouseDown:
                 case NSEventTypeRightMouseUp: case NSEventTypeOtherMouseDown: case NSEventTypeOtherMouseUp:
@@ -159,6 +166,18 @@ void halopad_host_pump(void)
             [NSApp sendEvent:e];
         }
     }
+}
+
+/* DirectInput's exclusive mouse: the pointer is hidden and detached, so only relative
+   movement reaches the game, as on Windows. */
+void halopad_host_mouse_capture(int on)
+{
+    static int captured;
+    if (on == captured) return;
+    captured = on;
+    if (halopad_host_input_off) return;
+    CGAssociateMouseAndMouseCursorPosition(on ? false : true);
+    if (on) [NSCursor hide]; else [NSCursor unhide];
 }
 
 /* Windows' cursor display (ShowCursor count and SetCursor) over the game. */

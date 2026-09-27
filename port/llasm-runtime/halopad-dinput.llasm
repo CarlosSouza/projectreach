@@ -1,0 +1,12 @@
+;; HaloPad Windows runtime: dinput8.dll (port/runtime/halopad_dinput.c).
+;; Pattern and macros from SR's Septerra Core port (asm-calls.llinc).
+
+include llasm.llinc
+include asm-calls.llinc
+
+func DirectInput8Create_c a1, a2, a3, a4, a5
+
+proc hpimp_DirectInput8Create public
+        Call_Asm_Stack5 DirectInput8Create_c
+        Call_Asm_Return 5
+endp

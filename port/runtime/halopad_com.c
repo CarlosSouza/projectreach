@@ -5,7 +5,7 @@
  * interface's vtable: an array of guest addresses (scripts/va-model.py) that dispatch to
  * hpcom_<Interface>_<Method>, HaloPad's implementation or a stub naming the method.
  * Vtables are built once and are read-only. Reference counts and native state live in
- * a host-side table keyed by the object's guest address. */
+ * a host-side pool, found through a hash table keyed by the object's guest address. */
 #include "halopad_win32.h"
 
 extern const uint32_t halopad_com_base, halopad_com_interface_count;
@@ -13,7 +13,43 @@ extern const uint32_t halopad_com_first[], halopad_com_count[];
 extern const char *const halopad_com_interfaces[];
 
 typedef struct { uint32_t guest; int iface; uint32_t refs, binds; void *state; void (*destroy)(void *); } comobj;
-static comobj objects[4096];
+#define MAXOBJ 65536u
+static comobj objects[MAXOBJ];
+static uint32_t free_list[MAXOBJ], nfree, used;          /* pool slots */
+#define HSIZE 131072u                                     /* power of two, twice MAXOBJ */
+#define TOMB 0xFFFFFFFFu
+static uint32_t slot_of[HSIZE];                           /* 0 empty, TOMB deleted, else pool index + 1 */
+
+static uint32_t hash(uint32_t g) { return (g * 2654435761u) >> 15 & (HSIZE - 1); }
+
+static uint32_t filled;                                   /* live entries and tombstones */
+
+static void index_add(uint32_t g, uint32_t idx)
+{
+    if (filled + 1 > HSIZE / 4 * 3) {                     /* too many tombstones: rebuild from the pool */
+        memset(slot_of, 0, sizeof slot_of);
+        filled = 0;
+        for (uint32_t i = 0; i < used; i++) {
+            if (!objects[i].guest || i == idx) continue;
+            uint32_t h = hash(objects[i].guest);
+            while (slot_of[h]) h = (h + 1) & (HSIZE - 1);
+            slot_of[h] = i + 1;
+            filled++;
+        }
+    }
+    for (uint32_t h = hash(g);; h = (h + 1) & (HSIZE - 1)) {
+        if (!slot_of[h]) { slot_of[h] = idx + 1; filled++; return; }
+        if (slot_of[h] == TOMB) { slot_of[h] = idx + 1; return; }
+    }
+}
+
+static uint32_t *index_find(uint32_t g)
+{
+    for (uint32_t h = hash(g);; h = (h + 1) & (HSIZE - 1)) {
+        if (!slot_of[h]) return NULL;
+        if (slot_of[h] != TOMB && objects[slot_of[h] - 1].guest == g) return &slot_of[h];
+    }
+}
 static uint32_t vtables[64];
 
 static int iface_index(const char *iface)
@@ -40,15 +76,20 @@ uint32_t halopad_com_new(const char *iface, uint32_t size, void *state, void (*d
 {
     uint32_t g = halopad_heap_alloc(size < 4 ? 4 : size, 1);
     wr32(g, halopad_com_vtable(iface));
-    for (uint32_t i = 0; i < sizeof objects / sizeof objects[0]; i++)
-        if (!objects[i].guest) { objects[i] = (comobj){g, iface_index(iface), 1, 0, state, destroy}; return g; }
-    hp_unsupported("COM", "more than %zu live objects", sizeof objects / sizeof objects[0]);
+    uint32_t i;
+    if (nfree) i = free_list[--nfree];
+    else if (used < MAXOBJ) i = used++;
+    else hp_unsupported("COM", "more than %u live objects", MAXOBJ);
+    objects[i] = (comobj){g, iface_index(iface), 1, 0, state, destroy};
+    index_add(g, i);
+    return g;
 }
 
 static comobj *find(const char *what, uint32_t g)
 {
-    for (uint32_t i = 0; i < sizeof objects / sizeof objects[0]; i++) if (objects[i].guest == g) return &objects[i];
-    hp_unsupported(what, "object 0x%08x that HaloPad did not create", g);
+    uint32_t *s = g ? index_find(g) : NULL;
+    if (!s) hp_unsupported(what, "object 0x%08x that HaloPad did not create", g);
+    return &objects[*s - 1];
 }
 
 /* Native state of an object, checking its interface. */
@@ -66,8 +107,11 @@ static void destroy_if_unused(comobj *o)
 {
     if (o->refs || o->binds) return;
     if (o->destroy) o->destroy(o->state);
+    uint32_t *s = index_find(o->guest);
+    *s = TOMB;
     halopad_heap_free(o->guest);
     *o = (comobj){0};
+    free_list[nfree++] = (uint32_t)(o - objects);
 }
 
 /* Public reference count, as Direct3D reports it. An object the device still has bound

@@ -316,3 +316,50 @@ interface IDirect3DQuery9
   GetDataSize
   Issue
   GetData
+
+interface IDirectInput8A
+  QueryInterface
+  AddRef
+  Release
+  CreateDevice
+  EnumDevices
+  GetDeviceStatus
+  RunControlPanel
+  Initialize
+  FindDevice
+  EnumDevicesBySemantics
+  ConfigureDevices
+
+interface IDirectInputDevice8A
+  QueryInterface
+  AddRef
+  Release
+  GetCapabilities
+  EnumObjects
+  GetProperty
+  SetProperty
+  Acquire
+  Unacquire
+  GetDeviceState
+  GetDeviceData
+  SetDataFormat
+  SetEventNotification
+  SetCooperativeLevel
+  GetObjectInfo
+  GetDeviceInfo
+  RunControlPanel
+  Initialize
+  CreateEffect
+  EnumEffects
+  GetEffectInfo
+  GetForceFeedbackState
+  SendForceFeedbackCommand
+  EnumCreatedEffectObjects
+  Escape
+  Poll
+  SendDeviceData
+  EnumEffectsInFile
+  WriteEffectToFile
+  BuildActionMap
+  SetActionMap
+  GetImageInfo

@@ -986,6 +986,7 @@ static void set_key(uint32_t vk, int down)
 
 void halopad_input_event(const hp_input *e)
 {
+    halopad_dinput_event(e);
     uint32_t target = capture ? capture : active;
     uobj *w = target ? uget(target, H_WINDOW) : NULL;
     switch (e->kind) {

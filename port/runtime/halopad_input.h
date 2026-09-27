@@ -14,11 +14,13 @@ typedef struct {
     uint16_t chars[4];                   /* key down: the characters typed (UTF-16) */
     int nchars;
     int32_t x, y;                        /* mouse: client pixels */
+    int32_t dx, dy;                      /* mouse moves: relative counts (DirectInput) */
     int button;                          /* 0 left, 1 right, 2 middle */
     int32_t wheel;                       /* WHEEL_DELTA units (120 per notch) */
 } hp_input;
 
 void halopad_input_event(const hp_input *e);
+void halopad_dinput_event(const hp_input *e);       /* halopad_dinput.c, fed by halopad_input_event */
 /* A Mac virtual key code (kVK_*) as a Windows key; 0 if there is no equivalent. */
 int halopad_mac_key(uint16_t keycode, uint32_t *vk, uint32_t *side_vk, uint32_t *scan, int *extended);
 #endif

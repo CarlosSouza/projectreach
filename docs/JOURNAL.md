@@ -349,3 +349,27 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   - Covered: the first-show order, WM_PAINT until validated, keys with lParam bits and WM_CHAR, autorepeat, Caps Lock toggle, extended keys, mouse coalescing, screen coordinates, double click, wheel, filters, window data, waits, \`wsprintfA\`, deactivation and reactivation order, minimise/restore, Alt+F4 through to \`WM_DESTROY\`, the close button, and \`WM_QUIT\`.
 
 **Next:** DirectInput 8 on the same input stream, then DirectSound 8, sockets and threads.
+
+## 2026-09-27 — DirectInput 8 on host input; COM objects by hash
+
+- **How Halo uses it.** \`IDirectInput8\` is at \`0x64c52c\`, the keyboard at \`0x64c730\`, the mouse at \`0x64c734\`.
+  - The keyboard (\`0x4946b7\`) is \`NONEXCLUSIVE|FOREGROUND|NOWINKEY\`, with \`c_dfDIKeyboard\` (\`0x5ec4ec\`) and a 32-event buffer. Halo reads one \`DIDEVICEOBJECTDATA\` at a time, re-acquires on \`DIERR_INPUTLOST\`/\`NOTACQUIRED\`, and flushes on overflow (\`0x4935b0\`).
+  - The mouse (\`0x4947b2\`) is \`EXCLUSIVE|FOREGROUND\`, with \`c_dfDIMouse2\` (\`0x5ec6f4\`). Halo reads \`DIMOUSESTATE2\` each frame and asks the wheel's \`DIPROP_GRANULARITY\`.
+  - Game controllers come from \`EnumDevices(DI8DEVCLASS_GAMECTRL, ATTACHEDONLY)\` with callback \`0x494b30\`.
+  - For the record, the other globals are DirectSound: \`0x6e13cc\` is \`IDirectSound8\` (seven \`CreateSoundBuffer\` calls), \`0x6e13d0\` the primary buffer, and \`0x6e13d4\` the 3D listener (eight \`CommitDeferredSettings\` calls).
+- **What** (\`port/runtime/halopad_dinput.c\`, interfaces in \`config/runtime/com-interfaces.txt\`):
+  - \`DirectInput8Create\` checks the version and interface. \`CreateDevice\` accepts the system keyboard and mouse; other GUIDs are not registered.
+  - Cooperative levels are validated. Only the standard data formats are accepted, and only the properties Halo uses.
+  - \`Acquire\` refuses when the window is in the background; a foreground device loses acquisition with its window (\`DIERR_INPUTLOST\` once, then \`NOTACQUIRED\`).
+  - \`GetDeviceState\` returns the 256 keys, or relative mouse counts and buttons. \`GetDeviceData\` handles one or many events, peek, flush and overflow (the newest are dropped), with sequence numbers.
+  - Keys are transitions only; DIK codes come from set-1 scan codes. The mouse gives relative counts from AppKit deltas. An exclusive mouse hides and detaches the host pointer while acquired.
+  - Game controllers are not offered yet: enumeration finds none and says so once on stderr.
+- **COM bookkeeping.** Up to 65,536 live objects, found by a hash of the guest address (was 4,096 with a linear search on every call). Halo alone creates 1,024 occlusion queries, plus textures and surfaces per bitmap.
+- **Test** (\`tests/halo_dinput_test.c\`, 40 checks, all passing), using Halo's own data formats from the image:
+  - Version and GUID errors, and cooperative-level validation.
+  - Buffered keys with repeats dropped and increasing sequence numbers; overflow and flush.
+  - Foreground loss and re-acquire.
+  - Mouse counts, wheel and buttons with relative reset, and the error codes.
+- The Direct3D (198) and USER32 (60) tests, 15 slices and the unit tests still pass.
+
+**Next:** DirectSound 8 (buffers, 3D listener and buffers, onto Core Audio), then game controllers, sockets and threads.
