@@ -779,3 +779,13 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
 - The app still reaches Halo's license screen (`ios-app-20260927T113754Z`). No choice was made, and the Simulator is shut down.
 
 **Next:** game controllers (GameController framework into DirectInput's joystick devices), and on the Mac the D3D device paths Halo uses beyond the license (Reset, render targets, scissor), each verified with its own test.
+
+## 2026-09-27 — Game controllers: Halo's own gamepad set-up works
+
+- **DirectInput presents host controllers as XP's Xbox 360 controller.**
+  - Host side: GameController's extended gamepads on macOS and iOS (`halopad_gamepad.m`).
+  - New and changed methods: `EnumDevices(GAMECTRL)`, `CreateDevice` by instance GUID, general data-format matching, `GetCapabilities`, `GetDeviceInfo`, `EnumObjects`, the range, dead-zone and saturation properties, `Poll` snapshots, `GetDeviceState`, and unplugging.
+- **Test.** Halo's `0x494840` builds its 80-object format and runs its enumeration and object callbacks against an injected controller. It keeps one device named "Controller (XBOX 360 For Windows)" with 5 axes, 10 buttons and 1 hat, and sets −4096…4096 with a 10% dead zone. The state reads back correctly through its 224-byte format, and unplugging behaves as DirectInput does.
+- **Result.** The DirectInput suite passes on macOS and on the iPad Simulator, all 14 macOS suites pass, and the iPad app builds with GameController linked.
+
+**Next:** Direct3D 9 features Halo uses beyond the license, each with its own test: `Reset` (for alt-tab and resolution changes), `CreateRenderTarget`/`CreateDepthStencilSurface`, `ColorFill`, `SetScissorRect` and `GetRenderTargetData`. They come from Halo's rasterizer call sites.

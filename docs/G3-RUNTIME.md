@@ -111,6 +111,26 @@ The Metal core behind `IDirect3DDevice9` (`port/apple/halopad_metal.m`: back buf
   - the vorbis test reads the fixtures its macOS run leaves in `/tmp`, because iOS cannot start the reference encoder or ffmpeg.
   - The physical-device row (a 4 GiB reservation on a real device, signing) remains parked.
 
+## Game controllers (DirectInput)
+
+Halo reads gamepads through DirectInput 8 (`0x494840`).
+
+- **Halo's side.** It builds an 80-object data format at run time at `0x815400`: 32 axes, 16 hats and 32 buttons, all `DIDFT_OPTIONAL`, 224 bytes. It then enumerates `DI8DEVCLASS_GAMECTRL` with its callback `0x494b30`. For each device the callback runs `CreateDevice`, `SetCooperativeLevel(EXCLUSIVE|FOREGROUND)`, `SetDataFormat`, `GetCapabilities`, and `EnumObjects`, whose callback `0x494a10` sets `DIPROP_RANGE` to −4096…4096 and `DIPROP_DEADZONE` to 1000 on every axis.
+- **What HaloPad offers.** Every controller the host has is presented as Windows XP presents an Xbox 360 controller to DirectInput: "Controller (XBOX 360 For Windows)", VID 045E, PID 028E, a HID game pad. The host is GameController's extended gamepads on macOS and iOS (`port/apple/halopad_gamepad.m`).
+- **Objects:**
+  - X/Y are the left stick and Rx/Ry the right stick;
+  - Z is both triggers, with the left toward the maximum and the right toward the minimum;
+  - buttons 0–9 are A, B, X, Y, LB, RB, Back, Start, and the left and right stick;
+  - one hat switch reports hundredths of a degree, 0xFFFFFFFF when centred.
+- **Data formats** match object by object as DirectInput does: type class, instance or any, GUID or any, and optional entries. Unmatched hat entries read centred, and other unmatched entries read 0.
+- **Axes** honour `DIPROP_RANGE` (default 0…65535), `DIPROP_DEADZONE` and `DIPROP_SATURATION`, by device, by offset or by ID. Values inside the dead zone read as centre, and the rest are rescaled.
+- **Polling.** It is a polled device (`DIDC_POLLEDDEVICE`): `Poll` takes the snapshot that `GetDeviceState` reports.
+- **Unplugging.** When a controller goes away, `Poll` reports `DIERR_INPUTLOST`, then `DIERR_NOTACQUIRED`, and `Acquire` reports `DIERR_UNPLUGGED`.
+- **Test** (`tests/halo_dinput_test.c`, 22 new checks). Halo's own `0x494840` and callbacks set up an injected controller. The checks cover:
+  - the device count, the name Halo keeps (UTF-16), and its 5 axes, 10 buttons and 1 hat;
+  - the range and dead zone Halo set;
+  - the state through Halo's format: full deflection, dead zone, half deflection rescaled to 1820, triggers, hats and buttons;
+  - unplugging.
 ## Diagnostics
 
 These are environment switches that only print; none of them changes behavior.

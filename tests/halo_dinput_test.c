@@ -13,6 +13,8 @@ extern uint64_t halopad_guest_base;
 extern int halopad_guest_harness_heap;
 extern _Thread_local _cpu *halopad_cpu;
 extern int halopad_host_input_off;
+extern hp_gamepad halopad_gamepad_test[4];
+extern int halopad_gamepad_test_count;
 uint32_t halopad_guest_init(const char *image_path, uint32_t image_base);
 void halopad_thread_init(uint32_t stack_base, uint32_t stack_limit, uint32_t image_base);
 void halopad_vm_mark(uint32_t base, uint32_t size);
@@ -93,7 +95,8 @@ int main(void)
     check("CreateDevice(an unknown GUID) is not registered", M(di, CreateDevice, gother, pk + 0, 0) == 0x80040154 && rd(pk) == 0, 1);
     M(di, CreateDevice, gkbd, pk, 0);
     uint32_t k = rd(pk), m = rd(pm);
-    check("EnumDevices(GAMECTRL, ATTACHEDONLY) finds none yet", M(di, EnumDevices, 4, 0x494b30, 0, 1), 0);
+    halopad_gamepad_test_count = 0;                                 /* no controllers yet */
+    check("EnumDevices(GAMECTRL, ATTACHEDONLY) with no controllers: DI_OK", M(di, EnumDevices, 4, 0x494b30, 0, 1), 0);
 
     /* keyboard, as Halo sets it up */
     check("keyboard: SetCooperativeLevel(EXCLUSIVE|NONEXCLUSIVE) is invalid", M(k, SetCooperativeLevel, hwnd, 3 | 4), 0x80070057);
@@ -163,6 +166,55 @@ int main(void)
     check("mouse: Poll on an interrupt device: DI_NOEFFECT", M0(m, Poll), 1);
     check("mouse: Unacquire", M0(m, Unacquire), 0);
 
+
+    /* a game controller, set up by Halo's own code: 0x494840 builds its 80-object format at
+       0x815400 (32 axes, 16 hats, 32 buttons, all optional) and enumerates game controllers with
+       its callback 0x494b30, which creates each device, sets EXCLUSIVE|FOREGROUND and the format,
+       reads the capabilities, and through EnumObjects (0x494a10) gives every axis the range
+       -4096..4096 and a 10% dead zone */
+    halopad_gamepad_test_count = 1;
+    halopad_gamepad_test[0] = (hp_gamepad){.id = 7, .lx = 1.0f, .ly = 1.0f, .rx = -0.05f, .ry = 0, .lt = 1.0f, .rt = 0,
+                                           .buttons = 1u | 1u << 7, .dpad = 2};   /* stick right and up, A and Start, d-pad right */
+    memcpy(halopad_guest_ptr(0x64c52c), &di, 4);                   /* Halo's IDirectInput8 */
+    check("Halo's game controller set-up (0x494840) returns TRUE", halopad_call_guest(0x494840, 0, NULL) & 0xFF, 1);
+    check("  one controller counted (0x64c774)", rd(0x64c774), 1);
+    uint32_t pad = rd(0x64c778);
+    check("  its device (0x64c778)", pad != 0, 1);
+    {
+        const char *want = "Controller (XBOX 360 For Windows)";
+        const uint16_t *name = halopad_guest_ptr(0x64c798);       /* Halo keeps it as UTF-16 (0x55ae60) */
+        int same = 1;
+        for (size_t i = 0; i <= strlen(want); i++) same &= name[i] == (uint8_t)want[i];
+        check("  named \"Controller (XBOX 360 For Windows)\", as XP names an Xbox 360 pad", same, 1);
+    }
+    check("  capabilities Halo keeps: 5 axes, 10 buttons, 1 hat", rd(0x64c798 + 0x234) == 5 && rd(0x64c798 + 0x238) == 10
+          && rd(0x64c798 + 0x23c) == 1, 1);
+    uint32_t rp = bytes((uint32_t[]){24, 16, 0, 1, 0, 0}, 24);    /* DIPROPRANGE of the axis at offset 0 */
+    check("  the range Halo set: -4096..4096", M(pad, GetProperty, 4, rp) == 0 && rd(rp + 16) == (uint32_t)-4096 && rd(rp + 20) == 4096, 1);
+    uint32_t dz = bytes((uint32_t[]){20, 16, 4, 1, 0}, 20);
+    check("  the dead zone Halo set: 1000 (10%)", M(pad, GetProperty, 5, dz) == 0 && rd(dz + 16) == 1000, 1);
+    check("gamepad: GetDeviceState before Acquire: DIERR_NOTACQUIRED", M(pad, GetDeviceState, 224, halopad_heap_alloc(224, 1)), 0x8007000C);
+    check("gamepad: Acquire", M0(pad, Acquire), 0);
+    check("gamepad: Poll (a polled device)", M0(pad, Poll), 0);
+    uint32_t js = halopad_heap_alloc(224, 1);
+    memset(halopad_guest_ptr(js), 0x55, 224);
+    check("gamepad: GetDeviceState(224 bytes, Halo's format)", M(pad, GetDeviceState, 224, js), 0);
+    const uint8_t *jb = halopad_guest_ptr(js);
+    check("  X 4096 (stick right), Y -4096 (stick up)", rd(js) == 4096 && rd(js + 4) == (uint32_t)-4096, 1);
+    check("  Z 4096 (left trigger), Rx 0 (inside the dead zone), Ry 0", rd(js + 8) == 4096 && rd(js + 12) == 0 && rd(js + 16) == 0, 1);
+    check("  unmatched axis entries read 0", rd(js + 0x14) == 0 && rd(js + 0x7C) == 0, 1);
+    check("  hat 9000 (right); unmatched hats centred (0xFFFFFFFF)", rd(js + 0x80) == 9000 && rd(js + 0x84) == 0xFFFFFFFF
+          && rd(js + 0xBC) == 0xFFFFFFFF, 1);
+    check("  buttons: 0 (A) and 7 (Start) down, 1 up, unmatched 0", jb[0xC0] == 0x80 && jb[0xC7] == 0x80 && jb[0xC1] == 0 && jb[0xDF] == 0, 1);
+    halopad_gamepad_test[0].lx = 0.5f;                             /* halfway: past the dead zone, rescaled */
+    M0(pad, Poll);
+    M(pad, GetDeviceState, 224, js);
+    check("  half right: (0.5 - 0.1) / 0.9 of 4096 = 1820", rd(js), 1820);
+    halopad_gamepad_test_count = 0;                                /* unplugged */
+    check("gamepad unplugged: Poll gives DIERR_INPUTLOST", M0(pad, Poll), 0x8007001E);
+    check("  then GetDeviceState: DIERR_NOTACQUIRED", M(pad, GetDeviceState, 224, js), 0x8007000C);
+    check("  and Acquire: DIERR_UNPLUGGED", M0(pad, Acquire), 0x80040209);
+    check("Release the gamepad", M0(pad, Release), 0);
     check("Release the mouse", M0(m, Release), 0);
     check("Release the keyboard", M0(k, Release), 0);
     check("Release IDirectInput8", M0(di, Release), 0);

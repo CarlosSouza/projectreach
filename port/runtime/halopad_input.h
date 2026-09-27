@@ -28,4 +28,11 @@ int halopad_hid_key(uint16_t usage, uint32_t *vk, uint32_t *side_vk, uint32_t *s
 /* iOS: the app shell queues events from the main thread; halopad_host_pump delivers them on Halo's
    thread (port/apple/halopad_host_ios.m). */
 void halopad_host_post_input(const hp_input *e);
+
+/* Game controllers the host has now (port/apple/halopad_gamepad.m: GameController's extended
+   gamepads). Sticks -1..1 with up positive, triggers 0..1; buttons: bit 0 A, 1 B, 2 X, 3 Y,
+   4 left shoulder, 5 right shoulder, 6 Back (Options), 7 Start (Menu), 8 left stick, 9 right
+   stick; dpad -1 centred or 0..7 clockwise from up. id stays the same while it is connected. */
+typedef struct { uint32_t id; float lx, ly, rx, ry, lt, rt; uint32_t buttons; int dpad; } hp_gamepad;
+int halopad_host_gamepads(hp_gamepad *out, int max);
 #endif
