@@ -27,6 +27,21 @@ def sha(p):
     return hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest()
 
 
+def write_extern_llinc(work, exe):
+    """extern.llinc: every static import not already declared by SRW (imports referenced
+    only from data, e.g. stored function pointers) plus HaloPad's trap helpers."""
+    import pefile
+    header = (work / 'haloce.llasm').read_text()
+    declared = set(re.findall(r'^proc (\S+) external', header, re.M))
+    pe = pefile.PE(str(exe))
+    names = sorted({imp.name.decode() for d in getattr(pe, 'DIRECTORY_ENTRY_IMPORT', []) for imp in d.imports if imp.name})
+    lines = [f'proc {n} external' for n in names if n not in declared]
+    lines += ['funcv halopad_unreachable_simd address', 'funcv halopad_trap_unimplemented address']
+    (work / 'extern.llinc').write_text('\n'.join(lines) + '\n')
+    (work / 'macros.llinc').touch()
+    return len(lines) - 2
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--build', type=pathlib.Path, required=True)
@@ -96,6 +111,8 @@ def main():
     elif errors:
         category = 'other'
     outputs = {p.name: p.stat().st_size for p in work.iterdir() if p.suffix in ('.llasm', '.llinc')}
+    if (work / 'haloce.llasm').exists():
+        outputs['extern.llinc(extra imports)'] = write_extern_llinc(work, work / 'haloce.exe')
     census = {}
     if a.diagnostic:
         lines = err.splitlines()

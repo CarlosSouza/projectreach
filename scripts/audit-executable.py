@@ -461,6 +461,20 @@ class Audit:
     def scan_data(self):
         self.data_ptr_counts = collections.Counter()
         self.unaligned_candidates = 0
+        self.text_like_rejected = 0
+
+        def texty(va):
+            """4 bytes that read as text: 1-3 ASCII chars + NUL padding, or two UTF-16 chars,
+            or 4 ASCII chars."""
+            if not self.base <= va < self.end - 3:
+                return False
+            b = self.img[va - self.base:va - self.base + 4]
+            pr = lambda c: 0x20 <= c < 0x7F
+            if b[1] == 0 and b[3] == 0 and pr(b[0]) and pr(b[2]):
+                return True                      # UTF-16LE pair
+            n = len(b.split(b'\0', 1)[0])
+            return n >= 2 and all(pr(c) for c in b[:n]) and all(c == 0 for c in b[n:])
+
         for s in self.sections:
             if s['name'] in ('.text', '.rsrc'):
                 continue
@@ -472,8 +486,18 @@ class Audit:
                 if va % 4:
                     self.unaligned_candidates += 1
                     continue
+                if texty(va) and (texty(va - 4) or texty(va + 4)):
+                    # Part of a run of text (ASCII or UTF-16) whose bytes happen to fall in
+                    # the image's address range; a string, not a pointer.
+                    self.uncertain[va] = (v, 'data-text-like')
+                    self.text_like_rejected += 1
+                    continue
                 if self.in_text(v):
                     self.data_code_ptrs[va] = v
+                elif self.section_of(v) == '.rsrc':
+                    # SRW does not emit the resource section; under the original-address
+                    # model (G2e) it is mapped in place, so these stay literal.
+                    self.uncertain[va] = (v, 'data-ptr:rsrc-literal')
                 else:
                     target_section = self.section_of(v) or 'header (uncertain)'
                     self.add_reloc(va, v, f'data-ptr:{target_section}')

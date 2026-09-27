@@ -1,0 +1,1 @@
+loc_59F2A2,halo_crc32

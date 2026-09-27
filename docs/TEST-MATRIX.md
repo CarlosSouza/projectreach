@@ -8,7 +8,7 @@ All original acceptance conditions remain in `HaloPad-PRD.md` Section 10. No row
 | M02 | Custom Edition identity | PARTIAL (engineering tier) | G1a: reproducible derived 1.0.10.621 client accepted (`INPUTS.md`, `docs/artifacts/2026-09-26/G1a/`). Original-client baseline (G1b) and independent hash confirmation outstanding. |
 | M03 | Retail identity | BLOCKED_EXTERNAL | Separate retail input and campaign baseline missing. |
 | M04 | Static translation coverage | NOT_RUN | Required behavior has not been executed. |
-| M05 | CPU/ABI differential tests | NOT_RUN | Required behavior has not been executed. |
+| M05 | CPU/ABI differential tests | PARTIAL | Slice 1: Halo CRC32 `0x59f2a2` translated to ARM64 matches the x86 oracle on 201 cases (`docs/artifacts/2026-09-26/G2d/slice-crc32-*`). x87, string, switch and real-data slices outstanding. |
 | M06 | Memory, callback and thread tests | NOT_RUN | Required behavior has not been executed. |
 | M07 | Early physical architecture capsule | NOT_RUN | Required behavior has not been executed. |
 | M08 | Native process/core | NOT_RUN | Required behavior has not been executed. |
