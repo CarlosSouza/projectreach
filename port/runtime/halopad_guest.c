@@ -96,6 +96,13 @@ uint32_t halopad_guest_alloc(uint32_t size, uint32_t align)
 
 void *halopad_guest_ptr(uint32_t guest) { return (void *)(uintptr_t)(halopad_guest_base + guest); }
 
+/* Make a guest range readable and writable (runtime-owned structures). Returns guest. */
+uint32_t halopad_guest_commit(uint32_t guest, uint32_t size)
+{
+    commit(guest, size);
+    return guest;
+}
+
 /* Original address -> compiled procedure (finite table generated at build time). */
 void *halopad_lookup(uint32_t va)
 {

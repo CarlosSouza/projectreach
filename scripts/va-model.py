@@ -136,6 +136,15 @@ def main():
 
     main_src = (work / 'haloce.llasm').read_text().splitlines()
     extern_src = (work / 'extern.llinc').read_text()
+    # Imports implemented by HaloPad's llasm runtime are taken from port/llasm-runtime
+    # directly, so adding a service does not need a new SRW run.
+    implemented = set()
+    for f in RUNTIME.glob('*.llasm'):
+        implemented |= set(re.findall(r'^proc (\S+)_asm2c public', f.read_text(), re.M))
+    kept_extern = [l for l in extern_src.splitlines()
+                   if not re.fullmatch(r'define (\S+) \1_asm2c', l) and not re.fullmatch(r'proc \S+_asm2c external', l)
+                   and not (re.fullmatch(r'proc (\S+) external', l) and l.split()[1] in implemented)]
+    extern_src = '\n'.join([f'define {n} {n}_asm2c' for n in sorted(implemented)] + kept_extern) + '\n'
     known = {m.group(1) for m in re.finditer(r'^proc (\S+) external', '\n'.join(main_src) + '\n' + extern_src, re.M)}
     redirect = dict(re.findall(r'^define (\S+) (\S+_asm2c)$', extern_src, re.M))
     known |= set(redirect)

@@ -26,13 +26,15 @@ void halopad_missing_import(const char *name)
     abort();
 }
 
-uint32_t CCALL X86_ReadFsDword(uint32_t addr)
+/* Weak: the core links port/runtime/halopad_thread.c, which provides a real thread
+ * environment block; slice tests have none and stop here. */
+__attribute__((weak)) uint32_t CCALL X86_ReadFsDword(uint32_t addr)
 {
     fprintf(stderr, "HALOPAD TRAP: fs:[0x%x] read; thread environment block not implemented in the slice runtime\n", addr);
     abort();
 }
 
-void CCALL X86_WriteFsDword(uint32_t addr, uint32_t value)
+__attribute__((weak)) void CCALL X86_WriteFsDword(uint32_t addr, uint32_t value)
 {
     fprintf(stderr, "HALOPAD TRAP: fs:[0x%x] write of 0x%x; thread environment block not implemented in the slice runtime\n", addr, value);
     abort();
