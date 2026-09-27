@@ -44,6 +44,10 @@ typedef struct {
     float vsf[256][4], psf[224][4];
     int32_t vsi[16][4], psi[16][4];
     uint32_t vsb[16], psb[16];
+    /* fixed-function lighting: D3DMATERIAL9 and D3DLIGHT9 (as Halo passes them), enable flags */
+    float material[17];
+    struct { uint32_t index, set, enabled; float light[26]; } light[16];
+    uint32_t nlight;
 } device;
 
 #endif

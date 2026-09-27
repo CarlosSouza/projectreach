@@ -363,7 +363,88 @@ int main(void)
         check("  top-right quadrant is texel (1,0) green", halopad_metal_read_pixel(tg, 540, 100), 0xFF00FF00);
         check("  bottom-left quadrant is texel (0,1) blue", halopad_metal_read_pixel(tg, 100, 380), 0xFF0000FF);
         check("  bottom-right quadrant is texel (1,1) yellow", halopad_metal_read_pixel(tg, 540, 380), 0xFFFFFF00);
+
+        /* ---- fixed function ---- */
+        enum { SetFVF = 89, SetTextureStageState = 67, SetTransform = 44, SetMaterial = 49, SetLight = 51, LightEnable = 53 };
+        method(device, SetVertexShader, 1, (uint32_t[]){0});
+        method(device, SetPixelShader, 1, (uint32_t[]){0});
+        /* pretransformed UI quad (FVF 0x1c4: XYZRHW | DIFFUSE | SPECULAR | TEX1), stage 0 = texture x diffuse */
+        struct { float x, y, z, rhw; uint32_t diffuse, specular; float u, v; } ui[4] = {
+            {99.5f, 99.5f, 0.5f, 1, 0xFFFFFFFF, 0, 0, 0}, {199.5f, 99.5f, 0.5f, 1, 0xFFFFFFFF, 0, 1, 0},
+            {99.5f, 199.5f, 0.5f, 1, 0xFF808080, 0, 0, 1}, {199.5f, 199.5f, 0.5f, 1, 0xFF808080, 0, 1, 1}};
+        uint32_t gui = halopad_heap_alloc(sizeof ui, 0);
+        memcpy(halopad_guest_ptr(gui), ui, sizeof ui);
+        method(device, SetFVF, 1, (uint32_t[]){0x1C4});
+        method(device, SetTexture, 2, (uint32_t[]){0, t2});
+        method(device, SetTextureStageState, 3, (uint32_t[]){0, 1, 4});   /* COLOROP MODULATE (texture, current=diffuse) */
+        method(device, BeginScene, 0, NULL);
+        method(device, Clear, 6, (uint32_t[]){0, 0, 3, 0xFF000000, onebits, 0});
+        check("ff: pretransformed quad (FVF 0x1c4), texture x diffuse", method(device, 83, 4, (uint32_t[]){5, 2, gui, sizeof ui[0]}), 0);
+        method(device, EndScene, 0, NULL);
+        method(device, Present, 4, (uint32_t[]){0, 0, 0, 0});
+        uint32_t p100 = halopad_metal_read_pixel(tg, 100, 100);           /* diffuse interpolates from white: 254-255 */
+        check("  pixel (100,100): red texel x ~white", (p100 & 0xFF00FFFF) == 0xFF000000 && ((p100 >> 16) & 0xFF) >= 0xFE, 1);
+        check("  pixel (99,99) outside the quad", halopad_metal_read_pixel(tg, 99, 99), 0xFF000000);
+        uint32_t p199 = halopad_metal_read_pixel(tg, 199, 100);
+        check("  pixel (199,100): green texel x ~white", (p199 & 0xFFFF00FF) == 0xFF000000 && ((p199 >> 8) & 0xFF) >= 0xFE, 1);
+        check("  pixel (200,100) outside the quad", halopad_metal_read_pixel(tg, 200, 100), 0xFF000000);
+        uint32_t lowmid = halopad_metal_read_pixel(tg, 100, 199);            /* blue texel x ~0.5 grey (interpolated) */
+        check("  pixel (100,199): blue x interpolated diffuse (~0x80)", (lowmid & 0xFFFF00) == 0 && (lowmid & 0xFF) >= 0x7C && (lowmid & 0xFF) <= 0x84, 1);
+
+        /* transformed, unlit triangle (FVF XYZ | DIFFUSE), identity matrices */
         method(device, SetTexture, 2, (uint32_t[]){0, 0});
+        method(device, SetTextureStageState, 3, (uint32_t[]){0, 1, 2});   /* SELECTARG1 */
+        method(device, SetTextureStageState, 3, (uint32_t[]){0, 2, 0});   /* ARG1 = DIFFUSE */
+        method(device, SetRenderStateX, 2, (uint32_t[]){137, 0});          /* LIGHTING off */
+        struct { float x, y, z; uint32_t c; } tri2[3] = {{-1, 1, 0.5f, 0xFF0000FF}, {1, 1, 0.5f, 0xFF0000FF}, {-1, -1, 0.5f, 0xFF0000FF}};
+        uint32_t gt2 = halopad_heap_alloc(sizeof tri2, 0);
+        memcpy(halopad_guest_ptr(gt2), tri2, sizeof tri2);
+        method(device, SetFVF, 1, (uint32_t[]){0x42});
+        method(device, BeginScene, 0, NULL);
+        method(device, Clear, 6, (uint32_t[]){0, 0, 3, 0xFF000000, onebits, 0});
+        check("ff: transformed unlit triangle (FVF 0x42; default alpha op reads the unbound texture as white)", method(device, 83, 4, (uint32_t[]){4, 1, gt2, 16}), 0);
+        method(device, EndScene, 0, NULL);
+        method(device, Present, 4, (uint32_t[]){0, 0, 0, 0});
+        check("  pixel (20,20) is the vertex colour", halopad_metal_read_pixel(tg, 20, 20), 0xFF0000FF);
+
+        /* lit triangle: directional light along +z onto normals facing -z; material diffuse (0.5, 0.25, 1) */
+        struct { float x, y, z, nx, ny, nz; } tri3[3] = {{-1, 1, 0.5f, 0, 0, -1}, {1, 1, 0.5f, 0, 0, -1}, {-1, -1, 0.5f, 0, 0, -1}};
+        uint32_t gt3 = halopad_heap_alloc(sizeof tri3, 0);
+        memcpy(halopad_guest_ptr(gt3), tri3, sizeof tri3);
+        float mat[17] = {0.5f, 0.25f, 1.0f, 1.0f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+        uint32_t gm = halopad_heap_alloc(68, 0);
+        memcpy(halopad_guest_ptr(gm), mat, 68);
+        float light[26] = {0};
+        uint32_t three = 3;
+        memcpy(&light[0], &three, 4);
+        light[1] = light[2] = light[3] = light[4] = 1.0f;                 /* white diffuse */
+        light[18] = 1.0f;                                                  /* direction +z */
+        uint32_t gl = halopad_heap_alloc(104, 0);
+        memcpy(halopad_guest_ptr(gl), light, 104);
+        method(device, SetMaterial, 1, (uint32_t[]){gm});
+        method(device, SetLight, 2, (uint32_t[]){0, gl});
+        method(device, LightEnable, 2, (uint32_t[]){0, 1});
+        method(device, SetRenderStateX, 2, (uint32_t[]){137, 1});          /* LIGHTING on */
+        method(device, SetFVF, 1, (uint32_t[]){0x12});                     /* XYZ | NORMAL */
+        method(device, BeginScene, 0, NULL);
+        method(device, Clear, 6, (uint32_t[]){0, 0, 3, 0xFF000000, onebits, 0});
+        check("ff: lit triangle (directional light, material)", method(device, 83, 4, (uint32_t[]){4, 1, gt3, 24}), 0);
+        method(device, EndScene, 0, NULL);
+        method(device, Present, 4, (uint32_t[]){0, 0, 0, 0});
+        uint32_t lit = halopad_metal_read_pixel(tg, 20, 20);
+        check("  lit colour = material diffuse x light (0x80, 0x40, 0xff)", ((lit >> 16) & 0xFF) >= 0x7F && ((lit >> 16) & 0xFF) <= 0x81
+              && ((lit >> 8) & 0xFF) >= 0x3F && ((lit >> 8) & 0xFF) <= 0x41 && (lit & 0xFF) == 0xFF, 1);
+
+        /* texture factor through SELECTARG1(TFACTOR) */
+        method(device, SetRenderStateX, 2, (uint32_t[]){137, 0});
+        method(device, SetRenderStateX, 2, (uint32_t[]){60, 0xFF123456});
+        method(device, SetTextureStageState, 3, (uint32_t[]){0, 2, 3});   /* ARG1 = TFACTOR */
+        method(device, SetFVF, 1, (uint32_t[]){0x42});
+        method(device, BeginScene, 0, NULL);
+        check("ff: SELECTARG1(TFACTOR)", method(device, 83, 4, (uint32_t[]){4, 1, gt2, 16}), 0);
+        method(device, EndScene, 0, NULL);
+        method(device, Present, 4, (uint32_t[]){0, 0, 0, 0});
+        check("  pixel is the texture factor", halopad_metal_read_pixel(tg, 20, 20), 0xFF123456);
         method(t2, TRelease, 0, NULL);
     }
 

@@ -461,5 +461,59 @@ uint32_t hpcom_IDirect3DDevice9_GetPixelShaderConstantI_c(uint32_t g, uint32_t s
 uint32_t hpcom_IDirect3DDevice9_SetPixelShaderConstantB_c(uint32_t g, uint32_t s, uint32_t p, uint32_t n) { return constants(dev(g)->psb, 16, 4, s, p, n, 1); }
 uint32_t hpcom_IDirect3DDevice9_GetPixelShaderConstantB_c(uint32_t g, uint32_t s, uint32_t p, uint32_t n) { return constants(dev(g)->psb, 16, 4, s, p, n, 0); }
 
+/* ---- fixed-function material and lights (used by halopad_d3d9_ff.c) ---- */
+
+uint32_t hpcom_IDirect3DDevice9_SetMaterial_c(uint32_t g, uint32_t m) { memcpy(dev(g)->material, G(m), 68); return D3D_OK; }
+uint32_t hpcom_IDirect3DDevice9_GetMaterial_c(uint32_t g, uint32_t m) { memcpy(G(m), dev(g)->material, 68); return D3D_OK; }
+
+static int light_slot(device *d, uint32_t index, int create)
+{
+    for (uint32_t i = 0; i < d->nlight; i++) if (d->light[i].index == index) return (int)i;
+    if (!create) return -1;
+    if (d->nlight == 16) hp_unsupported("IDirect3DDevice9::SetLight", "more than 16 lights");
+    int i = (int)d->nlight++;
+    memset(&d->light[i], 0, sizeof d->light[i]);
+    d->light[i].index = index;
+    /* the light LightEnable creates for an unset index: white directional light along +z */
+    uint32_t dir = 3;
+    memcpy(&d->light[i].light[0], &dir, 4);
+    d->light[i].light[1] = d->light[i].light[2] = d->light[i].light[3] = 1.0f;   /* diffuse rgb */
+    d->light[i].light[18] = 1.0f;                                                 /* direction z */
+    return i;
+}
+uint32_t hpcom_IDirect3DDevice9_SetLight_c(uint32_t g, uint32_t index, uint32_t l)
+{
+    device *d = dev(g);
+    uint32_t type = rd32(l);
+    if (type < 1 || type > 3) return D3DERR_INVALIDCALL;
+    int i = light_slot(d, index, 1);
+    memcpy(d->light[i].light, G(l), 104);
+    d->light[i].set = 1;
+    return D3D_OK;
+}
+uint32_t hpcom_IDirect3DDevice9_GetLight_c(uint32_t g, uint32_t index, uint32_t l)
+{
+    device *d = dev(g);
+    int i = light_slot(d, index, 0);
+    if (i < 0 || !d->light[i].set) return D3DERR_INVALIDCALL;
+    memcpy(G(l), d->light[i].light, 104);
+    return D3D_OK;
+}
+uint32_t hpcom_IDirect3DDevice9_LightEnable_c(uint32_t g, uint32_t index, uint32_t on)
+{
+    device *d = dev(g);
+    int i = light_slot(d, index, 1);
+    d->light[i].enabled = on != 0;
+    return D3D_OK;
+}
+uint32_t hpcom_IDirect3DDevice9_GetLightEnable_c(uint32_t g, uint32_t index, uint32_t out)
+{
+    device *d = dev(g);
+    int i = light_slot(d, index, 0);
+    if (i < 0) return D3DERR_INVALIDCALL;
+    wr32(out, d->light[i].enabled ? 128u : 0u);                     /* Direct3D 9 reports enabled as 128 */
+    return D3D_OK;
+}
+
 /* Test support: the device's Metal target. */
 void *halopad_d3d9_device_target(uint32_t g) { return dev(g)->target; }

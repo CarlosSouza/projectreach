@@ -12,8 +12,8 @@
  *   - front faces are clockwise; CULL_CW/CULL_CCW cull that winding;
  *   - draws outside BeginScene/EndScene are invalid; *UP draws reset stream 0 (and the
  *     index buffer) afterwards; triangle fans become triangle lists.
- * Fixed-function vertex or pixel processing, and states outside this set, stop with a
- * message naming them. */
+ * Draws without a vertex or pixel shader use the generated fixed-function programs
+ * (halopad_d3d9_ff.c). States outside this set stop with a message naming them. */
 #include "halopad_win32.h"
 #include "halopad_d3d9_internal.h"
 #include "../apple/halopad_metal.h"
@@ -26,6 +26,47 @@ void halopad_com_unbind(uint32_t g);
 typedef struct { uint8_t sampler_dim[16]; uint8_t projected[16]; uint8_t test_kernel; } hp_shader_key;
 char *halopad_shader_to_msl(const uint32_t *t, uint32_t n, const hp_shader_key *key, char *err, size_t errlen);
 int halopad_shader_vs_inputs(const uint32_t *t, uint32_t n, uint8_t usage[16], uint8_t index[16], uint8_t used[16]);
+
+/* fixed function (halopad_d3d9_ff.c) */
+typedef struct {
+    uint8_t pretransformed, has_normal, has_color[2], has_psize, tex_size[8];
+    uint8_t lighting, normalize, local_viewer, light_type[8];
+    uint8_t src_diffuse, src_specular, src_ambient, src_emissive;
+    uint8_t fog_mode, range_fog;
+    uint8_t stage_index[8], stage_gen[8], stage_count[8], stage_proj[8];
+} hp_ff_vs_key;
+typedef struct {
+    struct { uint8_t cop, carg[3], aop, aarg[3], result, tex_dim, projected; } st[8];
+    uint8_t specular;
+} hp_ff_ps_key;
+char *halopad_ff_vs_msl(const hp_ff_vs_key *k);
+char *halopad_ff_ps_msl(const hp_ff_ps_key *k, char *err, size_t errlen);
+void halopad_ff_vs_key(device *d, const uint8_t (*el)[3], int ne, hp_ff_vs_key *k, uint8_t in_usage[16], uint8_t in_index[16],
+                       uint8_t in_used[16]);
+void halopad_ff_vs_constants(device *d, uint8_t out[1760], const float fixup[4]);
+void halopad_ff_ps_key(device *d, const uint8_t tex_dim[16], hp_ff_ps_key *k);
+void halopad_ff_ps_constants(device *d, uint8_t out[176]);
+
+/* generated fixed-function programs, by key */
+typedef struct { uint8_t key[128]; uint32_t len; char *msl; } ff_entry;
+static ff_entry ff_cache[256];
+static uint32_t ff_count;
+static const char *ff_lookup(const void *key, uint32_t len, char *(*make)(const void *, char *, size_t), const char *what)
+{
+    for (uint32_t i = 0; i < ff_count; i++)
+        if (ff_cache[i].len == len && !memcmp(ff_cache[i].key, key, len)) return ff_cache[i].msl;
+    if (ff_count == 256) hp_unsupported("draw", "more than 256 fixed-function programs");
+    if (len > sizeof ff_cache[0].key) hp_unsupported("draw", "fixed-function key of %u bytes", len);
+    char err[256] = "";
+    char *msl = make(key, err, sizeof err);
+    if (!msl) hp_unsupported("draw", "fixed-function %s: %s", what, err);
+    memcpy(ff_cache[ff_count].key, key, len);
+    ff_cache[ff_count].len = len;
+    ff_cache[ff_count].msl = msl;
+    return ff_cache[ff_count++].msl;
+}
+static char *make_ff_vs(const void *k, char *e, size_t n) { (void)e; (void)n; return halopad_ff_vs_msl(k); }
+static char *make_ff_ps(const void *k, char *e, size_t n) { return halopad_ff_ps_msl(k, e, n); }
 
 #define D3D_OK 0u
 #define D3DERR_INVALIDCALL 0x8876086Cu
@@ -70,6 +111,7 @@ static int fvf_elements(uint32_t fvf, element *e, uint32_t *stride)
     uint16_t off = 0;
     uint32_t pos = fvf & 0x400E;
     if (pos == 0x2) { e[n++] = (element){0, 2, 0, 0, off}; off += 12; }                    /* XYZ: FLOAT3 POSITION */
+    else if (pos == 0x4) { e[n++] = (element){0, 3, 9, 0, off}; off += 16; }               /* XYZRHW: FLOAT4 POSITIONT */
     else if (pos == 0x4002) { e[n++] = (element){0, 3, 0, 0, off}; off += 16; }            /* XYZW */
     else hp_unsupported("draw", "FVF position type 0x%x (pretransformed or blended vertices)", pos);
     if (fvf & 0x10) { e[n++] = (element){0, 2, 3, 0, off}; off += 12; }                    /* NORMAL */
@@ -263,41 +305,58 @@ static uint32_t draw(device *d, uint32_t type, uint32_t prims, uint32_t start, i
 {
     if (!d->in_scene) return D3DERR_INVALIDCALL;
     if (type < 1 || type > 6 || !prims) return D3DERR_INVALIDCALL;
-    if (!d->vs || !d->ps) hp_unsupported("draw", "fixed-function %s processing (vertex shader 0x%08x, pixel shader 0x%08x)",
-                                          !d->vs ? "vertex" : "pixel", d->vs, d->ps);
     check_states(d);
-    res *vs = halopad_com_state("IDirect3DVertexShader9", d->vs);
-    res *ps = halopad_com_state("IDirect3DPixelShader9", d->ps);
     hp_pipeline_desc pd;
     memset(&pd, 0, sizeof pd);
-    pd.vs_msl = vs_source(vs);
-
-    /* pixel shader key: sampler types and projection from the bound textures and stages */
-    hp_shader_key key;
-    memset(&key, 0, sizeof key);
     hp_draw_desc dd;
     memset(&dd, 0, sizeof dd);
+
+    /* bound textures (upload) and their sampler states */
+    hp_shader_key key;
+    memset(&key, 0, sizeof key);
+    uint8_t tex_dim[16] = {0};
     for (int s = 0; s < 16; s++) {
         if (!d->texture[s]) continue;
         res *t = halopad_com_state("IDirect3DTexture9", d->texture[s]);
         key.sampler_dim[s] = 2;
+        tex_dim[s] = 2;
         if (s < 8 && (d->tss[s][24] & 0x100)) key.projected[s] = 1;   /* D3DTTFF_PROJECTED */
         dd.tex[s] = upload_texture(t);
         dd.smp[s] = sampler(d, s);
     }
-    pd.ps_msl = ps_source(ps, &key);
+    res *ps = d->ps ? halopad_com_state("IDirect3DPixelShader9", d->ps) : NULL;
+    if (ps) {
+        pd.ps_msl = ps_source(ps, &key);
+    } else {
+        hp_ff_ps_key fk;
+        halopad_ff_ps_key(d, tex_dim, &fk);
+        pd.ps_msl = ff_lookup(&fk, sizeof fk, make_ff_ps, "pixel processing");
+    }
 
-    /* vertex layout */
+    /* vertex layout: the vertex shader's dcl inputs, or the fixed-function inputs present */
     element e[64];
     int ne;
     uint32_t fvf_stride = 0;
     if (d->decl) ne = decl_elements(halopad_com_state("IDirect3DVertexDeclaration9", d->decl), e);
     else if (d->fvf) ne = fvf_elements(d->fvf, e, &fvf_stride);
     else hp_unsupported("draw", "no vertex declaration or FVF");
+    res *vs = d->vs ? halopad_com_state("IDirect3DVertexShader9", d->vs) : NULL;
+    uint8_t in_usage[16], in_index[16], in_used[16];
+    hp_ff_vs_key fvk;
+    if (vs) {
+        pd.vs_msl = vs_source(vs);
+        memcpy(in_usage, vs->in_usage, 16); memcpy(in_index, vs->in_index, 16); memcpy(in_used, vs->in_used, 16);
+    } else {
+        static const uint8_t comps[17] = {1, 2, 3, 4, 4, 4, 2, 4, 4, 2, 4, 2, 4, 3, 3, 2, 4};
+        uint8_t el[64][3];
+        for (int i = 0; i < ne; i++) { el[i][0] = e[i].usage; el[i][1] = e[i].index; el[i][2] = e[i].type <= 16 ? comps[e[i].type] : 4; }
+        halopad_ff_vs_key(d, (const uint8_t (*)[3])el, ne, &fvk, in_usage, in_index, in_used);
+        pd.vs_msl = ff_lookup(&fvk, sizeof fvk, make_ff_vs, "vertex processing");
+    }
     for (int r = 0; r < 16; r++) {
-        if (!vs->in_used[r]) continue;
+        if (!in_used[r]) continue;
         int found = -1;
-        for (int i = 0; i < ne; i++) if (e[i].usage == vs->in_usage[r] && e[i].index == vs->in_index[r]) { found = i; break; }
+        for (int i = 0; i < ne; i++) if (e[i].usage == in_usage[r] && e[i].index == in_index[r]) { found = i; break; }
         if (found < 0) { pd.constant_regs |= 1u << r; continue; }
         pd.attr[pd.nattr++] = (hp_vattr){e[found].stream, metal_vertex_format(e[found].type), (uint8_t)r, 0, e[found].offset};
         uint32_t st = e[found].stream;
@@ -363,19 +422,31 @@ static uint32_t draw(device *d, uint32_t type, uint32_t prims, uint32_t start, i
     dd.viewport[0] = vp[0]; dd.viewport[1] = vp[1]; dd.viewport[2] = vp[2]; dd.viewport[3] = vp[3];
     dd.viewport[4] = minz; dd.viewport[5] = maxz;
 
-    /* constants: vs c/i/b + fixup (pixel centre, depth bias); ps c/i/b + fog/alpha test */
-    static uint8_t vsc[4432], psc[3936];
-    memcpy(vsc, d->vsf, 4096); memcpy(vsc + 4096, d->vsi, 256); memcpy(vsc + 4352, d->vsb, 64);
+    /* constants: shaders get c/i/b plus the fixup (pixel centre, depth bias) and fog/alpha
+       test; fixed function gets its transforms, material, lights and stage constants */
+    static uint8_t vsc[4432], psc[3936], ffv[1760], ffp[176];
     float fix[4] = {1.0f / (float)vp[2], -1.0f / (float)vp[3], maxz > minz ? f32(rs[195]) / (maxz - minz) : 0.0f, 0.0f};
-    memcpy(vsc + 4416, fix, 16);
-    memcpy(psc, d->psf, 3584); memcpy(psc + 3584, d->psi, 256); memcpy(psc + 3840, d->psb, 64);
-    uint32_t fc = rs[34];
-    float fogc[4] = {((fc >> 16) & 0xFF) / 255.0f, ((fc >> 8) & 0xFF) / 255.0f, (fc & 0xFF) / 255.0f, 1.0f};
-    memcpy(psc + 3904, fogc, 16);
-    uint32_t alpha_func = rs[15] ? rs[25] : 8u, fog = rs[28] ? 1u : 0u;
-    float alpha_ref = (float)(rs[24] & 0xFF);
-    memcpy(psc + 3920, &alpha_func, 4); memcpy(psc + 3924, &alpha_ref, 4); memcpy(psc + 3928, &fog, 4);
-    dd.vs_consts = vsc; dd.vs_len = sizeof vsc; dd.ps_consts = psc; dd.ps_len = sizeof psc;
+    if (vs) {
+        memcpy(vsc, d->vsf, 4096); memcpy(vsc + 4096, d->vsi, 256); memcpy(vsc + 4352, d->vsb, 64);
+        memcpy(vsc + 4416, fix, 16);
+        dd.vs_consts = vsc; dd.vs_len = sizeof vsc;
+    } else {
+        halopad_ff_vs_constants(d, ffv, fix);
+        dd.vs_consts = ffv; dd.vs_len = sizeof ffv;
+    }
+    if (ps) {
+        memcpy(psc, d->psf, 3584); memcpy(psc + 3584, d->psi, 256); memcpy(psc + 3840, d->psb, 64);
+        uint32_t fc = rs[34];
+        float fogc[4] = {((fc >> 16) & 0xFF) / 255.0f, ((fc >> 8) & 0xFF) / 255.0f, (fc & 0xFF) / 255.0f, 1.0f};
+        memcpy(psc + 3904, fogc, 16);
+        uint32_t alpha_func = rs[15] ? rs[25] : 8u, fog = rs[28] ? 1u : 0u;
+        float alpha_ref = (float)(rs[24] & 0xFF);
+        memcpy(psc + 3920, &alpha_func, 4); memcpy(psc + 3924, &alpha_ref, 4); memcpy(psc + 3928, &fog, 4);
+        dd.ps_consts = psc; dd.ps_len = sizeof psc;
+    } else {
+        halopad_ff_ps_constants(d, ffp);
+        dd.ps_consts = ffp; dd.ps_len = sizeof ffp;
+    }
 
     /* primitive and indices */
     dd.prim = metal_prim(type);

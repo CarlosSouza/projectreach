@@ -276,3 +276,14 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
 
 **Next:** fixed-function vertex and pixel processing (Halo sets `SetFVF`, `SetTransform` and `SetTextureStageState`), render-to-texture and `StretchRect`, scissor, and cube and volume textures.
 
+## 2026-09-27 — Fixed-function Direct3D 9 on Metal
+
+- **What** (\`port/runtime/halopad_d3d9_ff.c\`, used by \`halopad_d3d9_draw.c\` whenever no vertex or pixel shader is bound). Each fixed-function state combination becomes a key (128 bytes); the key generates Metal source once and the program is cached.
+  - Vertex side: pretransformed (XYZRHW) vertices, world/view/projection, up to 8 lights (directional, point, spot) with the material taken from the material or a vertex colour, specular, texture coordinate generation (camera-space position, normal, reflection) and texture transforms (count 0/2, as Halo uses), vertex fog (EXP, EXP2, LINEAR).
+  - Pixel side: the texture-stage cascade with every blend operation except bump mapping, including the COMPLEMENT and ALPHAREPLICATE argument modifiers and the TEMP register; an unbound texture reads white; TFACTOR.
+  - Device: \`SetMaterial\`/\`GetMaterial\`, \`SetLight\`/\`GetLight\`, \`LightEnable\`/\`GetLightEnable\`.
+  - Scope was set from a census of Halo's code: the operations it uses are COLOROP 1–5, 7, 10, 25, 26 and ALPHAOP 1–4, 6; texture transforms 0 and 2. Everything outside the implemented set (vertex blending, sphere maps, bump mapping, a result into TEMP-only chains beyond current/temp, projected texture transforms of count > 4) stops with the state named.
+- **Test** (\`tests/halo_d3d9_test.c\`, now 131 checks, all passing): a pretransformed textured quad, an unlit coloured triangle, a lit triangle whose brightness follows the light direction, and TFACTOR through the cascade. Regressions: 15 slices, 17 unit tests, 804/804 shaders compile; the core still stops cleanly at the license.
+- **Limit:** checked against my reading of the Direct3D rules, not yet against original-client renders.
+
+**Next:** render targets (\`SetRenderTarget\`, \`GetRenderTarget\`, \`GetBackBuffer\`, \`StretchRect\`, \`CreateOffscreenPlainSurface\`), scissor, cube and volume textures, then the USER32 message loop.
