@@ -109,6 +109,34 @@ static void destroy(void *p)
     free(d);
 }
 
+/* D3DPRESENT_PARAMETERS as CreateDevice and Reset accept them: validated into out[14], with the
+   size and formats Direct3D fills in written back to the caller's copy. 0 or an error. */
+static uint32_t present_params(const char *service, uint32_t pp, uint32_t focus, uint32_t out[14], uint32_t *window)
+{
+    for (int i = 0; i < 14; i++) out[i] = rd32(pp + 4 * i);
+    *window = out[7] ? out[7] : focus;
+    if (out[4] || out[5]) hp_unsupported(service, "multisampling (type %u, quality %u)", out[4], out[5]);
+    if (out[3] > 1) hp_unsupported(service, "%u back buffers", out[3]);
+    if (out[6] < 1 || out[6] > 3) return D3DERR_INVALIDCALL;
+    if (out[11] & ~0x1u) hp_unsupported(service, "presentation flags 0x%x", out[11]);
+    int32_t w = (int32_t)out[0], h = (int32_t)out[1];
+    if (out[8] && (!w || !h)) {                                     /* windowed with 0: the window's client area */
+        int32_t cw, ch;
+        if (!halopad_window_client_size(*window, &cw, &ch)) return D3DERR_INVALIDCALL;
+        if (!w) w = cw;
+        if (!h) h = ch;
+    }
+    if (w <= 0 || h <= 0) return D3DERR_INVALIDCALL;
+    if (out[2] == 0 && out[8]) out[2] = 22;                          /* windowed UNKNOWN: the display format */
+    if (out[2] != 21 && out[2] != 22) hp_unsupported(service, "back buffer format %u", out[2]);
+    if (out[9] && out[10] != 75 && out[10] != 77 && out[10] != 80)
+        hp_unsupported(service, "depth format %u", out[10]);
+    out[0] = (uint32_t)w; out[1] = (uint32_t)h;
+    if (!out[3]) out[3] = 1;
+    wr32(pp, (uint32_t)w); wr32(pp + 4, (uint32_t)h); wr32(pp + 8, out[2]); wr32(pp + 12, out[3]);   /* as Direct3D fills them in */
+    return D3D_OK;
+}
+
 uint32_t halopad_d3d9_create_device(uint32_t d3d, uint32_t adapter, uint32_t type, uint32_t focus, uint32_t behavior,
                                     uint32_t pp, uint32_t out)
 {
@@ -119,30 +147,11 @@ uint32_t halopad_d3d9_create_device(uint32_t d3d, uint32_t adapter, uint32_t typ
     int vp = !!(behavior & 0x20) + !!(behavior & 0x40) + !!(behavior & 0x80);
     if (vp != 1) return D3DERR_INVALIDCALL;
     device *d = calloc(1, sizeof *d);
-    for (int i = 0; i < 14; i++) d->pp[i] = rd32(pp + 4 * i);
-    uint32_t window = d->pp[7] ? d->pp[7] : focus;
-    if (d->pp[4] || d->pp[5]) hp_unsupported("IDirect3D9::CreateDevice", "multisampling (type %u, quality %u)", d->pp[4], d->pp[5]);
-    if (d->pp[3] > 1) hp_unsupported("IDirect3D9::CreateDevice", "%u back buffers", d->pp[3]);
-    if (d->pp[6] < 1 || d->pp[6] > 3) return D3DERR_INVALIDCALL;
-    if (d->pp[11] & ~0x1u) hp_unsupported("IDirect3D9::CreateDevice", "presentation flags 0x%x", d->pp[11]);
-    int32_t w = (int32_t)d->pp[0], h = (int32_t)d->pp[1];
-    if (d->pp[8] && (!w || !h)) {                                   /* windowed with 0: the window's client area */
-        int32_t cw, ch;
-        if (!halopad_window_client_size(window, &cw, &ch)) return D3DERR_INVALIDCALL;
-        if (!w) w = cw;
-        if (!h) h = ch;
-    }
-    if (w <= 0 || h <= 0) return D3DERR_INVALIDCALL;
-    if (d->pp[2] == 0 && d->pp[8]) d->pp[2] = 22;                    /* windowed UNKNOWN: the display format */
-    if (d->pp[2] != 21 && d->pp[2] != 22) hp_unsupported("IDirect3D9::CreateDevice", "back buffer format %u", d->pp[2]);
-    if (d->pp[9] && d->pp[10] != 75 && d->pp[10] != 77 && d->pp[10] != 80)
-        hp_unsupported("IDirect3D9::CreateDevice", "depth format %u", d->pp[10]);
-    d->pp[0] = (uint32_t)w; d->pp[1] = (uint32_t)h;
-    if (!d->pp[3]) d->pp[3] = 1;
-    wr32(pp, (uint32_t)w); wr32(pp + 4, (uint32_t)h); wr32(pp + 8, d->pp[2]); wr32(pp + 12, d->pp[3]);   /* as Direct3D fills them in */
+    uint32_t window, r = present_params("IDirect3D9::CreateDevice", pp, focus, d->pp, &window);
+    if (r) { free(d); return r; }
     d->d3d = d3d; d->window = window; d->behavior = behavior; d->software_vp = !!(behavior & 0x20);
     default_states(d);
-    d->target = halopad_metal_target_create(halopad_window_host(window, (uint32_t)w, (uint32_t)h), (uint32_t)w, (uint32_t)h, d->pp[9] != 0);
+    d->target = halopad_metal_target_create(halopad_window_host(window, d->pp[0], d->pp[1]), d->pp[0], d->pp[1], d->pp[9] != 0);
     /* Without D3DCREATE_FPU_PRESERVE, Direct3D 9 sets the x87 unit to single precision and
        round-to-nearest for the calling thread. */
     if (!(behavior & 0x2) && halopad_cpu) halopad_cpu->_st_cw &= ~0x0F00u;
@@ -150,6 +159,43 @@ uint32_t halopad_d3d9_create_device(uint32_t d3d, uint32_t adapter, uint32_t typ
     halopad_d3d9_create_targets(d);
     halopad_com_addref(d3d);
     wr32(out, d->guest);
+    return D3D_OK;
+}
+
+/* Reset: Direct3D 9 refuses while the application still holds default-pool resources, explicit
+   render targets or depth surfaces, state blocks, or references to the implicit back buffer or
+   depth buffer. Otherwise every device state returns to its default (bindings released, lights,
+   material, shader constants and clip state cleared, the viewport the whole new back buffer),
+   the back buffer and depth buffer are recreated from the new parameters, and the device is out
+   of any scene. */
+uint32_t halopad_d3d9_live_default(uint32_t dev);   /* halopad_d3d9_resources.c */
+uint32_t halopad_d3d9_live_stateblocks(uint32_t dev);   /* halopad_d3d9_stateblock.c */
+static uint32_t refs_of(uint32_t g) { if (!g) return 0; uint32_t n = halopad_com_addref(g); halopad_com_release(g); return n - 1; }
+
+uint32_t hpcom_IDirect3DDevice9_Reset_c(uint32_t g, uint32_t pp)
+{
+    device *d = dev(g);
+    if (!pp) return D3DERR_INVALIDCALL;
+    if (halopad_d3d9_live_default(g) || halopad_d3d9_live_stateblocks(g) || refs_of(d->backbuffer) > 1 || refs_of(d->autods) > 1) {
+        HP_TRACE_FAIL("IDirect3DDevice9::Reset with %u default-pool resources and %u state blocks alive", halopad_d3d9_live_default(g),
+                      halopad_d3d9_live_stateblocks(g));
+        return D3DERR_INVALIDCALL;
+    }
+    uint32_t npp[14], window;
+    uint32_t r = present_params("IDirect3DDevice9::Reset", pp, d->window, npp, &window);
+    if (r) return r;
+    for (int i = 0; i < 16; i++) { rebind(&d->texture[i], 0); rebind(&d->stream[i], 0); }
+    rebind(&d->indices, 0); rebind(&d->decl, 0); rebind(&d->vs, 0); rebind(&d->ps, 0);
+    halopad_d3d9_release_targets(d);
+    if (d->target) halopad_metal_target_destroy(d->target);
+    uint32_t guest = d->guest, d3d = d->d3d, behavior = d->behavior;
+    int software_vp = d->software_vp;
+    memset(d, 0, sizeof *d);                                        /* every state back to its default */
+    d->guest = guest; d->d3d = d3d; d->behavior = behavior; d->software_vp = software_vp; d->window = window;
+    memcpy(d->pp, npp, sizeof npp);
+    default_states(d);
+    d->target = halopad_metal_target_create(halopad_window_host(window, d->pp[0], d->pp[1]), d->pp[0], d->pp[1], d->pp[9] != 0);
+    halopad_d3d9_create_targets(d);
     return D3D_OK;
 }
 

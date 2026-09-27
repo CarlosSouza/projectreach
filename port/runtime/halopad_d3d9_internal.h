@@ -21,7 +21,8 @@ typedef struct res {
     void *native;                               /* Metal object, created on first use */
     void *view;                                 /* render-target textures: the swizzled view that is sampled */
     uint8_t borrowed;                           /* native belongs to the Metal target (back buffer, depth) */
-    uint8_t no_lock;                            /* default-pool texture: contents held here for upload, but not lockable */
+    uint8_t no_lock;
+    uint8_t counted;                            /* a default-pool resource Reset waits for (halopad_d3d9_live_default) */                            /* default-pool texture: contents held here for upload, but not lockable */
     char *msl;                                  /* vertex shaders: translated source */
     uint8_t in_usage[16], in_index[16], in_used[16];   /* vertex shaders: dcl_<usage><index> v<n> */
     struct { uint8_t key[33]; char *msl; } variant[8];  /* pixel shaders: source per sampler key */

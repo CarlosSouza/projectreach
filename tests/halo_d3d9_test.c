@@ -23,6 +23,8 @@ void *halopad_guest_ptr(uint32_t guest);
 uint32_t LoadLibraryA_c(uint32_t name);
 uint32_t GetProcAddress_c(uint32_t module, uint32_t name);
 
+uint32_t halopad_d3d9_live_default(uint32_t dev);
+uint32_t halopad_d3d9_live_stateblocks(uint32_t dev);
 static int failures;
 static uint32_t rd(uint32_t g) { uint32_t v; memcpy(&v, halopad_guest_ptr(g), 4); return v; }
 static uint32_t str(const char *s) { uint32_t g = halopad_heap_alloc((uint32_t)strlen(s) + 1, 0); strcpy(halopad_guest_ptr(g), s); return g; }
@@ -776,6 +778,43 @@ int main(void)
         method(device, SetRenderState, 2, (uint32_t[]){19, 2});
     }
 
+
+    /* Reset, as Halo calls it after releasing its default-pool objects (0x519751) */
+    {
+        enum { Reset = 16, CreateVB = 26, VRelease = 2, GetBackBufferX = 18, SRel = 2, SGetDesc = 12 };
+        method(device, SetStreamSource, 4, (uint32_t[]){0, 0, 0, 0});
+        method(vb, 2, 0, NULL);                                       /* the dynamic vertex buffer from above */
+        uint32_t live = halopad_d3d9_live_default(device), blocks = halopad_d3d9_live_stateblocks(device);
+        if (live || blocks) printf("    (left alive by earlier checks: %u default-pool resources, %u state blocks)\n", live, blocks);
+        uint32_t pvb = halopad_heap_alloc(4, 1), npp = halopad_heap_alloc(56, 1);
+        uint32_t nppv[14] = {800, 600, 22, 1, 0, 0, 1, hwnd, 1, 1, 75, 0, 0, 0x80000000};
+        memcpy(halopad_guest_ptr(npp), nppv, 56);
+        method(device, CreateVB, 6, (uint32_t[]){64, 0x8, 0, 0, pvb, 0});   /* a default-pool vertex buffer */
+        check("Reset with a default-pool vertex buffer alive: D3DERR_INVALIDCALL", method(device, Reset, 1, (uint32_t[]){npp}), 0x8876086C);
+        method(rd(pvb), VRelease, 0, NULL);
+        uint32_t pbb = halopad_heap_alloc(4, 1);
+        method(device, GetBackBufferX, 4, (uint32_t[]){0, 0, 0, pbb});
+        check("Reset while the application holds the back buffer: D3DERR_INVALIDCALL", method(device, Reset, 1, (uint32_t[]){npp}), 0x8876086C);
+        method(rd(pbb), SRel, 0, NULL);
+        method(device, SetRenderState, 2, (uint32_t[]){22, 1});        /* CULLMODE NONE, to see it reset */
+        check("Reset to 800x600 once they are released", method(device, Reset, 1, (uint32_t[]){npp}), 0);
+        method(device, GetRenderState, 2, (uint32_t[]){22, v});
+        check("  render states back to their defaults (CULLMODE CCW)", rd(v), 3);
+        method(device, GetViewport, 1, (uint32_t[]){v});
+        check("  viewport: the new 800x600 back buffer", rd(v + 8) == 800 && rd(v + 12) == 600, 1);
+        method(device, GetBackBufferX, 4, (uint32_t[]){0, 0, 0, pbb});
+        uint32_t desc = halopad_heap_alloc(32, 1);
+        method(rd(pbb), SGetDesc, 1, (uint32_t[]){desc});
+        check("  back buffer 800x600", rd(desc + 24) == 800 && rd(desc + 28) == 600, 1);
+        method(rd(pbb), SRel, 0, NULL);
+        float one = 1.0f; uint32_t ob; memcpy(&ob, &one, 4);
+        method(device, BeginScene, 0, NULL);
+        method(device, Clear, 6, (uint32_t[]){0, 0, 3, 0xFF00FF00, ob, 0});
+        method(device, EndScene, 0, NULL);
+        check("  Present after Reset", method(device, Present, 4, (uint32_t[]){0, 0, 0, 0}), 0);
+        check("  pixel (799,599) of the new back buffer is the clear colour",
+              halopad_metal_read_pixel(halopad_d3d9_device_target(device), 799, 599), 0xFF00FF00);
+    }
     check("Device Release to zero", method(device, DRelease, 0, NULL), 0);
     check("Release to zero", method(d3d, Release, 0, NULL), 0);
 

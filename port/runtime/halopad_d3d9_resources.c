@@ -39,9 +39,25 @@ static int fmt(uint32_t f, uint32_t *bytes, uint32_t *block)
 }
 int halopad_d3d9_format_size(uint32_t f, uint32_t *bytes, uint32_t *block) { return fmt(f, bytes, block); }
 
+/* Live default-pool resources per device: Reset refuses while any exist. */
+static struct { uint32_t dev, n; } live[16];
+static void count_default(res *r, int delta)
+{
+    for (int i = 0; i < 16; i++) if (live[i].dev == r->device && (live[i].n || delta > 0)) { live[i].n += (uint32_t)delta; return; }
+    for (int i = 0; i < 16; i++) if (!live[i].n && delta > 0) { live[i].dev = r->device; live[i].n = 1; return; }
+    hp_unsupported("Direct3D 9", "default-pool resources on more than 16 devices");
+}
+static void track(res *r) { if (r->pool == 0 && !r->borrowed) { r->counted = 1; count_default(r, 1); } }
+uint32_t halopad_d3d9_live_default(uint32_t dev)
+{
+    for (int i = 0; i < 16; i++) if (live[i].dev == dev) return live[i].n;
+    return 0;
+}
+
 static void res_destroy(void *p)
 {
     res *r = p;
+    if (r->counted) count_default(r, -1);
     for (uint32_t l = 0; l < MAXLEVELS; l++) if (r->mem[l]) halopad_heap_free(r->mem[l]);
     if (r->buf) halopad_heap_free(r->buf);
     if (!r->borrowed) halopad_metal_release(r->native);
@@ -309,6 +325,7 @@ static uint32_t new_texture(const char *iface, uint32_t ttype, uint32_t dev, uin
         if (!(usage & 0x3)) r->mem[l] = halopad_heap_alloc(ttype == 3 ? 6 * r->size[l] : r->size[l], 1);   /* UpdateTexture fills default-pool ones */
         r->dirty[l] = 1;
     }
+    track(r);
     r->guest = halopad_com_new(iface, 4, r, res_destroy);
     wr32(out, r->guest);
     return D3D_OK;
@@ -467,6 +484,7 @@ uint32_t halopad_d3d9_surface_new(uint32_t dev, uint32_t w, uint32_t h, uint32_t
         s->mem[0] = halopad_heap_alloc(s->size[0], 1);
         s->dirty[0] = 1;
     }
+    track(s);
     s->guest = halopad_com_new("IDirect3DSurface9", 4, s, res_destroy);
     return s->guest;
 }
@@ -529,6 +547,7 @@ static uint32_t new_buffer(const char *iface, int kind, uint32_t dev, uint32_t l
     if (kind == R_VB) r->fvf = fvf_or_fmt; else r->format = fvf_or_fmt;
     r->buf = halopad_heap_alloc(length, 1);
     r->dirty[0] = 1;
+    track(r);
     r->guest = halopad_com_new(iface, 4, r, res_destroy);
     wr32(out, r->guest);
     return D3D_OK;

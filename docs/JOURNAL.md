@@ -789,3 +789,13 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
 - **Result.** The DirectInput suite passes on macOS and on the iPad Simulator, all 14 macOS suites pass, and the iPad app builds with GameController linked.
 
 **Next:** Direct3D 9 features Halo uses beyond the license, each with its own test: `Reset` (for alt-tab and resolution changes), `CreateRenderTarget`/`CreateDepthStencilSurface`, `ColorFill`, `SetScissorRect` and `GetRenderTargetData`. They come from Halo's rasterizer call sites.
+
+## 2026-09-27 — Direct3D 9 Reset
+
+- **`IDirect3DDevice9::Reset`** (Halo's `0x519751`, after it releases its default-pool objects), following Direct3D 9's rules:
+  - it refuses with `D3DERR_INVALIDCALL` while default-pool resources, state blocks, or application references to the implicit back buffer or depth buffer are alive. The runtime now counts live default-pool resources and state blocks per device;
+  - otherwise it releases every binding and returns every state to its default;
+  - it recreates the back buffer and depth buffer from the new present parameters, parsed by the same code as `CreateDevice`.
+- **Test** (the D3D9 suite, 10 new checks): refusal with a default-pool vertex buffer alive and with the back buffer held, then `Reset` to 800×600 with the states, viewport and back buffer checked, followed by a `Present` and a pixel read back from the new back buffer.
+  - The suite itself had leaked a default-pool vertex buffer, which Windows would also refuse to reset past, so the test now releases it first.
+- **Call sites.** Halo's other device-vtable call sites for `CreateRenderTarget` and `UpdateSurface` (`0x58d167`, `0x58d39c`) are inside its statically linked D3DX texture loader. They will be implemented when the core reaches them, with the caller known.

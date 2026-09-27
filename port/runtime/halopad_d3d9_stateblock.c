@@ -128,8 +128,22 @@ static void transfer(stateblock *b, device *from, device *to, int to_device)
     }
 }
 
+static struct { uint32_t dev, n; } live_blocks[16];
+static void count_block(uint32_t dev, int delta)
+{
+    for (int k = 0; k < 16; k++) if (live_blocks[k].dev == dev && (live_blocks[k].n || delta > 0)) { live_blocks[k].n += (uint32_t)delta; return; }
+    for (int k = 0; k < 16; k++) if (!live_blocks[k].n && delta > 0) { live_blocks[k].dev = dev; live_blocks[k].n = 1; return; }
+    hp_unsupported("Direct3D 9", "state blocks on more than 16 devices");
+}
+uint32_t halopad_d3d9_live_stateblocks(uint32_t dev)
+{
+    for (int k = 0; k < 16; k++) if (live_blocks[k].dev == dev) return live_blocks[k].n;
+    return 0;
+}
+
 static void sb_destroy(void *p)
 {
+    count_block(((stateblock *)p)->device, -1);
     stateblock *b = p;
     for (int i = 0; i < 16; i++) { rebind(&b->st.texture[i], 0); rebind(&b->st.stream[i], 0); }
     rebind(&b->st.indices, 0); rebind(&b->st.decl, 0); rebind(&b->st.vs, 0); rebind(&b->st.ps, 0);
@@ -138,6 +152,7 @@ static void sb_destroy(void *p)
 
 static uint32_t publish(stateblock *b, uint32_t out)
 {
+    count_block(b->device, 1);
     b->guest = halopad_com_new("IDirect3DStateBlock9", 4, b, sb_destroy);
     wr32(out, b->guest);
     return D3D_OK;
