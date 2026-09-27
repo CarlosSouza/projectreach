@@ -68,6 +68,19 @@ Keystone parses and validates every `.ksml` layout with MSXML 4.0 SP2, and has n
 
 - **`Reset`** follows Direct3D 9. It refuses while default-pool resources, state blocks, or application references to the implicit back buffer or depth buffer are alive (the runtime counts them per device). Otherwise it releases every binding, returns every state to its default, and recreates the back buffer and depth buffer from the new present parameters.
 
+## Direct3D splash (Halo's first frame after the device)
+
+Right after it creates the device, Halo draws its splash with `0x519080` (case in `eax`: 1 the picture, 0 black):
+
+- `CreateOffscreenPlainSurface(640, 480, X8R8G8B8, D3DPOOL_DEFAULT)`, then the statically linked D3DX's `D3DXLoadSurfaceFromResourceA` (`0x582dfc`) for bitmap `0x86` (a 640×480 24-bit DIB) in `strings.dll`, whose handle Halo keeps at `0x6bde88` (loaded at `0x582590`);
+- `GetRenderTarget(0)`, `StretchRect` onto the back buffer, Halo's present wrapper `0x51ba30` (`Present(NULL, NULL, NULL, NULL)` plus its frame counter `0x637d00`), and `StretchRect` again so the next back buffer holds the picture as well.
+
+D3DX's loader has a staging path for surfaces it cannot lock (`0x58d1d9`: a system-memory texture, `CreateRenderTarget` plus `StretchRect` as a fallback, `UpdateSurface` on release at `0x58d123`). On HaloPad the offscreen surface is lockable, so D3DX writes it directly and that path is not taken; its methods stay loud traps until something reaches them.
+
+**Test** (`tests/halo_splash_test.c`, the 15th suite): Halo's own `0x519080` on a 640×480 device. The test decodes bitmap `0x86` itself from `strings.dll`'s resource directory, independently of the runtime's resource services and of D3DX. Every one of the back buffer's 307,200 pixels equals it, the splash presents once, and the device is not marked lost; case 0 leaves the back buffer black. 12 checks, passing on macOS and on the iPad Simulator (evidence `docs/artifacts/2026-09-27/G3/core-arm64-apple-ios17.0-simulator-20260927T122311Z/`).
+
+**Unreachable device method.** Halo's only `ProcessVertices` call (`0x51ff05`) is in `0x51fe90`, which nothing calls: there is no direct call, and its address appears nowhere in the image. With that, every `IDirect3DDevice9` method in the static inventory (41) is implemented.
+
 ## GDI text (Keystone's glyph cache)
 
 Keystone draws every character it shows through GDI and copies the coverage into Direct3D textures (`0x1021a7b5`). The sequence is: a memory DC in `MM_TEXT`, white text on black, `CreateFontA(-MulDiv(points, 96, 72), …, ANTIALIASED_QUALITY, VARIABLE_PITCH, face)`, `GetTextMetricsA` and `GetTextExtentPoint32W(L"?")` for the cell, and a 32-bit top-down DIB section. Each glyph is then drawn with `ExtTextOutW(ETO_OPAQUE)` and read back into A4R4G4B4 texels, which go to a system-memory texture and then to the GPU with `UpdateTexture`. HaloPad implements this in `port/runtime/halopad_gdi.c` on CoreText.
@@ -110,7 +123,7 @@ The Metal core behind `IDirect3DDevice9` (`port/apple/halopad_metal.m`: back buf
   - Evidence: `docs/artifacts/2026-09-27/G3/ios-app-20260927T113055Z/screen.png`, the license screen shown by the native core running on the iPad Simulator.
 - **Builds.** `scripts/run-core.py --target arm64-apple-ios17.0-simulator --run-prefix xcrun simctl spawn <device>` builds against the iOS Simulator SDK and links UIKit. Translated modules are compiled with the same SDK. The `HALOPAD_*` variables reach the process as `SIMCTL_CHILD_*`.
 - **Evidence (2026-09-27).** On the project's "HaloPad iPad Pro 13" Simulator:
-  - all 14 suites pass, including the Direct3D 9 suite's Metal readbacks and the chat UI with its frame (`chat.ppm` matches the Mac's);
+  - all 15 suites pass (the splash suite since 2026-09-27), including the Direct3D 9 suite's Metal readbacks and the chat UI with its frame (`chat.ppm` matches the Mac's);
   - all 16 slices and fault cases pass;
   - the vorbis test reads the fixtures its macOS run leaves in `/tmp`, because iOS cannot start the reference encoder or ffmpeg.
   - The physical-device row (a 4 GiB reservation on a real device, signing) remains parked.

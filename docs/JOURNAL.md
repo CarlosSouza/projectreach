@@ -822,3 +822,15 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   - Its own documentation says parts were reconstructed with files described as original Bungie source and a leaked CEA source tree, so nothing from it enters HaloPad.
   - Only 1,223 of its 5,602 string literals occur in `haloce.exe` (networking 37 of 830, rasterizer 0 of 1,440), so a string-based name map for our binary would be thin.
 - **Written up** in [REVIEW-HALO1-DECOMP.md](REVIEW-HALO1-DECOMP.md). The parked items (the license choice, the product key, a device, a second player) are unaffected.
+
+
+## 2026-09-27 — Halo's Direct3D splash, and all 15 suites on the iPad Simulator
+
+- **iPad Simulator rerun.** All 14 existing suites pass on the "HaloPad iPad Pro 13" Simulator after the input, game-controller, `Reset` and chat-typing changes (all 14 had last run there at `1fc8bf3`).
+- **The splash.** Halo draws its first Direct3D frame with `0x519080`: bitmap `0x86` from `strings.dll`, loaded into a 640×480 offscreen surface by the statically linked D3DX (`D3DXLoadSurfaceFromResourceA`, `0x582dfc`), stretched onto the back buffer and presented. It is reached from `WinMain` through `0x4ca9c0` → `0x43ed20` → `0x519630`, just after the license.
+  - The new suite `tests/halo_splash_test.c` runs Halo's own function. All 307,200 back-buffer pixels equal the bitmap, decoded independently in the test. 12 checks pass on macOS and on the iPad Simulator.
+  - No trap: D3DX locks the offscreen surface directly. Its staging path (`CreateRenderTarget` and `UpdateSurface`, `0x58d123`/`0x58d1d9`) is not taken for the splash.
+- **Two static items closed.**
+  - `ProcessVertices`: Halo's only call site (`0x51ff05`) is in dead code (`0x51fe90` has no callers and no stored address). Every device method in the static inventory is now implemented.
+  - The file-mapping traps (`CreateFileMappingA`/`MapViewOfFile`, `0x5466df`) sit in Halo's crash dialog, after `CreateDialogIndirectParamA`. Normal play does not reach them, so they stay loud traps.
+- **Next:** the license is still the gate. Beyond the splash, the core's next steps (the rest of `0x519630`, the main menu and map loading) need the player's choice.
