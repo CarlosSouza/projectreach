@@ -16,7 +16,8 @@
  *     _sat, write masks and swizzles; relative constant addressing through a0 (vs_1_1 mov
  *     to a0 floors, vs_2_0 mova rounds to nearest); out-of-range constants read as 0.
  *   - def constants take precedence over constants set through the device.
- *   - rsq and log use |x|; rcp/rsq of 0 give +inf; pow uses |x|.
+ *   - rsq and log use |x|; rcp/rsq of 0 give +inf; pow uses |x|; scalar instructions read
+ *     .w when the source has no replicate swizzle; nrm scales all four components.
  *   - Fixed-function steps after the pixel shader (alpha test, fog blend) come from
  *     hp_ps_constants, so one compiled pipeline serves every value of those states.
  * Anything outside this set is refused with a message naming the opcode or register. */
@@ -29,6 +30,7 @@
 typedef struct {
     uint8_t sampler_dim[16];     /* ps_1_x: 2 = 2D, 3 = cube, 4 = volume, from the bound textures */
     uint8_t projected[16];       /* ps_1_x tex: divide coordinates by .w (D3DTTFF_PROJECTED) */
+    uint8_t test_kernel;         /* emit a compute kernel over buffers instead (differential tests) */
 } hp_shader_key;
 
 typedef struct { char *s; size_t n, cap; char *err; size_t errlen; int failed; } out;
@@ -224,10 +226,14 @@ static void sample(ctx *c, out *o, char *buf, size_t size, int s, const char *co
     char cc[1200];
     if (projected) snprintf(cc, sizeof cc, "((%s) / (%s).w)", coord, coord);
     else snprintf(cc, sizeof cc, "(%s)", coord);
-    snprintf(buf, size, "tex%d.sample(smp%d, %s.%s)", s, s, cc, dim == 2 ? "xy" : "xyz");
+    snprintf(buf, size, "HP_SAMPLE(tex%d, smp%d, %s.%s)", s, s, cc, dim == 2 ? "xy" : "xyz");
 }
 
 typedef struct { uint32_t tok, n; const uint32_t *p; } insn;
+
+/* Scalar instructions read the replicated component; with no replicate swizzle
+   (identity .xyzw) Direct3D uses .w. */
+static const char *scalar(uint32_t p) { return ((p >> 16) & 0xFF) == 0xE4 ? "w" : "x"; }
 
 /* One instruction. Returns 1 with *value and *dst set when it produces a register write
    (so co-issued pairs can read before writing); other effects are emitted directly. */
@@ -258,25 +264,26 @@ static int instruction(ctx *c, out *o, const insn *in, char *v, size_t vsize, ui
     case 3: snprintf(v, vsize, "(%s - %s)", S0, S1); return 1;
     case 4: snprintf(v, vsize, "(%s * %s + %s)", S0, S1, S2); return 1;
     case 5: snprintf(v, vsize, "(%s * %s)", S0, S1); return 1;
-    case 6: snprintf(v, vsize, "float4(1.0f / (%s).x)", S0); return 1;
-    case 7: snprintf(v, vsize, "float4(rsqrt(abs((%s).x)))", S0); return 1;
+    case 6: snprintf(v, vsize, "float4(1.0f / (%s).%s)", S0, scalar(p[si[0]])); return 1;
+    case 7: snprintf(v, vsize, "float4(rsqrt(abs((%s).%s)))", S0, scalar(p[si[0]])); return 1;
     case 8: snprintf(v, vsize, "float4(dot((%s).xyz, (%s).xyz))", S0, S1); return 1;
     case 9: snprintf(v, vsize, "float4(dot(%s, %s))", S0, S1); return 1;
     case 10: snprintf(v, vsize, "min(%s, %s)", S0, S1); return 1;
     case 11: snprintf(v, vsize, "max(%s, %s)", S0, S1); return 1;
     case 12: snprintf(v, vsize, "select(float4(0.0f), float4(1.0f), %s < %s)", S0, S1); return 1;
     case 13: snprintf(v, vsize, "select(float4(0.0f), float4(1.0f), %s >= %s)", S0, S1); return 1;
-    case 14: case 78: snprintf(v, vsize, "float4(exp2((%s).x))", S0); return 1;          /* exp, expp */
-    case 15: case 79: snprintf(v, vsize, "float4(log2(abs((%s).x)))", S0); return 1;     /* log, logp */
+    case 14: snprintf(v, vsize, "float4(exp2((%s).%s))", S0, scalar(p[si[0]])); return 1;
+    case 15: snprintf(v, vsize, "float4(log2(abs((%s).%s)))", S0, scalar(p[si[0]])); return 1;
+    case 78: case 79: fail(o, "%s (partial-precision forms; not used by Halo)", op == 78 ? "expp" : "logp"); return 0;
     case 16: snprintf(v, vsize, "hp_lit(%s)", S0); return 1;
     case 17: snprintf(v, vsize, "hp_dst(%s, %s)", S0, S1); return 1;
     case 18: snprintf(v, vsize, "mix(%s, %s, %s)", S2, S1, S0); return 1;                 /* lrp: s0*(s1-s2)+s2 */
     case 19: snprintf(v, vsize, "fract(%s)", S0); return 1;
-    case 32: snprintf(v, vsize, "float4(pow(abs((%s).x), (%s).x))", S0, S1); return 1;
+    case 32: snprintf(v, vsize, "float4(pow(abs((%s).%s), (%s).%s))", S0, scalar(p[si[0]]), S1, scalar(p[si[1]])); return 1;
     case 33: snprintf(v, vsize, "float4(cross((%s).xyz, (%s).xyz), 0.0f)", S0, S1); return 1;
     case 35: snprintf(v, vsize, "abs(%s)", S0); return 1;
-    case 36: snprintf(v, vsize, "float4(normalize((%s).xyz), 0.0f)", S0); return 1;
-    case 37: snprintf(v, vsize, "hp_sincos((%s).x)", S0); return 1;
+    case 36: snprintf(v, vsize, "((%s) * rsqrt(dot((%s).xyz, (%s).xyz)))", S0, a, a); return 1;   /* nrm scales all four */
+    case 37: snprintf(v, vsize, "hp_sincos((%s).%s)", S0, scalar(p[si[0]])); return 1;
     case 88: snprintf(v, vsize, "select(%s, %s, %s >= 0.0f)", S2, S1, S0); return 1;      /* cmp: s0 >= 0 ? s1 : s2 */
     case 90: snprintf(v, vsize, "float4(dot((%s).xy, (%s).xy) + (%s).x)", S0, S1, S2); return 1;   /* dp2add */
     case 80:                                                        /* cnd: 1.1-1.3 test r0.a only */
@@ -302,8 +309,8 @@ static int instruction(ctx *c, out *o, const insn *in, char *v, size_t vsize, ui
     }
     case 65: {                                                      /* texkill */
         int t = regnum(p[0]);
-        if (regtype(p[0]) == RT_ADDR) emit(o, "    if (any(tc%d.xyz < 0.0f)) discard_fragment();\n", t);
-        else emit(o, "    if (any(r%d.xyz < 0.0f)) discard_fragment();\n", t);
+        if (regtype(p[0]) == RT_ADDR) emit(o, "    if (any(tc%d.xyz < 0.0f)) HP_KILL;\n", t);
+        else emit(o, "    if (any(r%d.xyz < 0.0f)) HP_KILL;\n", t);
         return 0;
     }
     case 64:                                                        /* texcoord (1.1-1.3) / texcrd (1.4) */
@@ -478,30 +485,57 @@ char *halopad_shader_to_msl(const uint32_t *t, uint32_t n, const hp_shader_key *
     if (body.failed) { free(body.s); free(o.s); return NULL; }
 
     emit(&o, "%s", prelude);
+    int test = key && key->test_kernel;
+    if (test) emit(&o, "#define HP_SAMPLE(t, s, c) t.sample(s, c, level(0))\n#define HP_KILL { outs[id * 2 + 1] = float4(1.0f); return; }\n");
+    else emit(&o, "#define HP_SAMPLE(t, s, c) t.sample(s, c)\n#define HP_KILL discard_fragment()\n");
     if (c.vs) {
         emit(&o, "struct hp_vs_in {\n%s};\n", il ? vs_inputs : "  float4 v0 [[attribute(0)]];\n");
-        emit(&o, "vertex hp_vs_out hp_vs(hp_vs_in in [[stage_in]], constant hp_vs_constants &k [[buffer(16)]]) {\n");
+        if (test) {
+            /* inputs: 16 float4 per case (v0-v15); outputs: position, colour 0-1, texture 0-7, (fog, psize) */
+            emit(&o, "kernel void hp_vs_test(device const float4 *ins [[buffer(0)]], device float4 *outs [[buffer(1)]],\n"
+                     "    constant hp_vs_constants &k [[buffer(16)]], uint id [[thread_position_in_grid]]) {\n    hp_vs_in in;\n");
+            for (int r = 0; r < 16; r++) if (c.input_used[r]) emit(&o, "    in.v%d = ins[id * 16 + %d];\n", r, r);
+        } else {
+            emit(&o, "vertex hp_vs_out hp_vs(hp_vs_in in [[stage_in]], constant hp_vs_constants &k [[buffer(16)]]) {\n");
+        }
         emit(&o, "    hp_vs_out o = {};\n    int4 a0 = int4(0);\n    float fogv = 1.0f, psizev = 1.0f;\n");
         for (int r = 0; r < 32; r++) emit(&o, "    float4 r%d = float4(0.0f);\n", r);
         emit(&o, "%s%s", defs, body.s ? body.s : "");
         emit(&o, "    o.fog = fogv; o.psize = psizev;\n");
         emit(&o, "    o.position.xy += k.fixup.xy * o.position.w;   /* Direct3D 9 pixel centres */\n");
-        emit(&o, "    return o;\n}\n");
+        if (test) {
+            emit(&o, "    device float4 *w = outs + id * 12;\n    w[0] = o.position; w[1] = o.color0; w[2] = o.color1;\n");
+            for (int s = 0; s < 8; s++) emit(&o, "    w[%d] = o.tex%d;\n", 3 + s, s);
+            emit(&o, "    w[11] = float4(o.fog, o.psize, 0.0f, 0.0f);\n}\n");
+        } else {
+            emit(&o, "    return o;\n}\n");
+        }
     } else {
-        emit(&o, "fragment float4 hp_ps(hp_ps_in in [[stage_in]], constant hp_ps_constants &k [[buffer(0)]]");
+        if (test)
+            /* inputs: colour 0-1, texture 0-7, (fog) per case; outputs: colour, (killed) */
+            emit(&o, "kernel void hp_ps_test(device const float4 *ins [[buffer(1)]], device float4 *outs [[buffer(2)]],\n"
+                     "    constant hp_ps_constants &k [[buffer(0)]], uint id [[thread_position_in_grid]]");
+        else
+            emit(&o, "fragment float4 hp_ps(hp_ps_in in [[stage_in]], constant hp_ps_constants &k [[buffer(0)]]");
         for (int s = 0; s < 16; s++)
             if (c.sampler_used[s])
                 emit(&o, ",\n    %s tex%d [[texture(%d)]], sampler smp%d [[sampler(%d)]]", sampler_type(c.sampler_dim[s] ? c.sampler_dim[s] : 2), s, s, s, s);
         emit(&o, ") {\n");
+        if (test) {
+            emit(&o, "    hp_ps_in in;\n    in.color0 = ins[id * 11]; in.color1 = ins[id * 11 + 1];\n");
+            for (int s = 0; s < 8; s++) emit(&o, "    in.tex%d = ins[id * 11 + %d];\n", s, 2 + s);
+            emit(&o, "    in.fog = ins[id * 11 + 10].x;\n    outs[id * 2 + 1] = float4(0.0f);\n");
+        }
         for (int s = 0; s < 8; s++) emit(&o, "    float4 tc%d = in.tex%d;\n", s, s);
         emit(&o, "    float4 v0 = saturate(in.color0), v1 = saturate(in.color1);\n    float4 oC0 = float4(0.0f);\n");
         for (int r = 0; r < 12; r++) emit(&o, "    float4 r%d = float4(0.0f);\n", r);
         for (int s = 0; s < 8; s++) emit(&o, "    float4 t%d = float4(0.0f); float tm%d = 0.0f;\n", s, s);
         emit(&o, "%s%s", defs, body.s ? body.s : "");
         emit(&o, "    float4 color = %s;\n", c.ps1 ? "saturate(r0)" : "oC0");
-        emit(&o, "    if (!hp_alpha_pass(k.alpha_func, color.w, k.alpha_ref)) discard_fragment();\n");
+        emit(&o, "    if (!hp_alpha_pass(k.alpha_func, color.w, k.alpha_ref)) HP_KILL;\n");
         emit(&o, "    if (k.fog) color.xyz = mix(k.fog_color.xyz, color.xyz, saturate(in.fog));\n");
-        emit(&o, "    return color;\n}\n");
+        if (test) emit(&o, "    outs[id * 2] = color;\n}\n");
+        else emit(&o, "    return color;\n}\n");
         if (c.writes_depth) { fail(&o, "oDepth output"); }
     }
     free(body.s);

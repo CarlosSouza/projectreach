@@ -247,3 +247,15 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
 
 **Not yet shown: that they compute the right values.** Next is a reference interpreter written from the Direct3D rules, with each program run on Metal against it on random inputs (as with the x86 oracle); then pipelines and draws.
 
+## 2026-09-27 — Shader translator checked against an independent reference: 804/804
+
+- **Method** (`scripts/shader-diff.py`, `tools/shader_run.m`, translator test mode). Each program runs as a Metal compute kernel: same generated body, inputs and outputs in buffers, a kill flag instead of discard, sampling at level 0. It also runs in a numpy reference interpreter written separately from the Direct3D 9 rules, on random inputs and constants. Textures are ramps that bilinear filtering reproduces exactly (2D, volume), rotated per stage. Cube maps are direction-encoding textures, continuous across faces, so Metal's seamless filtering changes only in-between values; a first version with flat per-face colours failed 122 cube programs purely from seamless edge filtering, which is why it was replaced.
+- **Translator fixes found by writing the reference:**
+  - Scalar instructions read `.w` when the source has no replicate swizzle.
+  - `nrm` scales all four components.
+  - vs `expp`/`logp` (structured partial-precision results, unused by Halo) are refused.
+- **Result** (1,024 cases per program, seed 7): all 804 agree. 795 agree strictly; 9 are within texture precision (differences in at most 0.8% of cases, at most 0.024, only in programs that sample textures, scattered differently for each seed: 8-bit texels and bilinear precision amplified by bx2/x2/shift arithmetic, as on Direct3D 9 hardware). **0 fail.** Evidence: `docs/artifacts/2026-09-27/G4/shader-diff-20260927T053005Z`.
+- **Limits of this check:**
+  - Both sides were written from my reading of the rules, so a shared misreading would go unseen; comparison with original-client renders (G1b) is still needed.
+  - Not exercised: alpha-test and fog paths other than the defaults, projected `tex`, implicit-LOD sampling and mipmaps, and the vertex pixel-centre fixup.
+

@@ -6,7 +6,7 @@
 #import <Metal/Metal.h>
 #include <stdint.h>
 
-typedef struct { uint8_t sampler_dim[16]; uint8_t projected[16]; } hp_shader_key;
+typedef struct { uint8_t sampler_dim[16]; uint8_t projected[16]; uint8_t test_kernel; } hp_shader_key;
 char *halopad_shader_to_msl(const uint32_t *t, uint32_t n, const hp_shader_key *key, char *err, size_t errlen);
 
 static int total, translated, compiled, shown;
