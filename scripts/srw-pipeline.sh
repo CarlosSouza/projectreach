@@ -24,7 +24,7 @@ $PY scripts/srw-traps.py --srw-output "$(latest)"
 $PY scripts/srw-flags.py
 $PY scripts/run-srw.py --build "$BUILD" $MODE
 WORK=$(latest)
-( cd "$WORK" && "$ROOT/$BUILD/llasm/llasm" -m64 -ptrofs -I "$ROOT/ref/sr/SR/llasm-support" -o haloce.ll haloce.llasm > llasm.out 2>&1 ) \
+( cd "$WORK" && "$ROOT/$BUILD/llasm/llasm" -m64 -ptrofs -I "$ROOT/port/llasm-support" -o haloce.ll haloce.llasm > llasm.out 2>&1 ) \
   && echo "LLASM OK: $WORK/haloce.ll ($(wc -c < "$WORK/haloce.ll") bytes)" \
   || { echo "LLASM FAILED:"; tail -n 4 "$WORK/llasm.out"; exit 1; }
 

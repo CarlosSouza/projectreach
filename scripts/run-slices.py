@@ -21,7 +21,7 @@ import subprocess
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-SUPPORT = ROOT / 'ref' / 'sr' / 'SR' / 'llasm-support'
+SUPPORT = ROOT / 'port' / 'llasm-support'  # HaloPad copy of SR llasm-support (x87 precision control)
 spec = importlib.util.spec_from_file_location('x86_oracle', ROOT / 'scripts' / 'x86-oracle.py')
 oracle = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(oracle)
