@@ -310,3 +310,21 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   - The invalid cases: index 1, NULL, the same surface, a rectangle outside the surface, the managed pool, and locking a render target.
 
 **Next:** cube and volume textures, occlusion queries, scissor, then the USER32 message loop, DirectInput and DirectSound.
+
+## 2026-09-27 — Occlusion queries
+
+- **How Halo uses them.**
+  - At start-up (\`0x53a260\`) it creates 1,024 \`D3DQUERYTYPE_OCCLUSION\` queries into \`0x67cd88\`. If the answer is \`D3DERR_NOTAVAILABLE\`, it clears the flag at \`0x67cd80\` and does without them.
+  - It brackets draws with \`Issue(BEGIN)\`/\`Issue(END)\` (\`0x53acf7\`), then spins on \`GetData(&count, 4, FLUSH)\` while the answer is S_FALSE (\`0x53ae20\`).
+- **What** (\`port/runtime/halopad_d3d9_query.c\`, Metal side in \`halopad_metal.m\`):
+  - Occlusion counts come from Metal's visibility counters in counting mode. Every draw pass has a counter buffer (a ring of 65,536 slots).
+  - A query that spans several passes gets one counter per pass, and they are summed.
+  - If the counted draws are still in the frame being recorded, \`GetData\` submits the frame and waits, so Halo's spin ends on its first call.
+  - \`Issue(BEGIN)\` again restarts; \`END\` alone counts 0; \`GetData\` while building or with a buffer under 4 bytes is invalid.
+  - Still stopping with a message: other query types, a second query begun while one is counting, and \`GetData\` on a query never issued.
+- **Test** (now 198 checks, all passing under Metal validation):
+  - A 16×16 quad counts 256 samples, and 0 with \`ZFUNC NEVER\`.
+  - A query spanning a \`StretchRect\` (two passes) with a further 8×8 quad counts 320.
+  - The invalid cases.
+
+**Next:** scissor if Halo uses it, then the USER32 message loop, DirectInput and DirectSound.

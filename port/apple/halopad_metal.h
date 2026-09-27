@@ -80,4 +80,12 @@ void halopad_metal_stretch(void *target, void *src, uint32_t slevel, const uint3
 /* Test support: read a region of a texture after all submitted work. */
 void halopad_metal_read_texture(void *target, void *tex, uint32_t level, uint32_t x, uint32_t y, uint32_t w, uint32_t h,
                                 void *out, uint32_t bytes_per_row);
+
+/* Occlusion counting (one query active at a time). begin/end bracket draws; end gives the
+   counter slots used (first..last, one per render pass the query spanned, in ring order)
+   and a generation that read uses to submit and wait for the frame if it is still being
+   recorded. read returns the samples that passed depth and stencil. */
+void halopad_metal_visibility_begin(void *target);
+void halopad_metal_visibility_end(void *target, uint32_t *first, uint32_t *last, uint64_t *gen);
+uint64_t halopad_metal_visibility_read(void *target, uint32_t first, uint32_t last, uint64_t gen);
 #endif

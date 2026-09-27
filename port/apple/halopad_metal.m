@@ -22,7 +22,12 @@ typedef struct {
     uint32_t level;                          /* mip level of color */
     id<MTLCommandBuffer> cb;                 /* the frame being recorded */
     id<MTLRenderCommandEncoder> enc;
+    uint64_t gen;                            /* command buffers created so far (cb is number gen) */
+    id<MTLBuffer> vis;                       /* occlusion counters, a ring of VIS_SLOTS */
+    uint32_t vis_next, vis_first, vis_last;
+    int vis_active, vis_used;                /* a query is counting; its current slot has an encoder */
 } hp_target;
+#define VIS_SLOTS 65536u
 
 static id<MTLDevice> gpu;
 static id<MTLCommandQueue> queue;
@@ -324,7 +329,7 @@ static void end_encoder(hp_target *t)
 
 static id<MTLCommandBuffer> frame(hp_target *t)
 {
-    if (!t->cb) t->cb = [queue commandBuffer];
+    if (!t->cb) { t->cb = [queue commandBuffer]; t->gen++; }
     return t->cb;
 }
 
@@ -343,7 +348,14 @@ void halopad_metal_draw(void *target, const hp_draw_desc *d)
             rp.stencilAttachment.texture = t->zs; rp.stencilAttachment.loadAction = MTLLoadActionLoad;
             rp.stencilAttachment.storeAction = MTLStoreActionStore;
         }
+        if (!t->vis) t->vis = [gpu newBufferWithLength:8 * VIS_SLOTS options:MTLResourceStorageModeShared];
+        rp.visibilityResultBuffer = t->vis;
         t->enc = [frame(t) renderCommandEncoderWithDescriptor:rp];
+        if (t->vis_active) {                                /* a query spanning passes: a new counter per pass */
+            if (t->vis_used) { t->vis_last = t->vis_next++ % VIS_SLOTS; ((uint64_t *)t->vis.contents)[t->vis_last] = 0; }
+            t->vis_used = 1;
+            [t->enc setVisibilityResultMode:MTLVisibilityResultModeCounting offset:8 * t->vis_last];
+        }
     }
     id<MTLRenderCommandEncoder> e = t->enc;
     [e setRenderPipelineState:(__bridge id<MTLRenderPipelineState>)d->pipeline];
@@ -495,4 +507,45 @@ void halopad_metal_read_texture(void *p, void *tex, uint32_t level, uint32_t x, 
         [cb waitUntilCompleted];
         [(__bridge id<MTLTexture>)tex getBytes:out bytesPerRow:bytes_per_row fromRegion:MTLRegionMake2D(x, y, w, h) mipmapLevel:level];
     }
+}
+
+/* ---- occlusion queries ---- */
+
+void halopad_metal_visibility_begin(void *p)
+{
+    hp_target *t = p;
+    if (t->vis_active) { fprintf(stderr, "HALOPAD TRAP: occlusion query: a second query begun while one is counting\n"); abort(); }
+    if (!t->vis) t->vis = [gpu newBufferWithLength:8 * VIS_SLOTS options:MTLResourceStorageModeShared];
+    t->vis_first = t->vis_last = t->vis_next++ % VIS_SLOTS;
+    ((uint64_t *)t->vis.contents)[t->vis_last] = 0;
+    t->vis_active = 1;
+    t->vis_used = t->enc != nil;
+    if (t->enc) [t->enc setVisibilityResultMode:MTLVisibilityResultModeCounting offset:8 * t->vis_last];
+}
+
+void halopad_metal_visibility_end(void *p, uint32_t *first, uint32_t *last, uint64_t *gen)
+{
+    hp_target *t = p;
+    if (t->enc) [t->enc setVisibilityResultMode:MTLVisibilityResultModeDisabled offset:0];
+    t->vis_active = 0;
+    *first = t->vis_first; *last = t->vis_last;
+    *gen = t->cb ? t->gen : 0;                              /* 0: nothing of it is still being recorded */
+}
+
+uint64_t halopad_metal_visibility_read(void *p, uint32_t first, uint32_t last, uint64_t gen)
+{
+    hp_target *t = p;
+    if (gen && t->cb && t->gen == gen) {                    /* the frame is still being recorded: submit it and wait */
+        @autoreleasepool {
+            end_encoder(t);
+            id<MTLCommandBuffer> cb = t->cb;
+            t->cb = nil;
+            [cb commit];
+            [cb waitUntilCompleted];
+        }
+    }
+    uint64_t n = 0;
+    const uint64_t *v = t->vis.contents;
+    for (uint32_t s = first;; s = (s + 1) % VIS_SLOTS) { n += v[s]; if (s == last) break; }
+    return n;
 }

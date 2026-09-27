@@ -561,6 +561,56 @@ int main(void)
         check("rt: CreateOffscreenPlainSurface in the managed pool is invalid",
               method(device, CreateOffscreenPlainSurface, 6, (uint32_t[]){4, 4, 22, 1, poff, 0}), 0x8876086C);
         check("  Release the offscreen surface", method(off, SRelease, 0, NULL), 0);
+        /* ---- occlusion queries ---- */
+        enum { CreateQuery = 118, QRelease = 2, QGetType = 4, QGetDataSize = 5, QIssue = 6, QGetData = 7 };
+        uint32_t pq = halopad_heap_alloc(4, 1), qd = halopad_heap_alloc(4, 1);
+        check("query: CreateQuery(OCCLUSION, NULL) support check", method(device, CreateQuery, 2, (uint32_t[]){9, 0}), 0);
+        check("query: CreateQuery(OCCLUSION)", method(device, CreateQuery, 2, (uint32_t[]){9, pq}), 0);
+        uint32_t oq = rd(pq);
+        check("  GetType 9, GetDataSize 4", method(oq, QGetType, 0, NULL) == 9 && method(oq, QGetDataSize, 0, NULL) == 4, 1);
+        struct { float x, y, z, rhw; uint32_t c; } sq[4] = {
+            {99.5f, 99.5f, 0.5f, 1, 0xFFFFFFFF}, {115.5f, 99.5f, 0.5f, 1, 0xFFFFFFFF}, {99.5f, 115.5f, 0.5f, 1, 0xFFFFFFFF}, {115.5f, 115.5f, 0.5f, 1, 0xFFFFFFFF}};
+        uint32_t gsq = halopad_heap_alloc(sizeof sq, 0);
+        memcpy(halopad_guest_ptr(gsq), sq, sizeof sq);
+        method(device, SetFVF, 1, (uint32_t[]){0x44});
+        method(device, SetTextureStageState, 3, (uint32_t[]){0, 2, 0});     /* ARG1 = DIFFUSE */
+        method(device, BeginScene, 0, NULL);
+        method(device, Clear, 6, (uint32_t[]){0, 0, 3, 0xFF000000, onebits, 0});
+        method(oq, QIssue, 1, (uint32_t[]){2});
+        method(device, 83, 4, (uint32_t[]){5, 2, gsq, sizeof sq[0]});
+        check("query: GetData while building is invalid", method(oq, QGetData, 3, (uint32_t[]){qd, 4, 1}), 0x8876086C);
+        method(oq, QIssue, 1, (uint32_t[]){1});
+        check("query: GetData(FLUSH) after a 16x16 quad", method(oq, QGetData, 3, (uint32_t[]){qd, 4, 1}), 0);
+        check("  256 samples passed", rd(qd), 256);
+        method(device, SetRenderStateX, 2, (uint32_t[]){23, 1});            /* ZFUNC NEVER */
+        method(oq, QIssue, 1, (uint32_t[]){2});
+        method(device, 83, 4, (uint32_t[]){5, 2, gsq, sizeof sq[0]});
+        method(oq, QIssue, 1, (uint32_t[]){1});
+        method(oq, QGetData, 3, (uint32_t[]){qd, 4, 1});
+        check("  with ZFUNC NEVER: 0 samples", rd(qd), 0);
+        method(device, SetRenderStateX, 2, (uint32_t[]){23, 4});            /* LESSEQUAL */
+        /* one query across two render passes (the StretchRect in between ends the first) */
+        uint32_t poff2 = halopad_heap_alloc(4, 1);
+        method(device, CreateOffscreenPlainSurface, 6, (uint32_t[]){4, 4, 22, 0, poff2, 0});
+        method(oq, QIssue, 1, (uint32_t[]){2});
+        method(device, 83, 4, (uint32_t[]){5, 2, gsq, sizeof sq[0]});
+        memcpy(halopad_guest_ptr(rc), (int32_t[]){300, 300, 304, 304}, 16);
+        method(device, StretchRect, 5, (uint32_t[]){rd(poff2), 0, bb, rc, 0});
+        struct { float x, y, z, rhw; uint32_t c; } sq8[4] = {
+            {199.5f, 99.5f, 0.5f, 1, 0xFFFFFFFF}, {207.5f, 99.5f, 0.5f, 1, 0xFFFFFFFF}, {199.5f, 107.5f, 0.5f, 1, 0xFFFFFFFF}, {207.5f, 107.5f, 0.5f, 1, 0xFFFFFFFF}};
+        memcpy(halopad_guest_ptr(gsq), sq8, sizeof sq8);
+        method(device, 83, 4, (uint32_t[]){5, 2, gsq, sizeof sq8[0]});
+        method(oq, QIssue, 1, (uint32_t[]){1});
+        method(oq, QGetData, 3, (uint32_t[]){qd, 4, 1});
+        check("  across two passes: 256 + 64 samples", rd(qd), 320);
+        method(device, EndScene, 0, NULL);
+        method(device, Present, 4, (uint32_t[]){0, 0, 0, 0});
+        method(oq, QIssue, 1, (uint32_t[]){1});
+        check("query: END without BEGIN", method(oq, QGetData, 3, (uint32_t[]){qd, 4, 0}), 0);
+        check("  counts 0", rd(qd), 0);
+        check("query: GetData with a 2-byte buffer is invalid", method(oq, QGetData, 3, (uint32_t[]){qd, 2, 0}), 0x8876086C);
+        check("  Release the query", method(oq, QRelease, 0, NULL), 0);
+        method(rd(poff2), SRelease, 0, NULL);
         method(rts, SRelease, 0, NULL);
         check("  Release the render-target texture", method(rtt, TRelease, 0, NULL), 0);
         method(bb, SRelease, 0, NULL);
