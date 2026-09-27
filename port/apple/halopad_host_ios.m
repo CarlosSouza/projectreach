@@ -4,8 +4,8 @@
  * (halopad_host_attach_view), the layer is off screen: Direct3D still renders into its back
  * buffer (readable by tests), and Present shows nothing, as for a window no one can see.
  * Input comes from the shell's UIKit callbacks through halopad_input_event; this file has no
- * event source of its own, so halopad_host_pump only runs the main run loop's pending work
- * when called on the main thread. */
+ * event source of its own: the shell queues events (halopad_host_post_input) and
+ * halopad_host_pump delivers them on the thread that pumps, which is Halo's. */
 #include <TargetConditionals.h>
 #if TARGET_OS_IPHONE
 #import <UIKit/UIKit.h>
@@ -26,10 +26,37 @@ void halopad_host_screen_size(int32_t *w, int32_t *h)
     *h = a > c ? c : a;
 }
 
+/* Events from the shell (UIKit's main thread) wait here until Halo's thread pumps. */
+#include <pthread.h>
+#define QSIZE 1024u
+static hp_input queue_ev[QSIZE];
+static uint32_t q_head, q_tail;
+static pthread_mutex_t q_lock = PTHREAD_MUTEX_INITIALIZER;
+
+void halopad_host_post_input(const hp_input *e)
+{
+    pthread_mutex_lock(&q_lock);
+    if (q_tail - q_head < QSIZE) queue_ev[q_tail++ % QSIZE] = *e;   /* a full queue drops, as a stalled Windows queue would */
+    pthread_mutex_unlock(&q_lock);
+}
+
 void halopad_host_pump(void)
 {
+    /* the thread that pumps is Halo's: the app's game thread, or the main thread of a test binary */
     if ([NSThread isMainThread]) [[NSRunLoop mainRunLoop] runMode:NSDefaultRunLoopMode beforeDate:[NSDate distantPast]];
+    for (;;) {
+        hp_input e;
+        pthread_mutex_lock(&q_lock);
+        int have = q_head != q_tail;
+        if (have) e = queue_ev[q_head++ % QSIZE];
+        pthread_mutex_unlock(&q_lock);
+        if (!have) return;
+        if (!halopad_host_input_off) halopad_input_event(&e);
+    }
 }
+
+/* For the shell's pointer mapping: a window's client size in pixels. */
+void halopad_host_window_size(void *p, uint32_t *w, uint32_t *h) { hp_window *win = p; *w = win->w; *h = win->h; }
 
 /* DirectInput's exclusive mouse and Windows' cursor display: recorded for the shell, which
    applies them with UIKit's pointer lock and pointer hiding. */

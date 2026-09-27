@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <TargetConditionals.h>
 #define PTROFS_64BIT 1
 #include "llasm_cpu.h"
 #include "../port/runtime/halopad_input.h"
@@ -246,6 +247,45 @@ int main(void)
     check("PostQuitMessage(3): WM_QUIT with wParam 3", peek(0, 0, 1) && M(1) == 0x12 && M(2) == 3 && M(0) == 0, 1);
     check("  then the queue is empty", peek(0, 0, 1), 0);
 
+
+    /* the iPad keyboard table (USB HID usages, as UIKit reports them) agrees with the Mac table */
+    {
+        static const struct { uint16_t hid, mac; } same[] = {{0x04, 0x00}, {0x1D, 0x06}, {0x1E, 0x12}, {0x27, 0x1D}, {0x28, 0x24}, {0x29, 0x35},
+            {0x2A, 0x33}, {0x2B, 0x30}, {0x2C, 0x31}, {0x35, 0x32}, {0x3A, 0x7A}, {0x45, 0x6F}, {0x4F, 0x7C}, {0x52, 0x7E},
+            {0x58, 0x4C}, {0x62, 0x52}, {0xE0, 0x3B}, {0xE1, 0x38}, {0xE2, 0x3A}, {0xE3, 0x37}, {0xE5, 0x3C}, {0xE6, 0x3D}};
+        int agree = 1;
+        for (size_t i = 0; i < sizeof same / sizeof same[0]; i++) {
+            uint32_t v1, s1, c1, v2, s2, c2; int e1, e2;
+            if (!halopad_hid_key(same[i].hid, &v1, &s1, &c1, &e1) || !halopad_mac_key(same[i].mac, &v2, &s2, &c2, &e2)
+                || v1 != v2 || s1 != s2 || c1 != c2 || e1 != e2) { agree = 0; printf("    HID 0x%02x differs from Mac 0x%02x\n", same[i].hid, same[i].mac); }
+        }
+        check("HID keyboard usages match the Mac table (letters, digits, Enter, arrows, F-keys, keypad, modifiers)", agree, 1);
+        uint32_t v, sd, sc; int ex;
+        check("HID W (0x1A): 'W', scan 0x11", halopad_hid_key(0x1A, &v, &sd, &sc, &ex) && v == 'W' && sc == 0x11 && !ex, 1);
+        check("HID Up (0x52): VK_UP, scan 0x48, extended", halopad_hid_key(0x52, &v, &sd, &sc, &ex) && v == 0x26 && sc == 0x48 && ex, 1);
+        check("HID usage 0x00 (no key): none", halopad_hid_key(0x00, &v, &sd, &sc, &ex), 0);
+    }
+#if TARGET_OS_IPHONE
+    /* iPadOS: the app shell queues input from UIKit's thread; the pump in Halo's message loop
+       delivers it (halopad_host_post_input) */
+    {
+        halopad_host_input_off = 0;                                         /* the shell's events flow, as in the app */
+        hp_input act = {.kind = HPI_ACTIVATE, .down = 1};
+        halopad_host_post_input(&act);
+        hp_input q = {.kind = HPI_KEY, .down = 1};
+        halopad_hid_key(0x1A, &q.vk, &q.side_vk, &q.scan, &q.extended);     /* W */
+        halopad_host_post_input(&q);
+        uint32_t before = API("GetAsyncKeyState", 'W') & 0x8000;
+        uint32_t msg = halopad_heap_alloc(28, 1);
+        API("PeekMessageA", msg, 0, 0, 0, 0);                              /* pumps without removing */
+        check("iOS: a key queued by the shell is not seen before the pump", before, 0);
+        check("  ... and is down after PeekMessageA pumps", API("GetAsyncKeyState", 'W') & 0x8000, 0x8000);
+        q.down = 0;
+        halopad_host_post_input(&q);
+        API("PeekMessageA", msg, 0, 0, 0, 0);
+        halopad_host_input_off = 1;
+    }
+#endif
     printf("%s: %d failure(s)\n", failures ? "FAIL" : "PASS", failures);
     return failures ? 1 : 0;
 }

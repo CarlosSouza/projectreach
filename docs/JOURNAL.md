@@ -763,3 +763,19 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
 - **For Chris.** Accepting can now be done in the app: run `scripts/build-ios-app.py --launch`, open Simulator, read the license and tap. The Mac runner still uses `scripts/accept-eula.sh`.
 
 **Next:** touch, keyboard and pointer input from the shell into `halopad_input_event` (and game controllers), so that once the player accepts, the splash, menus and chat can be driven on the iPad.
+
+## 2026-09-27 — iPadOS input: keyboard, touch and pointer from the app shell
+
+- **What the shell sends.** It queues input from UIKit's main thread with `halopad_host_post_input`, and `halopad_host_pump` delivers it on the thread that pumps (Halo's):
+  - hardware keyboard presses, mapped from USB HID usages by the new `halopad_hid_key` table (`halopad_keys.c`) to Windows virtual keys and set-1 scan codes, with the typed characters;
+  - touch as the left mouse button, with relative motion for DirectInput;
+  - an iPad pointer: secondary button, hover moves, and trackpad or wheel scrolling as `WHEEL_DELTA` units;
+  - scene activation as `HPI_ACTIVATE`.
+  - Pointer positions are mapped through the letterboxed layer to the game window's client pixels.
+- **Tests (the USER32 suite):**
+  - the HID table agrees with the Mac table for 22 keys (letters, digits, Enter, Escape, arrows, F-keys, keypad, modifiers);
+  - on iOS, a key the shell queues is not visible before the pump and is down after `PeekMessageA` pumps.
+  - It passes on macOS and on the iPad Simulator.
+- The app still reaches Halo's license screen (`ios-app-20260927T113754Z`). No choice was made, and the Simulator is shut down.
+
+**Next:** game controllers (GameController framework into DirectInput's joystick devices), and on the Mac the D3D device paths Halo uses beyond the license (Reset, render targets, scissor), each verified with its own test.
