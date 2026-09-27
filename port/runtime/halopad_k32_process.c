@@ -126,7 +126,8 @@ uint32_t FreeEnvironmentStringsA_c(uint32_t p) { halopad_heap_free(p); return 1;
 uint32_t GetCurrentProcess_c(void) { return 0xFFFFFFFFu; }
 uint32_t GetCurrentThread_c(void) { return 0xFFFFFFFEu; }
 uint32_t GetCurrentProcessId_c(void) { return 0x1000; }
-uint32_t GetCurrentThreadId_c(void) { return 0x1004; }   /* main thread; more with CreateThread */
+_Thread_local uint32_t halopad_current_tid = 0x1004;       /* main thread; CreateThread assigns others */
+uint32_t GetCurrentThreadId_c(void) { return halopad_current_tid; }
 
 void ExitProcess_c(uint32_t code)
 {

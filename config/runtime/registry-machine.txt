@@ -1,0 +1,4 @@
+# HaloPad reference machine registry before Halo is installed (docs/G3-RUNTIME.md).
+# Only keys every Windows XP SP3 machine with DirectX 9 has. Halo's own install keys are
+# absent: HaloPad never creates product-key-derived values.
+key HKLM\Software\Microsoft\Direct3D

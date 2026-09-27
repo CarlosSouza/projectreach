@@ -67,15 +67,17 @@ def main():
     work = (a.work or max(PROFILE.glob('run-*/va/haloce.va.ll'), key=lambda p: p.stat().st_mtime).parent.parent).resolve()
     target = a.target or json.loads((ROOT / 'toolchains.lock.json').read_text())['target']
     exe, obj = build(work, target)
-    env = dict(os.environ, HALOPAD_IMAGE=str(IMAGE), HALOPAD_GAME_ROOT=str(GAME_ROOT))
+    stamp = datetime.datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')
+    evid = ROOT / 'docs' / 'artifacts' / datetime.date.today().isoformat() / 'G3' / f'core-{target}-{stamp}'
+    evid.mkdir(parents=True, exist_ok=True)
+    # each run starts from the reference machine's registry; the final state is evidence
+    env = dict(os.environ, HALOPAD_IMAGE=str(IMAGE), HALOPAD_GAME_ROOT=str(GAME_ROOT), HALOPAD_REPO_ROOT=str(ROOT),
+               HALOPAD_REGISTRY=str(evid / 'registry.txt'))
     try:
         run = subprocess.run([str(exe)], capture_output=True, text=True, timeout=a.timeout, env=env)
         code, out, err = run.returncode, run.stdout, run.stderr
     except subprocess.TimeoutExpired as t:
         code, out, err = 'timeout', (t.stdout or b'').decode(errors='replace'), (t.stderr or b'').decode(errors='replace')
-    stamp = datetime.datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')
-    evid = ROOT / 'docs' / 'artifacts' / datetime.date.today().isoformat() / 'G3' / f'core-{target}-{stamp}'
-    evid.mkdir(parents=True, exist_ok=True)
     (evid / 'stdout.txt').write_text(out)
     (evid / 'stderr.txt').write_text(err)
     stop = next((l for l in reversed(err.splitlines()) if l.startswith('HALOPAD TRAP') or l.startswith('HALOPAD FAULT')), None)

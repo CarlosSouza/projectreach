@@ -1,0 +1,42 @@
+;; HaloPad Windows runtime: advapi32 registry services (port/runtime/halopad_registry.c).
+;; Pattern and macros from SR's Septerra Core port (asm-calls.llinc).
+
+include llasm.llinc
+include asm-calls.llinc
+
+func RegOpenKeyExA_c a1, a2, a3, a4, a5
+func RegOpenKeyA_c a1, a2, a3
+func RegCreateKeyExA_c a1, a2, a3, a4, a5, a6, a7, a8, a9
+func RegQueryValueExA_c a1, a2, a3, a4, a5, a6
+func RegSetValueExA_c a1, a2, a3, a4, a5, a6
+func RegCloseKey_c a1
+
+proc hpimp_RegOpenKeyExA public
+        Call_Asm_Stack5 RegOpenKeyExA_c
+        Call_Asm_Return 5
+endp
+
+proc hpimp_RegOpenKeyA public
+        Call_Asm_Stack3 RegOpenKeyA_c
+        Call_Asm_Return 3
+endp
+
+proc hpimp_RegCreateKeyExA public
+        Call_Asm_Stack9 RegCreateKeyExA_c
+        Call_Asm_Return 9
+endp
+
+proc hpimp_RegQueryValueExA public
+        Call_Asm_Stack6 RegQueryValueExA_c
+        Call_Asm_Return 6
+endp
+
+proc hpimp_RegSetValueExA public
+        Call_Asm_Stack6 RegSetValueExA_c
+        Call_Asm_Return 6
+endp
+
+proc hpimp_RegCloseKey public
+        Call_Asm_Stack1 RegCloseKey_c
+        Call_Asm_Return 1
+endp

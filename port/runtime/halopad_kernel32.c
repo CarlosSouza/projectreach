@@ -60,8 +60,12 @@ uint32_t ReadFile_c(uint32_t handle, void *buffer, uint32_t count, uint32_t *rea
     return 1;
 }
 
+int halopad_is_object_handle(uint32_t handle);
+uint32_t halopad_object_close(uint32_t handle);
+
 uint32_t CloseHandle_c(uint32_t handle)
 {
+    if (halopad_is_object_handle(handle)) return halopad_object_close(handle);
     FILE *f = hp_lookup(handle);
     if (!f) { halopad_last_error = 6; return 0; }
     fclose(f);

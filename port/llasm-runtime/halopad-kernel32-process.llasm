@@ -55,6 +55,19 @@ func GetStringTypeW_c a1, a2, a3, a4
 func GetStringTypeA_c a1, a2, a3, a4, a5
 func LCMapStringW_c a1, a2, a3, a4, a5, a6
 func LCMapStringA_c a1, a2, a3, a4, a5, a6
+func FindResourceExA_c a1, a2, a3, a4
+func FindResourceA_c a1, a2, a3
+func LoadResource_c a1, a2
+func LockResource_c a1
+func SizeofResource_c a1, a2
+func LoadStringA_c a1, a2, a3, a4
+func CreateMutexA_c a1, a2, a3
+func CreateEventA_c a1, a2, a3, a4
+func ReleaseMutex_c a1
+func SetEvent_c a1
+func WaitForSingleObject_c a1, a2
+func WaitForSingleObjectEx_c a1, a2, a3
+funcv Sleep_c a1
 func WideCharToMultiByte_c a1, a2, a3, a4, a5, a6, a7, a8
 func VirtualAlloc_c a1, a2, a3, a4
 func VirtualFree_c a1, a2, a3
@@ -408,4 +421,69 @@ endp
 proc hpimp_LCMapStringA public
         Call_Asm_Stack6 LCMapStringA_c
         Call_Asm_Return 6
+endp
+
+proc hpimp_FindResourceExA public
+        Call_Asm_Stack4 FindResourceExA_c
+        Call_Asm_Return 4
+endp
+
+proc hpimp_FindResourceA public
+        Call_Asm_Stack3 FindResourceA_c
+        Call_Asm_Return 3
+endp
+
+proc hpimp_LoadResource public
+        Call_Asm_Stack2 LoadResource_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_LockResource public
+        Call_Asm_Stack1 LockResource_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_SizeofResource public
+        Call_Asm_Stack2 SizeofResource_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_LoadStringA public
+        Call_Asm_Stack4 LoadStringA_c
+        Call_Asm_Return 4
+endp
+
+proc hpimp_CreateMutexA public
+        Call_Asm_Stack3 CreateMutexA_c
+        Call_Asm_Return 3
+endp
+
+proc hpimp_CreateEventA public
+        Call_Asm_Stack4 CreateEventA_c
+        Call_Asm_Return 4
+endp
+
+proc hpimp_ReleaseMutex public
+        Call_Asm_Stack1 ReleaseMutex_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_SetEvent public
+        Call_Asm_Stack1 SetEvent_c
+        Call_Asm_Return 1
+endp
+
+proc hpimp_WaitForSingleObject public
+        Call_Asm_Stack2 WaitForSingleObject_c
+        Call_Asm_Return 2
+endp
+
+proc hpimp_WaitForSingleObjectEx public
+        Call_Asm_Stack3 WaitForSingleObjectEx_c
+        Call_Asm_Return 3
+endp
+
+proc hpimp_Sleep public
+        Call_Asm_Stack1_void Sleep_c
+        Call_Asm_Return 1
 endp

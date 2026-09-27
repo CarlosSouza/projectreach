@@ -22,7 +22,7 @@ extern uint64_t halopad_guest_base;
 #define VM_LO 0x01000000u    /* allocations start above the image (0x400000-0x82c000) */
 #define VM_HI 0x7FFD0000u    /* below the TLS/TEB pages */
 
-typedef struct { uint32_t base, size, protect; uint8_t *committed; } region;
+typedef struct { uint32_t base, size, protect; uint8_t *committed; uint32_t *pprot; } region;   /* pprot: per 4 KiB page */
 static region regions[4096];
 static uint32_t nregions;
 
@@ -44,7 +44,9 @@ static int overlaps(uint32_t base, uint32_t size)
 void halopad_vm_mark(uint32_t base, uint32_t size)
 {
     if (nregions == sizeof regions / sizeof regions[0]) hp_unsupported("VirtualAlloc", "more than %u regions", nregions);
-    regions[nregions++] = (region){base, size, 4, NULL};
+    uint32_t *pp = malloc(size / PAGE * sizeof *pp);
+    for (uint32_t i = 0; i < size / PAGE; i++) pp[i] = 4;
+    regions[nregions++] = (region){base, size, 4, NULL, pp};
 }
 
 /* The host may use larger pages than Windows' 4 KiB (16 KiB on Apple Silicon). Granting
@@ -94,8 +96,8 @@ uint32_t halopad_vm_reserve(uint32_t address, uint32_t size, int commit_now)
     }
     if (nregions == sizeof regions / sizeof regions[0]) hp_unsupported("VirtualAlloc", "more than %u regions", nregions);
     region *r = &regions[nregions++];
-    *r = (region){base, span, 4, calloc(span / PAGE, 1)};
-    if (commit_now) { protect(base, span, 1); set_committed(r, base, span, 1); }
+    *r = (region){base, span, 4, calloc(span / PAGE, 1), calloc(span / PAGE, sizeof(uint32_t))};
+    if (commit_now) { protect(base, span, 1); set_committed(r, base, span, 1); for (uint32_t i = 0; i < span / PAGE; i++) r->pprot[i] = 4; }
     return address ? address : base;
 }
 
@@ -105,6 +107,7 @@ int halopad_vm_release(uint32_t address)
     if (!r || r->base != address || !r->committed) return 0;
     protect(r->base, r->size, 0);
     free(r->committed);
+    free(r->pprot);
     *r = regions[--nregions];
     return 1;
 }
@@ -121,11 +124,14 @@ uint32_t VirtualAlloc_c(uint32_t address, uint32_t size, uint32_t type, uint32_t
         uint32_t a = address & ~(PAGE - 1), end = (address + size + PAGE - 1) & ~(PAGE - 1);
         if (end - r->base > r->size) { halopad_last_error = HP_ERROR_INVALID_PARAMETER; return 0; }
         if (prot != 0x01) { protect(a, end - a, 1); set_committed(r, a, end - a, 1); }
+        for (uint32_t pg = (a - r->base) / PAGE; pg < (end - r->base) / PAGE; pg++) r->pprot[pg] = prot;
         return a;
     }
     if (!(type & MEM_RESERVE) && address) { halopad_last_error = HP_ERROR_INVALID_PARAMETER; return 0; }
     uint32_t got = halopad_vm_reserve(address, size, (type & MEM_COMMIT) && prot != 0x01);
-    if (!got) halopad_last_error = address ? 487 /* ERROR_INVALID_ADDRESS */ : HP_ERROR_NOT_ENOUGH_MEMORY;
+    if (!got) { halopad_last_error = address ? 487 /* ERROR_INVALID_ADDRESS */ : HP_ERROR_NOT_ENOUGH_MEMORY; return 0; }
+    region *nr = find(got);
+    for (uint32_t pg = 0; pg < nr->size / PAGE; pg++) nr->pprot[pg] = (type & MEM_COMMIT) ? prot : 0;
     return got;
 }
 
@@ -154,13 +160,15 @@ uint32_t VirtualQuery_c(uint32_t address, uint32_t info, uint32_t length)
     if (!r) hp_unsupported("VirtualQuery", "address 0x%08x outside known regions", address);
     uint32_t page = address & ~(PAGE - 1);
     uint32_t on = r->committed ? r->committed[(page - r->base) / PAGE] : 1, end = page;
-    while (end < r->base + r->size && (r->committed ? r->committed[(end - r->base) / PAGE] : 1) == on) end += PAGE;
+    uint32_t pp = r->pprot[(page - r->base) / PAGE];
+    while (end < r->base + r->size && (r->committed ? r->committed[(end - r->base) / PAGE] : 1) == on
+           && r->pprot[(end - r->base) / PAGE] == pp) end += PAGE;
     wr32(info + 0, page);
     wr32(info + 4, r->base);
     wr32(info + 8, r->protect);
     wr32(info + 12, end - page);
     wr32(info + 16, on ? MEM_COMMIT : MEM_RESERVE);
-    wr32(info + 20, on ? r->protect : 0);
+    wr32(info + 20, on ? pp : 0);
     wr32(info + 24, r->committed ? MEM_PRIVATE : 0x1000000 /* MEM_IMAGE */);
     return 28;
 }
@@ -169,17 +177,22 @@ uint32_t VirtualProtect_c(uint32_t address, uint32_t size, uint32_t prot, uint32
 {
     region *r = find(address);
     if (!r) hp_unsupported("VirtualProtect", "address 0x%08x outside known regions", address);
-    int rw;
-    if (prot == 0x04 || prot == 0x40) rw = 1;          /* PAGE_READWRITE, PAGE_EXECUTE_READWRITE */
-    else if (prot == 0x02 || prot == 0x20) rw = 0;     /* PAGE_READONLY, PAGE_EXECUTE_READ */
+    int host;
+    if (prot == 0x04 || prot == 0x40) host = PROT_READ | PROT_WRITE;   /* PAGE_READWRITE, PAGE_EXECUTE_READWRITE */
+    else if (prot == 0x02 || prot == 0x20) host = PROT_READ;           /* PAGE_READONLY, PAGE_EXECUTE_READ */
+    else if (prot == 0x01) host = PROT_NONE;                           /* PAGE_NOACCESS */
     else hp_unsupported("VirtualProtect", "protection 0x%x at 0x%08x", prot, address);
-    if (old) wr32(old, r->protect);
+    uint32_t a = address & ~(PAGE - 1), end = (address + (size ? size : 1) + PAGE - 1) & ~(PAGE - 1);
+    if (end - r->base > r->size) hp_unsupported("VirtualProtect", "range 0x%08x+0x%x crossing a region", address, size);
+    if (old) wr32(old, r->pprot[(a - r->base) / PAGE]);
+    for (uint32_t pg = (a - r->base) / PAGE; pg < (end - r->base) / PAGE; pg++) r->pprot[pg] = prot;
+    /* host pages are larger than 4 KiB: granting rounds outward, restricting rounds inward
+       (a partially covered host page keeps its access; see docs/G3-RUNTIME.md) */
     uint32_t lo, hi;
-    if (host_range(address, size ? size : 1, rw, &lo, &hi)
-        && mprotect((void *)(uintptr_t)(halopad_guest_base + lo), hi - lo, rw ? PROT_READ | PROT_WRITE : PROT_READ) != 0) {
+    if (host_range(a, end - a, host == (PROT_READ | PROT_WRITE), &lo, &hi)
+        && mprotect((void *)(uintptr_t)(halopad_guest_base + lo), hi - lo, host) != 0) {
         perror("HALOPAD: mprotect"); abort();
     }
-    r->protect = prot;
     return 1;
 }
 
@@ -194,12 +207,18 @@ void halopad_protect_image(uint32_t image_base)
     uint32_t nsec = rd32(pe + 6) & 0xFFFF, opt = rd32(pe + 0x14) & 0xFFFF, image_size = rd32(pe + 0x50);
     uint32_t pages = image_size / PAGE;
     uint8_t *ro = calloc(pages, 1);
-    memset(ro, 1, (pe + 0x18 + opt + 40 * nsec - image_base + PAGE - 1) / PAGE);   /* headers */
+    region *r = find(image_base);
+    uint32_t hdr = (pe + 0x18 + opt + 40 * nsec - image_base + PAGE - 1) / PAGE;
+    memset(ro, 1, hdr);                                           /* headers */
+    for (uint32_t p = 0; p < hdr && r; p++) r->pprot[p] = 0x02;
     for (uint32_t i = 0; i < nsec; i++) {
         uint32_t sh = pe + 0x18 + opt + 40 * i;
         uint32_t rva = rd32(sh + 12), size = rd32(sh + 8), flags = rd32(sh + 36);
-        if (flags & 0x80000000u) continue;                        /* IMAGE_SCN_MEM_WRITE */
-        for (uint32_t p = rva / PAGE; p < (rva + size + PAGE - 1) / PAGE && p < pages; p++) ro[p] = 1;
+        int write = (flags & 0x80000000u) != 0, exec = (flags & 0x20000000u) != 0;
+        for (uint32_t p = rva / PAGE; p < (rva + size + PAGE - 1) / PAGE && p < pages; p++) {
+            if (r) r->pprot[p] = exec ? (write ? 0x40 : 0x20) : (write ? 0x04 : 0x02);   /* Windows page protections */
+            if (!write) ro[p] = 1;
+        }
     }
     uint32_t per = host_page() / PAGE;
     for (uint32_t hp = 0; hp + per <= pages; hp += per) {

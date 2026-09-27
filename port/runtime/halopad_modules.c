@@ -13,7 +13,7 @@
 #include "halopad_win32.h"
 
 #define ERROR_MOD_NOT_FOUND 126
-enum { LOADED, LOADABLE, ABSENT };
+enum { LOADED, LOADABLE, ABSENT, DATAFILE };
 typedef struct { const char *name; uint32_t handle; int state; uint32_t refs; } module;
 
 static module modules[] = {
@@ -37,6 +37,10 @@ static module modules[] = {
     {"vorbisfile.dll", 0x10000000, LOADABLE, 0},   /* shipped with the game */
     {"binkw32.dll", 0x10100000, LOADABLE, 0},      /* shipped with the game */
     {"eula.dll", 0x10200000, LOADABLE, 0},         /* shipped with the game */
+    /* game DLLs Halo uses only for resources: mapped as read-only images from the game
+       directory at their preferred base; their code never runs (no DllMain; no dispatch
+       entries, so any transfer into them traps with the address) */
+    {"strings.dll", 0x3F800000, DATAFILE, 0},
     /* not installed on the reference machine */
     {"mscoree.dll", 0, ABSENT, 0},                 /* no .NET runtime */
     {"nvcpl.dll", 0, ABSENT, 0},                   /* no NVIDIA control panel */
@@ -74,10 +78,60 @@ uint32_t GetModuleHandleA_c(uint32_t name)
     return 0;
 }
 
+static uint32_t mapped[8];
+static uint32_t nmapped;
+
+uint32_t halopad_module_mapped(uint32_t handle)
+{
+    if (handle == HP_IMAGE_BASE) return 1;
+    for (uint32_t i = 0; i < nmapped; i++) if (mapped[i] == handle) return 1;
+    return 0;
+}
+
+uint32_t VirtualProtect_c(uint32_t address, uint32_t size, uint32_t prot, uint32_t old);
+
+/* Lay out a PE file's headers and sections at its preferred base, as the Windows loader
+   does, then make the whole image read-only. No relocation is needed at the preferred
+   base, no imports are bound and no entry point runs. */
+static void map_datafile(module *m)
+{
+    const char *root = getenv("HALOPAD_GAME_ROOT");
+    if (!root) hp_unsupported("LoadLibraryA", "no HALOPAD_GAME_ROOT for \"%s\"", m->name);
+    char path[1024];
+    snprintf(path, sizeof path, "%s/%s", root, m->name);
+    FILE *f = fopen(path, "rb");
+    if (!f) hp_unsupported("LoadLibraryA", "cannot open %s", path);
+    fseek(f, 0, SEEK_END);
+    long size = ftell(f);
+    uint8_t *file = malloc((size_t)size);
+    fseek(f, 0, SEEK_SET);
+    if (fread(file, 1, (size_t)size, f) != (size_t)size) hp_unsupported("LoadLibraryA", "short read of %s", path);
+    fclose(f);
+    uint32_t pe, image_size, headers, nsec, opt;
+    memcpy(&pe, file + 0x3C, 4);
+    memcpy(&image_size, file + pe + 0x50, 4);
+    memcpy(&headers, file + pe + 0x54, 4);
+    nsec = (uint32_t)(file[pe + 6] | file[pe + 7] << 8);
+    opt = (uint32_t)(file[pe + 0x14] | file[pe + 0x15] << 8);
+    if (halopad_vm_reserve(m->handle, image_size, 1) != m->handle)
+        hp_unsupported("LoadLibraryA", "preferred base 0x%08x of %s is not free", m->handle, m->name);
+    memcpy(G(m->handle), file, headers);
+    for (uint32_t i = 0; i < nsec; i++) {
+        const uint8_t *sh = file + pe + 0x18 + opt + 40 * i;
+        uint32_t va, raw, rawptr;
+        memcpy(&va, sh + 12, 4); memcpy(&raw, sh + 16, 4); memcpy(&rawptr, sh + 20, 4);
+        if (raw) memcpy(G(m->handle + va), file + rawptr, raw);
+    }
+    free(file);
+    VirtualProtect_c(m->handle, image_size, 0x02 /* PAGE_READONLY */, 0);
+    mapped[nmapped++] = m->handle;
+}
+
 uint32_t LoadLibraryA_c(uint32_t name)
 {
     module *m = find_module("LoadLibraryA", name);
     if (m->state == ABSENT) { halopad_last_error = ERROR_MOD_NOT_FOUND; return 0; }
+    if (m->state == DATAFILE) map_datafile(m);
     m->state = LOADED;
     m->refs++;
     return m->handle;
