@@ -26,6 +26,12 @@ void halopad_missing_import(const char *name)
     abort();
 }
 
+void halopad_missing_method(const char *name)
+{
+    fprintf(stderr, "HALOPAD TRAP: COM method %s has no implementation in this runtime\n", name);
+    abort();
+}
+
 /* Weak: the core links port/runtime/halopad_thread.c, which provides a real thread
  * environment block; slice tests have none and stop here. */
 __attribute__((weak)) uint32_t CCALL X86_ReadFsDword(uint32_t addr)

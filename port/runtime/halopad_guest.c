@@ -31,6 +31,8 @@ extern void *halopad_return_to_host_address(void);
 extern const uint32_t halopad_import_count, halopad_import_slot_count, halopad_import_base, halopad_import_stride;
 extern const uint32_t halopad_import_slots[];
 extern const char *const halopad_import_names[];
+extern const uint32_t halopad_com_base, halopad_com_method_count;
+extern const char *const halopad_com_methods[];
 
 static void guest_fault(int sig, siginfo_t *info, void *ctx)
 {
@@ -123,6 +125,11 @@ void *halopad_lookup(uint32_t va)
         uint32_t i = (va - halopad_import_base) / halopad_import_stride;
         fprintf(stderr, "HALOPAD TRAP: indirect transfer to 0x%08x, inside import %s's address but not its entry\n",
                 va, halopad_import_names[i]);
+        abort();
+    }
+    if (va >= halopad_com_base && va < halopad_com_base + halopad_import_stride * halopad_com_method_count) {
+        fprintf(stderr, "HALOPAD TRAP: indirect transfer to 0x%08x, inside COM method %s's address but not its entry\n",
+                va, halopad_com_methods[(va - halopad_com_base) / halopad_import_stride]);
         abort();
     }
     fprintf(stderr, "HALOPAD TRAP: indirect transfer to 0x%08x, which has no compiled procedure\n", va);

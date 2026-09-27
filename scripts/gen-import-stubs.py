@@ -21,13 +21,16 @@ def main():
     # <name>_asm2c procedures are implemented by HaloPad's llasm runtime object.
     # halopad_* procedures come from the dispatch module (VA model).
     names = [n for n in names if not n.endswith('_asm2c') and not n.startswith('halopad_')]
-    lines = ['declare void @halopad_missing_import(ptr)', '']
+    lines = ['declare void @halopad_missing_import(ptr)', 'declare void @halopad_missing_method(ptr)', '']
     for i, n in enumerate(names):
         shown = n[len('hpimp_'):] if n.startswith('hpimp_') else n
+        if n.startswith('hpcom_'):
+            iface, _, method = n[len('hpcom_'):].partition('_')
+            shown = f'{iface}::{method}'
         s = shown.encode() + b'\0'
         lines.append(f'@.hp_name_{i} = private unnamed_addr constant [{len(s)} x i8] c"{shown}\\00"')
         lines.append(f'define hidden fastcc void @{n}(ptr %cpu) {{')
-        lines.append(f'  call void @halopad_missing_import(ptr @.hp_name_{i})')
+        lines.append(f'  call void @halopad_missing_{"method" if n.startswith("hpcom_") else "import"}(ptr @.hp_name_{i})')
         lines.append('  unreachable')
         lines.append('}')
     open(out, 'w').write('\n'.join(lines) + '\n')
