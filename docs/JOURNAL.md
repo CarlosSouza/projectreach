@@ -813,3 +813,12 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   - Evidence: `docs/artifacts/2026-09-27/G1b/server-20260927T121035Z/`.
 - **This is the unchanged server G5's match will use.** Public servers were not touched.
 - **The reference client (`haloce.exe`) was not run.** Its first run opens the license dialog, which needs the player's choice, so that row of G1b is parked on the same license as the native core.
+
+## 2026-09-27 — Second look at bnunu/halo-1
+
+- **Question.** Chris posted `bnunu/halo-1` again, asking whether it can advance the project. The pinned checkouts in the ignored `ref/decomp/` were moved to the current heads (`8036fb8`, `8b4c73a`), and the upstream port `cybersecurity/halo-ce-universal` was read too.
+- **Answer: reference only, unchanged.** It is a decompilation of the Xbox pre-release build 2342, with native Linux, Windows and Android ports. Their multiplayer is Xbox lockstep system link under a new "protocol version 2", so they can join neither Custom Edition 1.10 servers nor real Xbox games. They need the August 2001 Xbox SDK and the PAL data of the pre-release build, and neither is sold.
+- **New findings.**
+  - Its own documentation says parts were reconstructed with files described as original Bungie source and a leaked CEA source tree, so nothing from it enters HaloPad.
+  - Only 1,223 of its 5,602 string literals occur in `haloce.exe` (networking 37 of 830, rasterizer 0 of 1,440), so a string-based name map for our binary would be thin.
+- **Written up** in [REVIEW-HALO1-DECOMP.md](REVIEW-HALO1-DECOMP.md). The parked items (the license choice, the product key, a device, a second player) are unaffected.

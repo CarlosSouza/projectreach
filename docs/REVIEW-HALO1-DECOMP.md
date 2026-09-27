@@ -4,8 +4,8 @@ Chris asked whether [bnunu/halo-1](https://github.com/bnunu/halo-1) can advance 
 
 | Repository | Pinned commit | What it is |
 |---|---|---|
-| `bnunu/halo-1` | `f88c89192b67827ce6e44a5acd48322b39473c14` | Fork of `punpckhdq/halo`: a C decompilation (about 410,000 lines, 477 `.c` files) that aims to byte-match `cachebeta.exe`, **Xbox build 2342** (a PAL pre-release debug build). CC0 license text, but the code reconstructs Bungie/Microsoft code. |
-| `bnunu/halo-ce-universal` | `522dcf6f3d35db73627a0ef38ddbd8f10313d16e` | That decompilation ported natively to Linux, Windows and Android (SDL3, OpenGL/GLES, POSIX sockets), plus 128-player system link. |
+| `bnunu/halo-1` | `8036fb82430fb0969a773abdf0f456dc3d669a38 (first review: f88c8919)` | Fork of `punpckhdq/halo`: a C decompilation (about 410,000 lines, 477 `.c` files) that aims to byte-match `cachebeta.exe`, **Xbox build 2342** (a PAL pre-release debug build). CC0 license text, but the code reconstructs Bungie/Microsoft code. |
+| `bnunu/halo-ce-universal` | `8b4c73aa91de6e6032c762541e181f6e5d5101c3 (first review: 522dcf6f)` | That decompilation ported natively to Linux, Windows and Android (SDL3, OpenGL/GLES, POSIX sockets), plus 128-player system link. |
 
 ## What it needs and does
 
@@ -26,3 +26,16 @@ Chris asked whether [bnunu/halo-1](https://github.com/bnunu/halo-1) can advance 
 - As an engine reference when reading translated code: names and layouts for tag structures, the game engine (CTF, slayer and so on), physics, AI, the scripting library and the network message definitions that predate the PC port. These help to name a function or a structure the core reaches, and to write better diagnostics.
 - Not as code: nothing is copied into HaloPad's tree, runtime or generated translation. The behavior HaloPad runs is still the translated original executable, checked against the oracle.
 - The ports are a useful proof that the engine runs well on ARM phones (a Pixel 9 Pro XL at 190–220 fps). Their SDL/OpenGL layers solve a different problem (an Xbox SDK surface) from HaloPad's Win32/Direct3D 9 one.
+
+## Second look (2026-09-27, later)
+
+Chris posted the repository again. Both pins were moved to the current heads: `bnunu/halo-1` `8036fb82430fb0969a773abdf0f456dc3d669a38` (8 more matching commits: collision, HUD, bitmaps) and `bnunu/halo-ce-universal` `8b4c73aa91de6e6032c762541e181f6e5d5101c3` (2 more commits, system-link bot tooling). The upstream port `cybersecurity/halo-ce-universal` was also read at `5d1ee75` (a Linux/Android system-link join fix). The verdict is unchanged. New findings:
+
+- **Custom Edition support still does not exist.** Neither repository has a commit that loads Custom Edition maps or speaks the PC protocol.
+- **The native ports cannot talk to the Xbox game either.** Their multiplayer is the Xbox's lockstep system link (the host sends every player's input to every machine each tick), with enlarged messages under "protocol version 2" (`port/linux/include/halo_port_limits.h`). A Custom Edition 1.10 server speaks a different, server-authoritative protocol behind a GameSpy lobby.
+- **Measured overlap with our binary.** 1,223 of the decompilation's 5,602 string literals (12+ characters) occur in `haloce.exe`, most of them script function names HaloPad already reads from the game's own tables. By area: networking 37 of 830, rasterizer 0 of 1,440, interface 4 of 1,996, saved games 0 of 404. The retail PC build keeps no assertion text, so a name map built from strings would be thin; matching would still have to be structural.
+- **Provenance.** The repository's own documentation says some bodies were reconstructed with the help of files described as original Bungie source (`docs/user_source_reconstruction_map_20260906.md`: `network_server_manager.c`, `network_client_manager.c`, `random_math.c` from a "haloleak2024" folder), a leaked Halo CEA source tree ("halocea full blobs") and CEA beta debug symbols. The CC0 notice cannot license that material. This is a further reason to keep its code, headers and names out of HaloPad's tree, runtime and generated translation.
+- **Inputs that cannot be bought.** The ports need the August 2001 Xbox SDK headers and the PAL data of the pre-release build 01.01.14.2342 ("the game rejects cache files from any other build"). Neither is sold, so other players could not legitimately run a port built from it. That fails the same test that ruled out other editions.
+- **Nothing here unblocks HaloPad's parked items.** The license choice, the product key, a physical device and a second player are still what the next goals wait on.
+
+The reference-only use described above stands, restricted to reading, in the ignored `ref/decomp/` checkout.
