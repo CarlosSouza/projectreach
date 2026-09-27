@@ -568,3 +568,22 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
 - **Test** (added to \`tests/halo_misc_test.c\`, now 26 checks): the sound-system set-up, and \`BinkOpen\` of all four movie names giving NULL.
 
 **Next:** Ogg Vorbis (\`vorbisfile.dll\`: custom map sounds), then SEH, game controllers and file mapping.
+
+## 2026-09-27 — Ogg Vorbis with Xiph's libvorbis
+
+- **How Halo uses it** (\`0x548300\`, \`0x548620\`).
+  - Two \`OggVorbis_File\` structures inside its sound object (\`+0x8\`, \`+0x2d8\`, 720 bytes each). Halo never looks inside them.
+  - \`ov_open_callbacks\` over its own memory reader {position, data, size, end} with callbacks passed by value: read \`0x5481a0\`, seek \`0x5481f0\`, close \`0x548210\`, tell \`0x548230\`.
+  - \`ov_read\` into 16-bit signed little-endian PCM, \`ov_crosslap\` between the two for seamless transitions, and \`ov_clear\`. All cdecl, via delay stubs at \`0x5b9210\`–\`0x5b9240\`.
+  - The game ships libVorbis I 20020717 (1.0).
+- **What:**
+  - libogg 1.3.5 and libvorbis 1.3.7 (BSD) are pinned in \`dependencies.lock.json\` (\`ref/xiph\`, ignored) and built once per target into a cached archive by \`scripts/xiph.py\`. \`run-core.py\` and \`run-slices.py\` link it.
+  - \`port/runtime/halopad_vorbis.c\` keeps each stream's decoder state on the host, keyed by the structure's guest address, and calls Halo's own reader callbacks through the guest as cdecl functions.
+- **Test** (\`tests/halo_vorbis_test.c\`, 11 checks, all passing):
+  - A stereo stream (440/660 Hz) from libvorbis's reference encoder (\`tools/vorbis_encode.c\`), decoded through Halo's callbacks.
+  - It gives exactly as many samples as ffmpeg's independent native decoder, every sample within 1 count of it, and each channel carries its tone at the right amplitude.
+  - Also: a second stream crossfaded into, both cleared, and a non-Vorbis stream refused (\`OV_ENOTVORBIS\`).
+  - An earlier fixture from ffmpeg's experimental encoder decoded differently in its second channel in both decoders, and neither followed the tone. That stream was faulty, so the reference encoder is used instead.
+- All suites, 15 slices and the unit tests pass; the core still stops at the license.
+
+**Next:** SEH (\`RaiseException\`, handlers through the \`fs:[0]\` chain, \`SetUnhandledExceptionFilter\`), game controllers for DirectInput, file mapping, then the iOS host.

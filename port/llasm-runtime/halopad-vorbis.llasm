@@ -1,0 +1,30 @@
+;; HaloPad Windows runtime: vorbisfile.dll (port/runtime/halopad_vorbis.c). All cdecl: the caller pops.
+;; Pattern and macros from SR's Septerra Core port (asm-calls.llinc).
+
+include llasm.llinc
+include asm-calls.llinc
+
+func ov_open_callbacks_c a1, a2, a3, a4, a5, a6, a7, a8
+func ov_read_c a1, a2, a3, a4, a5, a6, a7
+func ov_crosslap_c a1, a2
+func ov_clear_c a1
+
+proc hpimp_ov_open_callbacks public
+        Call_Asm_Stack8 ov_open_callbacks_c
+        Call_Asm_Return 0
+endp
+
+proc hpimp_ov_read public
+        Call_Asm_Stack7 ov_read_c
+        Call_Asm_Return 0
+endp
+
+proc hpimp_ov_crosslap public
+        Call_Asm_Stack2 ov_crosslap_c
+        Call_Asm_Return 0
+endp
+
+proc hpimp_ov_clear public
+        Call_Asm_Stack1 ov_clear_c
+        Call_Asm_Return 0
+endp

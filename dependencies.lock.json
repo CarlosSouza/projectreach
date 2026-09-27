@@ -18,6 +18,18 @@
       "url": "https://github.com/sp00nznet/xboxrecomp.git",
       "revision": "a781596e2181f8d4b15336659897ce07bdd7d56a",
       "path": "ref/xboxrecomp"
+    },
+    {
+      "name": "libogg",
+      "url": "https://github.com/xiph/ogg.git",
+      "revision": "e1774cd77f471443541596e09078e78fdc342e4f",
+      "path": "ref/xiph/ogg"
+    },
+    {
+      "name": "libvorbis",
+      "url": "https://github.com/xiph/vorbis.git",
+      "revision": "0657aee69dec8508a0011f47f3b69d7538e9d262",
+      "path": "ref/xiph/vorbis"
     }
   ]
 }

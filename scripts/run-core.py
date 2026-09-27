@@ -18,6 +18,9 @@ import re
 import subprocess
 import sys
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import xiph  # noqa: E402  (libogg/libvorbis for vorbisfile.dll)
+
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SUPPORT = ROOT / 'port' / 'llasm-support'
 PROFILE = ROOT / 'generated' / 'srw' / 'custom-en-1.0.10.0621'
@@ -47,10 +50,10 @@ def build(work, target, main_src):
     subprocess.run([sys.executable, str(ROOT / 'scripts/gen-nls-tables.py')], check=True, capture_output=True)
     exe = out / ('halopad-core' if main_src.name == 'halopad_core_main.c' else main_src.stem)
     cmd = ['clang', '-target', target, '-O2', '-fno-fast-math', '-ffp-contract=off', '-w', '-DPTROFS_64BIT=1', '-std=c2x',
-           '-Wno-override-module', '-I', str(SUPPORT), '-I', str(ROOT / 'generated' / 'runtime'),
+           '-Wno-override-module', '-I', str(SUPPORT), '-I', str(ROOT / 'generated' / 'runtime'), *xiph.include_flags(),
            str(main_src), *map(str, sorted((ROOT / 'port/runtime').glob('*.c'))),
            *map(str, sorted(SUPPORT.glob('llasm_*.c'))), str(va / 'dispatch.ll'), *map(str, runtime_ll),
-           str(out / 'stubs.ll'), str(obj), *[str(m) for m in sorted((ROOT / 'port/apple').glob('*.m'))], '-fobjc-arc', '-framework', 'CoreGraphics', '-framework', 'Cocoa', '-framework', 'Metal', '-framework', 'QuartzCore', '-framework', 'AudioToolbox', '-o', str(exe)]
+           str(out / 'stubs.ll'), str(obj), *[str(m) for m in sorted((ROOT / 'port/apple').glob('*.m'))], str(xiph.archive(target, os.environ.get('SDKROOT'))), '-fobjc-arc', '-framework', 'CoreGraphics', '-framework', 'Cocoa', '-framework', 'Metal', '-framework', 'QuartzCore', '-framework', 'AudioToolbox', '-o', str(exe)]
     link = subprocess.run(cmd, capture_output=True, text=True)
     (out / 'link.log').write_text(' '.join(cmd) + '\n' + link.stdout + link.stderr)
     if link.returncode:

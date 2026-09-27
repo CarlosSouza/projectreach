@@ -22,6 +22,9 @@ import struct
 import subprocess
 import sys
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import xiph  # noqa: E402  (libogg/libvorbis for vorbisfile.dll)
+
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SUPPORT = ROOT / 'port' / 'llasm-support'  # HaloPad copy of SR llasm-support (x87 precision control)
 spec = importlib.util.spec_from_file_location('x86_oracle', ROOT / 'scripts' / 'x86-oracle.py')
@@ -319,10 +322,10 @@ def run_va(a, names, work, target, evid, build):
     exe = build / 'halo-va-slices'
     subprocess.run([sys.executable, str(ROOT / 'scripts/gen-nls-tables.py')], check=True, capture_output=True)
     cmd = ['clang', '-target', target, '-O2', '-fno-fast-math', '-ffp-contract=off', '-w', '-DPTROFS_64BIT=1', '-std=c2x',
-           '-Wno-override-module', '-I', str(SUPPORT), '-I', str(ROOT / 'generated' / 'runtime'),
+           '-Wno-override-module', '-I', str(SUPPORT), '-I', str(ROOT / 'generated' / 'runtime'), *xiph.include_flags(),
            str(ROOT / 'tests/halo_va_harness.c'), *[str(p) for p in sorted((ROOT / 'port/runtime').glob('*.c'))],
            *[str(p) for p in sorted(SUPPORT.glob('llasm_*.c'))], str(va / 'dispatch.ll'),
-           *[str(p) for p in sorted(va.glob('halopad-*.ll'))], str(build / 'stubs.ll'), str(obj), *[str(m) for m in sorted((ROOT / 'port/apple').glob('*.m'))], '-fobjc-arc', '-framework', 'CoreGraphics', '-framework', 'Cocoa', '-framework', 'Metal', '-framework', 'QuartzCore', '-framework', 'AudioToolbox', '-o', str(exe)]
+           *[str(p) for p in sorted(va.glob('halopad-*.ll'))], str(build / 'stubs.ll'), str(obj), *[str(m) for m in sorted((ROOT / 'port/apple').glob('*.m'))], str(xiph.archive(target, os.environ.get('SDKROOT'))), '-fobjc-arc', '-framework', 'CoreGraphics', '-framework', 'Cocoa', '-framework', 'Metal', '-framework', 'QuartzCore', '-framework', 'AudioToolbox', '-o', str(exe)]
     link = subprocess.run(cmd, capture_output=True, text=True)
     (evid / 'link.log').write_text(' '.join(cmd) + '\n' + link.stdout + link.stderr)
     if link.returncode:
