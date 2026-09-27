@@ -29,7 +29,7 @@ def sha(p):
     return hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest()
 
 
-def build(work, target):
+def build(work, target, main_src):
     va = work / 'va'
     if not (va / 'haloce.va.ll').exists():
         sys.exit('run scripts/va-model.py first')
@@ -45,10 +45,10 @@ def build(work, target):
     subprocess.run([sys.executable, str(ROOT / 'scripts/gen-import-stubs.py'), str(va / 'haloce.va.ll'), str(out / 'stubs.ll'),
                     str(va / 'dispatch.ll'), *map(str, runtime_ll)], check=True, capture_output=True)
     subprocess.run([sys.executable, str(ROOT / 'scripts/gen-nls-tables.py')], check=True, capture_output=True)
-    exe = out / 'halopad-core'
+    exe = out / ('halopad-core' if main_src.name == 'halopad_core_main.c' else main_src.stem)
     cmd = ['clang', '-target', target, '-O2', '-fno-fast-math', '-ffp-contract=off', '-w', '-DPTROFS_64BIT=1', '-std=c2x',
            '-Wno-override-module', '-I', str(SUPPORT), '-I', str(ROOT / 'generated' / 'runtime'),
-           str(ROOT / 'port/core/halopad_core_main.c'), *map(str, sorted((ROOT / 'port/runtime').glob('*.c'))),
+           str(main_src), *map(str, sorted((ROOT / 'port/runtime').glob('*.c'))),
            *map(str, sorted(SUPPORT.glob('llasm_*.c'))), str(va / 'dispatch.ll'), *map(str, runtime_ll),
            str(out / 'stubs.ll'), str(obj), '-framework', 'CoreGraphics', '-o', str(exe)]
     link = subprocess.run(cmd, capture_output=True, text=True)
@@ -63,10 +63,12 @@ def main():
     ap.add_argument('--work', type=pathlib.Path)
     ap.add_argument('--target')
     ap.add_argument('--timeout', type=int, default=120)
+    ap.add_argument('--main', type=pathlib.Path, default=ROOT / 'port/core/halopad_core_main.c',
+                    help='program to link in place of the core (e.g. tests/halo_d3d9_test.c)')
     a = ap.parse_args()
     work = (a.work or max(PROFILE.glob('run-*/va/haloce.va.ll'), key=lambda p: p.stat().st_mtime).parent.parent).resolve()
     target = a.target or json.loads((ROOT / 'toolchains.lock.json').read_text())['target']
-    exe, obj = build(work, target)
+    exe, obj = build(work, target, a.main.resolve())
     stamp = datetime.datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')
     evid = ROOT / 'docs' / 'artifacts' / datetime.date.today().isoformat() / 'G3' / f'core-{target}-{stamp}'
     evid.mkdir(parents=True, exist_ok=True)

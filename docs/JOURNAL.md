@@ -191,3 +191,15 @@ Added `loc_5CCAC7,halo_entry` to `config/srw/.../global_aliases.sci` (documented
 
 **Needs Chris:** accept (or decline) the Halo license by running `scripts/accept-eula.sh`. The agent will not accept a license on the player's behalf. Everything after first run (the splash bitmap through GDI, the rest of USER32, then Direct3D 9 on Metal) is behind it.
 
+## 2026-09-27 — Direct3D 9 groundwork: inventory, capability contract, COM layer, IDirect3D9
+
+Work that doesn't depend on the license (still unaccepted, so the core still stops at Halo's first-run check):
+
+- **Inventory** ([D3D9-INVENTORY.md](D3D9-INVENTORY.md), `scripts/com-inventory.py`). There are 2,546 static device-method call sites across 41 methods; the device pointer is `0x6b840c` and `IDirect3D9` is `0x6bd168`. Halo copies `D3DCAPS9` to `0x75c420` and reads 13 fields from it, led by `PixelShaderVersion` (95 reads) and `RasterCaps` (24 reads, depth-bias bits). Shaders reach the device as bytecode: Halo decrypts its own `.enc` collections. An earlier offset table put `PS20Caps` at 268; `D3DVSHADERCAPS2_0` is 16 bytes, so it is 264, which I corrected and checked against `sizeof(D3DCAPS9) = 304`.
+- **Adapter setup** (`0x580a00`) reads the adapter identifier and caps and hands them to Halo's `config.txt` card database (vendor/device/driver rules).
+- **Contract** ([GRAPHICS-CONTRACT.md](GRAPHICS-CONTRACT.md)). This resolves where capability values come from. The identity (Radeon 9700 PRO, driver 6.14.10.6467) only selects Halo's own tuning entry. Every capability, format, mode and multisample answer is a promise about HaloPad's Metal layer, reported absent otherwise. A caps dump from any real card is therefore not needed.
+- **COM layer.** `config/runtime/com-interfaces.txt` lists 14 D3D9 interfaces (286 methods, in d3d9.h order). `va-model.py` gives each method a guest address with dispatch, `scripts/gen-com-wrappers.py` generates llasm wrappers for every `hpcom_<I>_<M>_c`, `halopad_com.c` builds read-only guest vtables and keeps object bookkeeping on the host, and unimplemented methods trap as `Interface::Method`.
+- **`Direct3DCreate9` and all 17 `IDirect3D9` methods** (`halopad_d3d9.c`). `CreateDevice` traps and prints Halo's presentation parameters until the Metal device exists. DirectInput8/DirectSound8 entry points are registered.
+- **Test.** `tests/halo_d3d9_test.c` (`run-core.py --main tests/halo_d3d9_test.c`) creates the object the way Halo does (`LoadLibraryA`, `GetProcAddress`, `Direct3DCreate9(0x1f)` at its guest address) and calls methods through the guest vtable, via dispatch, the wrappers and the stdcall check: **33/33 checks pass**. Regression: 15 slice and contract checks, the core (clean license-check exit) and the unit tests pass.
+- **Correction.** Module handles for `dinput8.dll` and the game's DLLs are HaloPad-chosen, not XP base addresses; the comment and docs are fixed.
+

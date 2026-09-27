@@ -49,7 +49,11 @@ static uobj *uget(uint32_t h, int kind)
 
 #define DESKTOP UBASE   /* slot 0 */
 
-static void desktop_size(int32_t *w, int32_t *h)
+void halopad_desktop_size(int32_t *w, int32_t *h);
+static void desktop_size(int32_t *w, int32_t *h) { halopad_desktop_size(w, h); }
+
+/* The Mac's main display, in pixels: the Windows desktop HaloPad presents. */
+void halopad_desktop_size(int32_t *w, int32_t *h)
 {
 #if defined(__APPLE__) && TARGET_OS_OSX
     CGDirectDisplayID d = CGMainDisplayID();

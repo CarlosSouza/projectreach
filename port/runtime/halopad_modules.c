@@ -1,8 +1,9 @@
 /* HaloPad module services: GetModuleHandleA, LoadLibraryA, FreeLibrary, GetProcAddress (G3).
  *
- * The reference machine's modules are fixed. Handles are the DLLs' Windows XP SP3 base
- * addresses (their memory is not mapped: code that reads a module's headers faults and
- * names the address). "loaded" modules are present from process start; "loadable" ones
+ * The reference machine's modules are fixed. Handles are fixed addresses: the Windows
+ * XP SP3 base address for the system DLLs whose base is documented here, otherwise an
+ * address chosen by HaloPad (dinput8.dll and the game's own DLLs). Only strings.dll's
+ * memory is mapped; code that reads another module's headers faults and names the address. "loaded" modules are present from process start; "loadable" ones
  * become loaded on LoadLibraryA (HaloPad provides their exports); "absent" ones are not
  * installed on the reference machine and fail with ERROR_MOD_NOT_FOUND, as on a real PC
  * without them. Any other module name stops the program.
@@ -34,6 +35,7 @@ static module modules[] = {
     {"wininet.dll", 0x3D930000, LOADABLE, 0},
     {"version.dll", 0x77C00000, LOADABLE, 0},
     {"d3d9.dll", 0x4FDD0000, LOADABLE, 0},
+    {"dinput8.dll", 0x4C000000, LOADABLE, 0},
     {"vorbisfile.dll", 0x10000000, LOADABLE, 0},   /* shipped with the game */
     {"binkw32.dll", 0x10100000, LOADABLE, 0},      /* shipped with the game */
     {"eula.dll", 0x10200000, LOADABLE, 0},         /* shipped with the game */

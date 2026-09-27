@@ -1,0 +1,12 @@
+;; HaloPad Direct3D 9 entry point (port/runtime/halopad_d3d9.c). COM methods are generated
+;; by scripts/gen-com-wrappers.py.
+
+include llasm.llinc
+include asm-calls.llinc
+
+func Direct3DCreate9_c a1
+
+proc hpimp_Direct3DCreate9 public
+        Call_Asm_Stack1 Direct3DCreate9_c
+        Call_Asm_Return 1
+endp
