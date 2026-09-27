@@ -92,7 +92,7 @@
  #include "SR_vars.h"
 --- a/SR_full_llasm.c
 +++ b/SR_full_llasm.c
-@@ -23,7 +23,7 @@
+@@ -23,12 +23,22 @@
   */
  
  #include <stdio.h>
@@ -101,9 +101,95 @@
  #include <string.h>
  #include "SR_defs.h"
  #include "SR_vars.h"
+ #include "udis86_dep.h"
+ 
++/* HaloPad diagnostic mode (HALOPAD_SRW_DIAG=1): log every conversion failure and
++   continue, so one run enumerates all gaps. Output produced in this mode is a census,
++   not a build input. */
++static int halopad_diag(void)
++{
++    static int value = -1;
++    if (value < 0) value = (getenv("HALOPAD_SRW_DIAG") != NULL);
++    return value;
++}
++
+ int SR_disassemble_region_llasm(unsigned int Entry, region_data *region)
+ {
+     output_data *output;
+@@ -145,7 +155,10 @@
+             {
+                 fprintf(stderr, "Error: unknown flags - %i - %i (0x%x) - %s\n", Entry, (unsigned int)cur_ofs, (unsigned int)(section[Entry].start + cur_ofs), output->str);
+ 
+-                return 5;
++                if (!halopad_diag()) return 5;
++                fprintf(stderr, "HALOPAD-DIAG unknown-flags 0x%x\n", (unsigned int)(section[Entry].start + cur_ofs));
++                flags_read = 0;
++                flags_write = 0;
+             }
+ 
+             iflags = section_iflags_list_FindEntryEqual(Entry, cur_ofs);
+@@ -155,10 +168,13 @@
+                 {
+                     fprintf(stderr, "Error: mixing flags and instruction flags - %i - %i (0x%x) - %s\n", Entry, (unsigned int)cur_ofs, (unsigned int)(section[Entry].start + cur_ofs), output->str);
+ 
+-                    return 5;
++                    if (!halopad_diag()) return 5;
++                    fprintf(stderr, "HALOPAD-DIAG mixing-flags 0x%x\n", (unsigned int)(section[Entry].start + cur_ofs));
+                 }
+-
+-                flags_to_write |= (uint32_t) iflags->begin;
++                else
++                {
++                    flags_to_write |= (uint32_t) iflags->begin;
++                }
+             }
+ 
+ 
+@@ -226,14 +242,18 @@
+             {
+                 fprintf(stderr, "Error: unknown specific flags - %i - %i (0x%x) - %s\n", Entry, (unsigned int)cur_ofs, (unsigned int)(section[Entry].start + cur_ofs), output->str);
+ 
+-                return 5;
++                if (!halopad_diag()) return 5;
++                fprintf(stderr, "HALOPAD-DIAG specific-flags 0x%x\n", (unsigned int)(section[Entry].start + cur_ofs));
++                flags_read = 0;
++                flags_write = 0;
+             }
+ 
+             if ((last_instruction) && (cur_ofs != region->end_ofs))
+             {
+                 fprintf(stderr, "Error: instruction ends in the middle of region - %i - %i (0x%x) - %s\n", Entry, (unsigned int)cur_ofs, (unsigned int)(section[Entry].start + cur_ofs), output->str);
+ 
+-                return 5;
++                if (!halopad_diag()) return 5;
++                fprintf(stderr, "HALOPAD-DIAG middle-of-region 0x%x\n", (unsigned int)(section[Entry].start + cur_ofs));
+             }
+ 
+             last_instruction = 0;
+@@ -242,7 +262,9 @@
+             {
+                 fprintf(stderr, "Error: unprocessed instruction flags - %i - %i (0x%x) - %s\n", Entry, (unsigned int)cur_ofs, (unsigned int)(section[Entry].start + cur_ofs), output->str);
+ 
+-                return 5;
++                if (!halopad_diag()) return 5;
++                fprintf(stderr, "HALOPAD-DIAG unprocessed-inst-flags 0x%x\n", (unsigned int)(section[Entry].start + cur_ofs));
++                flags_to_write &= ~FL_INST_MASK;
+             }
+ 
+             flags_to_write &= ~flags_write;
+@@ -306,7 +328,8 @@
+             {
+                 fprintf(stderr, "Error: unknown flags on start of region - %i - %i (0x%x) - 0x%x\n", Entry, (unsigned int)cur_ofs, (unsigned int)(section[Entry].start + cur_ofs), (unsigned int)flags_to_write);
+ 
+-                return 6;
++                if (!halopad_diag()) return 6;
++                fprintf(stderr, "HALOPAD-DIAG region-start-flags 0x%x 0x%x\n", (unsigned int)(section[Entry].start + cur_ofs), (unsigned int)flags_to_write);
+             }
+         }
+     }
 --- a/SR_full_llasm_instr.c
 +++ b/SR_full_llasm_instr.c
-@@ -23,7 +23,7 @@
+@@ -23,11 +23,21 @@
   */
  
  #include <stdio.h>
@@ -112,6 +198,95 @@
  #include <string.h>
  #include "SR_defs.h"
  #include "SR_vars.h"
+ #include "udis86_dep.h"
++
++/* HaloPad diagnostic mode (HALOPAD_SRW_DIAG=1): log every conversion failure and
++   continue, so one run enumerates all gaps. Output produced in this mode is a census,
++   not a build input. */
++static int halopad_diag(void)
++{
++    static int value = -1;
++    if (value < 0) value = (getenv("HALOPAD_SRW_DIAG") != NULL);
++    return value;
++}
+ 
+ #undef DISPLAY_DISASSEMBLY
+ 
+@@ -1722,6 +1732,35 @@
+ #define OUTPUT_PARAMSTRING(x, ...) sprintf(cOutPart, x, __VA_ARGS__); strcat(cOutput, cOutPart);
+ #define OUTPUT_STRING(x) strcat(cOutput, x)
+ 
++    /* HaloPad guard: FS-prefixed instructions pass the Win32 disassembly stage, so
++       accept exactly the FS forms this converter implements (mov r32 <-> fs:[const],
++       fs:[reg]; push/pop dword fs:[const]). Anything else fails loudly instead of being
++       converted as an ordinary memory access. */
++    if (ud_obj.pfx_seg == UD_R_FS)
++    {
++        int hp_ok = 0;
++#define HP_R32(i) (ud_obj.operand[i].type == UD_OP_REG && ud_obj.operand[i].base >= UD_R_EAX && ud_obj.operand[i].base <= UD_R_EDI)
++#define HP_MCONST(i) (ud_obj.operand[i].type == UD_OP_MEM && ud_obj.operand[i].base == UD_NONE && ud_obj.operand[i].index == UD_NONE && ud_obj.operand[i].size == 32 && fixup[i] == NULL)
++#define HP_MREG(i) (ud_obj.operand[i].type == UD_OP_MEM && ud_obj.operand[i].base >= UD_R_EAX && ud_obj.operand[i].base <= UD_R_EDI && ud_obj.operand[i].index == UD_NONE && ud_obj.operand[i].lval.udword == 0 && fixup[i] == NULL)
++        if (ud_obj.mnemonic == UD_Imov && fixup[0] == NULL && fixup[1] == NULL)
++        {
++            hp_ok = (HP_R32(0) && (HP_MCONST(1) || HP_MREG(1))) || (HP_R32(1) && (HP_MCONST(0) || HP_MREG(0)));
++        }
++        else if (ud_obj.mnemonic == UD_Ipush || ud_obj.mnemonic == UD_Ipop)
++        {
++            hp_ok = HP_MCONST(0);
++        }
++#undef HP_R32
++#undef HP_MCONST
++#undef HP_MREG
++        if (!hp_ok)
++        {
++            fprintf(stderr, "Error: unsupported fs-prefixed instruction - %i - 0x%x - %s\n", Entry, (unsigned int)(section[Entry].start + cur_ofs), output->str);
++
++            return 8;
++        }
++    }
++
+     switch (ud_obj.mnemonic)
+     {
+         case UD_Iadc:
+@@ -7749,14 +7788,36 @@
+         default:
+             fprintf(stderr, "Error: unknown instruction - %i - %i - %s\n", Entry, (unsigned int)cur_ofs, output->str);
+ 
+-            return 5;
++            if (!halopad_diag()) return 5;
++            fprintf(stderr, "HALOPAD-DIAG unknown-instruction 0x%x\n", (unsigned int)(section[Entry].start + cur_ofs));
++            OUTPUT_PARAMSTRING("call halopad_trap_unimplemented 0x%x\n", (unsigned int)(section[Entry].start + cur_ofs));
++            flags_write = flags_to_write;
++            break;
+     }
+ 
+     if (cOutput[0] == 0)
+     {
++        /* HaloPad: an instruction whose only effect is on flags produces no code when no
++           later instruction needs those flags (e.g. 'or eax, eax' before 'ret'). Accept
++           exactly that case; any other empty output is still an error. */
++        if (((flags_to_write & (FL_COND_ALL | FL_INST_MASK)) == 0) && ((ud_obj.mnemonic == UD_Ior || ud_obj.mnemonic == UD_Iand) &&
++             ud_obj.operand[0].type == UD_OP_REG && ud_obj.operand[1].type == UD_OP_REG &&
++             ud_obj.operand[0].base == ud_obj.operand[1].base) ||
++            ((ud_obj.mnemonic == UD_Itest || ud_obj.mnemonic == UD_Icmp) &&
++             ud_obj.operand[0].type == UD_OP_REG &&
++             (ud_obj.operand[1].type == UD_OP_REG || ud_obj.operand[1].type == UD_OP_IMM)))
++        {
++            OUTPUT_STRING("; flags not needed: instruction has no effect\n");
++        }
++        else
++        {
+             fprintf(stderr, "Error: llasm instruction error - %i - %i - %s\n", Entry, (unsigned int)cur_ofs, output->str);
+ 
+-            return 7;
++            if (!halopad_diag()) return 7;
++            fprintf(stderr, "HALOPAD-DIAG unhandled-form 0x%x\n", (unsigned int)(section[Entry].start + cur_ofs));
++            OUTPUT_PARAMSTRING("call halopad_trap_unimplemented 0x%x\n", (unsigned int)(section[Entry].start + cur_ofs));
++            flags_write = flags_to_write;
++        }
+     }
+ 
+     {
 --- a/SR_full_win32.c
 +++ b/SR_full_win32.c
 @@ -23,7 +23,7 @@
@@ -123,16 +298,27 @@
  #include <string.h>
  #include "SR_defs.h"
  #include "SR_vars.h"
-@@ -36,6 +36,8 @@
- // from udis86
+@@ -37,6 +37,8 @@
  extern const char* ud_reg_tab[];
  #endif
-+
-+unsigned int SR_diag_last_address = 0; /* HaloPad diagnostic: last decoded instruction */
  
++unsigned int SR_diag_last_address = 0; /* HaloPad diagnostic: last decoded instruction */
++
  int SR_disassemble_remove_segment(const char *ostr, char *dst, uint8_t pfx_seg)
  {
-@@ -304,6 +306,7 @@
+     char *seg, *str1, *str2;
+@@ -57,8 +59,9 @@
+             seg = "ds:";
+             break;
+         case UD_R_FS:
++            /* HaloPad: strip the text prefix; the llasm converter re-reads pfx_seg and
++               accepts only the FS forms it implements (see guard in SR_full_llasm_instr.c). */
+             seg = "fs:";
+-            return -101;
+             break;
+         case UD_R_GS:
+             seg = "gs:";
+@@ -304,6 +307,7 @@
          }
  
          decoded_length = ud_disassemble(&ud_obj);
@@ -140,7 +326,7 @@
  
          if (decoded_length == 0)
          {
-@@ -1104,6 +1107,9 @@
+@@ -1104,6 +1108,9 @@
                  break;
              case UD_Iinvalid:
                  printf("decoded length: %i\n", decoded_length);

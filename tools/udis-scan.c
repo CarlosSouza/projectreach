@@ -5,6 +5,9 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include "udis86.h"
+#ifdef WITH_SRW_FLAGS
+#include "udis86_dep.h"
+#endif
 
 int main(int argc, char **argv)
 {
@@ -16,6 +19,9 @@ int main(int argc, char **argv)
     uint32_t base = strtoul(argv[2], NULL, 0), addr;
     static long counts[UD_MAX_MNEMONIC_CODE];
     ud_t u; ud_init(&u); ud_set_mode(&u, 32); ud_set_syntax(&u, UD_SYN_INTEL);
+#ifdef WITH_SRW_FLAGS
+    init_udis86_dep();
+#endif
     long total = 0, invalid = 0;
     while (fread(&addr, 4, 1, fa) == 1) {
         uint32_t o = addr - base;
@@ -26,8 +32,14 @@ int main(int argc, char **argv)
         if (u.mnemonic == UD_Iinvalid) { invalid++; printf("INVALID 0x%x\n", addr); continue; }
         counts[u.mnemonic]++;
         if (getenv("UDIS_SCAN_ALL"))
+#ifdef WITH_SRW_FLAGS
+            printf("I 0x%x %u %s %s 0x%lx 0x%lx\n", addr, ud_insn_len(&u), ud_lookup_mnemonic(u.mnemonic),
+                   u.pfx_seg == UD_R_FS ? "fs" : (u.pfx_seg == UD_R_GS ? "gs" : "-"),
+                   (unsigned long)flags_needed[u.mnemonic], (unsigned long)flags_modified[u.mnemonic]);
+#else
             printf("I 0x%x %u %s %s\n", addr, ud_insn_len(&u), ud_lookup_mnemonic(u.mnemonic),
                    u.pfx_seg == UD_R_FS ? "fs" : (u.pfx_seg == UD_R_GS ? "gs" : "-"));
+#endif
         if (u.pfx_seg == UD_R_FS || u.pfx_seg == UD_R_GS)
             printf("SEG 0x%x %s %s\n", addr, u.pfx_seg == UD_R_FS ? "fs" : "gs", ud_insn_asm(&u));
     }

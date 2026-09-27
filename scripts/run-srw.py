@@ -33,6 +33,8 @@ def main():
     ap.add_argument('--extra-sci', type=pathlib.Path, default=ROOT / 'config' / 'srw' / PROFILE_ID,
                     help='hand-maintained .sci/.cfg overrides (tracked); appended after audit hints')
     ap.add_argument('--timeout', type=int, default=3600)
+    ap.add_argument('--diagnostic', action='store_true',
+                    help='HALOPAD_SRW_DIAG=1: log every conversion failure and continue (census; output is not a build input)')
     a = ap.parse_args()
 
     build = a.build.resolve()
@@ -70,10 +72,13 @@ def main():
         inputs[name] = sha(work / name)
 
     t0 = time.time()
+    env = dict(os.environ)
+    if a.diagnostic:
+        env['HALOPAD_SRW_DIAG'] = '1'
     with open(evid / 'srw.stdout', 'w') as so, open(evid / 'srw.stderr', 'w') as se:
         try:
             proc = subprocess.run([str(srw), 'haloce.exe', 'haloce.llasm'], cwd=work, stdout=so, stderr=se,
-                                  timeout=a.timeout)
+                                  timeout=a.timeout, env=env)
             code = proc.returncode
         except subprocess.TimeoutExpired:
             code = 'timeout'
@@ -91,7 +96,22 @@ def main():
     elif errors:
         category = 'other'
     outputs = {p.name: p.stat().st_size for p in work.iterdir() if p.suffix in ('.llasm', '.llinc')}
+    census = {}
+    if a.diagnostic:
+        lines = err.splitlines()
+        diag = [l.split() for l in lines if l.startswith('HALOPAD-DIAG')]
+        kinds = {}
+        for i, l in enumerate(lines):
+            if l.startswith('HALOPAD-DIAG'):
+                parts = l.split()
+                prev = lines[i - 1] if i else ''
+                text_ = prev.rsplit(' - ', 1)[-1] if prev.startswith('Error') else ''
+                kinds.setdefault(parts[1], []).append([parts[2], text_.lstrip(';')])
+        census = {k: {'count': len(v), 'sites': v} for k, v in kinds.items()}
+        (evid / 'census.json').write_text(json.dumps(census, indent=1) + '\n')
     report = {'run': run, 'build': manifest['key'], 'exit': code, 'seconds': elapsed,
+              'mode': 'diagnostic-census' if a.diagnostic else 'strict',
+              'census_counts': {k: v['count'] for k, v in census.items()},
               'stages_reached': stages, 'errors': errors, 'category': category, 'location': location,
               'outputs': outputs, 'inputs': inputs, 'hint_sources': hint_files, 'work': str(work.relative_to(ROOT))}
     (evid / 'report.json').write_text(json.dumps(report, indent=2) + '\n')
@@ -106,4 +126,3 @@ def main():
 
 if __name__ == '__main__':
     sys.exit(main())
-

@@ -53,3 +53,34 @@ The gap is concentrated: 96% of functions contain nothing SRW's llasm backend la
 **Bounded alternate (reference comparison only).** xboxrecomp's lifter (`tools/recomp/lifter.py`, Capstone names) matches 226 of Halo's 270 Capstone mnemonics, including MMX via a generic handler and many SSE forms. But it models the x87 stack as C `double` (the PRD rejects this without evidence), emits `/* TODO */` no-ops for unhandled forms (silent stubs), models some packed SSE operations in the low lane only, has no PE frontend and no 3DNow!. It is not a drop-in improvement; it is kept as the comparison point for the G2 selection report.
 
 **G2c status: PASS as a capability report** (every failure category counted by instruction, mnemonic and containing function; whole-image run reproducible). SRW has not produced llasm for Halo yet. That is G2d's work, after the SIMD-optionality experiment decides the scope.
+
+## Update: whole-image llasm output (2026-09-26, later)
+
+SRW now translates the **entire image** in diagnostic mode (`scripts/run-srw.py --diagnostic`, build `ab2a55d63d9a-6f980c58`): all stages to "Finishing" in about 2 s, 46 MB of llasm (33.7 MB code, 12.3 MB data). What made it possible, all recorded:
+
+| Change | Where | Why |
+|---|---|---|
+| FS forms accepted with a guard | patch: `SR_full_win32.c`, `SR_full_llasm_instr.c` | The Win32 pass rejected every FS prefix; the llasm backend already implements `mov`/`push`/`pop` with `fs:`. The guard fails loudly for any other FS form. |
+| `cmp esi, fs:[0]` hand replacement | `config/srw/custom-en-1.0.10.0621/instruction_replacements.sci` | The one FS form without a backend case (CRT local unwind). |
+| Explicit traps for unsupported instructions | `scripts/srw-traps.py` | 11,596 `halopad_unreachable_simd` (SIMD functions, unreachable under the plain-CPU contract) and 171 `halopad_trap_unimplemented` (generic-code gaps still to implement). |
+| Cross-region flag hints | `scripts/srw-flags.py` → `instruction_flags.sci` | SRW splits code into a procedure at every label and after a conditional jump that is not followed by another; flags do not cross. The script derives 1,101 hint lines from a control-flow graph using SRW's own flag tables (`tools/udis-scan.c` with `udis86_dep.c`), following callee returns where a function returns a result in ZF. |
+| Flag-only no-op accepted | patch: `SR_full_llasm_instr.c` | `or eax, eax` with dead flags legitimately emits no code. |
+| Image-base literals | `scripts/audit-executable.py` | SRW's llasm path cannot express image-base fixups; the four CRT header checks stay literal `0x400000` and the header page is mapped at the image base (G2e requirement). |
+| Diagnostic mode | patch, `HALOPAD_SRW_DIAG=1` | Logs every conversion failure and emits a trap instead of stopping, so one run enumerates all gaps. Strict mode is unchanged and still stops at the first gap. |
+
+### Complete gap census (plain-CPU contract)
+
+| Gap | Count | Notes |
+|---|---|---|
+| x87 instructions without backend cases | 134 | `fpatan` 64, `ffree` 13, `fscale` 10, `frndint` 9, `fsincos` 9, `fprem` 6, others |
+| 80-bit `fld`/`fstp tword` | 164 | CRT math saving and restoring extended values |
+| Other integer operand forms | 12 | `rcl bl`, `rol cl`, `bt`/`bts [esp]`, `imul byte`, `not bh`, `fsubr st1, st0` |
+| Fused flags on `test r8l, r8h` | 6 | e.g. `test dl, ch` at `0x4b647c` |
+| String compares (`repe cmpsd`, `cmpsw`) | 17 | |
+| `cpuid` / `rdtsc` / `jecxz` | 17 / 2 / 1 | `cpuid` must return the plain-CPU contract |
+
+Evidence: `docs/artifacts/2026-09-26/G2c/run-*/census.json` (diagnostic run), `generated/analysis/custom-en-1.0.10.0621/srw-traps.json`.
+
+### x87 fidelity finding
+
+SR's llasm support (`SR/llasm-support/llasm_float.c`) keeps the x87 stack as C `double` and ignores the precision-control bits of the control word (only rounding control is used, for integer conversion). The PRD forbids assuming this is equivalent. It is repairable in the support code, which is plain C: if Halo runs with single-precision control (the Direct3D default), rounding each arithmetic result to `float` after computing in `double` reproduces x87 results exactly for add, subtract, multiply, divide and square root (53 ≥ 2×24+2); transcendentals and exponent-range edge cases need oracle comparison. The 80-bit load/store gap becomes exact conversion helpers. The oracle's QEMU-based x87 implements precision control, so it can settle this per function. Measuring Halo's actual control word is part of the first x87 slice.

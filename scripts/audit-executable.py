@@ -120,12 +120,11 @@ class Audit:
 
     def add_reloc(self, fixup, target, kind, certain=True):
         if certain and self.section_of(target) is None:
-            # Points into the PE header. Code references (MZ checks, __ImageBase) are
-            # image-base relocations; data dwords here are almost certainly integers.
-            if kind.startswith('code'):
-                kind += ':imagebase'
-            else:
-                kind, certain = 'data-ptr:header', False
+            # Points into the PE header. Code references (CRT MZ/__ImageBase checks) stay
+            # literal: the guest image keeps its original addresses and the header page is
+            # mapped at the image base (G2e). SRW's llasm backend cannot express image-base
+            # fixups (it indexes section[ImageBase]). Data dwords here are integers.
+            kind, certain = (kind + ':imagebase-literal') if kind.startswith('code') else 'data-ptr:header', False
         (self.relocs if certain else self.uncertain)[fixup] = (target, kind)
 
     def verify_relocs(self):
