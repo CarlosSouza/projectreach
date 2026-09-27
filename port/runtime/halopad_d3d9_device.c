@@ -26,27 +26,9 @@ extern _Thread_local _cpu *halopad_cpu;
 
 #define D3D_OK 0u
 #define D3DERR_INVALIDCALL 0x8876086Cu
-#define NRS 210
-#define NTSS 33
-#define NSS 14
-#define NSAMPLERS 16
-
+#include "halopad_d3d9_internal.h"
 static uint8_t rs_valid[NRS];   /* D3DRENDERSTATETYPE values that exist (set from the default tables) */
 
-typedef struct {
-    uint32_t guest, d3d, window, behavior, pp[14];
-    uint32_t rs[NRS], tss[8][NTSS], ss[NSAMPLERS][NSS];
-    float transform[512][16];
-    uint32_t viewport[6];
-    int in_scene, software_vp, cursor_shown;
-    uint16_t gamma[3][256];
-    void *target;
-    /* bindings (each holds a bind on the object) and shader constants */
-    uint32_t texture[16], stream[16], stream_offset[16], stream_stride[16], indices, decl, fvf, vs, ps;
-    float vsf[256][4], psf[224][4];
-    int32_t vsi[16][4], psi[16][4];
-    uint32_t vsb[16], psb[16];
-} device;
 
 void halopad_com_bind(uint32_t g);
 void halopad_com_unbind(uint32_t g);
@@ -61,7 +43,6 @@ static void rebind(uint32_t *slot, uint32_t g)
 }
 
 static int is(uint32_t g, const char *iface) { return !g || !strcmp(halopad_com_interface(g), iface); }
-
 static device *dev(uint32_t g) { return halopad_com_state("IDirect3DDevice9", g); }
 static uint32_t fbits(float f) { uint32_t u; memcpy(&u, &f, 4); return u; }
 

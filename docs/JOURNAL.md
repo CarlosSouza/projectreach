@@ -259,3 +259,20 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   - Both sides were written from my reading of the rules, so a shared misreading would go unseen; comparison with original-client renders (G1b) is still needed.
   - Not exercised: alpha-test and fog paths other than the defaults, projected `tex`, implicit-LOD sampling and mipmaps, and the vertex pixel-centre fixup.
 
+## 2026-09-27 — First Direct3D 9 draws on Metal
+
+- **Metal layer** (`port/apple/halopad_metal.h`/`.m`). Plain C descriptors for pipelines, depth/stencil states, samplers, textures, buffers and draws. Each frame records into one command buffer and shares a render encoder, which clears end; Present commits. Pipelines, depth states and samplers are cached by content and libraries by source. Inputs a shader reads with no vertex element read (0, 0, 0, 1) through a constant-step buffer.
+- **Draws** (`port/runtime/halopad_d3d9_draw.c`; shared structs moved to `halopad_d3d9_internal.h`):
+  - `DrawPrimitive`, `DrawIndexedPrimitive`, `DrawPrimitiveUP`, `DrawIndexedPrimitiveUP`.
+  - Declarations and FVFs map to Metal vertex descriptors by usage and index against the vertex shader's `dcl` inputs.
+  - Blend (including BOTH(INV)SRCALPHA, separate alpha, write mask, blend factor), depth/stencil (two-sided), cull (front faces clockwise), wireframe, viewport, slope bias.
+  - Constant `DEPTHBIAS` goes into the vertex shader in window-depth units.
+  - Alpha test and vertex fog go through the pixel-shader constants.
+  - Textures upload dirty levels with format conversion or swizzle; samplers map filters, anisotropy and address modes, with border only in Metal's three colours.
+  - Buffers upload into a new Metal buffer whenever dirty, so later rewrites never affect an earlier draw in the frame.
+  - Fans become lists; draws outside a scene are invalid; *UP draws reset stream 0 and the indices.
+  - Still stopping with a message: fixed-function processing, scissor, table fog, user clip planes, point sprites, sRGB, LOD bias.
+- **Test** (`tests/halo_d3d9_test.c`, 118 checks, all passing): a clockwise triangle draws green; a counter-clockwise one is culled under the default `CULL_CCW` and draws red with `CULL_NONE`; a quad covering Direct3D pixel `[-0.5, 0.5]` lights exactly pixel (0,0) and not (1,0) or (0,1), which would fail without the half-pixel shift or with it reversed; a ps_2_0 `texld` quad shows the 2×2 texture's four texels in the four quadrants.
+
+**Next:** fixed-function vertex and pixel processing (Halo sets `SetFVF`, `SetTransform` and `SetTextureStageState`), render-to-texture and `StretchRect`, scissor, and cube and volume textures.
+

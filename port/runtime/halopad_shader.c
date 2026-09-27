@@ -503,6 +503,7 @@ char *halopad_shader_to_msl(const uint32_t *t, uint32_t n, const hp_shader_key *
         emit(&o, "%s%s", defs, body.s ? body.s : "");
         emit(&o, "    o.fog = fogv; o.psize = psizev;\n");
         emit(&o, "    o.position.xy += k.fixup.xy * o.position.w;   /* Direct3D 9 pixel centres */\n");
+        emit(&o, "    o.position.z += k.fixup.z * o.position.w;     /* DEPTHBIAS (window-depth units) */\n");
         if (test) {
             emit(&o, "    device float4 *w = outs + id * 12;\n    w[0] = o.position; w[1] = o.color0; w[2] = o.color1;\n");
             for (int s = 0; s < 8; s++) emit(&o, "    w[%d] = o.tex%d;\n", 3 + s, s);
@@ -541,4 +542,27 @@ char *halopad_shader_to_msl(const uint32_t *t, uint32_t n, const hp_shader_key *
     free(body.s);
     if (o.failed) { free(o.s); return NULL; }
     return o.s;
+}
+
+/* Vertex shader inputs: for each register v<n> it declares, the Direct3D usage and usage
+   index (dcl_<usage><index> v<n>). Returns the number of declared inputs, or -1. */
+int halopad_shader_vs_inputs(const uint32_t *t, uint32_t n, uint8_t usage[16], uint8_t index[16], uint8_t used[16])
+{
+    ctx c;
+    memset(&c, 0, sizeof c);
+    if (!n || t[0] >> 16 != 0xFFFE) return -1;
+    c.vs = 1; c.major = (int)((t[0] >> 8) & 0xFF); c.minor = (int)(t[0] & 0xFF);
+    memset(used, 0, 16);
+    int count = 0, k;
+    insn in;
+    for (uint32_t i = 1; (k = decode(&c, t, n, i, &in)) > 0; i += (uint32_t)k) {
+        if ((in.tok & 0xFFFF) != 31 || in.n < 2 || regtype(in.p[1]) != RT_INPUT) continue;
+        int r = regnum(in.p[1]);
+        if (r >= 16) return -1;
+        usage[r] = (uint8_t)(in.p[0] & 0x1F);
+        index[r] = (uint8_t)((in.p[0] >> 16) & 0xF);
+        if (!used[r]) count++;
+        used[r] = 1;
+    }
+    return k < 0 ? -1 : count;
 }

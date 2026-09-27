@@ -275,6 +275,98 @@ int main(void)
     check("  vertex shader constants c254..c255 round trip", memcmp(halopad_guest_ptr(cf), halopad_guest_ptr(cg), 32) == 0, 1);
     check("  c255..c256 is out of range", method(device, SetVertexShaderConstantF, 3, (uint32_t[]){255, cf, 2}), 0x8876086C);
 
+    /* ---- draws ---- */
+    enum { SetPixelShader = 107, DrawPrimitive = 81, SetRenderStateX = 57, SetSamplerState = 69 };
+    {
+        uint32_t vsc[] = {0xFFFE0101, 0x1F, 0x80000000, 0x900F0000, 0x1F, 0x8000000A, 0x900F0001, 0x1F, 0x80000005, 0x900F0002,
+                          0x1, 0xC00F0000, 0x90E40000, 0x1, 0xD00F0000, 0x90E40001, 0x1, 0xE00F0000, 0x90E40002, 0xFFFF};
+        uint32_t psc[] = {0xFFFF0101, 0x1, 0x800F0000, 0x90E40000, 0xFFFF};                       /* mov r0, v0 */
+        uint32_t ps2c[] = {0xFFFF0200, 0x0200001F, 0x80000000, 0xB00F0000, 0x0200001F, 0x90000000, 0xA00F0800,
+                          0x03000042, 0x800F0000, 0xB0E40000, 0xA0E40800, 0x02000001, 0x800F0800, 0x80E40000, 0xFFFF};  /* texld r0, t0, s0 */
+        uint32_t g1 = halopad_heap_alloc(sizeof vsc, 0), g2 = halopad_heap_alloc(sizeof psc, 0), g3 = halopad_heap_alloc(sizeof ps2c, 0);
+        memcpy(halopad_guest_ptr(g1), vsc, sizeof vsc); memcpy(halopad_guest_ptr(g2), psc, sizeof psc); memcpy(halopad_guest_ptr(g3), ps2c, sizeof ps2c);
+        uint32_t pv = halopad_heap_alloc(4, 1), pp1 = halopad_heap_alloc(4, 1), pp2 = halopad_heap_alloc(4, 1);
+        check("draw: CreateVertexShader (position, colour, texcoord)", method(device, CreateVertexShader, 2, (uint32_t[]){g1, pv}), 0);
+        check("draw: CreatePixelShader ps_1_1 (mov r0, v0)", method(device, CreatePixelShader, 2, (uint32_t[]){g2, pp1}), 0);
+        check("draw: CreatePixelShader ps_2_0 (texld)", method(device, CreatePixelShader, 2, (uint32_t[]){g3, pp2}), 0);
+        uint8_t el3[32] = {0, 0, 0, 0, 3 /* FLOAT4 */, 0, 0 /* POSITION */, 0,  0, 0, 16, 0, 4 /* D3DCOLOR */, 0, 10 /* COLOR */, 0,
+                           0, 0, 20, 0, 1 /* FLOAT2 */, 0, 5 /* TEXCOORD */, 0,  0xFF, 0, 0, 0, 17, 0, 0, 0};
+        uint32_t ge = halopad_heap_alloc(32, 0), pdl = halopad_heap_alloc(4, 1);
+        memcpy(halopad_guest_ptr(ge), el3, 32);
+        method(device, CreateVertexDeclaration, 2, (uint32_t[]){ge, pdl});
+        /* vertices: x y z w, colour, u v (28 bytes) */
+        struct { float x, y, z, w; uint32_t c; float u, v; } tri[6] = {
+            {-1, 1, 0.5f, 1, 0xFF00FF00, 0, 0}, {1, 1, 0.5f, 1, 0xFF00FF00, 1, 0}, {-1, -1, 0.5f, 1, 0xFF00FF00, 0, 1},   /* clockwise on screen */
+            {-1, 1, 0.5f, 1, 0xFFFF0000, 0, 0}, {-1, -1, 0.5f, 1, 0xFFFF0000, 0, 1}, {1, 1, 0.5f, 1, 0xFFFF0000, 1, 0}};   /* counter-clockwise */
+        uint32_t pvb2 = halopad_heap_alloc(4, 1);
+        method(device, CreateVertexBuffer, 6, (uint32_t[]){sizeof tri, 0, 0, 1, pvb2, 0});
+        uint32_t vb2 = rd(pvb2);
+        method(vb2, 11, 4, (uint32_t[]){0, 0, pdata, 0});
+        memcpy(halopad_guest_ptr(rd(pdata)), tri, sizeof tri);
+        method(vb2, 12, 0, NULL);
+        method(device, SetVertexShader, 1, (uint32_t[]){rd(pv)});
+        method(device, SetPixelShader, 1, (uint32_t[]){rd(pp1)});
+        method(device, SetVertexDeclaration, 1, (uint32_t[]){rd(pdl)});
+        method(device, SetStreamSource, 4, (uint32_t[]){0, vb2, 0, 28});
+        check("draw: DrawPrimitive outside a scene is invalid", method(device, DrawPrimitive, 3, (uint32_t[]){4, 0, 1}), 0x8876086C);
+        method(device, BeginScene, 0, NULL);
+        method(device, Clear, 6, (uint32_t[]){0, 0, 3, 0xFF000000, onebits, 0});
+        check("draw: DrawPrimitive clockwise triangle", method(device, DrawPrimitive, 3, (uint32_t[]){4, 0, 1}), 0);
+        check("draw: DrawPrimitive counter-clockwise triangle (culled by default CULL_CCW)", method(device, DrawPrimitive, 3, (uint32_t[]){4, 3, 1}), 0);
+        method(device, EndScene, 0, NULL);
+        method(device, Present, 4, (uint32_t[]){0, 0, 0, 0});
+        void *tg = halopad_d3d9_device_target(device);
+        check("  pixel (20,20) inside the triangle is green", halopad_metal_read_pixel(tg, 20, 20), 0xFF00FF00);
+        check("  pixel (620,460) outside stays clear", halopad_metal_read_pixel(tg, 620, 460), 0xFF000000);
+        method(device, SetRenderStateX, 2, (uint32_t[]){22, 1});   /* CULL_NONE */
+        method(device, BeginScene, 0, NULL);
+        method(device, DrawPrimitive, 3, (uint32_t[]){4, 3, 1});
+        method(device, EndScene, 0, NULL);
+        method(device, Present, 4, (uint32_t[]){0, 0, 0, 0});
+        check("  with CULL_NONE the counter-clockwise triangle draws (red)", halopad_metal_read_pixel(tg, 20, 20), 0xFFFF0000);
+
+        /* pixel centres: a quad covering Direct3D pixel [-0.5, 0.5] lights exactly pixel (0,0) */
+        float x0 = -1.0f - 1.0f / 640, x1 = -1.0f + 1.0f / 640, y0 = 1.0f + 1.0f / 480, y1 = 1.0f - 1.0f / 480;
+        struct { float x, y, z, w; uint32_t c; float u, v; } q[6] = {{x0, y0, 0, 1, 0xFFFFFFFF, 0, 0}, {x1, y0, 0, 1, 0xFFFFFFFF, 0, 0},
+            {x0, y1, 0, 1, 0xFFFFFFFF, 0, 0}, {x1, y0, 0, 1, 0xFFFFFFFF, 0, 0}, {x1, y1, 0, 1, 0xFFFFFFFF, 0, 0}, {x0, y1, 0, 1, 0xFFFFFFFF, 0, 0}};
+        uint32_t gq = halopad_heap_alloc(sizeof q, 0);
+        memcpy(halopad_guest_ptr(gq), q, sizeof q);
+        method(device, BeginScene, 0, NULL);
+        method(device, Clear, 6, (uint32_t[]){0, 0, 3, 0xFF000000, onebits, 0});
+        check("draw: DrawPrimitiveUP quad at Direct3D pixel (0,0)", method(device, 83, 4, (uint32_t[]){4, 2, gq, 28}), 0);
+        method(device, EndScene, 0, NULL);
+        method(device, Present, 4, (uint32_t[]){0, 0, 0, 0});
+        check("  pixel (0,0) is lit (Direct3D pixel centres)", halopad_metal_read_pixel(tg, 0, 0), 0xFFFFFFFF);
+        check("  pixel (1,0) is not", halopad_metal_read_pixel(tg, 1, 0), 0xFF000000);
+        check("  pixel (0,1) is not", halopad_metal_read_pixel(tg, 0, 1), 0xFF000000);
+        method(device, GetStreamSource, 4, (uint32_t[]){0, pvb, po, pst});
+        check("  DrawPrimitiveUP reset stream 0", rd(pvb), 0);
+
+        /* textured quad through ps_2_0 texld: a 2x2 texture, one colour per quadrant (point sampling) */
+        method(device, CreateTexture, 8, (uint32_t[]){2, 2, 1, 0, 21, 1, pt, 0});
+        uint32_t t2 = rd(pt);
+        method(t2, TLockRect, 4, (uint32_t[]){0, lr, 0, 0});
+        uint32_t texels[4] = {0xFFFF0000, 0xFF00FF00, 0xFF0000FF, 0xFFFFFF00};
+        for (int yy = 0; yy < 2; yy++) memcpy((uint8_t *)halopad_guest_ptr(rd(lr + 4)) + yy * rd(lr), texels + 2 * yy, 8);
+        method(t2, TUnlockRect, 1, (uint32_t[]){0});
+        struct { float x, y, z, w; uint32_t c; float u, v; } fq[4] = {{-1, 1, 0, 1, 0, 0, 0}, {1, 1, 0, 1, 0, 1, 0}, {-1, -1, 0, 1, 0, 0, 1}, {1, -1, 0, 1, 0, 1, 1}};
+        uint32_t gfq = halopad_heap_alloc(sizeof fq, 0);
+        memcpy(halopad_guest_ptr(gfq), fq, sizeof fq);
+        method(device, SetPixelShader, 1, (uint32_t[]){rd(pp2)});
+        method(device, SetTexture, 2, (uint32_t[]){0, t2});
+        method(device, SetStreamSource, 4, (uint32_t[]){0, vb2, 0, 28});
+        method(device, BeginScene, 0, NULL);
+        check("draw: DrawPrimitiveUP textured strip", method(device, 83, 4, (uint32_t[]){5, 2, gfq, 28}), 0);
+        method(device, EndScene, 0, NULL);
+        method(device, Present, 4, (uint32_t[]){0, 0, 0, 0});
+        check("  top-left quadrant is texel (0,0) red", halopad_metal_read_pixel(tg, 100, 100), 0xFFFF0000);
+        check("  top-right quadrant is texel (1,0) green", halopad_metal_read_pixel(tg, 540, 100), 0xFF00FF00);
+        check("  bottom-left quadrant is texel (0,1) blue", halopad_metal_read_pixel(tg, 100, 380), 0xFF0000FF);
+        check("  bottom-right quadrant is texel (1,1) yellow", halopad_metal_read_pixel(tg, 540, 380), 0xFFFFFF00);
+        method(device, SetTexture, 2, (uint32_t[]){0, 0});
+        method(t2, TRelease, 0, NULL);
+    }
+
     check("Device Release to zero", method(device, DRelease, 0, NULL), 0);
     check("Release to zero", method(d3d, Release, 0, NULL), 0);
 

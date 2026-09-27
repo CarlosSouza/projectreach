@@ -18,22 +18,7 @@ const char *halopad_com_interface(uint32_t g);
 
 #define D3D_OK 0u
 #define D3DERR_INVALIDCALL 0x8876086Cu
-#define MAXLEVELS 14
-
-enum { R_TEXTURE, R_SURFACE, R_VB, R_IB, R_DECL, R_VS, R_PS };
-typedef struct res {
-    int kind;
-    uint32_t guest, device;
-    uint32_t usage, format, pool, priority, fvf, lod, autogen_filter;
-    uint32_t width, height, levels;
-    uint32_t mem[MAXLEVELS], pitch[MAXLEVELS], size[MAXLEVELS], lw[MAXLEVELS], lh[MAXLEVELS];
-    uint8_t locked[MAXLEVELS], dirty[MAXLEVELS];
-    uint32_t surface[MAXLEVELS];
-    uint32_t parent, level;                     /* surfaces of a texture */
-    uint32_t length, buf, locks;                /* buffers */
-    uint32_t count, *tokens;                    /* declarations (elements) and shaders (tokens) */
-    void *native;                               /* Metal object, created on first use */
-} res;
+#include "halopad_d3d9_internal.h"
 
 /* bytes per block and block edge for a format; 0 if the contract does not offer it */
 static int fmt(uint32_t f, uint32_t *bytes, uint32_t *block)
