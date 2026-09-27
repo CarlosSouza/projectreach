@@ -988,3 +988,12 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
 - **G4 still open:** vehicles, pickups, audio checked by ear or capture, menu return and map reload, and clean relaunch.
 - 24 suites, the join and 11 slices pass on macOS and on the iPad Simulator.
 
+## 2026-09-27 — The Warthog, and picking up weapons
+
+- **Driving.** `tests/halo_vehicle_test.c`: on Blood Gulch the player walks to the Warthog. Halo offers the driver seat ("Press E to enter driver seat of Warthog"), E gets in, W drives it about 10 units, and E gets out. It passes on macOS and on the iPad Simulator.
+  - The earlier failure was distance: Halo only offers a vehicle within its search radius. At 1.5 units there was no offer; at 0.6 units there is.
+  - Driving into the canyon wall tips the driver out, which is Halo's own behaviour, so the test stops short of the wall.
+- **Pickups.** In the host test, after the respawn, the player walks to the nearest loose weapon, holds E when Halo offers it, and the weapon joins its weapons ("Picked up a plasma rifle"). If geometry blocks the way, it tries the next weapon.
+- **Graphics.** The fixed-function program cache no longer stops at 256 programs; it is a growing hash table. The Warthog scene needed more.
+- **Suites.** The host test runs with one retry (grenade bounces vary from run to run). 25 suites, the join and 11 slices pass on macOS and on the iPad Simulator.
+

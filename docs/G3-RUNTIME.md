@@ -212,13 +212,34 @@ It passes on macOS and on the iPad Simulator, and it passed on repeated runs. Th
 - **Fault reports name the translated procedure.** A fault now prints the host program counter and return addresses. `run-core.py` turns them into procedure names with `atos`, for example `loc_5BBE18`. Translated code has no guest program counter, so this is how a fault's location is found.
 - **`run-core.py --fresh-state`:** the run starts from an empty state folder, kept in the evidence.
 
-**Not done yet for G4.** The G4 list still needs:
+**Not done yet for G4.** Vehicles and pickups are covered below. The G4 list still needs:
 
-- **Vehicles.** Near a Warthog, E does nothing on Blood Gulch in the `map_name` test game. That game is not a multiplayer game with a game type. The next step is a vehicle in the hosted Slayer game.
-- **Pickups.**
 - **Audio verified by ear or by capture.**
 - **Menu return and map reload.**
 - **Clean relaunch.**
+
+## Vehicles and pickups (G4)
+
+**Vehicles** (`tests/halo_vehicle_test.c`). On Blood Gulch the test steers with the mouse and W: out of the red base, then to the driver's side of the Warthog outside it (`vehicles\warthog\mp_warthog` near (102.3, −144.7)). Checks, in Halo's game state:
+
+- up close, Halo offers the seat: player `+0x24` is the Warthog and `+0x28` is 8 (enter a seat), shown on screen as "Press "E" to enter driver seat of Warthog";
+- E puts the player in the driver's seat (the unit's parent, `+0x11c`, becomes the Warthog);
+- W drives it about 10 units, and the player is still in it when it stops;
+- E gets out beside it.
+
+Driving on uphill leaves the driver out of the seat. W held for 3 s drives the Warthog up the canyon wall, and at about 3 units up the player falls out (parent `-1`), about 177 units away: the game's own flip behaviour, not an input fault. That is why the test drives for 3 s and stops before the wall.
+
+Earlier attempts that did not enter the Warthog stood 1.5 units from it. Halo offers a vehicle only within its search radius (`0x4fa8f0` with the unit's radius): at 0.63 units the offer appears.
+
+**Pickups** (in `tests/halo_host_test.c`, after the respawn):
+
+- The player turns to the nearest loose weapon on its level that it does not already hold. It walks until Halo offers it (player `+0x24`, type 7, "Hold E to pick up"), then holds E.
+- The weapon joins the unit's weapons (`+0x2f8`), and Halo shows "Picked up a plasma rifle" (or whichever weapon it was).
+- If geometry blocks the way (no progress for 60 frames), it tries the next-nearest weapon. Slayer respawns at a random point.
+
+The host test is in the suites with one retry. Frags can bounce away from the player's feet in some runs, because Halo's ticks follow real time while the test's inputs follow frames. In the last seven runs with the final settings, every run passed on the first try. The look-down amount is kept at 1,200 counts: 1,800 or 3,200 counts turned the look vector back up (k 0.27, 0.22), and the throws went up.
+
+**A graphics limit removed.** Halo's fixed-function draws produced more than 256 distinct stage cascades once the Warthog and its effects were in view, and a draw trapped. The generated programs are now kept in a hash table that grows.
 
 ## Joining a server (G5, step 1)
 

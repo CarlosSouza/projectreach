@@ -51,23 +51,32 @@ void halopad_ff_vs_constants(device *d, uint8_t out[1760], const float fixup[4])
 void halopad_ff_ps_key(device *d, const uint8_t tex_dim[16], hp_ff_ps_key *k);
 void halopad_ff_ps_constants(device *d, uint8_t out[176]);
 
-/* generated fixed-function programs, by key */
-typedef struct { uint8_t key[128]; uint32_t len; char *msl; } ff_entry;
-static ff_entry ff_cache[256];
-static uint32_t ff_count;
+/* generated fixed-function programs, by key: a hash table that grows (a Slayer game on Blood
+   Gulch needs more than 256 distinct stage cascades once vehicles and effects are in view) */
+typedef struct ff_entry { uint8_t key[128]; uint32_t len; char *msl; struct ff_entry *next; } ff_entry;
+static ff_entry *ff_buckets[4096];
+static uint32_t ff_hash(const void *key, uint32_t len)
+{
+    uint32_t h = 2166136261u;
+    for (uint32_t i = 0; i < len; i++) h = (h ^ ((const uint8_t *)key)[i]) * 16777619u;
+    return h;
+}
 static const char *ff_lookup(const void *key, uint32_t len, char *(*make)(const void *, char *, size_t), const char *what)
 {
-    for (uint32_t i = 0; i < ff_count; i++)
-        if (ff_cache[i].len == len && !memcmp(ff_cache[i].key, key, len)) return ff_cache[i].msl;
-    if (ff_count == 256) hp_unsupported("draw", "more than 256 fixed-function programs");
-    if (len > sizeof ff_cache[0].key) hp_unsupported("draw", "fixed-function key of %u bytes", len);
+    if (len > sizeof ff_buckets[0]->key) hp_unsupported("draw", "fixed-function key of %u bytes", len);
+    ff_entry **b = &ff_buckets[ff_hash(key, len) % 4096];
+    for (ff_entry *e = *b; e; e = e->next)
+        if (e->len == len && !memcmp(e->key, key, len)) return e->msl;
     char err[256] = "";
     char *msl = make(key, err, sizeof err);
     if (!msl) hp_unsupported("draw", "fixed-function %s: %s", what, err);
-    memcpy(ff_cache[ff_count].key, key, len);
-    ff_cache[ff_count].len = len;
-    ff_cache[ff_count].msl = msl;
-    return ff_cache[ff_count++].msl;
+    ff_entry *e = calloc(1, sizeof *e);
+    memcpy(e->key, key, len);
+    e->len = len;
+    e->msl = msl;
+    e->next = *b;
+    *b = e;
+    return msl;
 }
 static char *make_ff_vs(const void *k, char *e, size_t n) { (void)e; (void)n; return halopad_ff_vs_msl(k); }
 static char *make_ff_ps(const void *k, char *e, size_t n) { return halopad_ff_ps_msl(k, e, n); }

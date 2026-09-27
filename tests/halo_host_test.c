@@ -4,7 +4,8 @@
  * in a fresh state folder: run with scripts/run-core.py --fresh-state), Create Game > LAN, the
  * first map (Battle Creek), the Slayer gametype, Server Setup > Start Game. Halo hosts the game
  * itself: the Slayer engine runs, with its rules, spawning and respawning. Then, in Halo's game
- * state (players 0x815920, objects 0x7fb710; see tests/halo_play_test.c): fire (projectiles
+ * state (players 0x815920, objects 0x7fb710; see tests/halo_play_test.c): walk over a loose
+ * weapon and pick it up (it joins the unit's weapons at +0x2f8), fire (projectiles
  * appear), melee (F), look down and throw frag grenades at the player's own feet (right
  * button; unit +0x31e counts frags, +0xe0/+0xe4 are health and shields), die from them and
  * respawn as a new unit. WinMain's GameSpy set-up and key string are set as in the other
@@ -97,11 +98,13 @@ static uint32_t live_objects(void)
 }
 static void mouse(int dx, int dy) { hp_input e = {0}; e.kind = HPI_MOUSEMOVE; e.x = 400; e.y = 300; e.dx = dx; e.dy = dy; halopad_input_event(&e); }
 static void button(int b, int down) { hp_input e = {0}; e.kind = HPI_BUTTON; e.x = 400; e.y = 300; e.button = b; e.down = down; halopad_input_event(&e); }
-#define QUIT_AFTER 4800
+#define QUIT_AFTER 5600
 static int frames, spawn_frame, death_frame, respawn_frame;
 static uint32_t first_unit, second_unit, objects_before, objects_most, frags0 = 0xff, frags1 = 0xff, melee_seen, name_ok;
 static float health_min = 2, shield_min = 2, look_down;
 static char map_at_spawn[32];
+static uint32_t pickup, weapons_before, picked; static int w_down, e_down, offered_pickup, searched, nskip, progress_frame;
+static uint32_t skip[16]; static float best_dist;
 static void on_present(uint32_t device)
 {
     frames++;
@@ -122,6 +125,64 @@ static void on_present(uint32_t device)
         shot(device, 1);
     }
     if (!spawn_frame) goto end;
+    /* after respawning: walk to the nearest loose weapon on the player's level that it does not
+       hold, and take it when Halo offers it (player +0x24, "Hold E to pick up") */
+    if (respawn_frame) {
+        int tp = frames - respawn_frame;
+        /* choose (again, if the way is blocked: no progress for 60 frames) the nearest loose weapon */
+        if (u && !picked && tp >= 20 && tp < 1000 && (tp == 20 || (pickup && tp - progress_frame > 60))) {
+            if (pickup && nskip < 16) skip[nskip++] = pickup;
+            uint32_t ot = rd(0x7fb710), held = object(rd(u + 0x2f8));
+            float best = 25.0f, up[3] = {f32(u + 0x5c), f32(u + 0x60), f32(u + 0x64)};
+            pickup = 0;
+            for (uint32_t i = 0; i < u16(ot + 0x20); i++) {
+                uint32_t e = rd(ot + 0x34) + i * 12;
+                if (!u16(e)) continue;
+                uint32_t o = rd(e + 8), hnd = (uint32_t)u16(e) << 16 | i;
+                int skipped = 0; for (int q = 0; q < nskip; q++) skipped |= skip[q] == hnd;
+                if (skipped || (int16_t)u16(o + 0xb4) != 2 || rd(o + 0xcc) != 0xffffffff || (held && (rd(o) & 0xffff) == (rd(held) & 0xffff))) continue;
+                float d = hypotf(f32(o + 0x5c) - up[0], f32(o + 0x60) - up[1]);
+                if (fabsf(f32(o + 0x64) - up[2]) < 1.0f && d < best) { best = d; pickup = hnd; }
+            }
+            if (tp == 20) weapons_before = rd(u + 0x2f8 + 4);
+            progress_frame = tp; best_dist = 1e9f;
+        }
+        if (u && pickup && object(pickup)) {
+            uint32_t o = object(pickup);
+            float d = hypotf(f32(o + 0x5c) - f32(u + 0x5c), f32(o + 0x60) - f32(u + 0x60));
+            if (d < best_dist - 0.3f) { best_dist = d; progress_frame = tp; }
+        }
+        if (tp > 20 && tp < 1000 && pickup && u && !picked) {
+            uint32_t o = object(pickup);
+            float up[3] = {f32(u + 0x5c), f32(u + 0x60), f32(u + 0x64)}, look[3] = {f32(u + 0x23c), f32(u + 0x240), f32(u + 0x244)};
+            if (o) {
+                float yaw = atan2f(look[1], look[0]) * 57.29578f, b = atan2f(f32(o + 0x60) - up[1], f32(o + 0x5c) - up[0]) * 57.29578f, err = b - yaw;
+                while (err > 180) err -= 360; while (err < -180) err += 360;
+                int dx = (int)(-err * 6); if (dx > 60) dx = 60; if (dx < -60) dx = -60;
+                if (dx) mouse(dx, 0);
+                int want = fabsf(err) < 20;
+                if (want != w_down) { keyx('W', 0x11, 0, want); w_down = want; }
+            }
+            if (tp % 40 == 0 && getenv("HALOPAD_TRACE_PICKUP")) printf("      pickup t%d player %.2f %.2f %.2f weapon %.2f %.2f %.2f interaction %08x/%d\n", tp, up[0], up[1], up[2], o ? f32(o + 0x5c) : 0, o ? f32(o + 0x60) : 0, o ? f32(o + 0x64) : 0, rd(p + 0x24), (int16_t)u16(p + 0x28));
+            if (o && getenv("HALOPAD_TRACE_PICKUP") && hypotf(f32(o + 0x5c) - up[0], f32(o + 0x60) - up[1]) < 0.6f && !searched) {
+                searched = 1;
+                printf("      at the weapon: unit cluster %08x %08x r %.2f; weapon cluster %08x %08x r %.2f parent %08x flags %08x\n", rd(u + 0x98), rd(u + 0x9c), f32(u + 0xac), rd(o + 0x98), rd(o + 0x9c), f32(o + 0xac), rd(o + 0xcc), rd(o + 0x10));
+                uint32_t buf = halopad_heap_alloc(64, 1);
+                float r1 = 1.5f; uint32_t r1u; memcpy(&r1u, &r1, 4);
+                uint32_t args[7] = {0, 0x11f, u + 0x98, u + 0xa0, r1u, buf, 16};
+                uint32_t n = halopad_call_guest_ex(0x4fa8f0, 7, args, 0, 0) & 0xffff;
+                printf("      search r 1.5 found %u:", n);
+                for (uint32_t k = 0; k < n && k < 16; k++) { uint32_t oo = object(rd(buf + 4 * k)); printf(" %08x(type %d)", rd(buf + 4 * k), oo ? (int16_t)u16(oo + 0xb4) : -9); }
+                printf("\n");
+            }
+            /* Halo offers the weapon (player +0x24, the "Hold E to pick up" prompt); hold E to take it */
+            if (rd(p + 0x24) == pickup && !e_down) { offered_pickup = (int16_t)u16(p + 0x28); keyx('E', 0x12, 0, 1); e_down = frames; }
+            if (e_down && frames - e_down == 40) keyx('E', 0x12, 0, 0);
+            for (uint32_t q = 0; q < 4; q++) if (rd(u + 0x2f8 + 4 * q) == pickup) { picked = frames; shot(device, 7); }
+        }
+        if ((picked || tp == 1000) && w_down) { keyx('W', 0x11, 0, 0); w_down = 0; }
+        if ((picked || tp == 1000) && e_down > 0 && frames - e_down < 40) { keyx('E', 0x12, 0, 0); e_down = -1; }
+    }
     int t = frames - spawn_frame;
     if (u && rd(p + 0x34) == first_unit) {
         float hp = f32(u + 0xe0), sh = f32(u + 0xe4);
@@ -140,19 +201,19 @@ static void on_present(uint32_t device)
     if (t == 186) shot(device, 3);
     if (t == 192) keyx('F', 0x21, 0, 0);
     /* look down, then frag grenades at the player's feet until it dies */
-    if (t >= 260 && t < 290) mouse(0, 40);
-    if (t == 295 && u) { look_down = f32(u + 0x244); frags0 = *(uint8_t *)halopad_guest_ptr(u + 0x31e); }
+    if (t >= 240 && t < 270) mouse(0, 40);
+    if (t == 325 && u) { look_down = f32(u + 0x244); frags0 = *(uint8_t *)halopad_guest_ptr(u + 0x31e); }
     /* both frags close together, so they go off at the player's feet together; again later if
        the player still stands (a grenade can bounce away) */
-    if (t == 300 || t == 340 || t == 900 || t == 940) button(1, 1);
-    if (t == 310 || t == 350 || t == 910 || t == 950) button(1, 0);
-    if (t == 330) shot(device, 4);
-    if (t == 330 && u) frags1 = *(uint8_t *)halopad_guest_ptr(u + 0x31e);   /* after the first throw */
+    if (t == 330 || t == 370 || t == 900 || t == 940) button(1, 1);
+    if (t == 340 || t == 380 || t == 910 || t == 950) button(1, 0);
+    if (t == 365) shot(device, 4);
+    if (t == 360 && u) frags1 = *(uint8_t *)halopad_guest_ptr(u + 0x31e);   /* after the first throw */
     if (!death_frame && t > 300 && (!u || rd(p + 0x34) != first_unit)) { death_frame = frames; shot(device, 5); }
     if (death_frame && !respawn_frame && u && rd(p + 0x34) != first_unit) { respawn_frame = frames; second_unit = rd(p + 0x34); }
-    if (respawn_frame && frames == respawn_frame + 60) shot(device, 6);
+    if (respawn_frame && frames == respawn_frame + 10) shot(device, 6);
 end:
-    if (frames == QUIT_AFTER || (respawn_frame && frames == respawn_frame + 100)) *(uint8_t *)halopad_guest_ptr(0x6b47eb) = 1;
+    if (frames == QUIT_AFTER || (respawn_frame && (frames == respawn_frame + 1060 || (picked && frames == picked + 60)))) *(uint8_t *)halopad_guest_ptr(0x6b47eb) = 1;
 }
 
 static int dialogs;
@@ -272,6 +333,8 @@ int main(void)
     printf("    the menus started a game on \"%s\"; the player spawned at frame %d\n", map_at_spawn, spawn_frame);
     check("  Multiplayer > Create Game (LAN) > Battle Creek > Slayer > Start Game loads beavercreek", !strcmp(map_at_spawn, "beavercreek"), 1);
     check("  the player is New001, the profile made in the menus", name_ok, 1);
+    printf("    pickup: weapon %08x (offered as interaction type %d), second slot %08x before, taken at frame %d\n", pickup, offered_pickup, weapons_before, picked);
+    check("  walking over a loose weapon picks it up (it joins the unit's weapons, +0x2f8)", pickup && picked, 1);
     printf("    live objects %u before firing, up to %u while firing\n", objects_before, objects_most);
     check("  the trigger fires (projectiles appear)", objects_most > objects_before, 1);
     check("  F melees (unit +0x2ac set during the swing)", melee_seen, 1);
