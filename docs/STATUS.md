@@ -73,6 +73,8 @@ Operating loop: [HaloPad-GOAL-LOOP-PHASE2.md](HaloPad-GOAL-LOOP-PHASE2.md) (repl
 
 - **Played on a populated public server from the iPad app:** AUSSIES MADNESS 2 (216.245.177.89:2305, stock Sidewinder CTF, live score 9-10) with six real players (pings 48-249). The iPad joined as New002 on Red; the server roster lists it (ping 48). Through the touch controls: moved 4.4 units, turned 39.7°, fired 16 rounds (60→44), jumped (+0.65), turned with the LOOK stick. The first run reported false failures because the self-test read player-table entry 0, which on a full server is someone else; it now selects the local player. Evidence `G5/public-play-aussies2`.
 
+- **Joined from Halo's own Internet Lobby on the iPad (player path, no -connect):** app launched with only the internet network policy; Multiplayer → Join Game → Internet → Get List showed 169 servers / 92 players with pings; tapped AUSSIES MADNESS 3 (Blood Gulch CTF, tied 12-12) and Join Game. Spawned on Red with a sniper rifle; server roster lists New002 (ping 24) with YOUR SISTER, Killer, Wilshire, Dopey. A tap on the on-screen FIRE button left a sniper tracer; the ammo counter did not drop, which fits this server's modded ammo but was not proven. Evidence `G5/lobby-join`.
+
 ## Parked, waiting on Chris
 
 | Item | Parks | Status |

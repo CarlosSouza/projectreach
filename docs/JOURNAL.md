@@ -2601,3 +2601,13 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   39.7°, rounds 60→44, jump -3.84→-3.19, LOOK 6.8°. Server roster: New002 ping 48
   Red alongside YOUR SISTER, Darling, Sneak, Pirate, CPU-MD, ToMmy.
 - Left the iPad in the match for Chris to take over.
+
+## 2026-09-28 — join from Halo's own Internet Lobby
+
+- Previous goal turn: progress (d15a543, public match with touch checks).
+- Launched the regular app with HALOPAD_NET=internet only. Taps: Multiplayer →
+  Join Game Internet → Get List (169 servers, 92 players, pings 24–38 shown on
+  page 1) → AUSSIES MADNESS 3 row → Join Game. Spawned Blood Gulch CTF, Red,
+  sniper. Server roster: New002 ping 24 plus four named players; score 12–12.
+- A real FIRE-button tap produced a sniper tracer; the HUD ammo stayed at 008 ×4
+  (probably server-side infinite ammo, not proven). Left the iPad in the match.
