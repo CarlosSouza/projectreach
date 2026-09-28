@@ -2586,3 +2586,18 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
 - Remaining M30 rows: audio interruption, console typing across interruption,
   physical suspension. Next: audio interruption on the Simulator if it can be
   triggered faithfully, otherwise document why it needs hardware.
+
+## 2026-09-28 — real public match from the iPad app
+
+- Chris redirected: stop lifecycle micro-tests; the build must play and join
+  servers with real people. Listed 244 master-server entries; picked AUSSIES
+  MADNESS 2 (stock sidewinder CTF, 7 humans, not full, no password).
+- Run 1 (PID 25928): joined, spawned Blue, teammate Pirate visible, "Welcome
+  New002". Self-test reported move/look/jump FAIL, yet screenshots showed the view
+  moved and the rifle fired (60→41, bullet hole). Cause: g_unit read players[0],
+  another player on a populated server. Fixed to select the entry whose local
+  index (+2) is not -1 (layout from tests/halo_match_test.c).
+- Run 2 (PID 26595, rebuilt): joined, all five checks PASS: moved 4.42, turned
+  39.7°, rounds 60→44, jump -3.84→-3.19, LOOK 6.8°. Server roster: New002 ping 48
+  Red alongside YOUR SISTER, Darling, Sneak, Pirate, CPU-MD, ToMmy.
+- Left the iPad in the match for Chris to take over.

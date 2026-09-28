@@ -442,8 +442,16 @@ static uint32_t g_object(uint32_t h)
 static uint32_t g_unit(void)
 {
     if (!halopad_guest_base) return 0;
+    /* players 0x815920: 0x200-byte entries, +0 salt (0 free), +2 local player
+       index (-1 remote), +0x34 unit. On a populated server entry 0 is usually
+       someone else, so select the local player explicitly. */
     uint32_t pt = g32(0x815920);
-    return pt ? g_object(g32(g32(pt + 0x34) + 0x34)) : 0;
+    if (!pt) return 0;
+    for (uint32_t i = 0; i < g16(pt + 0x20); i++) {
+        uint32_t p = g32(pt + 0x34) + i * 0x200;
+        if (g16(p) && (int16_t)g16(p + 2) != -1) return g_object(g32(p + 0x34));
+    }
+    return 0;
 }
 static uint32_t g_live_objects(void)
 {

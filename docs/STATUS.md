@@ -71,6 +71,8 @@ Operating loop: [HaloPad-GOAL-LOOP-PHASE2.md](HaloPad-GOAL-LOOP-PHASE2.md) (repl
 
 - **Missing touch bindings now have recovery feedback:** a read-only Halo-thread snapshot marks unavailable action buttons and digital MOVE directions. Tapping them shows the exact original-menu path; remapping clears the warning without restarting and releases retain runtime ownership. Original-menu JUMP clear/save/relaunch/Space restore is verified, with both saves restored byte-exact. DirectInput passes 254 assertions; UIKit passes 94 checks, 90 layouts and ten renders (`G9/touch-binding-feedback`). Controller-only actions still require a keyboard/mouse alternative; direct controller synthesis and physical ergonomics remain open.
 
+- **Played on a populated public server from the iPad app:** AUSSIES MADNESS 2 (216.245.177.89:2305, stock Sidewinder CTF, live score 9-10) with six real players (pings 48-249). The iPad joined as New002 on Red; the server roster lists it (ping 48). Through the touch controls: moved 4.4 units, turned 39.7°, fired 16 rounds (60→44), jumped (+0.65), turned with the LOOK stick. The first run reported false failures because the self-test read player-table entry 0, which on a full server is someone else; it now selects the local player. Evidence `G5/public-play-aussies2`.
+
 ## Parked, waiting on Chris
 
 | Item | Parks | Status |
