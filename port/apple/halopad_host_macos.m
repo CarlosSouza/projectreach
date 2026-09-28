@@ -14,6 +14,12 @@ void halopad_host_app(void)
     [NSApplication sharedApplication];
     [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
     [NSApp finishLaunching];
+    /* Halo's frame loop sleeps between frames (Sleep(1) in its message wait); macOS App Nap
+       stretched those sleeps once a long test had no visible window, and a public session fell
+       below 12 frames a second. A game is user-initiated, latency-critical work. */
+    static id activity;
+    activity = [NSProcessInfo.processInfo beginActivityWithOptions:NSActivityUserInitiated | NSActivityLatencyCritical
+                                                            reason:@"HaloPad runs Halo's frame loop"];
 }
 
 /* The Mac's main display, in pixels: the Windows desktop HaloPad presents. */

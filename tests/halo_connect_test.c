@@ -180,6 +180,20 @@ static void on_present(uint32_t device)
         key_char(0xC0, 0x29, 0, 0); type_text(line); key_char(0xC0, 0x29, 0, 0);
     }
     if (mode_mapchange && spawned_loads >= 2 && frames == last_spawn_frame + 300) QUIT_AFTER = frames;
+    /* HALOPAD_TEST_SESSION: a longer stay in a public game. Every 600 frames after the spawn the
+       player walks forward for 45 frames and turns (idle players are kicked by many servers);
+       a screenshot every 1500 frames (session-N.ppm) */
+    if (getenv("HALOPAD_TEST_SESSION") && spawned_loads && frames > last_spawn_frame) {
+        int t = (frames - last_spawn_frame) % 600;
+        if (t == 1) { hp_input e = {0}; e.kind = HPI_KEY; e.vk = e.side_vk = 'W'; e.scan = 0x11; e.down = 1; halopad_input_event(&e); }
+        if (t == 46) { hp_input e = {0}; e.kind = HPI_KEY; e.vk = e.side_vk = 'W'; e.scan = 0x11; e.down = 0; halopad_input_event(&e); }
+        if (t > 46 && t < 66) { hp_input e = {0}; e.kind = HPI_MOUSEMOVE; e.x = 400; e.y = 300; e.dx = 30; halopad_input_event(&e); }
+    }
+    if (getenv("HALOPAD_TEST_SESSION") && frames % 1500 == 0) {
+        char name[32];
+        snprintf(name, sizeof name, "session-%d.ppm", frames / 1500);
+        save_name = name; save(device); save_name = "join.ppm";
+    }
     if (expect_refused && frames == QUIT_AFTER - 5) { save_name = "refused.ppm"; save(device); save_name = "join.ppm"; }
     if (frames == 900) save(device);
     /* fire as a network client: the left button for 45 frames (about a second: a plasma pistol fires only once fully charged), 250 frames after the first spawn (F); the magazine (weapon
@@ -266,6 +280,7 @@ int main(void)
     if (!strcmp(via, "mapchange")) { mode_mapchange = 1; QUIT_AFTER = 12000; next_map = getenv("HALOPAD_TEST_MAP2") ? getenv("HALOPAD_TEST_MAP2") : "beavercreek"; }
     if (!strcmp(via, "reconnect")) { mode_reconnect = 1; QUIT_AFTER = 2800; }
     if (getenv("HALOPAD_TEST_EXPECT") && !strcmp(getenv("HALOPAD_TEST_EXPECT"), "refused")) { expect_refused = 1; QUIT_AFTER = 2400; }
+    if (getenv("HALOPAD_TEST_FRAMES")) QUIT_AFTER = atoi(getenv("HALOPAD_TEST_FRAMES"));
     if (via_console) snprintf(args, sizeof args, "-console");     /* Halo's console needs its -console switch */
     else if (getenv("HALOPAD_TEST_VIA") && !strcmp(getenv("HALOPAD_TEST_VIA"), "browser")) { via_browser = 1; QUIT_AFTER = 2700; args[0] = 0; }
     else if (mode_reconnect) snprintf(args, sizeof args, "-connect %s -console", server);
