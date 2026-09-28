@@ -3,6 +3,7 @@
    binding that no longer equals the value this session installed. */
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #define PTROFS_64BIT 1
 #include "llasm_cpu.h"
@@ -16,6 +17,7 @@ void halopad_heap_free(uint32_t);
 uint32_t halopad_call_guest_ex(uint32_t, uint32_t, const uint32_t *, uint32_t, int);
 
 static int owned_device = -1, owned_slot = -1;
+static int activated_here;
 static int tried, cleanup_pending, cleanup_in_game;
 static uint64_t cleanup_configuration;
 static uint64_t last_configuration;
@@ -88,13 +90,14 @@ static int release_owned(void)
                 cleared &= bind_axis(owned_slot, i, 0x7fff);
         /* Keep ownership if rollback fails, so an orphaned mapping cannot become
            a supposedly free slot. Retry only after configuration/phase changes. */
-        if (cleared) command("input_deactivate_joy", owned_device, -1);
-        cleanup_pending = !cleared || associated();
+        if (cleared && activated_here) command("input_deactivate_joy", owned_device, -1);
+        cleanup_pending = !cleared || (activated_here && associated());
         fprintf(stderr, "HALOPAD TOUCH BINDING: %s device %d slot %d\n",
                 cleanup_pending ? "cleanup pending" : "released", owned_device, owned_slot);
         if (cleanup_pending) return 0;
     }
     cleanup_pending = 0;
+    activated_here = 0;
     owned_device = owned_slot = -1;
     return 1;
 }
@@ -113,6 +116,19 @@ static uint64_t configuration(void)
         h = (h ^ (uint64_t)is_touch((int)i)) * 1099511628211ull;
     }
     return h;
+}
+static void trace_configuration(void)
+{
+    if (!getenv("HALOPAD_TRACE_TOUCH_BINDING")) return;
+    unsigned count = read32(0x64c774);
+    fprintf(stderr, "HALOPAD TOUCH CONFIG: %u devices\n", count);
+    for (unsigned i = 0; i < count && i < 8; i++)
+        fprintf(stderr, "HALOPAD TOUCH CONFIG: device %u touch %d present %d slot %d\n",
+                i, is_touch((int)i), !!read32(0x64c778 + i * 4), (int)read32(0x64c9c8 + i * 0x240));
+    for (int i = 0; i < 4; i++)
+        fprintf(stderr, "HALOPAD TOUCH CONFIG: slot %d device %d empty buttons %d axes %d hats %d menu %08x\n",
+                i, (int)read32(0x64dc18 + i * 4), unbound(0x6ab426 + i * 64, 64),
+                unbound(axis_address(i, 0), 128), unbound(0x6ab736 + i * 256, 256), read32(0x6ab526 + i * 4));
 }
 int halopad_touch_binding_slot(void) { return owned_slot; }
 int halopad_touch_binding_update(int in_game)
@@ -133,14 +149,27 @@ int halopad_touch_binding_update(int in_game)
     uint64_t fingerprint = configuration();
     if (tried && fingerprint == last_configuration) goto done;
     tried = 1;
-    for (unsigned i = 0; i < read32(0x64c774) && i < 8; i++)
-        if (is_touch((int)i) && read32(0x64c9c8 + i * 0x240) == UINT32_MAX) { owned_device = (int)i; break; }
-    if (owned_device >= 0) {
+    for (unsigned i = 0; i < read32(0x64c774) && i < 8; i++) {
+        if (!is_touch((int)i)) continue;
+        uint32_t slot = read32(0x64c9c8 + i * 0x240);
+        if (slot == UINT32_MAX) { owned_device = (int)i; break; }
+        /* Fresh profiles can auto-assign our distinct device without bindings.
+           Borrow only that reciprocal, empty assignment; cleanup must keep it. */
+        if (slot < 4 && read32(0x64dc18 + slot * 4) == i && slot_empty((int)slot, 0)) {
+            owned_device = (int)i;
+            owned_slot = (int)slot;
+            break;
+        }
+    }
+    if (owned_device >= 0 && owned_slot < 0) {
         for (int slot = 3; slot >= 0; slot--)
             if (read32(0x64dc18 + slot * 4) == UINT32_MAX && slot_empty(slot, 0)) { owned_slot = slot; break; }
     }
     if (owned_slot >= 0) {
-        command("input_activate_joy", owned_device, owned_slot);
+        if (!associated()) {
+            command("input_activate_joy", owned_device, owned_slot);
+            activated_here = associated();
+        }
         if (associated()) {
             ready = 1;
             for (int i = 0; i < 4 && ready; i++) ready = bind_axis(owned_slot, i, actions[i]);
@@ -155,6 +184,7 @@ int halopad_touch_binding_update(int in_game)
     if (!ready && !cleanup_pending) owned_device = owned_slot = -1;
     last_configuration = configuration();
     fprintf(stderr, "HALOPAD TOUCH BINDING: %s device %d slot %d\n", ready ? "ready" : "unavailable", owned_device, owned_slot);
+    if (!ready) trace_configuration();
 done:
     *halopad_cpu = saved;
     return ready;

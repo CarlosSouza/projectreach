@@ -471,3 +471,40 @@ cancel checks (`G9/touch-binding-lifecycle/final-app-err.txt`). The earlier layo
 run sampled a stale frame at half input; the diagnostic driver now requires three
 fresh frame observations, independently of axis/result values, with a bounded
 failure timeout. Source and binary identities accompany the final screenshot.
+
+
+## Fresh-profile analog assignment and save check (2026-09-28)
+
+The previously reported New002 fallback is fixed. Opt-in diagnostics found two
+enumerated devices: the host controller in slot 0 and HaloPad Touch Move already
+assigned by Halo to slot 1. Every button, axis, hat and menu binding in slot 1 was
+empty. The manager incorrectly required an unassigned touch device.
+
+It now uses an existing reciprocal, empty assignment belonging to the distinct
+touch device. It records whether it activated the device itself. Cleanup unbinds
+only its own axes and deactivates only its own activation; a profile's existing
+association stays intact. Existing player bindings or a conflicting physical
+assignment still prevent configuration. `HALOPAD_TRACE_TOUCH_BINDING=1` reports
+bounded numeric slot state on a failed attempt, with no profile names or data.
+
+`G9/touch-profile-config/policy-before.txt` reproduces two failures; the corrected
+31-assertion policy suite passes under ASan/UBSan (`policy-after.txt`). Live New002
+Sidewinder passes five gameplay outcomes and seven analog/cancel checks using
+slot 1 (`fixed-err.txt`). Menu return releases the temporary axes; Battle Creek in
+the same process reuses slot 1. This verifies the existing association survived.
+
+In Battle Creek, opening Change Settings and pressing OK without edits left
+New002's 8192-byte profile unchanged. Changing its color from the default White
+to Blue through the original UI triggered an actual save. Only offsets 0x11a–0x11b
+and the trailing four-byte checksum changed; each checksum is the complement of
+zlib CRC32 over the preceding bytes. No temporary touch bindings were serialized.
+Halo reapplied its profile configuration during saving, and the manager released
+then reacquired the empty touch slot. Relaunching the saved profile and starting
+Battle Creek passes all five gameplay and seven analog/cancel checks again
+(`relaunch-err.txt`). New002 is retained as a blue test fixture with its prior
+version backed up; the original New001 is not edited.
+
+This closes the reproduced fresh-profile assignment failure and the tested color-
+save/relaunch path. It does not prove physical hot-plug behavior, controller-binding
+edits, natural server restarts or simultaneous physical fingers. The integration
+remains an explicit development scene until those remaining paths are verified.

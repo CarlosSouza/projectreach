@@ -108,8 +108,21 @@ int main(void)
     fail_binding = 0;
     check("next phase completes pending cleanup before reacquiring", !halopad_touch_binding_update(1) && halopad_touch_binding_slot() == -1 && rd(0x64dc24) == UINT32_MAX);
     check("cleaned transaction can configure the next frame", halopad_touch_binding_update(1));
-    reset(); wr(0x64dc24, 1); wr(0x64cc08, 3);
-    check("pre-existing touch assignment is not commandeered", !halopad_touch_binding_update(1) && commands == 0);
+    reset(); wr(0x64dc1c, 1); wr(0x64cc08, 1);
+    memcpy(before, halopad_guest_ptr(0x6ab330), sizeof before);
+    check("fresh profile's empty touch slot is reused without activation", halopad_touch_binding_update(1) && halopad_touch_binding_slot() == 1 && commands == 0 && rd(0x64dc18) == 0);
+    check("menu cleanup preserves the profile's original touch assignment", !halopad_touch_binding_update(0) && commands == 0 && rd(0x64dc1c) == 1 && rd(0x64cc08) == 1 && !memcmp(before, halopad_guest_ptr(0x6ab330), sizeof before));
+    reset(); wr(0x64dc1c, 1); wr(0x64cc08, 1); fail_binding = 3;
+    memcpy(before, halopad_guest_ptr(0x6ab330), sizeof before);
+    check("partial failure rolls back axes but preserves borrowed assignment", !halopad_touch_binding_update(1) && bindings >= 3 && commands == 0 && rd(0x64dc1c) == 1 && !memcmp(before, halopad_guest_ptr(0x6ab330), sizeof before));
+    reset(); wr(0x64dc1c, 1); wr(0x64cc08, 1); w16(0x6ab536 + 128, 31);
+    check("pre-existing bound touch assignment is not commandeered", !halopad_touch_binding_update(1) && commands == 0 && bindings == 0);
+    reset(); wr(0x64dc1c, 0); wr(0x64cc08, 1);
+    check("inconsistent assignment cannot borrow a physical slot", !halopad_touch_binding_update(1) && commands == 0 && bindings == 0);
+    reset(); wr(0x64dc1c, 1); wr(0x64cc08, 1);
+    halopad_touch_binding_update(1); w16(0x6ab536 + 128, 31);
+    check("changed player binding survives cleanup of borrowed slot", !halopad_touch_binding_update(1) && commands == 0 && rd(0x64dc1c) == 1 && r16(0x6ab536 + 128) == 31 && r16(0x6ab536 + 130) == 0x7fff);
+    check("borrowed slot with player binding stays unavailable", !halopad_touch_binding_update(1) && commands == 0 && rd(0x64dc1c) == 1);
     printf("TOUCH BINDING POLICY: %d assertions, %d failures\n", assertions, failures);
     return failures != 0;
 }

@@ -47,6 +47,8 @@ Operating loop: [HaloPad-GOAL-LOOP-PHASE2.md](HaloPad-GOAL-LOOP-PHASE2.md) (repl
 
 - **Touch alignment and binding lifecycle:** larger MOVE/LOOK pads share a baseline, action columns now center on the thumbs, and THROW/FIRE share a baseline. Tablet action scaling is reduced; safe spacing, 44-point targets and radar clearance pass across 90 phone/tablet configurations. The opt-in analog scene now tracks slot ownership, revokes stale input, rolls back partial setup and uses original unbind/deactivate commands on menu return. Twenty-five policy assertions pass with ASan/UBSan. Actual Battle Creek → menu → new profile New002 → Sidewinder succeeds; New002 reports analog unavailable and uses the digital fallback, so profile-switch analog acceptance remains open. Restored New001; its saved profile hash matches the pre-test backup. Evidence: `G9/touch-binding-lifecycle`, `G9/overlay-20260928T185646Z`. Normal startup and physical multi-touch gates remain unchanged.
 
+- **Fresh-profile analog fix:** New002 already had an empty touch-device assignment in slot 1; configuration now reuses it and preserves that assignment on cleanup. Two regressions reproduced, then 31 policy assertions passed under ASan/UBSan. New002 Sidewinder and its saved-profile Battle Creek relaunch each pass five gameplay and seven analog/cancel checks. Same-process map reload reuses slot 1. An actual in-game color save changes only the color field/checksum, with no touch bindings persisted. Evidence: `G9/touch-profile-config`. Physical/controller edits and natural server-transition acceptance remain open; analog still opt-in.
+
 ## Parked, waiting on Chris
 
 | Item | Parks | Status |

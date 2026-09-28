@@ -2062,3 +2062,53 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   New002 activation to explain safe fallback; then verify profile saving during
   ownership and same-map restarts. Physical simultaneous touches/ergonomics remain
   unverified; do not enable analog by default until lifecycle acceptance is complete.
+
+
+## 2026-09-28 — fresh-profile touch slot reuse and persistence evidence
+
+- Previous goal turn: progress (ffea25d and verified layout/input improvements).
+  This turn: progress. Re-read objective and loop; source pins and locked client
+  hash match, clean starting tree. One project iPad booted, no Wine/reference
+  processes. Parked inputs unchanged. No full-goal completion claim.
+- Hypothesis: New002 fallback was an existing touch association, not absent device
+  enumeration. Opt-in numeric configuration diagnostic proves device 1 is the
+  distinct touch source already assigned to logical slot 1; all of its bindings
+  are empty. Physical/host device 0 stays in slot 0. Two other slots are free.
+  Evidence: `G9/touch-profile-config/diagnostic-err.txt` (PID 91198).
+- Reproduced two policy failures before fixing. Manager now borrows an existing
+  reciprocal, empty touch assignment and records whether it activated the device.
+  Cleanup restores the empty axes and preserves borrowed associations, while
+  owned activations still use original deactivation. Bound player slots and
+  conflicting physical assignments remain untouched. Thirty-one policy assertions
+  pass under ASan/UBSan (`policy-before.txt`, `policy-after.txt`).
+- PID 91551, New002 Sidewinder: five gameplay and seven analog/cancel checks pass
+  using slot 1. Return to main menu releases it; Battle Creek in the same process
+  reuses slot 1. These are original activation/binding paths and actual game data,
+  with the UI acceptance drivers invoking real overlay handlers. Not physical
+  simultaneous finger acceptance.
+- Tested actual original profile saving during touch ownership. Opening settings
+  and OK with no changes leaves all 8192 bytes identical. Setting the test
+  profile's color from default White to Blue produces a real Saving dialog. Only
+  offsets 0x11a–0x11b and the four-byte checksum at 0x1ffc change; checksum verified
+  as complement of zlib CRC32. No touch bindings are persisted. Original profile
+  reapplication invalidates live bindings; manager releases/reconfigures correctly.
+- Relaunch PID 92034 loads the saved New002 and starts Battle Creek through original
+  menus: all five gameplay and seven analog/cancel checks pass again. Then returned
+  to menu, selected original New001, and loaded Battle Creek in the same process;
+  analog is ready using the existing touch assignment in slot 1. New001's saved
+  profile is byte-identical to pre-test backup. New002 is a blue test fixture with
+  its old file backed up. No user-owned profile data was restored or overwritten.
+- Backups and evidence: `docs/artifacts/2026-09-28/G9/touch-profile-config/` includes
+  before-install state, source/binary identity, diagnostic/fixed/relaunch logs,
+  both color-save snapshots/diff, final profile hashes and live screenshots.
+  The fixed and relaunched apps are the same binary. Old candidates were terminated
+  explicitly before each next launch; no reference process started.
+- Leave one requested preview, HaloPad iPad Pro 13 iOS 26.5,
+  E129A00F-D338-4FDC-8AE8-BB243E9BA61B, PID 92034, New001 Battle Creek, LAN policy.
+  One-shot acceptance drivers finished; no repeating input. Stop this app before
+  another core run. Phone remains off. This is still the explicit development scene.
+- Next: test editing an original controller binding while the borrowed touch slot
+  is active, preserving the player's edit and avoiding any save contamination.
+  Then controlled natural server restarts/reconnects with touch input. Physical
+  hot-plug and simultaneous fingers remain open; do not promote default analog or
+  close G9 on the strength of the color-save path alone.
