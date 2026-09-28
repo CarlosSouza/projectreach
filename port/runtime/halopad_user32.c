@@ -394,7 +394,7 @@ static int quit_posted;
 static uint32_t quit_code;
 static qmsg last_key;                                 /* the key message last retrieved, with its characters */
 static uint32_t active, last_active, focus, capture;
-static int app_active;
+static int app_active, app_activation_pending;
 static int32_t cursor_x, cursor_y;                    /* screen */
 static int cursor_count;                              /* ShowCursor's display count */
 static uint32_t cursor_handle;
@@ -484,7 +484,13 @@ static void activate(uint32_t hwnd)
 {
     if (active == hwnd) return;
     uint32_t old = active;
-    if (hwnd && !app_active) { app_active = 1; send(hwnd, WM_ACTIVATEAPP, 1, 0); }
+    /* A host scene may become active before a guest window exists. No guest has
+       received the app activation in that case; deliver it to the first window. */
+    if (hwnd && (!app_active || app_activation_pending)) {
+        app_active = 1;
+        app_activation_pending = 0;
+        send(hwnd, WM_ACTIVATEAPP, 1, 0);
+    }
     active = hwnd;
     if (hwnd) last_active = hwnd;
     if (is_window(old)) { send(old, WM_NCACTIVATE, 0, 0); send(old, WM_ACTIVATE, 0 /* WA_INACTIVE */, hwnd); }
@@ -507,12 +513,14 @@ static void app_activation(int on)
         set_focus(0);
         active = 0;
         app_active = 0;
+        app_activation_pending = 0;
         if (is_window(a)) send(a, WM_ACTIVATEAPP, 0, 0);
         memset(async_keys, 0, sizeof async_keys);
     } else if (is_window(last_active) && uget(last_active, H_WINDOW)->visible) {
         activate(last_active);
     } else {
         app_active = 1;
+        app_activation_pending = 1;
     }
 }
 

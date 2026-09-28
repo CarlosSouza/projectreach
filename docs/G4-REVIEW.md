@@ -7,10 +7,13 @@ a replacement scene. Evidence directories are under `docs/artifacts/<date>/G3/` 
 
 ## Result
 
-**Functionally met on macOS; formally held open** by the phase-2 loop's rule that G4 "cannot be
-marked passed until G1b provides the original-client comparison". G1b's client row is parked on a
-legitimate product key (STATUS, "Parked, waiting on Chris"). Nothing in the G4 list is missing on
-HaloPad's side.
+**Open, with a lifecycle regression under investigation.** In the post-arena run
+`20260928T082315Z`, launch 1 passed but launch 2 exited after 1,438 frames, without leaving `ui`.
+The profile file existed; the test did not play the requested map. Earlier passes do not close
+this failure. The isolated saved-profile recheck `lifecycle-recheck-20260928T105102Z` passed
+(4,702 frames, `ui beavercreek ui`, New001, scripted Quit confirmation). A full consecutive
+relaunch with the corrected harness is still due. G4 also remains subject to the phase-2 requirement for an original-client
+comparison; G1b's client row is parked on a legitimate product key.
 
 ## Requirement by requirement
 
@@ -31,12 +34,13 @@ HaloPad's side.
 | HUD | screenshots in every play test: ammo, grenades, shields, motion tracker, crosshair, messages | met |
 | Meaningful audio | `halo_host_test` records the session's mix (`session.wav`): menu music about −11 dBFS, the shot 15+ dB and the fatal explosion 20+ dB over the game's ambience (macOS and iPad Simulator) | met |
 | Menu return, map reload | `halo_lifecycle_test`: Escape > Leave Game back to the main menu, the same game again (the map loads a second time) | met |
-| Clean relaunch | `halo_lifecycle_test --relaunch`: Quit > OK ends `main` by itself; the second launch loads the saved profile with no name prompt and plays | met |
+| Clean relaunch | Earlier `halo_lifecycle_test --relaunch` passes; `20260928T082315Z` launch 2 failed to reach gameplay. Per-step screenshot trace added for diagnosis. | **reopened** |
 | Original-client comparison | G1b's `haloce.exe` row, parked on a legitimate key | **held open** |
 
 ## Known weaknesses (not G4 blockers)
 
 - The host test depends on grenade physics after a random spawn: with the final version, 5 of 5
   on the Mac and 1 of 2 on the iPad Simulator; the suite retries once.
-- Input reaches Halo up to about 0.2 s late on the Simulator when a frame runs long (measured in
-  the app); the iOS pump no longer drops presses.
+- The Metal arena improved steady-state Simulator frame times in the measured scene. The
+  handler-driven touch self-test does not establish that every physical touch edge survives
+  multiple input pumps per frame; real multi-touch and lifecycle routing remain open.

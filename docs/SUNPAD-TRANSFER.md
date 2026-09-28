@@ -24,6 +24,10 @@ local SunPad path. The donor copy used for the work is private and ignored (`ref
 - The layout editor (drag to move, tap to select, a size slider for the selected control, Done)
   and the settings panel (opacity, overall size, hide with a controller, move controls, reset
   this device's layout).
+- Settings stay within the safe area on landscape phones. The title and Done button remain
+  fixed while the settings rows scroll; rows have a minimum 44-point height. Opening the panel
+  releases held touch controls, and its background consumes touches rather than aiming or
+  activating gameplay controls underneath it.
 - The three-dot menu in the safe-area corner (`ellipsis`, a dark translucent disc), rebuilt after
   each change so checkmarks stay current.
 - Controller coexistence: only real controllers hide the touch controls (the Simulator's

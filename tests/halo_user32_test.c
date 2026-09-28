@@ -96,6 +96,9 @@ int main(void)
     check("CreateWindowExA", hwnd != 0, 1);
     halopad_user32_trace = trace;
 
+    /* UIKit can report an active scene before Halo creates/shows its window. The
+       first window must still receive WM_ACTIVATEAPP, not just WM_ACTIVATE. */
+    if (getenv("HALOPAD_TEST_EARLY_ACTIVATION")) input((hp_input){.kind = HPI_ACTIVATE, .down = 1});
     /* first show: Windows' order */
     tn = 0;
     check("ShowWindow(SW_SHOW) on a hidden window returns 0", API("ShowWindow", hwnd, 5), 0);

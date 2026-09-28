@@ -1105,3 +1105,62 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   30 s after a join; a stack sample put 61% of Halo's thread in `DrawPrimitiveUP` making Metal
   buffers (one per draw plus two per draw for constants, each a driver round trip on the
   Simulator). A per-frame transient arena replaces them: 30 frames a second, longest gap 40 ms.
+
+### 2026-09-28 — regression evidence and touch-settings follow-up
+
+- Previous goal turn: verified wait on the full regression. Recovered session 6682 to completion;
+  lifecycle launch 2 failed (`core-arm64-apple-macosx14.0.0-20260928T082315Z`), while the five
+  network scenarios and other reported suites passed. G4 relaunch is reopened, not silently
+  covered by older successful runs.
+- The runner always exited zero after collecting results. It now propagates client failures,
+  signals, traps and timeouts, while preserving per-launch evidence. Relaunch also copies the
+  first launch's registry into the second launch's evidence directory; previously only the
+  filesystem state persisted. Actual child-process tests cover these cases.
+- Diagnostic rerun `core-arm64-apple-macosx14.0.0-20260928T104130Z`: launch 1 passed; launch 2
+  loaded New001 and navigated Multiplayer. Opening Simulator during the test stopped new
+  frames at route step 19; a stack sample shows Halo waiting in MsgWaitForMultipleObjects.
+  The Mac host forwards activation changes, and this automated test had not disabled host
+  input. Stopped that identified process (SIGTERM, recorded exit -15) after capturing evidence.
+  This demonstrates interference in the harness, not the cause of the earlier premature exit.
+- Lifecycle automation now uses the existing host-input isolation used by the input suites;
+  it still sends normal key events through HaloPad's input boundary. Quit acceptance also
+  requires that the scripted confirmation was actually sent, not merely any return from main.
+- Touch settings now scroll inside the safe area, with a fixed title/Done row and 44-point
+  minimum settings rows. Opening the panel clears held touch input; touches outside it cannot
+  reach gameplay while it is open. Simulator preview instructions stop only the selected
+  device rather than every Simulator.
+- Corrected STATUS's outdated push statement and overclaims about the public soak, physical
+  touch delivery and steady-state frame performance. G5/G6 full acceptance, physical devices,
+  retail campaign, and other original requirements remain open.
+- Isolated saved-profile recheck **PASS**: `lifecycle-recheck-20260928T105102Z`, copied from the
+  failing run's state, no per-step screenshot slowdown. 4,702 frames, `ui beavercreek ui`, New001,
+  saved profile and scripted quit confirmation all pass. The reduced replay script is retained
+  with its evidence. Full consecutive-launch validation with the updated harness is still due.
+- Cold iPhone preview exposed a real activation-order defect: if UIKit reports active before
+  the guest window exists, `app_active` suppressed the window's first WM_ACTIVATEAPP. Halo
+  waited in MsgWaitForMultipleObjects with a black game view; background/foreground restored
+  its main menu. Added an early-activation mode to the USER32 test: before the fix,
+  `core-arm64-apple-macosx14.0.0-20260928T105956Z` fails the exact first-show message sequence.
+  A pending activation is now delivered when the first guest window activates. Final early
+  tests pass on Mac (`20260928T110133Z`) and iPhone Simulator (`20260928T110148Z`).
+- Source locks verify. All 23 Python tests pass. `xcrun devicectl list devices` reports no devices;
+  physical acceptance remains parked. Private GitHub visibility was rechecked before pushing.
+- Phone cold-start preview with the pending-activation fix: `ios-app-20260928T110221Z` reached
+  Halo's menu at 30 fps without a background/foreground workaround. The touch panel renders
+  within the landscape safe area; a real Simulator drag reaches Spacing/Move Controls/Reset
+  while Done stays visible (`settings-scrolled.png`); Done closes it. During subsequent native
+  UI automation, the game again stopped presenting (0 fps, map `ui`), while the panel remained
+  interactive. Cold-start delivery is repaired; interruption recovery is NOT closed by this
+  test and must be traced separately (scene transitions and queued activation events).
+- Final normal-order USER32 regression passes at `core-arm64-apple-macosx14.0.0-20260928T110453Z`.
+  Next lowest-goal experiment: run `.venv/bin/python scripts/run-core.py --work
+  generated/srw/custom-en-1.0.10.0621/run-20260928T060918Z-85892 --relaunch --timeout 900 --main
+  tests/halo_lifecycle_test.c` after stopping the preview. Require both actual processes to
+  pass the map/name/quit assertions and runner exit zero. Then trace the iOS inactive/active
+  event sequence around native UI interaction; fail recovery if frames do not resume.
+- iPad preview: `ios-app-20260928T110541Z`, same final source, local Blood Gulch via
+  `-exec halopad_preview.txt` in the ignored iOS install overlay. Screenshot shows the player,
+  HUD and touch controls; trace records 29–30 fps and 299/299 presented drawables. Left this
+  single app running for Chris's requested preview on HaloPad iPad Pro 13
+  (`E129A00F-D338-4FDC-8AE8-BB243E9BA61B`); iPhone Simulator is shut down and no reference server
+  is running. This is a development component scene, not completion of normal licensed startup.

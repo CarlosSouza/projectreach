@@ -402,6 +402,8 @@ static CGRect at(CGRect safe, CGFloat x, CGFloat y, CGFloat w, CGFloat h)
 - (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event
 {
     UIView *hit = [super hitTest:point withEvent:event];
+    if (!_panel.hidden && hit && hit != _menuButton && ![hit isDescendantOfView:_menuButton] &&
+        hit != _panel && ![hit isDescendantOfView:_panel]) return self;
     if (hit != self) return hit;
     return self.inGame && !self.controlsHidden && !_editing ? self : nil;
 }
@@ -416,6 +418,7 @@ static CGRect at(CGRect safe, CGFloat x, CGFloat y, CGFloat w, CGFloat h)
 }
 - (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
 {
+    if (!_panel.hidden) return;
     for (UITouch *t in touches) {
         CGPoint p = [t locationInView:self];
         if (!_moveTouch && [self inMoveZone:p]) {
@@ -547,7 +550,7 @@ static CGRect at(CGRect safe, CGFloat x, CGFloat y, CGFloat w, CGFloat h)
     _menuButton.frame = CGRectMake(CGRectGetMaxX(safe) - side - inset, CGRectGetMinY(safe) + inset, side, side);
     _fps.frame = CGRectMake(CGRectGetMaxX(safe) - side - inset - 86, CGRectGetMinY(safe) + inset + 8, 76, 24);
     _fps.layer.cornerRadius = 6; _fps.layer.masksToBounds = YES;
-    CGFloat pw = fmin(360, safe.size.width - 32), ph = fmin(560, safe.size.height * 0.86);
+    CGFloat pw = fmin(360, safe.size.width - 32), ph = fmin(560, fmax(0, safe.size.height - 72));
     _panel.frame = CGRectMake(CGRectGetMaxX(safe) - pw - 12, CGRectGetMinY(safe) + 60, pw, ph);
     CGFloat ew = fmin(560, safe.size.width - 24);
     _editorBar.frame = CGRectMake(CGRectGetMidX(safe) - ew / 2, CGRectGetMaxY(safe) - 72, ew, 60);
@@ -746,6 +749,7 @@ static CGRect at(CGRect safe, CGFloat x, CGFloat y, CGFloat w, CGFloat h)
     _panel = [UIView new];
     _panel.backgroundColor = [UIColor colorWithWhite:0.035 alpha:0.94];
     _panel.layer.cornerRadius = 16;
+    _panel.clipsToBounds = YES;
     _panel.layer.borderWidth = 1;
     _panel.layer.borderColor = [UIColor colorWithWhite:1 alpha:0.18].CGColor;
     _panel.hidden = YES;
@@ -779,25 +783,49 @@ static CGRect at(CGRect safe, CGFloat x, CGFloat y, CGFloat w, CGFloat h)
     [done setTitle:@"Done" forState:UIControlStateNormal];
     done.titleLabel.font = [UIFont systemFontOfSize:16 weight:UIFontWeightSemibold];
     [done addTarget:self action:@selector(togglePanel) forControlEvents:UIControlEventPrimaryActionTriggered];
+    UIStackView *header = [[UIStackView alloc] initWithArrangedSubviews:@[title, done]];
+    header.alignment = UIStackViewAlignmentCenter;
+    header.translatesAutoresizingMaskIntoConstraints = NO;
+    [done setContentHuggingPriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
+    [done.heightAnchor constraintGreaterThanOrEqualToConstant:44].active = YES;
+    [_panel addSubview:header];
+    UIScrollView *scroll = [UIScrollView new];
+    scroll.translatesAutoresizingMaskIntoConstraints = NO;
+    scroll.alwaysBounceVertical = YES;
+    scroll.indicatorStyle = UIScrollViewIndicatorStyleWhite;
+    scroll.accessibilityIdentifier = @"TouchControlSettingsScroll";
+    [_panel addSubview:scroll];
     UIStackView *stack = [[UIStackView alloc] initWithArrangedSubviews:@[
-        title, [self row:@"Opacity" control:_opacity], [self row:@"Size" control:_size], [self row:@"Look Speed" control:_look],
+        [self row:@"Opacity" control:_opacity], [self row:@"Size" control:_size], [self row:@"Look Speed" control:_look],
         [self row:@"Left-handed" control:_leftSwitch], [self row:@"Button Labels" control:_captionSwitch],
         [self row:@"Spacing" control:_spacingControl],
-        [self row:@"Hide with a Controller" control:_hideSwitch], [self row:@"Move Controls" control:_editSwitch], reset, done]];
+        [self row:@"Hide with a Controller" control:_hideSwitch], [self row:@"Move Controls" control:_editSwitch], reset]];
     stack.axis = UILayoutConstraintAxisVertical;
     stack.spacing = 14;
     stack.translatesAutoresizingMaskIntoConstraints = NO;
-    [_panel addSubview:stack];
+    for (UIView *row in stack.arrangedSubviews)
+        [row.heightAnchor constraintGreaterThanOrEqualToConstant:44].active = YES;
+    [scroll addSubview:stack];
     [NSLayoutConstraint activateConstraints:@[
-        [stack.leadingAnchor constraintEqualToAnchor:_panel.leadingAnchor constant:18],
-        [stack.trailingAnchor constraintEqualToAnchor:_panel.trailingAnchor constant:-18],
-        [stack.topAnchor constraintEqualToAnchor:_panel.topAnchor constant:16]]];
+        [header.leadingAnchor constraintEqualToAnchor:_panel.leadingAnchor constant:18],
+        [header.trailingAnchor constraintEqualToAnchor:_panel.trailingAnchor constant:-18],
+        [header.topAnchor constraintEqualToAnchor:_panel.topAnchor constant:8],
+        [scroll.topAnchor constraintEqualToAnchor:header.bottomAnchor constant:8],
+        [scroll.leadingAnchor constraintEqualToAnchor:_panel.leadingAnchor],
+        [scroll.trailingAnchor constraintEqualToAnchor:_panel.trailingAnchor],
+        [scroll.bottomAnchor constraintEqualToAnchor:_panel.bottomAnchor],
+        [stack.leadingAnchor constraintEqualToAnchor:scroll.contentLayoutGuide.leadingAnchor constant:18],
+        [stack.trailingAnchor constraintEqualToAnchor:scroll.contentLayoutGuide.trailingAnchor constant:-18],
+        [stack.topAnchor constraintEqualToAnchor:scroll.contentLayoutGuide.topAnchor],
+        [stack.bottomAnchor constraintEqualToAnchor:scroll.contentLayoutGuide.bottomAnchor constant:-16],
+        [stack.widthAnchor constraintEqualToAnchor:scroll.frameLayoutGuide.widthAnchor constant:-36]]];
     [self addSubview:_panel];
 }
 - (void)togglePanel
 {
     if (_editing) [self endEditing];
     _panel.hidden = !_panel.hidden;
+    if (!_panel.hidden) [self clearTouchInput];
     HPSettings *s = HPSettings.shared;
     _opacity.value = s.controlOpacity; _size.value = s.controlSize; _look.value = s.lookSensitivity;
     _hideSwitch.on = s.hideWithController; _editSwitch.on = NO;

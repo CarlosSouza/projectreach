@@ -15,6 +15,7 @@ import json
 import os
 import pathlib
 import re
+import shutil
 import subprocess
 import sys
 
@@ -133,8 +134,15 @@ def main():
     # clients run at once; launches run one after the other (the second starts when the first has exited)
     procs = [(d, e if a.relaunch else start(e)) for d, e in runs]
     codes = []
+    previous_registry = None
     for d, p in procs:
         if a.relaunch:
+            # Keep each launch's registry snapshot as evidence, while carrying the
+            # actual persisted state forward just as an app restart would.
+            registry = pathlib.Path(p['HALOPAD_REGISTRY'])
+            if previous_registry is not None and previous_registry.exists():
+                shutil.copy2(previous_registry, registry)
+            previous_registry = registry
             p = start(p)
         try:
             out, err = p.communicate(timeout=a.timeout)
@@ -161,9 +169,14 @@ def main():
             print(f'--- {"launch" if a.relaunch else "client"} {len(codes) + (1 if a.relaunch else 0)}')
         print(err[-1500:])
         print('exit', code, '| stopped at:', stop)
-        codes.append(code)
+        codes.append(1 if stop and code == 0 else code)
     print('evidence', evid.relative_to(ROOT))
+    # Evidence is still written for every launch. Shell callers must also see failures;
+    # otherwise a crashed/timed-out client makes an enclosing regression look green.
+    if 'timeout' in codes:
+        return 124
+    return next((code if code > 0 else 128 - code for code in codes if code != 0), 0)
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())

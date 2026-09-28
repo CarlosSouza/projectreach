@@ -10,7 +10,7 @@
 #   --iphone               the iPhone 17 Pro Simulator instead of the iPad Pro 13
 #   --connect ADDR:PORT    join that server at start (e.g. a public server from Halo's Internet
 #                          lobby, or scripts/public-servers.py)
-# Stop with: xcrun simctl shutdown all
+# Stop with the device-specific command printed below.
 set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 cd "$ROOT"
@@ -28,4 +28,4 @@ xcrun simctl boot "$DEVICE" 2>/dev/null || true
 open -a Simulator --args -CurrentDeviceUDID "$DEVICE"
 HALOPAD_ARGS="$ARGS" SDKROOT=$(xcrun --sdk iphonesimulator --show-sdk-path) \
   .venv/bin/python scripts/build-ios-app.py --work "$WORK" --device "$DEVICE" --scene tests/halo_app_scene.c --launch --wait 3 | grep -E '^(built|evidence)'
-echo "HaloPad is running in the Simulator. Stop it with: xcrun simctl shutdown all"
+echo "HaloPad is running in the Simulator. Stop it with: xcrun simctl shutdown $DEVICE"

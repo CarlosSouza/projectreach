@@ -674,3 +674,18 @@ Relative guest paths and paths under the install directory map into the game dir
 `EBUEula` replaces the game's `Eula.dll`. It accepts only when the player has accepted this exact `Eula.rtf` (SHA-256) with `scripts/accept-eula.sh` at an interactive terminal, then writes REG_DWORD `FIRSTRUN=1` under `HKCU\Software\Microsoft\Microsoft Games\Halo CE` as the real DLL does. Otherwise it declines and Halo exits with code 1. HaloPad never accepts on the player's behalf.
 
 The macOS runner has no screen to ask on, so it declines unless `scripts/accept-eula.sh` has recorded the player's acceptance. In the iPadOS app the player chooses on the license screen (see "Apple hosts"). Either record must name the exact license file's SHA-256.
+
+### Early host activation (2026-09-28)
+
+UIKit may announce an active scene before the guest creates its first window. Previously that
+set USER32's `app_active` flag, causing `activate()` to omit `WM_ACTIVATEAPP` on the first show.
+Halo could then wait in `MsgWaitForMultipleObjects` without presenting until the app was
+backgrounded and reopened. USER32 now remembers a pending activation and delivers it when a
+window activates; ordinary switches between already active windows keep their existing behavior.
+
+`HALOPAD_TEST_EARLY_ACTIVATION=1` enables that ordering in `halo_user32_test.c`. Evidence under
+`docs/artifacts/2026-09-28/G3/`: Mac `core-…-20260928T105956Z` fails the first-show message sequence
+before the change; final Mac `…110133Z` and iPhone Simulator `…110148Z` pass. Normal ordering passes
+on the final source at `…110453Z`. The iPhone app's cold launch `ios-app-20260928T110221Z` reaches
+its menu and presents at 30 fps. Subsequent UI automation again reached a zero-frame interruption
+state; that is a separate open recovery investigation, not a passed lifecycle gate.

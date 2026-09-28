@@ -39,6 +39,7 @@ uint32_t CloseHandle_c(uint32_t h);
 uint32_t DeleteFileA_c(uint32_t name);
 uint32_t GetProcAddress_c(uint32_t module, uint32_t name);
 extern int halopad_audio_manual;
+extern int halopad_host_input_off;
 
 static int failures;
 static uint32_t rd(uint32_t g) { uint32_t v; memcpy(&v, halopad_guest_ptr(g), 4); return v; }
@@ -176,7 +177,7 @@ static void save_wav(void)
     fwrite("data", 1, 4, f); fwrite(&data, 4, 1, f); fwrite(rec, 4, rec_n, f); fclose(f);
 }
 static char maps_seen[256];
-static int quit_by_test, launch = 1, spawned_as_new001;
+static int quit_by_test, quit_confirm_sent, launch = 1, spawned_as_new001;
 static void on_present(uint32_t device)
 {
     frames++;
@@ -198,10 +199,17 @@ static void on_present(uint32_t device)
         for (unsigned q = 0; q < sizeof quit / sizeof *quit; q++) route[n++] = quit[q];
     }
     int k = (frames - 200) / 100, s2 = (frames - 200) % 100;
-    if (frames > 200 && k < n) {
+    if (frames >= 200 && k < n) {
+        if (s2 == 0 && getenv("HALOPAD_TRACE_LIFECYCLE")) {
+            printf("    route %d frame %d: %s\n", k, frames, route[k]);
+            shot(device, 100 + k);
+        }
         static const struct { const char *n; uint32_t vk, scan; int ext; } map[] = {{"enter", 13, 0x1c, 0}, {"esc", 27, 1, 0}, {"down", 40, 0x50, 1}, {"left", 37, 0x4b, 1}};
         for (unsigned m = 0; m < sizeof map / sizeof map[0]; m++) if (!strcmp(map[m].n, route[k])) {
-            if (s2 == 1) keyx(map[m].vk, map[m].scan, map[m].ext, 1);
+            if (s2 == 1) {
+                keyx(map[m].vk, map[m].scan, map[m].ext, 1);
+                if (k == n - 2) quit_confirm_sent = 1;
+            }
             if (s2 == 6) keyx(map[m].vk, map[m].scan, map[m].ext, 0);
         }
     }
@@ -240,6 +248,10 @@ int main(void)
 {
     const char *image = getenv("HALOPAD_IMAGE");
     if (!image) return 2;
+    /* This test owns its input. Desktop pointer/focus events can otherwise select a
+       different menu item or pause Halo while the frame-driven route is running.
+       Focus/lifecycle input itself is covered separately by halo_user32_test. */
+    halopad_host_input_off = 1;
     setvbuf(stdout, NULL, _IONBF, 0);
     halopad_guest_harness_heap = 0;
     uint32_t top = halopad_guest_init(image, 0x400000);
@@ -344,7 +356,7 @@ int main(void)
     halopad_call_guest_ex(0x4ca9c0, 0, NULL, 0, 0);
     printf("    %d frames presented; main returned\n", frames);
     printf("    launch %d: %d frames; maps in order: %s\n", launch, frames, maps_seen);
-    check("main returned by itself after Quit > OK (the test did not stop it)", !quit_by_test, 1);
+    check("main returned after the test sent Quit > OK (no forced stop)", !quit_by_test && quit_confirm_sent, 1);
     if (launch == 1)
         check("  maps: menu, Battle Creek, menu (Leave Game), Battle Creek again, menu", !strcmp(maps_seen, "ui beavercreek ui beavercreek ui"), 1);
     else
