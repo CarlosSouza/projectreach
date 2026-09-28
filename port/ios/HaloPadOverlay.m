@@ -800,7 +800,7 @@ static const hp_control_def CONTROLS[] = {
                           handler:^(__kindof UIAction *a) { [weak promptJoin]; }],
         [UIMenu menuWithTitle:@"Recent Servers" image:[UIImage systemImageNamed:@"clock"] identifier:nil options:0
                      children:recent.count ? recent : @[[UIAction actionWithTitle:@"None yet" image:nil identifier:nil handler:^(__kindof UIAction *a) {}]]]]];
-    UIMenu *text = [UIMenu menuWithTitle:@"" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[
+    UIMenu *text = [UIMenu menuWithTitle:@"Keyboard & Chat" image:[UIImage systemImageNamed:@"keyboard"] identifier:nil options:0 children:@[
         [UIAction actionWithTitle:@"Show Keyboard" image:[UIImage systemImageNamed:@"keyboard"] identifier:nil
                           handler:^(__kindof UIAction *a) { [weak.delegate overlayRequestsKeyboard:weak]; }],
         [UIAction actionWithTitle:@"Halo Console" image:[UIImage systemImageNamed:@"terminal"] identifier:nil
@@ -821,7 +821,8 @@ static const hp_control_def CONTROLS[] = {
             HPSettings.shared.hideTouchControls = !HPSettings.shared.hideTouchControls; [weak clearTouchInput]; [weak updateAppearance]; [weak rebuildMenu]; }]]];
     UIAction *report = [UIAction actionWithTitle:@"Report a Problem…" image:[UIImage systemImageNamed:@"exclamationmark.bubble"] identifier:nil
                                          handler:^(__kindof UIAction *a) { [weak report]; }];
-    _menuButton.menu = [UIMenu menuWithTitle:@"HaloPad" children:@[online, text, display, controls, report]];
+    /* Keep control adjustment visible on short landscape phones. */
+    _menuButton.menu = [UIMenu menuWithTitle:@"HaloPad" children:@[controls, display, online, text, report]];
 }
 
 - (void)displayChanged

@@ -55,12 +55,14 @@ Operating loop: [HaloPad-GOAL-LOOP-PHASE2.md](HaloPad-GOAL-LOOP-PHASE2.md) (repl
 
 - **Abrupt server-loss acceptance:** held MOVE → verified private-server process exit/UDP outage → original “Network connection lost” dialog → released slot → restarted server → neutral respawn/new movement/release all pass on iPad (seven assertions, `G9/touch-server-loss`). Both original-server joins and unchanged saves corroborate the app result. No runtime fix required. iPhone network-transition coverage, physical fingers and controller-action edits remain open.
 
+- **iPhone touch and import acceptance:** the fresh iPhone 17 Pro Simulator imports the prepared package through Files, validates all 78 stock files and joins the original private server. Eight map-change/disconnect/reconnect checks pass with a fresh touch slot. The rebuilt app passes five gameplay and seven analog/cancel checks. Touch settings now lead the three-dot menu; keyboard/chat actions share a submenu, improving access on short landscape displays. Actual phone settings open/Done verified; drag/scroll ergonomics and physical two-thumb use remain open (`G9/iphone-touch-network`).
+
 ## Parked, waiting on Chris
 
 | Item | Parks | Status |
 |---|---|---|
 | Accept or decline the Halo license (`scripts/accept-eula.sh` on the Mac, or in the HaloPad app on the Simulator: `scripts/build-ios-app.py --launch`) | G3 beyond first run: splash, USER32, Direct3D 9 | Needed now; the agent never accepts on the player's behalf |
-| Legitimate Halo PC product key (used boxed Halo PC), typed into Halo's original installer | **Normal entry-point startup and original-client baseline**: component scenes allow runtime/gameplay development, but cannot close G1b or the dependent comparison gates; Halo's `0x5829e0` needs the installer's `DigitalProductID` and otherwise stops with "Your product key is invalid" (fatal). HaloPad never writes product IDs | Not supplied; needed right after the license |
+| Legitimate Halo PC product key (used boxed Halo PC), typed into Halo's original installer | **Normal entry-point startup and original-client baseline**: component scenes allow runtime/gameplay development, but cannot close G1b or the dependent comparison gates; Halo's `0x5829e0` needs the installer's `DigitalProductID` and otherwise stops with "Your product key is invalid" (fatal). HaloPad never writes product IDs | Supplied string did not match the original installer’s required key format; valid installer provisioning remains needed |
 | Physical iPhone/iPad + signing | Final G2e capsule row (M07): must first measure whether a 4 GiB guest reservation is allowed on device | Needed to close G2e fully; Mac work continues |
 | Second legitimately provisioned player | G5 original-client comparison (a real Halo PC client in the same game) | HaloPad's client already joins the reference server; needed for the two-player match |
 | Retail `halo.exe` 1.10 + campaign data | G7 | A boxed copy would cover it |

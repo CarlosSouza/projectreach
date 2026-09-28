@@ -148,6 +148,12 @@ evidence, compares all output files with the signed stock inventory, verifies so
 (including excluded extras) are unchanged, checks the retained backup, and runs the startup
 validator against the imported result. It never updates the live app's game folder.
 
-Next experiment: actual startup and package/folder picker migration acceptance on Simulator,
-then iPhone and file-provider cases. Retain the user-controlled live preview until a safe handoff.
+Actual iPhone Files-picker acceptance (2026-09-28): a fresh project iPhone 17 Pro
+Simulator selected a newly prepared `.halopad.zip` through Choose Prepared Package →
+Browse → HaloPad. The app imported all 78 stock records with matching signed-inventory
+hashes and reached a private original-server match. The archive remains in Documents;
+no existing phone saves or game install were present. Relaunch revalidates the same
+device data. Evidence: `G9/iphone-touch-network/import-identity.json` and app/server logs.
+This covers the local Files provider; remote providers and replacement through the
+package picker remain open. iPad folder-picker migration is recorded in IMPORT.md.
 Restore/remove and crash recovery remain required; full G9 acceptance is still open.

@@ -908,7 +908,7 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   - `CreateFileA` with the CRT's `SECURITY_ATTRIBUTES`;
   - a test-only `Present` hook;
   - DXT decoding for GPUs without BC formats. The iPad Simulator failed Metal validation on `BC1_RGBA`, and pre-M1 iPads also lack BC. The CPU-decoded frame matches the GPU-decoded one to within 1.5/255 on average.
-- **Chris's key.** `8437-1920-5563-7741-A` is not a Halo PC product key: those are 25 characters in five groups of five, from Microsoft's key alphabet, which has no 0, 1 or 5. It was not used, and nothing was derived from it. The license and the product ID still gate the real run.
+- **Chris's key.** [user-supplied string omitted] is not a Halo PC product key: those are 25 characters in five groups of five, from Microsoft's key alphabet, which has no 0, 1 or 5. It was not used, and nothing was derived from it. The license and the product ID still gate the real run.
 
 
 ## 2026-09-27 — Blood Gulch in play, on the Mac and on the iPad Simulator
@@ -921,7 +921,7 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
 - **Audit: `wait` before a `__try` state change** (`C7 45 FC`) counts as code. Without this, the `__except` handlers at `0x546a7e`/`0x546c28` were probed too early and blacklisted.
 - **Translator: byte `rcl` by a constant.** Halo's ADPCM sample step `0x551d10` uses it. The new `adpcm_step` slice matches the x86 oracle on 400/400 cases. Untranslated sites: 6 → 3.
 - **Lifter and run:** lifter `24c44b99cfac-05b596a6`, run `20260927T145850Z-51456`. 22 suites, 11 slices and 6 contract cases pass.
-- **Chris's key, again.** Chris sent `8437-1920-5563-7741-A` a second time. It is still not a Halo PC product key: those are 25 characters, `XXXXX-XXXXX-XXXXX-XXXXX-XXXXX`, from Microsoft's key alphabet, which has no 0, 1 or 5. There is nothing it could be typed into, and nothing was derived from it.
+- **Chris's key, again.** Chris sent [user-supplied string omitted] a second time. It is still not a Halo PC product key: those are 25 characters, `XXXXX-XXXXX-XXXXX-XXXXX-XXXXX`, from Microsoft's key alphabet, which has no 0, 1 or 5. There is nothing it could be typed into, and nothing was derived from it.
 
 
 
@@ -2240,3 +2240,41 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   Simulator at a time, verify fresh-profile slot ownership, natural map change and
   reconnect there, then restore the requested iPad preview. Physical ergonomics
   and original controller-action edits remain separate open paths.
+
+## 2026-09-28 — iPhone touch transitions and accessible control settings
+
+- Previous goal turn: progress (01b2e4f). Current turn: progress. Full objective
+  read; tree clean at start, pins/executable verified, parked inputs unchanged.
+  Kept one candidate and one project Simulator throughout; backed up both Libraries.
+- Fresh project iPhone 17 Pro (iOS 26.5) had no game folder or saved profiles.
+  Prepared the exact current core's private archive, placed it in app Documents,
+  and selected it through Choose Prepared Package → Files Browse → HaloPad.
+  All 78 installed stock records match the signed inventory. This closes this
+  local-provider first-import route; remote providers and replacement stay open.
+- Existing binary PID 99748 passes eight original-server transition checks:
+  Battle Creek → Blood Gulch with MOVE held, neutral respawn, disconnect releases
+  slot, reconnect starts neutral, new movement and release. Fresh touch slot 3;
+  Halo used temporary names without a saved profile. Redacted original server
+  logs corroborate map change and rejoins. No input/runtime fix required.
+- Phone UI revealed Touch Control Settings below networking and four text-input
+  entries. Moved control settings first and grouped Keyboard & Chat into a submenu.
+  Actual rebuilt menu → settings → Done verified. Geometry unchanged; prior
+  71-assertion/90-layout coverage remains applicable. Simulator scrolling/drags
+  did not establish physical scrolling or saved layout edits; no such claim made.
+- Stopped exact phone/server before rebuilding. Final phone PID 688 passes all
+  five gameplay and seven analog/cancel checks against a fresh private original
+  server. Same imported device data validates after reinstall/relaunch.
+- Stopped exact app 688 and server runner 591 (earlier runner 99681 also stopped),
+  verified no reference Wine/server processes remain, shut down phone. Installed
+  same final binary on project iPad, retained both independent profiles byte-for-byte.
+  Original menus start New002 Battle Creek Slayer; PID 1492 passes five gameplay
+  and seven analog/cancel checks. One-shot drivers finished, preview left playable.
+  Fresh UDP status confirms beavercreek, one player, openplaying.
+- Evidence: G9/iphone-touch-network, including import and binary/source identities,
+  both app runs, redacted server sessions, settings/menu/preview screenshots,
+  before-state backups and unchanged iPad profile hashes. Normal entry and physical
+  two-thumb acceptance remain open. Updated an old status row to acknowledge the
+  earlier supplied string; removed that literal string from two old journal entries.
+- Next bounded experiment: original controller-action binding edits with held MOVE,
+  verifying ownership revocation and save/reload without overwriting player bindings.
+  Preserve current preview and profile backup before replacing it. Full goal active.

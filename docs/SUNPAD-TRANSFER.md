@@ -613,3 +613,24 @@ sessions, settings/version, exact app/source hashes and saved-profile backup.
 Both New001 and New002 remain byte-identical. No runtime fix was needed; the
 only code addition is this opt-in experiment branch. Physical multi-touch,
 controller-action edits and the same transition acceptance on iPhone remain open.
+
+## iPhone acceptance and quicker settings access — 2026-09-28
+
+The current analog development scene now passes the original-server transition
+sequence on iPhone 17 Pro Simulator too: eight assertions covering neutral spawn,
+held MOVE through Battle Creek → Blood Gulch, slot release at disconnect, neutral
+rejoin, new movement and release. This fresh device had no saved profiles; Halo
+used temporary player names and assigned touch slot 3. No tablet saves were copied.
+The rebuilt phone app also passes all five gameplay and seven analog/cancel checks.
+
+On the short landscape screen, Touch Control Settings was below the four separate
+keyboard/chat entries and networking. It now leads the three-dot menu; keyboard,
+console and chats are grouped in a Keyboard & Chat submenu. Actual menu → settings
+→ Done works on the phone. Layout geometry is unchanged from the verified aligned
+two-stick layout. Automated Simulator drags/scrolls did not establish physical
+scrolling or layout-edit persistence; those claims remain open.
+
+Evidence: `G9/iphone-touch-network` (app/source identity, native package import,
+78 matching stock records, app assertions, redacted original-server logs, screenshots).
+The iPad preview is restored using its independent saved profile. Physical multi-touch,
+controller-action edits, and phone abrupt-loss coverage remain separate open paths.
