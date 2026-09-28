@@ -670,31 +670,34 @@ static const hp_control_def CONTROLS[] = {
     BOOL pad = !self.phone && safe.size.width >= 1000;
     /* Bound the whole arrangement before placing individual controls. Clamping each
        circle against an edge was what collapsed the old ring at larger sizes. */
-    CGFloat k = fmin((pad ? 1.18 : 1) * HPSettings.shared.controlSize,
+    CGFloat k = fmin((pad ? 1.10 : 1) * HPSettings.shared.controlSize,
                      fmin(safe.size.width / 760, (safe.size.height - 68) / 260));
     k = fmax(0.65, k);
-    CGFloat stick = fmax(100, 128 * k), action = fmax(44, 52 * k);
+    CGFloat stick = fmax(100, 144 * k), action = fmax(44, 52 * k);
     CGFloat utility = fmax(44, 44 * k), fire = fmax(60, 72 * k);
     CGFloat gaps[] = {8, 12, 18};
     CGFloat gap = fmax(8, gaps[HPSettings.shared.ringSpacing] * k);
     /* Thumb reach is measured in points, not a fraction of the display width.
        Keep both sticks on one baseline and leave identical space around them. */
-    CGFloat inset = fmax(16, (self.phone ? 20 : 36) * k);
+    CGFloat inset = fmin(160 - stick / 2, fmax(16, (self.phone ? 20 : 36) * k));
     CGFloat left = CGRectGetMinX(safe) + inset;
     CGFloat right = CGRectGetMaxX(safe) - inset;
     /* Tablet thumbs rest along the sides, above the bottom-left motion tracker.
        A phone's shorter display needs the lower grip instead. */
-    CGFloat bottom = CGRectGetMaxY(safe) - (self.phone ? fmax(20, 32 * k) : fmax(160, 128 * k));
+    CGFloat pitch = action + gap;
+    CGFloat rowOverhang = fmax(0, pitch + action / 2 - stick / 2);
+    CGFloat bottom = CGRectGetMaxY(safe) - (self.phone ? fmax(20, 32 * k) : fmax(160, 128 * k)) - rowOverhang;
     /* Small actions share one compact pitch. FIRE has its own clearance above
        LOOK, so its larger diameter does not inflate every small-button gap. */
-    CGFloat pitch = action + gap;
-    CGFloat lowY = bottom - stick / 2 + pitch / 2;
-    CGFloat midY = lowY - pitch, rowY = midY - pitch;
+    /* Center each action column on its thumb. The old half-row offset put the
+       middle actions above the thumb and left uneven space below both clusters. */
+    CGFloat midY = bottom - stick / 2;
+    CGFloat lowY = midY + pitch, rowY = midY - pitch;
     CGFloat nearX = right - stick - gap - action / 2;
     CGFloat farX = nearX - pitch;
     CGFloat fireX = right - stick / 2;
     CGFloat fireY = bottom - stick - gap - fire / 2;
-    CGFloat throwY = bottom - stick - gap - action / 2;
+    CGFloat throwY = fireY;
     CGFloat leftInnerX = left + stick + gap + action / 2;
     BOOL mirror = HPSettings.shared.leftHanded;
     CGFloat (^mx)(CGFloat) = ^CGFloat(CGFloat x) { return mirror ? CGRectGetMinX(safe) + CGRectGetMaxX(safe) - x : x; };

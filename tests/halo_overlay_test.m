@@ -241,7 +241,9 @@ static void check_layouts(void)
             fabs(zoom.center.y - reload.center.y) < 0.01 && fabs(use.center.y - melee.center.y) < 0.01 &&
             fabs(swap.center.y - jump.center.y) < 0.01 && fabs(melee.center.y - reload.center.y - pitch) < 0.01 &&
             fabs(fabs(use.center.x - melee.center.x) - pitch) < 0.01 &&
-            fabs((jump.center.y + melee.center.y) / 2 - aim.center.y) < 0.01;
+            fabs(melee.center.y - aim.center.y) < 0.01 &&
+            fabs(byID[@"flash"].center.y - move.center.y) < 0.01 &&
+            fabs(byID[@"grenade"].center.y - fire.center.y) < 0.01;
         if (!grid) badGrid++;
         BOOL reachable = move && aim && fire && crouch && fabs(move.center.y - aim.center.y) < 0.01 &&
             fabs(move.center.x + aim.center.x - CGRectGetMinX(safe) - CGRectGetMaxX(safe)) < 0.01 &&

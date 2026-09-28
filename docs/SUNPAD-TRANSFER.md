@@ -431,3 +431,43 @@ acceptance. Next: verify original configuration across profile/map transitions,
 retain ownership only of the spare touch slot, and restore/fall back without
 modifying physical mappings before enabling the source by default. Actual two-finger
 routing and physical handheld ergonomics remain open.
+
+
+## Centered thumb layout and mapping ownership (2026-09-28)
+
+The default pads grow from 128 to 144 points before scale, while tablet scale drops
+from 1.18 to 1.10. This gives the sticks more visual weight without enlarging all
+secondary buttons. Middle action rows now align with their stick centers; THROW
+and FIRE share a baseline. The arrangement reserves the extra space below the
+three-row groups, retains the tablet radar clearance, and caps thumb reach at
+160 points from the safe edge. Saved custom placements remain respected.
+`G9/overlay-20260928T185646Z` passes 67 assertions, five renders and 90 layouts.
+The first layout trial exceeded the reach cap at maximum tablet size by 0.38 points;
+the final layout constrains that inset before positioning either stick.
+
+The explicit touch scene delegates original controller configuration to
+`port/runtime/halopad_touch_binding.c`. It owns only a previously empty slot,
+revalidates associations and installed bindings each frame, and cancels delivered
+and queued input before releasing ownership. Cleanup uses Halo's original axis
+setter and `input_deactivate_joy`, preserving bindings changed by the player.
+Partial failure rolls back; failed cleanup retains ownership and waits for a
+configuration/phase change before retrying. Unavailable slots retain digital MOVE.
+Twenty-five policy assertions pass under ASan/UBSan; these test the manager with a
+simulated original-call boundary, not the original functions themselves.
+
+Live original-call evidence is in `G9/touch-binding-lifecycle`: New001 Battle Creek
+configures device 1 / slot 3, passes five gameplay and seven analog/cancel checks,
+then releases that slot on return to the original menu. A new New002 profile was
+created through Halo's own UI and Sidewinder loaded in the same process. That
+profile reported analog unavailable; it did not silently claim readiness. The
+reason (enumeration, association or reserved mappings) remains to be isolated.
+New001 was selected again and its saved `blam.sav` stayed byte-identical to backup.
+The scene remains opt-in. Profile saving during active ownership, natural same-map
+server restarts, reconnects and physical simultaneous touches still need acceptance.
+
+
+Final rebuilt New001 Sidewinder preview passes the five gameplay and seven analog/
+cancel checks (`G9/touch-binding-lifecycle/final-app-err.txt`). The earlier layout
+run sampled a stale frame at half input; the diagnostic driver now requires three
+fresh frame observations, independently of axis/result values, with a bounded
+failure timeout. Source and binary identities accompany the final screenshot.

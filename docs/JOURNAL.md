@@ -2012,3 +2012,53 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   if no slot is free. Fail on changed physical mappings or stale held input. Only
   then promote default analog configuration. Actual simultaneous fingers and exact
   physical-device ergonomics remain unverified. No goal completion/terminal claim.
+
+
+## 2026-09-28 — centered sticks and original binding cleanup
+
+- Turn classification: progress. Continued G9 touch work and retained the active
+  phase-2 goal; no complete/blocked claim. Existing licensed-startup, physical-device,
+  campaign and second-player gates remain parked. User authorization permits the
+  private GitHub push and Simulator preview.
+- New opt-in runtime binding manager revalidates the touch identity, association,
+  four installed axes and otherwise empty slot. It cancels queued/delivered input
+  before revocation, uses original axis unbind/deactivate commands, rolls back partial
+  setup, preserves changed/player/physical mappings and retains failed cleanup ownership.
+  Unchanged failures are not retried every frame. Default production scene unchanged.
+- Policy suite: 25 assertions pass under ASan/UBSan. Actual iPad app PID 88069:
+  original New001 Battle Creek setup, five gameplay checks and seven analog/cancel
+  checks passed; returning to menu released device 1 / slot 3 with original calls.
+  Created New002 via original Profiles UI and software keyboard Send; Sidewinder
+  loaded in the same process, but analog configuration was unavailable. Digital
+  fallback was selected. Cause remains open; do not claim successful analog profile
+  switching. Returned to New001. Its blam.sav hash is unchanged from pre-install backup.
+- Simulator keyboard capture alone did not accept profile entry. Reopening Show
+  Keyboard and using the actual software Send key worked. Capture Keyboard restored off.
+- Layout iteration: 144-point base thumb pads, 1.10 tablet scaling, vertically centered
+  action columns, aligned THROW/FIRE, reserved row overhang and bounded edge reach.
+  Retained custom placements. Five UIKit renders generated; phone/tablet examples visually inspected;
+  67 overlay assertions and 90 layout configurations pass in
+  `G9/overlay-20260928T185646Z`. First trial exceeded max tablet reach by 0.38 points;
+  corrected group inset, with the failed trial retained at `...185615Z`.
+- Final layout app PID 88982 passed gameplay but one analog sample retained the
+  previous quarter-axis value during a half-axis phase; the wall-clock delay had
+  no movement/frame progress. Added a frame number to coherent observations and
+  require three fresh frames after each posted input (independent of result value).
+  Bounded timeout fails and clears input. This changes only the opt-in acceptance
+  driver, not movement. That run is retained as `layout-app-*`.
+- Rebuilt final app PID 89632: New001 Sidewinder via original touch menus. All five
+  gameplay outcomes and seven analog/cancel checks pass (`final-app-err.txt`).
+  Original ready device 1 / slot 3 confirmed. Opened/dismissed native three-dot menu
+  afterward. One-shot drivers are finished; no repeating test input remains.
+- Evidence base `docs/artifacts/2026-09-28/G9/touch-binding-lifecycle/` contains
+  before-install and before-layout-install backups, profile comparisons, final source/
+  binary hashes (`final-identity.json`), logs and `final-preview.png`. Final New001
+  saved profile remains byte-identical to the original backup.
+- Preview left running on HaloPad iPad Pro 13, iOS 26.5,
+  E129A00F-D338-4FDC-8AE8-BB243E9BA61B, PID 89632, LAN policy, explicit analog scene.
+  Stop that exact app before another core run; phone remains off. Normal startup
+  acceptance is not claimed. No Wine or reference server started this increment.
+- Next bounded experiment: capture enumeration/associations/reserved bindings on
+  New002 activation to explain safe fallback; then verify profile saving during
+  ownership and same-map restarts. Physical simultaneous touches/ergonomics remain
+  unverified; do not enable analog by default until lifecycle acceptance is complete.

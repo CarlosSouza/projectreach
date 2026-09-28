@@ -31,6 +31,7 @@ __attribute__((weak, noinline)) int halopad_app_entry(void) { return halopad_cor
 /* Development scenes can exercise original controller configuration before it
    becomes the production default. Called only on the Halo thread. */
 __attribute__((weak, noinline)) int halopad_app_touch_move_ready(void) { return 0; }
+__attribute__((weak, noinline)) int halopad_app_touch_move_slot(void) { return -1; }
 void halopad_host_set_window_handler(void (*handler)(void *window));
 void halopad_host_attach_view(void *window, UIView *view);
 void halopad_host_window_size(void *window, uint32_t *w, uint32_t *h);
@@ -49,6 +50,8 @@ typedef struct {
     uint32_t source[3];
     uint8_t alternate;
     uint16_t gameMode;
+    int touchSlot;
+    int frame;
 } hp_analog_observation;
 static hp_analog_observation analog_observation;
 static pthread_mutex_t analog_observation_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -107,7 +110,7 @@ static void count_present(uint32_t device)
     if (getenv("HALOPAD_ANALOG_SELFTEST")) {
         /* One completed frame's input, captured on Halo's thread. Reading these
            fields independently from a UIKit timer can observe an update in flight. */
-        hp_analog_observation sample;
+        hp_analog_observation sample = {.touchSlot = halopad_app_touch_move_slot(), .frame = n};
         memcpy(&sample.forward, halopad_guest_ptr(0x6ad4b8), 4);
         memcpy(&sample.strafe, halopad_guest_ptr(0x6ad4bc), 4);
         for (int i = 0; i < 4; i++) memcpy(&sample.axes[i], halopad_guest_ptr(0x64d9ba + 0xa0 * i), 2);
@@ -562,6 +565,28 @@ static void action_selftest(void)
 
 /* Development scene acceptance: observe Halo's live movement consumer while
    driving the real overlay. The original profile thresholds are read, never set. */
+static void after_analog_frames(int target, int attempt, dispatch_block_t ready)
+{
+    pthread_mutex_lock(&analog_observation_lock);
+    int frame = analog_observation.frame;
+    pthread_mutex_unlock(&analog_observation_lock);
+    if (frame >= target) { ready(); return; }
+    if (attempt == 50) {
+        [overlay clearTouchInput];
+        selftest_check("analog observation advances after input", NO,
+                       [NSString stringWithFormat:@"frame %d, wanted %d", frame, target]);
+        fprintf(stderr, "HALOPAD ANALOG SELFTEST: FAIL: frame timeout\n");
+        return;
+    }
+    after(.1, ^{ after_analog_frames(target, attempt + 1, ready); });
+}
+static void after_analog_input(dispatch_block_t ready)
+{
+    /* A busy Simulator can spend the entire wall-clock delay in one frame.
+       Wait for fresh observations independently of their axis/result values. */
+    int target = atomic_load(&presented) + 3;
+    after(.5, ^{ after_analog_frames(target, 0, ready); });
+}
 static void analog_selftest(int step)
 {
     static const float values[] = {0.25f, 0.5f, 1, 0, -0.5f, 0};
@@ -571,9 +596,9 @@ static void analog_selftest(int step)
     }
     if (step == sizeof values / sizeof values[0]) {
         [overlay driveMoveX:.5f y:.5f];
-        after(.25, ^{
+        after_analog_input(^{
             [overlay clearTouchInput];
-            after(.25, ^{
+            after_analog_input(^{
                 pthread_mutex_lock(&analog_observation_lock);
                 hp_analog_observation sample = analog_observation;
                 pthread_mutex_unlock(&analog_observation_lock);
@@ -588,7 +613,7 @@ static void analog_selftest(int step)
     uint32_t unit = g_unit();
     float beforeX = gf(unit + 0x5c), beforeY = gf(unit + 0x60);
     [overlay driveMoveX:0 y:value];
-    after(.5, ^{
+    after_analog_input(^{
         float counts = roundf(fmaxf(0, (fabsf(value) - .1f) / .9f) * 4096);
         float expected = threshold > 0 ? copysignf(fminf(1, counts / 4096 / threshold), value) : NAN;
         pthread_mutex_lock(&analog_observation_lock);
@@ -607,7 +632,7 @@ static void analog_selftest(int step)
         BOOL validStage = fabsf(actual - expected) < .00001f ||
                           (sample.gameMode != 0 && actual == command);
         int16_t expectedAxis = (int16_t)-copysignf(counts, value);
-        selftest_check("analog axis and original movement stages agree", isfinite(expected) && sample.axes[3] == expectedAxis && validStage,
+        selftest_check("analog axis and original movement stages agree", isfinite(expected) && (sample.touchSlot >= 0 && sample.touchSlot < 4 && sample.axes[sample.touchSlot] == expectedAxis) && validStage,
                        [NSString stringWithFormat:@"stick %.2f raw %.6f observed %.6f command %.0f mode %u moved %.3f", value, expected, actual, command, sample.gameMode, distance]);
         analog_selftest(step + 1);
     });
