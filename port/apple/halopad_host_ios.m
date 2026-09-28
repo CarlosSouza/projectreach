@@ -43,12 +43,12 @@ void halopad_host_post_input(const hp_input *e)
     if (trace && e->kind == HPI_KEY && e->scan == 0x29)
         fprintf(stderr, "HALOPAD INPUT: %.3f posted console key %s (queue %u)\n", CFAbsoluteTimeGetCurrent(), e->down ? "down" : "up", q_tail - q_head);
     if (e->kind == HPI_CANCEL_TOUCH) {
-        /* Native UI takes ownership now. Discard queued virtual button edges and
+        /* Native UI takes ownership now. Discard queued virtual key/button edges and
            deliver cancellation before ordinary events, even behind a key barrier. */
         uint32_t write = q_head;
         for (uint32_t read = q_head; read != q_tail; read++) {
             hp_input queued = queue_ev[read % QSIZE];
-            if (queued.kind != HPI_BUTTON || !(queued.flags & HPI_TOUCH)) queue_ev[write++ % QSIZE] = queued;
+            if (!(queued.flags & HPI_TOUCH) || (queued.kind != HPI_BUTTON && queued.kind != HPI_KEY)) queue_ev[write++ % QSIZE] = queued;
         }
         q_tail = write;
         cancel_touch_pending = 1;

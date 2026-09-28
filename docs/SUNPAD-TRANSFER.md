@@ -265,9 +265,35 @@ are changed only inside the test process; the runtime/translated code is unchang
 The in-game handler selftest now requires one immediate JUMP press/release, removing the former
 300 ms hold and optional second attempt. This checks the first tap honestly. Consumer checks
 prove delivery, not the gameplay outcome of every action or simultaneous physical touch routing.
-Keyboard source ownership, interruption of unread buffered keys and multiple taps within a
-single consumer update remain separate acceptance work.
+Keyboard source ownership and interruption were subsequently addressed below; multiple taps
+within a single consumer update remain separate acceptance work.
 
 The stricter JUMP check passes in the rebuilt device-data iPad app: height -0.22→0.44 after
 one immediate handler down/up, with all five gameplay checks green (`G3/ios-app-20260928T161826Z`).
 This remains a handler-driven game-state check, not an actual simultaneous-finger claim.
+
+
+### Cancel pending touch keys when native UI takes over
+
+Gameplay key edges now identify their touch source, independently of hardware and queued text.
+The overlay posts cancellation after releasing buttons and both sticks, so the host can remove
+all pre-cancel gameplay edges. Events posted afterward remain usable.
+
+DirectInput preserves source ownership and tracks the buffered reader's observed key state.
+Cancellation removes unread virtual events and reconciles affected keys with surviving physical
+holds. USER32 applies the same policy to queued key messages and async state. Already-read
+holds get a release; unread taps disappear. Focus loss cancels virtual keys before deactivation.
+Physical buffers retain their existing acquisition behavior; this is not a blanket queue flush.
+
+Four failures reproduced the original bug (`G9/touch-key-cancel/red`). The final iPad DirectInput
+suite passes 156 assertions, including Halo's actual keyboard consumer after cancellation,
+both physical/touch ownership orders, either-source release, focus/reacquisition, unrelated
+physical taps, and fresh input after cancellation. USER32 passes 85 checks, including queued
+messages, observed holds, repeated cancellation and unrelated typed characters. The overlay
+passes 60 assertions, 90 geometry combinations and five renders (`G9/overlay-20260928T163258Z`).
+Actual simultaneous fingers, physical ergonomics, rapid repeated actions and broader lifecycle
+acceptance remain open.
+
+The rebuilt device-data preview (`G3/ios-app-20260928T163515Z`) passes all five handler/game-state
+checks: movement 3.16 units, swipe 39.7 degrees, battery 1.00→0.89, immediate jump -1.36→-0.70,
+and held LOOK 25.7 degrees. Actual UI taps also open/dismiss the native menu and Pause/Resume.

@@ -6,7 +6,7 @@
 #include <stdint.h>
 
 enum { HPI_KEY, HPI_MOUSEMOVE, HPI_BUTTON, HPI_WHEEL, HPI_ACTIVATE, HPI_CLOSE, HPI_CANCEL_TOUCH };
-enum { HPI_TOUCH = 1u };                 /* virtual button edges must reach a state reader */
+enum { HPI_TOUCH = 1u };                 /* cancelable gameplay controls, separate from hardware/text input */
 
 typedef struct {
     int kind;

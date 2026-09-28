@@ -44,7 +44,7 @@ HP_SETTING(NSInteger, ringSpacing, setRingSpacing, @"HaloPad.ringSpacing", @(MIN
 
 static void post_key(uint32_t vk, uint32_t side, uint32_t scan, int ext, int down, unichar ch)
 {
-    hp_input e = {.kind = HPI_KEY, .vk = vk, .side_vk = side ? side : vk, .scan = scan, .extended = ext, .down = down};
+    hp_input e = {.kind = HPI_KEY, .flags = HPI_TOUCH, .vk = vk, .side_vk = side ? side : vk, .scan = scan, .extended = ext, .down = down};
     if (down && ch) { e.chars[0] = ch; e.nchars = 1; }
     halopad_host_post_input(&e);
 }
@@ -498,12 +498,12 @@ static const hp_control_def CONTROLS[] = {
 {
     if (getenv("HALOPAD_TRACE_TOUCH")) fprintf(stderr, "HALOPAD TOUCH: clear input\n");
     for (HPControlButton *b in _buttons) [b release_];
-    hp_input cancel = {.kind = HPI_CANCEL_TOUCH};
-    halopad_host_post_input(&cancel);
     [_move reset];
     [_aim reset];
     [_lookDrag clear];
     _lookRestX = _lookRestY = 0;
+    hp_input cancel = {.kind = HPI_CANCEL_TOUCH};
+    halopad_host_post_input(&cancel);
 }
 
 - (BOOL)driveControl:(NSString *)identifier down:(BOOL)down

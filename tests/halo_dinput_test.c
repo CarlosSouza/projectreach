@@ -175,8 +175,8 @@ int main(void)
         memcpy(&index, halopad_guest_ptr(0x5fa358 + scan * 2), 2);
         check("overlay key has a valid Halo key index", index < 109, 1);
         if (index >= 109) continue;
-        queued_input((hp_input){.kind = HPI_KEY, .vk = 'A', .scan = scan, .down = 1});
-        queued_input((hp_input){.kind = HPI_KEY, .vk = 'A', .scan = scan, .down = 0});
+        queued_input((hp_input){.kind = HPI_KEY, .flags = HPI_TOUCH, .vk = 'A', .scan = scan, .down = 1});
+        queued_input((hp_input){.kind = HPI_KEY, .flags = HPI_TOUCH, .vk = 'A', .scan = scan, .down = 0});
         pump_many();
         halopad_call_guest(0x493520, 0, NULL);
         char label[128];
@@ -188,6 +188,72 @@ int main(void)
         halopad_call_guest(0x493520, 0, NULL);
         check("later Halo update does not replay it", *(uint8_t *)halopad_guest_ptr(0x64c550 + index), 0);
     }
+    /* Native UI cancellation must also reach the buffered keyboard consumer. */
+    uint16_t jump_index;
+    memcpy(&jump_index, halopad_guest_ptr(0x5fa358 + 0x39 * 2), 2);
+    uint8_t *jump_state = halopad_guest_ptr(0x64c550 + jump_index);
+    hp_input jump = {.kind = HPI_KEY, .flags = HPI_TOUCH, .vk = 0x20, .side_vk = 0x20, .scan = 0x39, .down = 1};
+    for (int pumped = 0; pumped < 2; pumped++) {
+        jump.down = 1; queued_input(jump);
+        jump.down = 0; queued_input(jump);
+        if (pumped) pump_many();
+        queued_input((hp_input){.kind = HPI_CANCEL_TOUCH}); pump_many();
+        halopad_call_guest(0x493520, 0, NULL);
+        check(pumped ? "cancel removes already-buffered touch key tap" : "cancel removes host-queued touch key tap", *jump_state, 0);
+        halopad_call_guest(0x493520, 0, NULL);
+    }
+    jump.down = 1; queued_input(jump); pump_many();
+    halopad_call_guest(0x493520, 0, NULL);
+    check("held touch key reaches Halo", *jump_state, 1);
+    queued_input((hp_input){.kind = HPI_CANCEL_TOUCH}); pump_many();
+    halopad_call_guest(0x493520, 0, NULL);
+    check("cancel releases touch key already read by Halo", *jump_state, 0);
+    check("cancel clears USER32 touch key", API("GetAsyncKeyState", 0x20) & 0x8000, 0);
+    for (int physical_first = 0; physical_first < 2; physical_first++) {
+        jump.flags = physical_first ? 0 : HPI_TOUCH; jump.down = 1; queued_input(jump);
+        jump.flags = physical_first ? HPI_TOUCH : 0; queued_input(jump); pump_many();
+        queued_input((hp_input){.kind = HPI_CANCEL_TOUCH}); pump_many();
+        halopad_call_guest(0x493520, 0, NULL);
+        check("cancel preserves physical key in either ownership order", *jump_state != 0, 1);
+        check("cancel preserves physical USER32 key", API("GetAsyncKeyState", 0x20) & 0x8000, 0x8000);
+        jump.flags = 0; jump.down = 0; queued_input(jump); pump_many();
+        halopad_call_guest(0x493520, 0, NULL);
+        check("physical release after cancel releases Halo key", *jump_state, 0);
+    }
+    for (int release_touch = 0; release_touch < 2; release_touch++) {
+        jump.flags = 0; jump.down = 1; queued_input(jump);
+        jump.flags = HPI_TOUCH; queued_input(jump); pump_many();
+        halopad_call_guest(0x493520, 0, NULL);
+        jump.flags = release_touch ? HPI_TOUCH : 0; jump.down = 0; queued_input(jump); pump_many();
+        halopad_call_guest(0x493520, 0, NULL);
+        check("releasing either key source preserves the other in Halo", *jump_state != 0, 1);
+        check("releasing either key source preserves USER32 hold", API("GetAsyncKeyState", 0x20) & 0x8000, 0x8000);
+        jump.flags = release_touch ? 0 : HPI_TOUCH; queued_input(jump); pump_many();
+        halopad_call_guest(0x493520, 0, NULL);
+        check("last key owner releases Halo", *jump_state, 0);
+        queued_input((hp_input){.kind = HPI_CANCEL_TOUCH}); pump_many();
+    }
+    jump.flags = HPI_TOUCH; jump.down = 1; queued_input(jump); pump_many();
+    input((hp_input){.kind = HPI_ACTIVATE, .down = 0});
+    input((hp_input){.kind = HPI_ACTIVATE, .down = 1}); M0(k, Acquire);
+    halopad_call_guest(0x493520, 0, NULL);
+    check("focus loss removes unread virtual key before reacquire", *jump_state, 0);
+    /* A physical tap queued beside a canceled virtual tap must still be read. */
+    jump.flags = 0; queued_input(jump); jump.down = 0; queued_input(jump);
+    jump.flags = HPI_TOUCH; jump.scan = 0x13; jump.vk = 'R'; jump.side_vk = 'R'; jump.down = 1; queued_input(jump);
+    jump.down = 0; queued_input(jump); pump_many();
+    queued_input((hp_input){.kind = HPI_CANCEL_TOUCH}); pump_many();
+    halopad_call_guest(0x493520, 0, NULL);
+    check("cancel preserves unrelated buffered physical tap", *jump_state, 1);
+    halopad_call_guest(0x493520, 0, NULL);
+    jump.scan = 0x39; jump.vk = jump.side_vk = 0x20;
+    jump.flags = HPI_TOUCH; jump.down = 1; queued_input(jump); pump_many();
+    queued_input((hp_input){.kind = HPI_CANCEL_TOUCH});
+    queued_input(jump); jump.down = 0; queued_input(jump); pump_many();
+    halopad_call_guest(0x493520, 0, NULL);
+    check("fresh touch tap after cancel is retained", *jump_state, 1);
+    halopad_call_guest(0x493520, 0, NULL);
+    check("fresh tap releases normally", *jump_state, 0);
 #if TARGET_OS_IPHONE
     halopad_host_input_off = 1;
 #endif

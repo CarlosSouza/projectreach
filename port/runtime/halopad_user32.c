@@ -386,7 +386,7 @@ void Sleep_c(uint32_t ms);
 #define VK_NUMLOCK 0x90
 #define VK_SCROLL 0x91
 
-typedef struct { uint32_t hwnd, msg, wp, lp, time; int32_t x, y; uint16_t chars[4]; uint8_t nchars; } qmsg;
+typedef struct { uint32_t hwnd, msg, wp, lp, time; int32_t x, y; uint16_t chars[4]; uint8_t nchars; uint32_t input_flags; } qmsg;
 #define QMAX 4096
 static qmsg queue[QMAX];
 static uint32_t qcount;
@@ -401,6 +401,8 @@ static int cursor_count;                              /* ShowCursor's display co
 static uint32_t cursor_handle;
 static uint8_t async_keys[256], async_pressed[256], sync_keys[256], toggles[256];
 static uint8_t mouse_physical[3], mouse_touch[3];
+static uint8_t key_physical[256], key_touch[256], key_touch_dirty[256];
+static hp_input key_touch_event[256];
 static uint32_t last_click_time, last_click_msg;
 static int32_t last_click_x, last_click_y;
 
@@ -520,6 +522,8 @@ static void app_activation(int on)
         memset(async_keys, 0, sizeof async_keys);
         memset(mouse_physical, 0, sizeof mouse_physical);
         memset(mouse_touch, 0, sizeof mouse_touch);
+        memset(key_physical, 0, sizeof key_physical);
+        memset(key_touch, 0, sizeof key_touch);
     } else if (is_window(last_active) && uget(last_active, H_WINDOW)->visible) {
         activate(last_active);
     } else {
@@ -1101,17 +1105,46 @@ static void set_key(uint32_t vk, int down)
 
 void halopad_input_event(const hp_input *e)
 {
+    if (e->kind == HPI_ACTIVATE && !e->down) {
+        hp_input cancel = {.kind = HPI_CANCEL_TOUCH};
+        halopad_input_event(&cancel);
+    }
     halopad_dinput_event(e);
     uint32_t target = capture ? capture : active;
     uobj *w = target ? uget(target, H_WINDOW) : NULL;
     switch (e->kind) {
-    case HPI_CANCEL_TOUCH:
+    case HPI_CANCEL_TOUCH: {
+        uint8_t projected[256];
+        memcpy(projected, sync_keys, sizeof projected);
+        uint32_t kept = 0;
+        for (uint32_t i = 0; i < qcount; i++) {
+            qmsg m = queue[i];
+            if (m.input_flags & HPI_TOUCH) continue;
+            queue[kept++] = m;
+            if (m.msg == WM_KEYDOWN || m.msg == WM_SYSKEYDOWN) projected[m.wp & 255] = 0x80;
+            if (m.msg == WM_KEYUP || m.msg == WM_SYSKEYUP) projected[m.wp & 255] = 0;
+        }
+        qcount = kept;
+        for (uint32_t vk = 0; vk < 256; vk++) if (key_touch_dirty[vk]) {
+            const hp_input *key = &key_touch_event[vk];
+            uint32_t side = key->side_vk & 255;
+            key_touch[vk] = 0;
+            set_key(vk, key_physical[vk]);
+            if (side) { key_touch[side] = 0; set_key(side, key_physical[side]); }
+            if (!!projected[vk] != !!key_physical[vk] && (focus || active)) {
+                uint32_t lp = 1u | (key->scan & 255) << 16 | (key->extended ? 1u << 24 : 0);
+                if (!key_physical[vk]) lp |= 3u << 30;
+                post(focus ? focus : active, key_physical[vk] ? WM_KEYDOWN : WM_KEYUP, vk, lp, NULL, 0);
+            }
+        }
+        memset(key_touch_dirty, 0, sizeof key_touch_dirty);
         for (int b = 0; b < 3; b++) if (mouse_touch[b]) {
             hp_input release = {.kind = HPI_BUTTON, .flags = HPI_TOUCH, .button = b};
             if (w) { int32_t ox, oy; window_screen_client(w, &ox, &oy); release.x = cursor_x - ox; release.y = cursor_y - oy; }
             halopad_input_event(&release);
         }
         return;
+    }
     case HPI_ACTIVATE:
         system_event_serial++;
         app_activation(e->down);
@@ -1122,8 +1155,17 @@ void halopad_input_event(const hp_input *e)
     case HPI_KEY: {
         uint32_t vk = e->vk & 0xFF;
         int was = async_keys[vk];
-        set_key(vk, e->down);
-        if (e->side_vk) set_key(e->side_vk & 0xFF, e->down);
+        uint8_t *source = (e->flags & HPI_TOUCH) ? key_touch : key_physical;
+        int source_was = source[vk];
+        source[vk] = !!e->down;
+        if (e->flags & HPI_TOUCH) { key_touch_dirty[vk] = 1; key_touch_event[vk] = *e; }
+        set_key(vk, key_physical[vk] || key_touch[vk]);
+        if (e->side_vk) {
+            uint32_t side = e->side_vk & 255;
+            source[side] = !!e->down;
+            set_key(side, key_physical[side] || key_touch[side]);
+        }
+        if (was == async_keys[vk] && !(e->down && source_was && !(e->flags & HPI_TOUCH))) return;
         if (!focus && !active) return;
         int alt = async_keys[VK_MENU] && !async_keys[VK_CONTROL];
         int sys = alt || vk == VK_F10 || (vk == VK_MENU && !async_keys[VK_CONTROL]);
@@ -1131,6 +1173,7 @@ void halopad_input_event(const hp_input *e)
         uint32_t lp = 1u | (e->scan & 0xFF) << 16 | (e->extended ? 1u << 24 : 0) | (alt ? 1u << 29 : 0)
                     | ((e->down ? was : 1) ? 1u << 30 : 0) | (e->down ? 0 : 1u << 31);
         post(focus ? focus : active, msg, vk, lp, e->down ? e->chars : NULL, e->down ? e->nchars : 0);
+        queue[qcount - 1].input_flags = e->flags & HPI_TOUCH;
         return;
     }
     case HPI_MOUSEMOVE: case HPI_BUTTON: case HPI_WHEEL: {

@@ -1807,3 +1807,37 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   E129A00F-D338-4FDC-8AE8-BB243E9BA61B`. Consumer delivery is verified; gameplay outcomes for each
   remaining action, rapid repeated taps, actual simultaneous touch, physical ergonomics and all
   broader import/lifecycle/online/campaign/license acceptance rows remain open. No terminal state.
+
+
+### 2026-09-28 — cancel virtual keyboard input without releasing physical holds
+
+- Previous turn: **progress**, `db01fa3` privately pushed. Read the goal attachment and G9
+  requirements; clean start, locked executable hash and all five pinned sources pass.
+  Only iPad preview PID 66822 was live; phone shut down, no Wine; project bottles present.
+  Parked inputs remain unchanged. Full scope and public-release restrictions remain in place.
+- Reproduced four keyboard cancellation failures through Halo's own `0x493520` consumer:
+  host-queued/already-buffered taps replayed and a read hold remained down in Halo/USER32.
+  Red evidence: `G9/touch-key-cancel/red` (original G3 run `20260928T163017Z`).
+- Gameplay keys now carry `HPI_TOUCH`; typed input stays separate. Overlay cancellation follows
+  all stick/button releases. Host cancellation purges older virtual key/button edges while
+  preserving newly posted input. DirectInput tracks key owners and buffered-reader state, removes
+  pending touch transitions, and reconciles affected keys against physical holds. USER32 does
+  the same for queued messages/async state. Focus loss cancels virtual keys before deactivation.
+  No global physical buffer flush or translated guest change was introduced.
+- Green iPad suites: DirectInput 156 assertions (`G3/core-arm64-apple-ios17.0-simulator-20260928T163311Z`),
+  USER32 85 (`...20260928T163434Z`), overlay 60 plus 90 geometry combinations/five renders
+  (`G9/overlay-20260928T163258Z`). Coverage includes both source ownership orders, either-source
+  release, unread vs already-read input, focus/reacquisition, unrelated physical taps/text,
+  repeated cancellation and fresh touch after cancel. Evidence and identities in `G9/touch-key-cancel`.
+- Stopped PID 66822 before core tests; backed up Support/preferences before reinstall. Built,
+  verified signature, installed and launched device-data development scene PID 69365 with
+  controlled-LAN handler selftest. Original menus start Battle Creek Slayer. All five checks pass:
+  move 3.16 units, swipe 39.7 degrees, battery 1.00→0.89, immediate jump -1.36→-0.70, LOOK 25.7 degrees.
+  Actual UI native menu open/dismiss and touch Pause/Resume pass; screenshot/log retained.
+- Leave PID 69365 in local gameplay on HaloPad iPad Pro 13; phone remains shut down, no reference
+  service started. Known-good commands are the same `run-core.py` DirectInput/USER32 invocations
+  and `test-ios-overlay.py --device E129A00F-D338-4FDC-8AE8-BB243E9BA61B`. Stop this preview before
+  another core harness. Next input experiment: verify remaining action outcomes (reload/use/melee/
+  weapon swap) against game state and distinguish unsupported rapid-repeat behavior from original
+  behavior before changing it. Actual simultaneous fingers, physical ergonomics and broader
+  lifecycle/import/online/campaign/license acceptance remain open. No terminal goal state.

@@ -141,6 +141,34 @@ int main(void)
     check("extended key: lParam bit 24", peek(0, 0, 1) && M(3) == 0x014B0001, 1);
     left.down = 0; input(left); peek(0, 0, 1);
 
+    /* Touch cancellation must remove unread messages, while releasing keys that
+       a message reader already observed and preserving physical ownership. */
+    hp_input touch = {.kind = HPI_KEY, .flags = HPI_TOUCH, .vk = 0x20, .side_vk = 0x20, .scan = 0x39, .down = 1};
+    input(touch); touch.down = 0; input(touch);
+    input((hp_input){.kind = HPI_CANCEL_TOUCH});
+    check("cancel removes unread virtual keyboard messages", peek(0x100, 0x109, 1), 0);
+    touch.down = 1; input(touch);
+    check("virtual key reaches message reader", peek(0x100, 0x109, 1) && M(1) == 0x100 && M(2) == 0x20, 1);
+    input((hp_input){.kind = HPI_CANCEL_TOUCH});
+    check("cancel releases key already seen by message reader", peek(0x100, 0x109, 1) && M(1) == 0x101 && M(2) == 0x20, 1);
+    input((hp_input){.kind = HPI_CANCEL_TOUCH});
+    check("repeated cancel emits no duplicate key release", peek(0x100, 0x109, 1), 0);
+    for (int physical_first = 0; physical_first < 2; physical_first++) {
+        touch.flags = physical_first ? 0 : HPI_TOUCH; touch.down = 1; input(touch);
+        touch.flags = physical_first ? HPI_TOUCH : 0; input(touch);
+        input((hp_input){.kind = HPI_CANCEL_TOUCH});
+        check("cancel retains one physical down in either ownership order", peek(0x100, 0x109, 1) && M(1) == 0x100 && M(2) == 0x20 && !peek(0x100, 0x109, 1), 1);
+        touch.flags = 0; touch.down = 0; input(touch);
+        check("physical release follows surviving down", peek(0x100, 0x109, 1) && M(1) == 0x101 && M(2) == 0x20, 1);
+    }
+    touch.flags = HPI_TOUCH; touch.down = 1; input(touch); touch.down = 0; input(touch);
+    a.down = 1; a.nchars = 1; input(a); a.down = 0; a.nchars = 0; input(a);
+    input((hp_input){.kind = HPI_CANCEL_TOUCH});
+    check("cancel preserves unrelated typing down", peek(0x100, 0x109, 1) && M(1) == 0x100 && M(2) == 'A', 1);
+    API("TranslateMessage", msg);
+    check("cancel preserves typed character", peek(0x100, 0x109, 1) && M(1) == 0x102 && M(2) == 'a', 1);
+    check("cancel preserves typing release", peek(0x100, 0x109, 1) && M(1) == 0x101 && M(2) == 'A', 1);
+
     /* mouse */
     input((hp_input){.kind = HPI_MOUSEMOVE, .x = 5, .y = 6});
     input((hp_input){.kind = HPI_MOUSEMOVE, .x = 10, .y = 20});

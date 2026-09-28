@@ -5,7 +5,7 @@
 #include <stdio.h>
 
 static hp_input events[512];
-static int count, failures, cancellations;
+static int count, failures, cancellations, countAtCancel;
 static BOOL held[256];
 static void check(const char *name, BOOL ok);
 static void run_for(double seconds);
@@ -265,7 +265,7 @@ static void check_layouts(void)
 
 void halopad_host_post_input(const hp_input *e)
 {
-    if (e->kind == HPI_CANCEL_TOUCH) { cancellations++; return; }
+    if (e->kind == HPI_CANCEL_TOUCH) { cancellations++; countAtCancel = count; return; }
     if (count >= 512) abort();
     events[count++] = *e;
     if (e->kind == HPI_KEY && e->side_vk < 256) held[e->side_vk] = e->down;
@@ -345,11 +345,14 @@ int main(void)
         HPOverlay *overlay = [[HPOverlay alloc] initWithFrame:CGRectMake(0, 0, 1024, 768)];
         [overlay driveMoveX:0 y:1];
         check("move fixture holds forward", held['W']);
+        check("movement identifies its cancelable touch source", events[count - 1].flags & HPI_TOUCH);
         check("fire fixture finds the actual control", [overlay driveControl:@"fire" down:YES]);
         int cancelsBefore = cancellations;
         [overlay clearTouchInput];
         check("clearing touch input explicitly cancels unread virtual button edges", cancellations == cancelsBefore + 1);
         check("virtual FIRE identifies its touch source", events[count - 2].flags & HPI_TOUCH);
+        check("cancel follows all gameplay releases", countAtCancel == count);
+        check("movement release keeps its touch source", events[count - 1].flags & HPI_TOUCH);
         check("clearing touch input releases movement and fire",
               all_released() && count >= 4 && events[count - 2].kind == HPI_BUTTON &&
               !events[count - 2].down && events[count - 1].vk == 'W' && !events[count - 1].down);

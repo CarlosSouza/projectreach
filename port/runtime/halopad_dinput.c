@@ -58,7 +58,7 @@ void halopad_heap_free(uint32_t a);
 
 enum { KEYBOARD = 1, MOUSE = 2, GAMEPAD = 3 };
 #define NOBJ 16                         /* gamepad objects: 5 axes, 10 buttons, 1 hat */
-typedef struct { uint32_t ofs, data, time, seq; } event;
+typedef struct { uint32_t ofs, data, time, seq, flags; } event;
 #define MAXBUF 1024
 typedef struct {
     uint32_t guest, kind, hwnd, coop, data_size;
@@ -66,7 +66,7 @@ typedef struct {
     uint32_t bufsize, head, count;
     int overflow;
     event buf[MAXBUF];
-    uint8_t keys[256];
+    uint8_t keys[256], key_physical[256], key_touch[256], key_read[256], key_touch_dirty[256];
     int32_t dx, dy, dz;
     uint8_t buttons[8], touch_raw[8], touch_read[8];
     uint32_t touch_edges[8]; /* alternating edges, consumed by successful unbuffered reads */
@@ -179,6 +179,32 @@ uint32_t hpcom_IDirectInputDevice8A_QueryInterface_c(uint32_t g, uint32_t iid, u
 uint32_t hpcom_IDirectInputDevice8A_AddRef_c(uint32_t g) { D(g); return halopad_com_addref(g); }
 uint32_t hpcom_IDirectInputDevice8A_Release_c(uint32_t g) { D(g); return halopad_com_release(g); }
 
+static void record_source(device *d, uint32_t ofs, uint32_t data, uint32_t flags);
+
+/* Remove unread virtual keys, then reconcile what the buffered reader has seen
+   with surviving physical input. Never flush unrelated keyboard events. */
+static void cancel_touch_keys(device *d)
+{
+    if (d->kind != KEYBOARD) return;
+    uint8_t projected[256];
+    memcpy(projected, d->key_read, sizeof projected);
+    uint32_t kept = 0;
+    for (uint32_t i = 0; i < d->count; i++) {
+        event e = d->buf[(d->head + i) % MAXBUF];
+        if (e.flags & HPI_TOUCH) continue;
+        d->buf[(d->head + kept++) % MAXBUF] = e;
+        projected[e.ofs] = (uint8_t)e.data;
+    }
+    d->count = kept;
+    for (uint32_t k = 0; k < 256; k++) {
+        if (d->key_touch_dirty[k] && projected[k] != d->key_physical[k])
+            record_source(d, k, d->key_physical[k], 0);
+        d->keys[k] = d->key_physical[k];
+    }
+    memset(d->key_touch, 0, sizeof d->key_touch);
+    memset(d->key_touch_dirty, 0, sizeof d->key_touch_dirty);
+}
+
 static void clear_touch(device *d)
 {
     memset(d->touch_raw, 0, sizeof d->touch_raw);
@@ -190,9 +216,10 @@ static void set_acquired(device *d, int on)
 {
     if (d->acquired == on) return;
     d->acquired = on;
+    if (!on) cancel_touch_keys(d);
     clear_touch(d);
     if (d->kind == MOUSE && (d->coop & 1)) halopad_host_mouse_capture(on);
-    if (on) { memset(d->keys, 0, sizeof d->keys); memset(d->buttons, 0, sizeof d->buttons); d->dx = d->dy = d->dz = 0; }
+    if (on) { memset(d->key_physical, 0, sizeof d->key_physical); memset(d->key_touch, 0, sizeof d->key_touch); memset(d->keys, 0, sizeof d->keys); memset(d->buttons, 0, sizeof d->buttons); d->dx = d->dy = d->dz = 0; }
 }
 
 /* A foreground device whose window lost the foreground is no longer acquired. */
@@ -346,6 +373,7 @@ uint32_t hpcom_IDirectInputDevice8A_GetDeviceData_c(uint32_t g, uint32_t objsize
         const event *e = &d->buf[(d->head + i) % MAXBUF];
         if (d->kind == KEYBOARD && e->ofs == 0x29 && getenv("HALOPAD_TRACE_INPUT"))
             fprintf(stderr, "HALOPAD INPUT: console key read by DirectInput: %s (flags %u)\n", e->data ? "down" : "up", flags);
+        if (d->kind == KEYBOARD) d->key_read[e->ofs] = (uint8_t)e->data;
         uint32_t o = out + i * objsize;
         wr32(o, e->ofs); wr32(o + 4, e->data); wr32(o + 8, e->time); wr32(o + 12, e->seq);
         if (objsize == 20) wr32(o + 16, 0);                         /* uAppData */
@@ -607,13 +635,15 @@ uint32_t hpcom_IDirectInputDevice8A_EnumObjects_c(uint32_t g, uint32_t cb, uint3
 
 /* ---- input from the host (halopad_input_event) ---- */
 
-static void record(device *d, uint32_t ofs, uint32_t data)
+static void record_source(device *d, uint32_t ofs, uint32_t data, uint32_t flags)
 {
     if (!d->bufsize) return;
     if (d->count == d->bufsize) { d->overflow = 1; return; }        /* Windows drops the newest */
     event *e = &d->buf[(d->head + d->count++) % MAXBUF];
-    e->ofs = ofs; e->data = data; e->time = GetTickCount_c(); e->seq = ++sequence;
+    e->ofs = ofs; e->data = data; e->time = GetTickCount_c(); e->seq = ++sequence; e->flags = flags;
 }
+
+static void record(device *d, uint32_t ofs, uint32_t data) { record_source(d, ofs, data, 0); }
 
 void halopad_dinput_event(const hp_input *e)
 {
@@ -624,6 +654,7 @@ void halopad_dinput_event(const hp_input *e)
         device *d = devices[i];
         if (!d || d->kind == GAMEPAD) continue;
         if (e->kind == HPI_CANCEL_TOUCH) {
+            cancel_touch_keys(d);
             for (uint32_t b = 0; b < 8; b++)
                 if (d->touch_raw[b] && !d->buttons[b]) record(d, 12u + b, 0);
             clear_touch(d);
@@ -639,9 +670,12 @@ void halopad_dinput_event(const hp_input *e)
         if (d->kind == KEYBOARD && e->kind == HPI_KEY) {
             uint32_t dik = (e->scan & 0x7F) | (e->extended ? 0x80u : 0);
             uint8_t v = e->down ? 0x80 : 0;
+            if (e->flags & HPI_TOUCH) { d->key_touch[dik] = v; d->key_touch_dirty[dik] = 1; }
+            else d->key_physical[dik] = v;
+            v = d->key_physical[dik] | d->key_touch[dik];
             if (d->keys[dik] == v) continue;                        /* transitions only: no autorepeat */
             d->keys[dik] = v;
-            record(d, dik, v);
+            record_source(d, dik, v, e->flags & HPI_TOUCH);
         } else if (d->kind == MOUSE) {
             if (e->kind == HPI_MOUSEMOVE) {
                 if (e->dx) { d->dx += e->dx; record(d, 0, (uint32_t)e->dx); }
