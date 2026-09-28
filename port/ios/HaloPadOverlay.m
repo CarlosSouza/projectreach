@@ -18,7 +18,8 @@
         [NSUserDefaults.standardUserDefaults registerDefaults:@{
             @"HaloPad.controlOpacity": @0.8, @"HaloPad.controlSize": @1.0, @"HaloPad.lookSensitivity": @1.0,
             @"HaloPad.hideWithController": @YES, @"HaloPad.hideTouchControls": @NO, @"HaloPad.showFPS": @NO,
-            @"HaloPad.aspect": @0, @"HaloPad.recentServers": @[]}];
+            @"HaloPad.aspect": @0, @"HaloPad.recentServers": @[], @"HaloPad.leftHanded": @NO, @"HaloPad.showCaptions": @YES,
+            @"HaloPad.ringSpacing": @1}];
     });
     return s;
 }
@@ -32,6 +33,9 @@ HP_SETTING(BOOL, hideWithController, setHideWithController, @"HaloPad.hideWithCo
 HP_SETTING(BOOL, hideTouchControls, setHideTouchControls, @"HaloPad.hideTouchControls", @(v), boolValue)
 HP_SETTING(BOOL, showFPS, setShowFPS, @"HaloPad.showFPS", @(v), boolValue)
 HP_SETTING(HPAspectMode, aspect, setAspect, @"HaloPad.aspect", @(v), integerValue)
+HP_SETTING(BOOL, leftHanded, setLeftHanded, @"HaloPad.leftHanded", @(v), boolValue)
+HP_SETTING(BOOL, showCaptions, setShowCaptions, @"HaloPad.showCaptions", @(v), boolValue)
+HP_SETTING(NSInteger, ringSpacing, setRingSpacing, @"HaloPad.ringSpacing", @(MIN(2, MAX(0, v))), integerValue)
 - (NSArray<NSString *> *)recentServers { return [NSUserDefaults.standardUserDefaults stringArrayForKey:@"HaloPad.recentServers"] ?: @[]; }
 - (void)setRecentServers:(NSArray<NSString *> *)v { [NSUserDefaults.standardUserDefaults setObject:v forKey:@"HaloPad.recentServers"]; }
 @end
@@ -183,10 +187,14 @@ typedef NS_ENUM(NSInteger, HPControlKind) { HPKey, HPMouseButton };
         _icon = [UIImageView new];
         _icon.contentMode = UIViewContentModeScaleAspectFit;
         _icon.tintColor = [UIColor colorWithWhite:1 alpha:0.95];
+        _icon.layer.shadowColor = UIColor.blackColor.CGColor;
+        _icon.layer.shadowOpacity = 0.55; _icon.layer.shadowRadius = 1.5; _icon.layer.shadowOffset = CGSizeMake(0, 1);
         [self addSubview:_icon];
         _label = [UILabel new];
         _label.textAlignment = NSTextAlignmentCenter;
-        _label.textColor = [UIColor colorWithWhite:1 alpha:0.82];
+        _label.textColor = [UIColor colorWithWhite:1 alpha:0.86];
+        _label.layer.shadowColor = UIColor.blackColor.CGColor;
+        _label.layer.shadowOpacity = 0.7; _label.layer.shadowRadius = 1; _label.layer.shadowOffset = CGSizeMake(0, 1);
         _label.adjustsFontSizeToFitWidth = YES;
         _label.minimumScaleFactor = 0.6;
         [self addSubview:_label];
@@ -209,12 +217,12 @@ typedef NS_ENUM(NSInteger, HPControlKind) { HPKey, HPMouseButton };
     [super layoutSubviews];
     CGFloat d = fmin(self.bounds.size.width, self.bounds.size.height);
     self.layer.cornerRadius = d / 2;
-    BOOL caption = self.label.text.length && d >= 44;
+    BOOL caption = self.label.text.length && d >= 44 && HPSettings.shared.showCaptions;
     CGFloat iconSide = d * (caption ? 0.40 : 0.50);
     _icon.frame = CGRectMake((self.bounds.size.width - iconSide) / 2, self.bounds.size.height / 2 - iconSide / 2 - (caption ? d * 0.08 : 0), iconSide, iconSide);
     _icon.preferredSymbolConfiguration = [UIImageSymbolConfiguration configurationWithPointSize:iconSide * 0.8 weight:UIImageSymbolWeightSemibold];
     _label.hidden = !caption;
-    _label.font = [UIFont systemFontOfSize:fmax(8.5, d * 0.14) weight:UIFontWeightSemibold];
+    _label.font = [UIFont systemFontOfSize:fmax(10, d * 0.15) weight:UIFontWeightSemibold];
     _label.frame = CGRectMake(d * 0.12, CGRectGetMaxY(_icon.frame) + d * 0.02, self.bounds.size.width - d * 0.24, d * 0.2);
 }
 - (void)press:(int)down
@@ -285,7 +293,8 @@ static CGRect at(CGRect safe, CGFloat x, CGFloat y, CGFloat w, CGFloat h)
     UILabel *_fps;
     UIView *_panel, *_editorBar;
     UISlider *_opacity, *_size, *_look, *_selectedSize;
-    UISwitch *_hideSwitch, *_editSwitch;
+    UISwitch *_hideSwitch, *_editSwitch, *_leftSwitch, *_captionSwitch;
+    UISegmentedControl *_spacingControl;
     UILabel *_editorHint;
     __weak UIView *_selected;
     BOOL _editing, _controllerHidden;
@@ -402,7 +411,8 @@ static CGRect at(CGRect safe, CGFloat x, CGFloat y, CGFloat w, CGFloat h)
 - (BOOL)inMoveZone:(CGPoint)p
 {
     CGRect safe = self.safe;
-    return p.x < CGRectGetMinX(safe) + safe.size.width * 0.40 && p.y > CGRectGetMinY(safe) + safe.size.height * 0.30;
+    BOOL left = p.x < CGRectGetMinX(safe) + safe.size.width * 0.40, right = p.x > CGRectGetMaxX(safe) - safe.size.width * 0.40;
+    return (HPSettings.shared.leftHanded ? right : left) && p.y > CGRectGetMinY(safe) + safe.size.height * 0.30;
 }
 - (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
 {
@@ -507,26 +517,37 @@ static CGRect at(CGRect safe, CGFloat x, CGFloat y, CGFloat w, CGFloat h)
     CGFloat stick = (pad ? 164 : 124) * k;
     CGFloat sizes[3] = {(pad ? 48 : 38) * k, (pad ? 66 : 52) * k, (pad ? 128 : 94) * k};
     BOOL phone = self.phone;
-    /* the stick's resting place: clear of Halo's motion tracker in the bottom-left corner */
-    [self place:_move frame:at(safe, phone ? 0.20 : 0.19, phone ? 0.72 : 0.73, stick, stick)];
+    BOOL mirror = HPSettings.shared.leftHanded;
+    CGFloat spacing[3] = {0.82, 1.0, 1.22};
+    CGFloat sp = spacing[HPSettings.shared.ringSpacing];
+    /* the stick's resting place: clear of Halo's motion tracker in the bottom-left corner (mirrored, the
+       ring moves right of the tracker instead) */
+    CGFloat sx = phone ? 0.20 : 0.19;
+    [self place:_move frame:at(safe, mirror ? 1 - sx : sx, phone ? 0.72 : 0.73, stick, stick)];
     if (!_moveTouch) { _moveRest = _move.center; if (!_editing) _move.alpha = HPSettings.shared.controlOpacity * 0.6; }
     /* FIRE low on the right, the ring around it */
-    CGFloat fireD = sizes[2], ringD = sizes[1], R = fireD / 2 + ringD / 2 + (pad ? 22 : 12) * k;
+    CGFloat fireD = sizes[2], ringD = sizes[1], R = (fireD / 2 + ringD / 2 + (pad ? 22 : 12) * k) * sp;
     CGPoint fire = CGPointMake(CGRectGetMaxX(safe) - R - ringD / 2 - (pad ? 18 : 10), CGRectGetMaxY(safe) - R * 0.94 - ringD / 2 - (pad ? 18 : 10));
+    if (mirror) fire.x = CGRectGetMinX(safe) + (CGRectGetMaxX(safe) - fire.x) + safe.size.width * 0.11;   /* right of Halo's motion tracker */
     for (int i = 0; i < NCONTROLS; i++) {
         const hp_control_def *d = &CONTROLS[i];
         CGFloat dia = sizes[d->size];
         CGPoint c;
         if (d->place == CENTRE) c = fire;
-        else if (d->place == RING) c = CGPointMake(fire.x + R * cos(d->angle * M_PI / 180), fire.y - R * sin(d->angle * M_PI / 180));
-        else c = CGPointMake(CGRectGetMinX(safe) + (phone ? d->px : d->tx) * safe.size.width, CGRectGetMinY(safe) + (phone ? d->py : d->ty) * safe.size.height);
+        else if (d->place == RING) { CGFloat a = (mirror ? 180 - d->angle : d->angle) * M_PI / 180; c = CGPointMake(fire.x + R * cos(a), fire.y - R * sin(a)); }
+        else {
+            CGFloat nx = phone ? d->px : d->tx, ny = phone ? d->py : d->ty;
+            if (mirror && nx < 0.3) nx = 1 - nx;                    /* the edge utilities swap sides; the top pair stays */
+            c = CGPointMake(CGRectGetMinX(safe) + nx * safe.size.width, CGRectGetMinY(safe) + ny * safe.size.height);
+        }
         [self place:_buttons[i] frame:CGRectMake(c.x - dia / 2, c.y - dia / 2, dia, dia)];
+        [_buttons[i] setNeedsLayout];                     /* captions on or off */
     }
     CGFloat side = 40, inset = 12;
     _menuButton.frame = CGRectMake(CGRectGetMaxX(safe) - side - inset, CGRectGetMinY(safe) + inset, side, side);
     _fps.frame = CGRectMake(CGRectGetMaxX(safe) - side - inset - 86, CGRectGetMinY(safe) + inset + 8, 76, 24);
     _fps.layer.cornerRadius = 6; _fps.layer.masksToBounds = YES;
-    CGFloat pw = fmin(360, safe.size.width - 32), ph = fmin(440, safe.size.height * 0.8);
+    CGFloat pw = fmin(360, safe.size.width - 32), ph = fmin(560, safe.size.height * 0.86);
     _panel.frame = CGRectMake(CGRectGetMaxX(safe) - pw - 12, CGRectGetMinY(safe) + 60, pw, ph);
     CGFloat ew = fmin(560, safe.size.width - 24);
     _editorBar.frame = CGRectMake(CGRectGetMidX(safe) - ew / 2, CGRectGetMaxY(safe) - 72, ew, 60);
@@ -740,6 +761,16 @@ static CGRect at(CGRect safe, CGFloat x, CGFloat y, CGFloat w, CGFloat h)
     [_hideSwitch addTarget:self action:@selector(hideChanged:) forControlEvents:UIControlEventValueChanged];
     _editSwitch = [UISwitch new];
     [_editSwitch addTarget:self action:@selector(editChanged:) forControlEvents:UIControlEventValueChanged];
+    _leftSwitch = [UISwitch new];
+    [_leftSwitch addTarget:self action:@selector(leftChanged:) forControlEvents:UIControlEventValueChanged];
+    _captionSwitch = [UISwitch new];
+    [_captionSwitch addTarget:self action:@selector(captionChanged:) forControlEvents:UIControlEventValueChanged];
+    _spacingControl = [[UISegmentedControl alloc] initWithItems:@[@"Compact", @"Normal", @"Spread"]];
+    [_spacingControl addTarget:self action:@selector(spacingChanged:) forControlEvents:UIControlEventValueChanged];
+    _spacingControl.selectedSegmentTintColor = [UIColor colorWithWhite:1 alpha:0.9];
+    _spacingControl.backgroundColor = [UIColor colorWithWhite:1 alpha:0.12];
+    [_spacingControl setTitleTextAttributes:@{NSForegroundColorAttributeName: UIColor.whiteColor} forState:UIControlStateNormal];
+    [_spacingControl setTitleTextAttributes:@{NSForegroundColorAttributeName: UIColor.blackColor} forState:UIControlStateSelected];
     UIButton *reset = [UIButton buttonWithType:UIButtonTypeSystem];
     [reset setTitle:@"Reset This Device Layout" forState:UIControlStateNormal];
     [reset setTitleColor:UIColor.systemRedColor forState:UIControlStateNormal];
@@ -750,6 +781,8 @@ static CGRect at(CGRect safe, CGFloat x, CGFloat y, CGFloat w, CGFloat h)
     [done addTarget:self action:@selector(togglePanel) forControlEvents:UIControlEventPrimaryActionTriggered];
     UIStackView *stack = [[UIStackView alloc] initWithArrangedSubviews:@[
         title, [self row:@"Opacity" control:_opacity], [self row:@"Size" control:_size], [self row:@"Look Speed" control:_look],
+        [self row:@"Left-handed" control:_leftSwitch], [self row:@"Button Labels" control:_captionSwitch],
+        [self row:@"Spacing" control:_spacingControl],
         [self row:@"Hide with a Controller" control:_hideSwitch], [self row:@"Move Controls" control:_editSwitch], reset, done]];
     stack.axis = UILayoutConstraintAxisVertical;
     stack.spacing = 14;
@@ -768,6 +801,7 @@ static CGRect at(CGRect safe, CGFloat x, CGFloat y, CGFloat w, CGFloat h)
     HPSettings *s = HPSettings.shared;
     _opacity.value = s.controlOpacity; _size.value = s.controlSize; _look.value = s.lookSensitivity;
     _hideSwitch.on = s.hideWithController; _editSwitch.on = NO;
+    _leftSwitch.on = s.leftHanded; _captionSwitch.on = s.showCaptions; _spacingControl.selectedSegmentIndex = s.ringSpacing;
     [self bringSubviewToFront:_panel];
 }
 - (void)opacityChanged:(UISlider *)s { HPSettings.shared.controlOpacity = s.value; [self updateAppearance]; }
@@ -775,6 +809,9 @@ static CGRect at(CGRect safe, CGFloat x, CGFloat y, CGFloat w, CGFloat h)
 - (void)lookChanged:(UISlider *)s { HPSettings.shared.lookSensitivity = s.value; }
 - (void)hideChanged:(UISwitch *)s { HPSettings.shared.hideWithController = s.on; [self refreshControllerVisibility]; }
 - (void)editChanged:(UISwitch *)s { if (s.on) [self beginEditing]; else [self endEditing]; }
+- (void)leftChanged:(UISwitch *)s { HPSettings.shared.leftHanded = s.on; [self clearTouchInput]; [self setNeedsLayout]; }
+- (void)captionChanged:(UISwitch *)s { HPSettings.shared.showCaptions = s.on; for (UIView *b in _buttons) [b setNeedsLayout]; }
+- (void)spacingChanged:(UISegmentedControl *)c { HPSettings.shared.ringSpacing = c.selectedSegmentIndex; [self setNeedsLayout]; }
 - (void)confirmReset
 {
     UIAlertController *a = [UIAlertController alertControllerWithTitle:@"Reset Touch Control Layout?"
@@ -898,6 +935,8 @@ static CGRect at(CGRect safe, CGFloat x, CGFloat y, CGFloat w, CGFloat h)
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
         if (!strcmp(demo, "settings")) [self togglePanel];
         if (!strcmp(demo, "layout")) { [self beginEditing]; }
+        if (!strcmp(demo, "lefthanded")) { HPSettings.shared.leftHanded = YES; [self setNeedsLayout]; }
+        if (!strcmp(demo, "spread")) { HPSettings.shared.ringSpacing = 2; HPSettings.shared.showCaptions = NO; [self setNeedsLayout]; }
         fprintf(stderr, "HALOPAD OVERLAY: demo \"%s\" open\n", demo);
     });
     /* join:ADDRESS: the menu's Join Server, once Halo's menu is up */

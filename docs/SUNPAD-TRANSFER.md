@@ -52,6 +52,9 @@ local SunPad path. The donor copy used for the work is private and ignored (`ref
     top centre;
   - saved layouts moved to `HaloPad.<device>.v2.*`, so positions saved for the old layout do not
     land on the new one.
+  - options a mobile shooter has: **Left-handed** (the stick on the right, FIRE and its ring on
+    the left, right of Halo's motion tracker), **Spacing** of the ring (compact, normal, spread)
+    and **Button Labels** on or off; icons and captions carry a soft shadow for bright scenes.
 - **The controls show only in a game.** The shell reads Halo's current map (`0x643064`) four
   times a second; on its menu map ("ui") the controls hide and touches reach the game view,
   where a tap is a click.

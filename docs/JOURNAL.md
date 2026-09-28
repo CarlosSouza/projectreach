@@ -1080,3 +1080,12 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
 - **Byte imul in memory translated** (lifter 9d6c88b47852-7ddadfc0, run 20260928T060918Z-85892): libpng's transform-info step 0x5980c4 matches the x86 oracle 300/300 (png_transform_info slice). Two named traps remain, both in the C runtime's Pentium FDIV workaround. All suites that need no network ports pass on the new run; join, host, lifecycle and the network scenarios wait until the preview Simulator is closed (it holds UDP 2302-2303).
 
 - **G4 reviewed** ([G4-REVIEW.md](G4-REVIEW.md)): every G4 item is met on macOS with evidence; the goal stays formally open only for the original-client comparison (G1b, parked on a key). All macOS suites, the join, host, lifecycle and the five network scenarios pass on run 20260928T060918Z-85892.
+
+## 2026-09-28 — Touch controls, second iteration; the branch on GitHub
+
+- **Touch controls:** left-handed mode (mirrored layout, the ring kept off the motion tracker),
+  ring spacing (compact, normal, spread), button labels on or off, and shadows under icons and
+  captions. The settings panel holds the three new controls. Screenshots of each on the iPad
+  Simulator; the self-test passes in left-handed mode.
+- **Pushed** `codex/halopad-phase2` to the private GitHub repository at Chris's request (a backup,
+  not publication: G12 still gates that).
