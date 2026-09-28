@@ -18,6 +18,64 @@ static void check(const char *name, BOOL ok);
 - (UIEdgeInsets)safeAreaInsets { return self.simulatedInsets; }
 @end
 
+@interface HPLookDrag : NSObject
+@property(nonatomic, copy) void (^delta)(CGFloat dx, CGFloat dy);
+- (void)begin:(id)token at:(CGPoint)point;
+- (void)move:(id)token to:(CGPoint)point;
+- (void)end:(id)token at:(CGPoint)point cancelled:(BOOL)cancelled;
+- (void)clear;
+@end
+
+static void check_drag_tracking(void)
+{
+    HPLookDrag *drag = [HPLookDrag new];
+    NSObject *a = [NSObject new], *b = [NSObject new];
+    __block CGFloat x = 0, y = 0;
+    __block int deltas = 0;
+    drag.delta = ^(CGFloat dx, CGFloat dy) { x += dx; y += dy; deltas++; };
+    [drag begin:a at:CGPointMake(10, 20)];
+    [drag end:a at:CGPointMake(110, 15) cancelled:NO];
+    check("short swipe with no move callback preserves final displacement", x == 100 && y == -5 && deltas == 1);
+    x = y = 0; deltas = 0;
+    [drag begin:a at:CGPointZero];
+    [drag move:a to:CGPointMake(20, 0)];
+    [drag move:a to:CGPointMake(50, 5)];
+    [drag end:a at:CGPointMake(80, 7) cancelled:NO];
+    [drag end:a at:CGPointMake(90, 9) cancelled:NO];
+    check("normal swipe consumes each segment and final endpoint exactly once", x == 80 && y == 7 && deltas == 3);
+    x = y = 0; deltas = 0;
+    [drag begin:a at:CGPointZero];
+    [drag move:a to:CGPointMake(20, 0)];
+    [drag end:a at:CGPointMake(20, 0) cancelled:NO];
+    check("unchanged end point adds no duplicate aim", x == 20 && y == 0 && deltas == 1);
+    x = y = 0; deltas = 0;
+    [drag begin:a at:CGPointZero]; [drag begin:b at:CGPointMake(100, 100)];
+    [drag move:a to:CGPointMake(5, 3)]; [drag move:b to:CGPointMake(96, 104)];
+    [drag end:b at:CGPointMake(500, 500) cancelled:YES];
+    [drag end:a at:CGPointMake(7, 8) cancelled:NO];
+    check("interleaved fingers keep independent positions and cancellation drops its endpoint", x == 3 && y == 12 && deltas == 3);
+    [drag begin:a at:CGPointZero]; [drag clear];
+    [drag move:a to:CGPointMake(50, 50)]; [drag end:a at:CGPointMake(80, 80) cancelled:NO];
+    check("cleared drag ignores late move and end callbacks", x == 3 && y == 12 && deltas == 3);
+
+    HPOverlay *overlay = [[HPOverlay alloc] initWithFrame:CGRectMake(0, 0, 1024, 768)];
+    HPLookDrag *surface = [overlay valueForKey:@"lookDrag"];
+    count = 0;
+    [surface begin:a at:CGPointZero]; [surface end:a at:CGPointMake(20, 0) cancelled:NO];
+    check("real overlay forwards short swipe to host mouse motion", count == 1 && events[0].kind == HPI_MOUSEMOVE && events[0].dx > 0);
+    UIView *fire = nil;
+    for (UIView *v in overlay.subviews) if ([v.accessibilityIdentifier isEqualToString:@"fire"]) fire = v;
+    HPLookDrag *fireDrag = [fire valueForKey:@"drag"];
+    count = 0;
+    [fireDrag begin:a at:CGPointZero]; [fireDrag end:a at:CGPointMake(0, 20) cancelled:NO];
+    check("FIRE drag forwards its final displacement to aiming", count == 1 && events[0].kind == HPI_MOUSEMOVE && events[0].dy > 0);
+    count = 0;
+    [surface begin:a at:CGPointZero]; [fireDrag begin:b at:CGPointZero];
+    [overlay clearTouchInput];
+    [surface end:a at:CGPointMake(20, 0) cancelled:NO]; [fireDrag end:b at:CGPointMake(0, 20) cancelled:NO];
+    check("overlay interruption clears both surface and FIRE drag endpoints", count == 0);
+}
+
 /* Exercise the real stick geometry without fabricating UIKit touch objects. */
 @interface HPStickView : UIView
 @property(nonatomic, copy) void (^valueChanged)(float x, float y);
@@ -300,6 +358,7 @@ int main(void)
         overlay.haloMenuVisible = YES;
         overlay.inGame = NO;
         check("main menu hides the in-game Back target", back.hidden);
+        check_drag_tracking();
         check_stick_tracking();
         check_layouts();
 

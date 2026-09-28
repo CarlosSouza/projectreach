@@ -92,6 +92,21 @@ local SunPad path. The donor copy used for the work is private and ignored (`ref
 
 ## Checks
 
+- **Final swipe displacement (2026-09-28):** screen swipes and FIRE/THROW drags retain
+  the last consumed point per finger and apply any final movement from `touchesEnded`.
+  Cancellation, menus/keyboard and focus loss discard unfinished gestures. This fixes short
+  swipes that produce no intermediate move callbacks, without double-counting normal swipes.
+  `G9/overlay-20260928T152752Z` passes 44 input/layout assertions, 90 layouts and five renders,
+  including interleaved fingers, final-only movement and cancellation of surface/FIRE drags.
+- Actual iPad routing evidence: `G9/touch-routing-20260928T152054Z`. Opt-in
+  `HALOPAD_TRACE_TOUCH=1` (also forwarded by the app builder) reports phases, geometry and
+  timestamps only. CUA's drag delivered direct touch begin/end in 0–1 ms with **no moved
+  callbacks**, explaining why it cannot verify a held stick. After the fix, the same screen
+  swipe visibly turns Halo; an opposite FIRE drag turns back and fires (battery 100→99).
+  The app starts automatically from the migrated stock folder on clean relaunch. Current
+  preview PID 59280 has this build. Actual held-stick/multi-touch feel still requires device
+  interaction; short input edge retention across runtime pumps remains a separate open row.
+
 - **Aligned action grid and stick travel (2026-09-28):** the six actions beside LOOK now
   share two columns with equal horizontal/vertical pitch. Their lower two rows centre on
   the stick; FIRE remains above it with a full gap. LIGHT and NADE use the same target size

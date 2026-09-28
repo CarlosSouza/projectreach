@@ -1665,3 +1665,41 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   separate server/Wine process started. Prepared-package picker, phone migration, recovery,
   short input edges, real multitouch and physical device acceptance remain required. Full
   project scope (online, campaign, licensed startup/reference comparisons) is unchanged.
+
+### 2026-09-28 — trace real touch routing and preserve final swipe movement
+
+- Previous turn: **progress**, `05d45a4` privately pushed. Read the goal objective attachment
+  and relevant G9/M27 requirements; full project scope remains intact. Started clean. Pinned
+  sources and locked executable hash pass. Only the existing iPad preview PID 56763 was live;
+  phone shut down, no Wine, no newly arrived parked input identified.
+- Investigated the prior inconclusive CUA drag check instead of treating handler tests as
+  actual-touch evidence. Added an opt-in `HALOPAD_TRACE_TOUCH` phase/type/point/timestamp trace.
+  It records no typed text or player data and is off by default; builder forwards the flag.
+- Backed up state/preferences, then replaced the existing preview with diagnostic PID 58636.
+  Clean device-data startup verified the migrated 78-file install and reached Halo without
+  another import or license decision. Reached Battle Creek through original menus.
+- Concrete finding: right-stick drag delivered direct-touch begin/end at the same timestamp,
+  point (76.5,75)→(126.5,75), without any moved callback. Open-screen drag delivered begin/end
+  1 ms apart, (644.5,419)→(950.5,419), also with no moved callback. This automation gesture
+  provides no meaningful hold duration for continuous stick input. Do not add artificial hold
+  time to the game to make that test appear to pass.
+- The same evidence exposed a real dropped-movement case: screen and FIRE/THROW swipe handlers
+  consumed only touchesMoved. Added shared HPLookDrag tracking of the last consumed point per
+  touch. Successful end consumes only remaining displacement once; cancellation/clear removes
+  state and ignores late callbacks. FIRE uses stable superview coordinates despite pressed
+  scaling. Both surface and button pending drags clear on existing interruption paths.
+- `G9/overlay-20260928T152752Z`: 44 input/layout assertions, 90 geometry combinations and five
+  renders pass. Eight new checks cover final-only swipe, intermediate+final sequence, unchanged
+  endpoint, independent interleaved fingers, cancellation, late callbacks after clear, real
+  surface/FIRE host output and overlay interruption. Full app builds and signature verifies.
+- Stopped diagnostic PID 58636 and installed the fixed build; final PID 59280. Clean startup
+  again passed from device data. In the actual Battle Creek game a CUA surface drag changed
+  the view from the open map to the wall. Opposite FIRE drag returned to the open view and
+  fired (battery 100→99). Trace confirms direct UIKit begin/end delivery. Before/after images,
+  source/binary hashes and observations are under `G9/touch-routing-20260928T152054Z`.
+- Leave the fixed iPad gameplay preview open, with low-volume touch trace enabled for subsequent
+  diagnosis. Phone remains shut down; no separate server or Wine started. Held physical sticks,
+  simultaneous multi-touch, general short key/button edges across runtime pumps, phone actual
+  routing, package picker/recovery and all external full-goal acceptance rows remain open.
+  No completion/blocked state update is warranted. Next input work should address the runtime
+  edge-retention row and real multi-touch, not repeat this final-endpoint check without changes.

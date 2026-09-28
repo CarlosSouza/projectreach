@@ -112,6 +112,54 @@ static int us_key(unichar c, uint32_t *vk, uint32_t *scan, int *shift)
 
 /* ---- controls ---- */
 
+/* Opt-in development trace: distinguish missing UIKit drags from lost host input.
+   Logs geometry and phases only, never typed text or player data. */
+static void trace_touches(UIView *view, NSSet<UITouch *> *touches, const char *phase)
+{
+    if (!getenv("HALOPAD_TRACE_TOUCH")) return;
+    for (UITouch *touch in touches) {
+        CGPoint p = [touch locationInView:view];
+        fprintf(stderr, "HALOPAD TOUCH: %.3f %s %s type %ld point %.1f %.1f\n",
+                touch.timestamp, (view.accessibilityIdentifier ?: @"surface").UTF8String,
+                phase, (long)touch.type, p.x, p.y);
+    }
+}
+
+/* UIKit can deliver a last displacement with touchesEnded, including a short
+   swipe with no touchesMoved. Remember the last consumed point independently
+   for each finger; never consume a cancelled or previously cleared gesture. */
+@interface HPLookDrag : NSObject
+@property(nonatomic, copy) void (^delta)(CGFloat dx, CGFloat dy);
+- (void)begin:(id)token at:(CGPoint)point;
+- (void)move:(id)token to:(CGPoint)point;
+- (void)end:(id)token at:(CGPoint)point cancelled:(BOOL)cancelled;
+- (void)clear;
+@end
+@implementation HPLookDrag {
+    NSMapTable<id, NSValue *> *_points;
+}
+- (instancetype)init
+{
+    if ((self = [super init])) _points = [NSMapTable strongToStrongObjectsMapTable];
+    return self;
+}
+- (void)begin:(id)token at:(CGPoint)point { [_points setObject:[NSValue valueWithCGPoint:point] forKey:token]; }
+- (void)move:(id)token to:(CGPoint)point
+{
+    NSValue *last = [_points objectForKey:token];
+    if (!last) return;
+    [_points setObject:[NSValue valueWithCGPoint:point] forKey:token];
+    CGPoint previous = last.CGPointValue;
+    if (self.delta && !CGPointEqualToPoint(previous, point)) self.delta(point.x - previous.x, point.y - previous.y);
+}
+- (void)end:(id)token at:(CGPoint)point cancelled:(BOOL)cancelled
+{
+    if (!cancelled) [self move:token to:point];
+    [_points removeObjectForKey:token];
+}
+- (void)clear { [_points removeAllObjects]; }
+@end
+
 typedef NS_ENUM(NSInteger, HPControlKind) { HPKey, HPMouseButton };
 
 @interface HPStickView : UIView
@@ -181,10 +229,10 @@ typedef NS_ENUM(NSInteger, HPControlKind) { HPKey, HPMouseButton };
     [self place];
     if (self.valueChanged) self.valueChanged(_x, _y);
 }
-- (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event { if (!self.editing) [self track:touches.anyObject]; }
-- (void)touchesMoved:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event { if (!self.editing) [self track:touches.anyObject]; }
-- (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event { [self reset]; }
-- (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event { [self reset]; }
+- (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event { trace_touches(self, touches, "began"); if (!self.editing) [self track:touches.anyObject]; }
+- (void)touchesMoved:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event { trace_touches(self, touches, "moved"); if (!self.editing) [self track:touches.anyObject]; }
+- (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event { trace_touches(self, touches, "ended"); [self reset]; }
+- (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event { trace_touches(self, touches, "cancelled"); [self reset]; }
 @end
 
 /* A Halo control: a key or a mouse button, held while touched; a translucent glass circle with an
@@ -203,13 +251,18 @@ typedef NS_ENUM(NSInteger, HPControlKind) { HPKey, HPMouseButton };
 - (void)setSymbol:(NSString *)name;
 @end
 
-@implementation HPControlButton
+@implementation HPControlButton {
+    HPLookDrag *_drag;
+}
 - (instancetype)initWithFrame:(CGRect)frame
 {
     if ((self = [super initWithFrame:frame])) {
         self.multipleTouchEnabled = NO;
         self.clipsToBounds = YES;
         self.layer.borderWidth = 1.5;
+        _drag = [HPLookDrag new];
+        __weak HPControlButton *weak = self;
+        _drag.delta = ^(CGFloat dx, CGFloat dy) { if (weak.lookBy) weak.lookBy(dx, dy); };
         _icon = [UIImageView new];
         _icon.contentMode = UIViewContentModeScaleAspectFit;
         _icon.tintColor = [UIColor colorWithWhite:1 alpha:0.95];
@@ -260,17 +313,30 @@ typedef NS_ENUM(NSInteger, HPControlKind) { HPKey, HPMouseButton };
     self.transform = down ? CGAffineTransformMakeScale(0.92, 0.92) : CGAffineTransformIdentity;
     [self paint];
 }
-- (void)release_ { [self press:0]; }
-- (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event { if (!self.editing) [self press:1]; }
+- (void)release_ { [_drag clear]; [self press:0]; }
+- (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
+{
+    trace_touches(self, touches, "began");
+    if (self.editing) return;
+    [self press:1];
+    UITouch *t = touches.anyObject;
+    if (self.looks) [_drag begin:t at:[t locationInView:self.superview]];
+}
 - (void)touchesMoved:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
 {
     if (self.editing || !self.looks || !self.lookBy) return;
+    trace_touches(self, touches, "moved");
     UITouch *t = touches.anyObject;
-    CGPoint a = [t locationInView:self.superview], b = [t previousLocationInView:self.superview];
-    self.lookBy(a.x - b.x, a.y - b.y);
+    [_drag move:t to:[t locationInView:self.superview]];
 }
-- (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event { [self press:0]; }
-- (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event { [self press:0]; }
+- (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
+{
+    trace_touches(self, touches, "ended");
+    UITouch *t = touches.anyObject;
+    [_drag end:t at:[t locationInView:self.superview] cancelled:self.editing];
+    [self release_];
+}
+- (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event { trace_touches(self, touches, "cancelled"); [self release_]; }
 @end
 
 /* Halo's PC bindings. Layout gives the sticks their own space and places actions in
@@ -319,14 +385,16 @@ static const hp_control_def CONTROLS[] = {
     BOOL _editing, _controllerHidden;
     int _wasd[4];                                   /* W A S D held */
     double _lookRestX, _lookRestY;
-    NSMutableSet<UITouch *> *_lookTouches;
+    HPLookDrag *_lookDrag;
 }
 
 - (instancetype)initWithFrame:(CGRect)frame
 {
     if ((self = [super initWithFrame:frame])) {
         self.multipleTouchEnabled = YES;
-        _lookTouches = [NSMutableSet set];
+        _lookDrag = [HPLookDrag new];
+        __weak HPOverlay *weak = self;
+        _lookDrag.delta = ^(CGFloat dx, CGFloat dy) { [weak lookX:dx y:dy]; };
         [self buildControls];
         [self buildMenuButton];
         [self buildPanel];
@@ -410,7 +478,7 @@ static const hp_control_def CONTROLS[] = {
     for (HPControlButton *b in _buttons) [b release_];
     [_move reset];
     [_aim reset];
-    [_lookTouches removeAllObjects];
+    [_lookDrag clear];
     _lookRestX = _lookRestY = 0;
 }
 
@@ -459,18 +527,26 @@ static const hp_control_def CONTROLS[] = {
 - (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
 {
     if (!_panel.hidden) return;
-    [_lookTouches unionSet:touches];
+    trace_touches(self, touches, "began");
+    for (UITouch *t in touches) [_lookDrag begin:t at:[t locationInView:self]];
 }
 - (void)touchesMoved:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
 {
+    trace_touches(self, touches, "moved");
     for (UITouch *t in touches) {
-        if (![_lookTouches containsObject:t]) continue;
-        CGPoint a = [t locationInView:self], b = [t previousLocationInView:self];
-        [self lookX:a.x - b.x y:a.y - b.y];
+        [_lookDrag move:t to:[t locationInView:self]];
     }
 }
-- (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event { [_lookTouches minusSet:touches]; }
-- (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event { [_lookTouches minusSet:touches]; }
+- (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
+{
+    trace_touches(self, touches, "ended");
+    for (UITouch *t in touches) [_lookDrag end:t at:[t locationInView:self] cancelled:NO];
+}
+- (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
+{
+    trace_touches(self, touches, "cancelled");
+    for (UITouch *t in touches) [_lookDrag end:t at:CGPointZero cancelled:YES];
+}
 
 - (BOOL)controlsHidden { return HPSettings.shared.hideTouchControls || _controllerHidden || _softwareKeyboardVisible || _haloMenuVisible; }
 - (void)setSoftwareKeyboardVisible:(BOOL)visible
