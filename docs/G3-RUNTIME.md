@@ -125,7 +125,7 @@ It passes on macOS and on the iPad Simulator.
 - **Byte rotates and mixed-byte tests:** `rol`/`ror` of a low byte by a constant, and `test` between a low and a high byte (`test ch, cl`, `test dl, ch`, `test bl, ah`). The missing `test` forms had produced no code, so the next `jz` read a stale condition. LLVM made that a trap at `0x5cd153`, and the translator had reported the other two as "unprocessed flags". A scan of the whole translation finds no other "flags not needed" site followed by a flag read.
 - **`fprem`** (`fmod`'s loop; always complete on the `double` stack, so C2 is clear) and **`fsubr`/`fdivr st(i), st(0)`**.
 - **The audit's data-like instruction heuristic** now accepts the x87 status idiom (`wait` after `fnstsw ax` or before an x87 instruction, `sahf` after `fnstsw ax`). It had rejected `fmod`'s body (`0x5cdc14`), which is reached only from its descriptor table at `0x61fac0`. The audit gains 16 functions (the math thunks and dispatchers) and 15 relocations, and loses nothing reachable.
-- **Still untranslated:** 3 sites (6 at the time; the four `rcl bl` sites are translated since, see "Blood Gulch in play"). One is `imul byte [ecx+0x1d]` (`0x598198`); two are `fnstenv`/`fldenv` (`0x5dac13`, `0x5dac22`) in the CRT's Pentium FDIV workaround, which runs only when `0x63e304` is set.
+- **Still untranslated:** 2 sites (6 at the time; the four `rcl bl` sites and `imul byte [ecx+0x1d]` at `0x598198` are translated since). Both are `fnstenv`/`fldenv` (`0x5dac13`, `0x5dac22`) in the CRT's Pentium FDIV workaround, which runs only when `0x63e304` is set.
 
 ## Blood Gulch in play (Halo's start-up script)
 

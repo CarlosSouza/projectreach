@@ -96,3 +96,5 @@ Lifter `24c44b99cfac-05b596a6` translates `rcl` of a byte register by a constant
 ## Update 2026-09-27: flags across calls
 
 SRW does not carry x86 flags between llasm procedures; `scripts/srw-flags.py` computes the hints that do. It now follows every incoming path of a label that reads flags, including the direct call sites of a function entry: hand-written C runtime code passes flags through `call` (`acos` at `0x5ccd00` calls `0x5d7318`, then `0x5ccd1d` branches on its ZF). 1,029 hint lines; 1 unresolved label (`0x5a142e`). See [G3-RUNTIME.md](G3-RUNTIME.md), "Playing Blood Gulch".
+
+Lifter `9d6c88b47852-7ddadfc0` translates the one-operand `imul` of a byte in memory (AX = AL x m8, signed; CF and OF as on x86), which covers `imul byte [ecx+0x1d]` (`0x598198`) in libpng's transform-info step `0x5980c4`; the `png_transform_info` slice matches the x86 oracle in 300 of 300 cases. Two sites are left, both named traps: `fnstenv`/`fldenv` (`0x5dac13`, `0x5dac22`) in the C runtime's Pentium FDIV workaround, which runs only when `0x63e304` is set, and HaloPad's CPU (no FDIV flaw) never sets it. Translation run `20260928T060918Z-85892`.

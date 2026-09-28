@@ -453,7 +453,35 @@
          case UD_Icwd:
              {
                  /* no flags affected */
-@@ -4153,6 +4251,26 @@
+@@ -3356,6 +3454,27 @@
+                                 OUTPUT_STRING("or eflags, eflags, tmp3\n");
+                             }
+                         }
++                        else if (ud_obj.operand[0].size == 8)
++                        {
++                            /* HaloPad: imul r/m8 with a memory operand (AX = AL * m8, signed); CF and OF
++                               when AH is not the sign extension of AL, as for the byte-register form */
++                            SR_disassemble_get_madr(cOutput, &(ud_obj.operand[0]), fixup[0], extrn[0], UD_NONE, MADR_READ, SIGN_EXTEND, &memadr);
++
++                            SR_disassemble_read_mem_byte(cOutput, &memadr, LR_TMP2, READ8TO32SIGN);
++
++                            OUTPUT_STRING("ext8s tmp1, eax\n");
++                            OUTPUT_STRING("mul tmp1, tmp1, tmp2\n");
++                            OUTPUT_STRING("ins16 eax, eax, tmp1\n");
++
++                            if (flags_to_write & (FL_CARRY | FL_OVERFLOW))
++                            {
++                                SR_disassemble_change_flags(pOutput, Tflags_to_write, 0, 0);
++
++                                OUTPUT_STRING("ext8s tmp2, tmp1\n");
++                                OUTPUT_STRING("cmoveq tmp1, tmp2, tmp3, 0, CF | OF\n");
++                                OUTPUT_STRING("or eflags, eflags, tmp3\n");
++                            }
++                        }
+                     }
+                 }
+                 else if (ud_obj.operand[2].type != UD_NONE)
+@@ -4153,6 +4272,26 @@
                  }
              }
              break;
@@ -480,7 +508,7 @@
          case UD_Iloop:
          case UD_Iloope:
          //case UD_Iloopn:
-@@ -5450,6 +5568,77 @@
+@@ -5450,6 +5589,77 @@
  
                          }
                      }
@@ -558,7 +586,7 @@
                  }
  
  
-@@ -5921,6 +6110,19 @@
+@@ -5921,6 +6131,19 @@
                      }
                      else if (ud_obj.operand[0].base >= UD_R_AL && ud_obj.operand[0].base <= UD_R_BL)
                      {
@@ -578,7 +606,7 @@
                      }
                      else if (ud_obj.operand[0].base >= UD_R_AH && ud_obj.operand[0].base <= UD_R_BH)
                      {
-@@ -6710,6 +6912,15 @@
+@@ -6710,6 +6933,15 @@
                                      flags_write = flags_to_write;
                                  }
                              }
@@ -594,7 +622,7 @@
                          }
                          else if (ud_obj.operand[1].type == UD_OP_MEM)
                          {
-@@ -6732,6 +6943,12 @@
+@@ -6732,6 +6964,12 @@
                          {
                              if (ud_obj.operand[1].base >= UD_R_AL && ud_obj.operand[1].base <= UD_R_BL)
                              {
@@ -607,7 +635,7 @@
                              }
                              else if (ud_obj.operand[1].base >= UD_R_AH && ud_obj.operand[1].base <= UD_R_BH)
                              {
-@@ -7127,6 +7344,15 @@
+@@ -7127,6 +7365,15 @@
          case UD_Ifsqrt:
          case UD_Ifucompp:
          case UD_Ifyl2x:
@@ -623,7 +651,7 @@
              {
                  /* no flags affected */
  
-@@ -7150,6 +7376,15 @@
+@@ -7150,6 +7397,15 @@
                  else if (ud_obj.mnemonic == UD_Ifsin) instr = "FSIN";
                  else if (ud_obj.mnemonic == UD_Ifsqrt) instr = "FSQRT";
                  else if (ud_obj.mnemonic == UD_Ifucompp) instr = "FUCOMPP";
@@ -639,7 +667,7 @@
                  else /*if (ud_obj.mnemonic == UD_Ifyl2x)*/ instr = "FYL2X";
  
                  if (ud_obj.operand[0].type == UD_NONE)
-@@ -7283,6 +7518,11 @@
+@@ -7283,6 +7539,11 @@
                                      {
                                          OUTPUT_PARAMSTRING("%s_ST %i\n", instr, X87REGNUM(ud_obj.operand[1].base));
                                      }
@@ -651,7 +679,7 @@
                                  }
                              }
                          }
-@@ -7548,6 +7788,15 @@
+@@ -7548,6 +7809,15 @@
  
                              OUTPUT_STRING("FLD_FLOAT tmp1\n");
                          }
@@ -667,7 +695,7 @@
                      }
                  }
                  else
-@@ -7640,6 +7889,13 @@
+@@ -7640,6 +7910,13 @@
                  }
              }
              break;
@@ -681,7 +709,7 @@
          case UD_Ifst:
          case UD_Ifstp:
              {
-@@ -7686,6 +7942,14 @@
+@@ -7686,6 +7963,14 @@
  
                              SR_disassemble_write_mem_word(cOutput, &memadr, LR_TMP0);
                          }
@@ -696,7 +724,7 @@
                      }
                  }
  
-@@ -7749,14 +8013,36 @@
+@@ -7749,14 +8034,36 @@
          default:
              fprintf(stderr, "Error: unknown instruction - %i - %i - %s\n", Entry, (unsigned int)cur_ofs, output->str);
  

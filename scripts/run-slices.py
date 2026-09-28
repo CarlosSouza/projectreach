@@ -187,6 +187,22 @@ def cases_adpcm_step(rng):
     return out
 
 
+def cases_png_transform_info(rng):
+    """0x5980c4 (stdcall, libpng's transform-info step): (png_ptr, info_ptr). From the
+    transformation flags and fields of png_ptr it rewrites the info's colour type, bit depth,
+    channels, pixel depth (bit depth x channels: 'imul byte [ecx+0x1d]', translator
+    2026-09-28) and row bytes. Random structures; half with valid bit depths and colour types."""
+    out = []
+    for i in range(300):
+        png = bytearray(rng.getrandbits(8) for _ in range(0x180))
+        info = bytearray(rng.getrandbits(8) for _ in range(0x40))
+        if i % 2 == 0:
+            info[0x18] = rng.choice([1, 2, 4, 8, 16])
+            info[0x19] = rng.choice([0, 2, 3, 4, 6])
+        out.append([('ptr', 2, 0), ('ptr', 3, 0), bytes(png), bytes(info)])
+    return out
+
+
 def cases_vector_iterate(rng):
     """0x582d1a (MSVC vector iterator, stdcall): (array, element size, count, fn) calls
     fn once per element, last to first, with ecx = element. The callback is a guest
@@ -221,6 +237,8 @@ SLICES = {
     # VA model only: Halo's ADPCM sample step (0x551d10), which reads the code's bits out of
     # CF with 'rcl bl, 6' / 'rcl bl, 1' and sbb (byte-register rcl, translator 2026-09-27)
     'adpcm_step': {'address': 0x551D10, 'conv': 'cdecl', 'cases': cases_adpcm_step, 'x87': False},
+    # VA model only: libpng's transform-info step (0x5980c4), with 'imul byte [ecx+0x1d]'
+    'png_transform_info': {'address': 0x5980C4, 'conv': 'stdcall', 'cases': cases_png_transform_info, 'x87': False},
 }
 
 # G2e contract runs. Each runs in its own process. 'expect' must appear in stderr and the

@@ -1076,3 +1076,5 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   utilities small at the edges ([SUNPAD-TRANSFER.md](SUNPAD-TRANSFER.md)). The self-test passes on it.
 - **Preview:** `scripts/ios-preview.sh [--iphone] [--connect ADDR:PORT]` builds the app, opens the
   Simulator and leaves HaloPad running at Halo's main menu (or in a server's game).
+
+- **Byte imul in memory translated** (lifter 9d6c88b47852-7ddadfc0, run 20260928T060918Z-85892): libpng's transform-info step 0x5980c4 matches the x86 oracle 300/300 (png_transform_info slice). Two named traps remain, both in the C runtime's Pentium FDIV workaround. All suites that need no network ports pass on the new run; join, host, lifecycle and the network scenarios wait until the preview Simulator is closed (it holds UDP 2302-2303).
