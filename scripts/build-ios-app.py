@@ -91,7 +91,7 @@ def main():
                     help='development only: a C file whose halopad_app_entry replaces the core start (evidence scenes in tests/)')
     a = ap.parse_args()
     work = (a.work or max(run_core.PROFILE.glob('run-*/va/haloce.va.ll'), key=lambda p: p.stat().st_mtime).parent.parent).resolve()
-    extra = [ROOT / 'port' / 'ios' / name for name in ('HaloPadOverlay.m', 'HaloPadImport.m')] + ([a.scene.resolve()] if a.scene else [])
+    extra = [ROOT / 'port' / 'ios' / name for name in ('HaloPadOverlay.m', 'HaloPadImport.m', 'HaloPadPackage.m')] + ([a.scene.resolve()] if a.scene else [])
     exe, _ = run_core.build(work, TARGET, ROOT / 'port' / 'ios' / 'HaloPadApp.m', extra=extra)
     app = package(exe, work / f'ios-app-{TARGET}', work)
     print('built', app.relative_to(ROOT))

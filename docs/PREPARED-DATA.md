@@ -1,8 +1,9 @@
 # Prepared game-data packages
 
-The Mac tool creates and verifies `.halopad.zip` files for an exact built core. Native ZIP
-import is still pending; the installed app currently accepts folders only. This is M29
-progress, not acceptance of the full prepared-data workflow.
+The Mac tool creates and verifies `.halopad.zip` files for an exact built core. The new app
+build includes native package import and a prepared-package picker. The live user-controlled
+Simulator preview has not been replaced and still has the previous folder-only UI. This is
+M29 progress, not acceptance of the full prepared-data workflow.
 
 ## Prepare locally
 
@@ -40,8 +41,9 @@ The ZIP contains a UTF-8 `manifest.json`, `game/<approved-stock-path>` members a
 uses DEFLATE and permits ZIP64. Paths use `/`, are relative, and cannot contain traversal,
 backslashes, drive/stream colons, control characters, empty components or trailing spaces/dots.
 Case/Unicode-normalization aliases (including parent components), duplicates, file/directory
-collisions, symlinks, special files and encrypted entries are rejected. No extraction is done
-by the current verifier. Limits are 4,096 archive entries, 2 GiB per file, 8 GiB expanded payload
+collisions, symlinks, special files and encrypted entries are rejected. The Mac verifier does
+not extract. The native importer extracts verified stock files into a private staging folder
+before publication. Limits are 4,096 archive entries, 2 GiB per file, 8 GiB expanded payload
 and 2 MiB manifest. These are parsing bounds, not tested physical-device memory/storage claims.
 
 The manifest has exactly `schema`, `format` (`halopad-data`), `profile`, `core_id`, and `files`.
@@ -82,9 +84,65 @@ Five repository guard tests pass, including ignored packages rejected when forci
 The first run exposed use of `Path.is_relative_to`, unavailable in the pinned Python 3.8 tools
 venv; containment now uses resolved parents.
 
-Next: implement bounded native archive parsing/staging against the signed identity, connect the
-picker and preparation instructions, reuse the transactional folder publication, and verify
-wrong-core, malformed/truncated/ZIP64/oversized/traversal inputs preserve the installed data on
-both Simulators. Then complete recovery, data-management, custom-map and device/provider rows.
-The existing folder path also needs the same full content checks; its executable-only identity
-check does not close that requirement. Campaign/licensed-startup/device gates remain unchanged.
+## Native import
+
+`port/ios/HaloPadPackage.m` uses the signed bundle's `data/core-identity.json` as the expected
+inventory. The archive cannot provide a replacement identity. The setup panel explains Mac
+preparation and offers Choose Prepared Package, with ZIP selection through Files. Security-scoped
+access and NSFileCoordinator remain active for the whole background operation.
+
+The reader implements stored/DEFLATE, ZIP64 metadata and signed/unsigned data descriptors using
+public SDK zlib. It validates central/local agreement, physical record boundaries, duplicate
+and aliased names, file types, flags, sizes and checksums. Streaming uses 64 KiB buffers, with
+output bounded by the independently trusted size. SHA-256 and CRC32 cover every expanded file.
+Manifest parsing rejects duplicate decoded JSON keys, wrong value types and excessive nesting;
+equivalent whitespace and property ordering are accepted. Metadata is never used to load code.
+
+Native parsing requires contiguous local records, then the central directory, optional ZIP64
+end records and the classic end record/comment. Self-extracting prefixes, unexplained padding,
+extra records, split/encrypted archives and methods other than stored/DEFLATE are rejected.
+The existing producer emits this structure. Additional native bounds: nine GiB physical archive,
+compressed member at most two GiB plus eight MiB, path at most 512 UTF-8 bytes, JSON depth 32.
+Expanded limits remain those above. These are input bounds, not physical-device capacity claims.
+ZIP field layout follows [PKWARE APPNOTE 6.3.10](https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT).
+The pinned UTP ZIP implementation was inspected but not copied: its whole-file decompression
+and no ZIP64 support do not meet this package format's requirements.
+
+Only `game/` entries are written. The nine `core-data/` entries are hash-checked and discarded;
+runtime images, modules and registry seed continue coming from the signed bundle. Publication
+shares the folder importer's atomic rename/swap and retains the previous complete installation.
+Failed writes, validation and commit remove only the new stage. Backup-naming failure preserves
+the old tree and reports its actual path. File data is flushed before publication; power-loss
+recovery/directory durability and abandoned-stage cleanup remain unverified.
+
+Run `.venv/bin/python scripts/test-native-package.py`; add `--sanitize` for macOS AddressSanitizer
+and UndefinedBehaviorSanitizer, or `--device <booted-project-UDID>` for Simulator. The harness
+runs import on a background dispatch worker with inert fixtures, presents no window and loads
+no Halo core. `--real-package <archive> --app-data <trusted-app/data>` additionally imports into
+ignored evidence storage and compares every output byte with the trusted stock inventory.
+
+Sixteen native tests cover normal producer archives, stored/DEFLATE, forced local ZIP64,
+ZIP64 end records and descriptors (including CRC equal to the optional signature), malformed
+bounds, truncation, links/FIFOs, aliased/traversal names, manifest attacks, wrong content/core,
+expansion bombs, invalid bundled metadata, first/replacement imports, failed/partial writes,
+publication failure and failed backup naming. The first tests exposed an autoreleased NSError
+escaping an inner pool; the pool was removed and these failure paths now pass.
+
+Remaining: equivalent full folder-content validation, custom-map policy, restore/remove/recovery,
+iPhone package harness and both-device actual picker/provider/launch acceptance. The app's
+startup/folder path still checks only the executable identity and minimum resources. The new
+ZIP path does full content validation but does not retroactively validate direct Files copies.
+Campaign/licensed-startup/device gates remain unchanged. M29 is open.
+
+Native evidence (2026-09-28): Mac background-worker sanitizer suite and real-data import
+`G9/native-package-20260928T143600Z`; iPad final background-worker suite and final app build/
+signature verification `G9/native-package-20260928T143716Z`; iPad real-data import before the
+harness switched to a background worker `G9/native-package-20260928T143436Z`. Every real-import
+output has exactly 78 approved stock files with matching hashes; nine inert-data entries also
+verify. The source archive is unchanged and the previous test install is retained. These are
+filesystem service tests, not a new gameplay launch or picker/provider acceptance.
+
+Next experiment: apply the signed stock-content inventory to the folder route and startup
+without accepting arbitrary extra executable input; test altered/missing maps and same-folder
+revalidation while preserving installed data and player state. Continue with package Files-picker
+and iPhone coverage when the user-controlled preview can be handed off safely.

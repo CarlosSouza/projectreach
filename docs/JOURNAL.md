@@ -1546,3 +1546,44 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   These are native offscreen overlay images, not new in-game acceptance screenshots.
   Actual simultaneous touches, on-device grip comfort, updated in-game HUD verification and
   saved/custom layout behavior remain to be exercised. G9 and the full goal remain active.
+
+### 2026-09-28 — native prepared-package import and rejection/rollback evidence
+
+- Previous goal turn: **progress**, private push `39f04ae` (balanced touch layout).
+  Read the objective attachment and inherited requirements. Working tree started clean;
+  locked executable SHA, pinned sources and process checks pass. Existing iPad PID 41176
+  remains live, phone shut down, no Wine. No parked input arrived. Preserve the user's preview.
+- Advanced the required .halopad.zip route. Inspected the pinned UTP ZIP implementation but
+  did not copy it; it allocates whole outputs and lacks this format's ZIP64 support. Public
+  iOS SDK has zlib headers/library; libarchive has no public SDK header. Implemented an
+  independent bounded Foundation/zlib reader using PKWARE APPNOTE field definitions.
+- Exact signed-bundle identity/inventory, duplicate JSON-key/type checks, path/name/type bounds,
+  central/local record agreement, ZIP64, descriptors, CRC32, streaming SHA-256 and size limits.
+  Stock files are staged; inert core-data copies are verified and discarded. The signed runtime
+  images remain authoritative. Shared the folder importer's rename/swap publication boundary;
+  old installs are always retained, including when backup naming fails. No guest checks changed.
+- Connected Choose Prepared Package and Mac preparation text to the security-scoped/coordinated
+  picker background path. Folder selection remains available with its existing weaker checks;
+  full folder identity/startup validation is explicitly unfinished, not waived. The app builds
+  and its signature verifies; did not install or replace the live user's preview. UI/provider/
+  gameplay acceptance for this package route remains open.
+- First native rejection tests exposed dangling NSError objects escaping an inner autorelease
+  pool, causing test-process crashes. Removed the pool and reran the failures. Subsequent
+  test-driver imports run on background dispatch workers with an autorelease boundary, matching
+  the app's execution context and checking returned-error lifetime. Also tested ambiguous data
+  descriptors whose CRC equals the optional signature; record boundaries disambiguate them.
+- Final Mac ASan/UBSan run `G9/native-package-20260928T143600Z`: all 16 native tests pass,
+  including wrong-core/content, malformed/truncated ZIP64, metadata/type/path attacks, bounded
+  expansion, first/replacement import, first/partial write failures, commit failure and failed
+  backup naming. iPad worker suite `...143716Z`: same 16 pass. Folder regression remains green
+  (12 scenario groups): Mac `G9/import-20260928T142940Z`, iPad `...143303Z`.
+- Actual prepared archive 6c24da53… imports into disposable evidence on both platforms. Mac
+  `...143600Z` and iPad `...143436Z` compare all 78 installed files with the trusted stock hashes,
+  verify nine core-data entries, retain the prior test folder and confirm the archive unchanged.
+  iPad real-data run predates only the harness's move from main to a worker. No Halo core/window
+  runs in these harnesses. Final app/build/source/core identity recorded under `...143716Z`.
+- Goal remains active, M29 remains open. Next: equivalent folder/startup content identity and
+  preservation tests, then iPhone/package-picker/provider acceptance, restore/remove and crash
+  recovery. All campaign, licensed normal startup, controlled-player comparison, actual touch
+  and physical-device requirements remain intact. Current user preview PID 41176 is unchanged;
+  no new candidate process, server or Simulator was left running by this iteration.

@@ -84,6 +84,34 @@ static BOOL hp_fail(NSError **error, NSString *message)
     return NO;
 }
 
+/* Internal publication boundary shared by folder and ZIP import. The caller owns and
+   has verified a unique sibling stage, and removes it only when this returns NO. */
+BOOL HPPublishGameImport(NSString *stage, NSString *dst, NSURL **previous, NSError **error)
+{
+    struct stat target, staged;
+    NSString *parent = dst.stringByDeletingLastPathComponent;
+    if (![stage.stringByDeletingLastPathComponent isEqualToString:parent] ||
+        [stage isEqualToString:dst] || lstat(stage.fileSystemRepresentation, &staged) || !S_ISDIR(staged.st_mode))
+        return hp_fail(error, @"The import staging folder is invalid.");
+    BOOL exists = lstat(dst.fileSystemRepresentation, &target) == 0;
+    if ((!exists && errno != ENOENT) || (exists && !S_ISDIR(target.st_mode)))
+        return hp_fail(error, @"The game destination is not a regular folder.");
+    NSString *identifier = NSUUID.UUID.UUIDString;
+    unsigned flags = exists ? RENAME_SWAP : RENAME_EXCL;
+    if (renameatx_np(AT_FDCWD, stage.fileSystemRepresentation, AT_FDCWD, dst.fileSystemRepresentation, flags)) {
+        int saved = errno;
+        return hp_fail(error, [NSString stringWithFormat:@"Could not install the copied folder. Your existing files are unchanged. %@",
+                              [NSError errorWithDomain:NSPOSIXErrorDomain code:saved userInfo:nil].localizedDescription]);
+    }
+    if (exists) {
+        NSString *backup = [parent stringByAppendingPathComponent:[@"Halo Custom Edition Backup " stringByAppendingString:identifier]];
+        /* A failed cosmetic rename must never remove the old tree; expose its retained path. */
+        if (renameatx_np(AT_FDCWD, stage.fileSystemRepresentation, AT_FDCWD, backup.fileSystemRepresentation, RENAME_EXCL)) backup = stage;
+        if (previous) *previous = [NSURL fileURLWithPath:backup isDirectory:YES];
+    }
+    return YES;
+}
+
 /* The caller serializes imports. A sibling stage keeps publication on the same volume.
    Before publication, every failure leaves the destination untouched. On replacement,
    RENAME_SWAP keeps both complete trees even if the process stops at the commit boundary. */
@@ -116,20 +144,9 @@ static BOOL hp_import(NSURL *source, NSURL *destination, NSString *hash,
         [fm removeItemAtPath:stage error:nil];
         return hp_fail(error, [@"The copied folder could not be verified: " stringByAppendingString:problem]);
     }
-    unsigned flags = exists ? RENAME_SWAP : RENAME_EXCL;
-    if (renameatx_np(AT_FDCWD, stage.fileSystemRepresentation, AT_FDCWD, dst.fileSystemRepresentation, flags)) {
-        int saved = errno;
-        [fm removeItemAtPath:stage error:nil];
-        return hp_fail(error, [NSString stringWithFormat:@"Could not install the copied folder. Your existing files are unchanged. %@",
-                              [NSError errorWithDomain:NSPOSIXErrorDomain code:saved userInfo:nil].localizedDescription]);
-    }
-    if (exists) {
-        NSString *backup = [parent stringByAppendingPathComponent:[@"Halo Custom Edition Backup " stringByAppendingString:identifier]];
-        /* A failed cosmetic rename must never remove the old tree; expose its retained path. */
-        if (renameatx_np(AT_FDCWD, stage.fileSystemRepresentation, AT_FDCWD, backup.fileSystemRepresentation, RENAME_EXCL)) backup = stage;
-        if (previous) *previous = [NSURL fileURLWithPath:backup isDirectory:YES];
-    }
-    return YES;
+    BOOL published = HPPublishGameImport(stage, dst, previous, error);
+    if (!published) [fm removeItemAtPath:stage error:nil];
+    return published;
 }
 
 BOOL HPImportGameDirectory(NSURL *source, NSURL *destination, NSString *hash,

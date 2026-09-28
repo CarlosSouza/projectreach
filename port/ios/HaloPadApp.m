@@ -170,6 +170,13 @@ static NSString *game_profile_hash(void)
     return profile[@"accepted_sha256"];
 }
 
+static NSDictionary *game_core_identity(void)
+{
+    NSString *path = [NSBundle.mainBundle.bundlePath stringByAppendingPathComponent:@"data/core-identity.json"];
+    id identity = [NSJSONSerialization JSONObjectWithData:[NSData dataWithContentsOfFile:path] ?: NSData.data options:0 error:nil];
+    return [identity isKindOfClass:NSDictionary.class] ? identity : nil;
+}
+
 static NSString *game_dir_problem(NSString *directory)
 {
     return HPGameDirectoryProblem(directory, game_profile_hash());
@@ -198,7 +205,7 @@ static void resolve_device_paths(void)
 @property(nonatomic, copy) void (^ready)(void);
 @property(nonatomic, strong) UILabel *status;
 @property(nonatomic, strong) UIStackView *importButtons;
-@property(nonatomic) BOOL importing;
+@property(nonatomic) BOOL importing, pickingPackage;
 @end
 
 @implementation HPImportViewController
@@ -212,12 +219,16 @@ static void resolve_device_paths(void)
     UILabel *text = [UILabel new];
     text.numberOfLines = 0;
     text.font = [UIFont systemFontOfSize:17];
-    text.text = @"HaloPad runs your own copy of Halo Custom Edition 1.10. Copy the game's folder (haloce.exe, strings.dll, keystone.dll and the maps folder with ui.map, bitmaps.map, sounds.map, loc.map and the multiplayer maps) into this app's folder in the Files app, named \"Halo Custom Edition\", or choose the folder below to copy it in.\n\nThe folder must hold the official 1.10 update (haloce.exe 1.0.10.0621). Custom maps go in its maps folder too.";
+    text.text = @"Prepare your own Halo Custom Edition 1.10 files on your Mac with HaloPad’s preparation tool, using this app build. Transfer the resulting .halopad.zip package to Files, then choose it below. HaloPad checks the complete package before installing it.\n\nA replacement keeps your previous game folder as a backup. The game and its product key are not included. You can also use the existing installation-folder import.";
     self.status = [UILabel new];
     self.status.numberOfLines = 0;
     self.status.font = [UIFont systemFontOfSize:15];
     self.status.textColor = UIColor.secondaryLabelColor;
     self.status.text = game_dir_problem(documents_game_dir());
+    UIButton *package = [UIButton buttonWithType:UIButtonTypeSystem];
+    [package setTitle:@"Choose Prepared Package…" forState:UIControlStateNormal];
+    package.titleLabel.font = [UIFont boldSystemFontOfSize:18];
+    [package addTarget:self action:@selector(pickPackage) forControlEvents:UIControlEventPrimaryActionTriggered];
     UIButton *pick = [UIButton buttonWithType:UIButtonTypeSystem];
     [pick setTitle:@"Choose Folder…" forState:UIControlStateNormal];
     pick.titleLabel.font = [UIFont boldSystemFontOfSize:18];
@@ -226,8 +237,9 @@ static void resolve_device_paths(void)
     [again setTitle:@"Check Again" forState:UIControlStateNormal];
     again.titleLabel.font = [UIFont systemFontOfSize:18];
     [again addTarget:self action:@selector(check) forControlEvents:UIControlEventPrimaryActionTriggered];
-    UIStackView *buttons = [[UIStackView alloc] initWithArrangedSubviews:@[again, pick]];
+    UIStackView *buttons = [[UIStackView alloc] initWithArrangedSubviews:@[package, pick, again]];
     self.importButtons = buttons;
+    buttons.axis = UILayoutConstraintAxisVertical;
     buttons.distribution = UIStackViewDistributionFillEqually;
     UIStackView *stack = [[UIStackView alloc] initWithArrangedSubviews:@[title, text, self.status, buttons]];
     stack.axis = UILayoutConstraintAxisVertical;
@@ -253,7 +265,7 @@ static void resolve_device_paths(void)
         [stack.bottomAnchor constraintEqualToAnchor:scroll.contentLayoutGuide.bottomAnchor constant:-24],
         [scroll.contentLayoutGuide.widthAnchor constraintEqualToAnchor:scroll.frameLayoutGuide.widthAnchor],
         preferredWidth, [stack.widthAnchor constraintLessThanOrEqualToConstant:640],
-        [buttons.heightAnchor constraintEqualToConstant:48]]];
+        [buttons.heightAnchor constraintEqualToConstant:144]]];
     self.view.accessibilityIdentifier = @"HaloPadImport";
 }
 - (void)check
@@ -268,10 +280,21 @@ static void resolve_device_paths(void)
         if (self.ready) self.ready();
     }
 }
+- (void)pickPackage
+{
+    if (self.importing) return;
+    self.pickingPackage = YES;
+    [self presentPicker:UTTypeZIP];
+}
 - (void)pick
 {
     if (self.importing) return;
-    UIDocumentPickerViewController *p = [[UIDocumentPickerViewController alloc] initForOpeningContentTypes:@[UTTypeFolder]];
+    self.pickingPackage = NO;
+    [self presentPicker:UTTypeFolder];
+}
+- (void)presentPicker:(UTType *)type
+{
+    UIDocumentPickerViewController *p = [[UIDocumentPickerViewController alloc] initForOpeningContentTypes:@[type]];
     p.delegate = self;
     [self presentViewController:p animated:YES completion:nil];
 }
@@ -282,8 +305,10 @@ static void resolve_device_paths(void)
     self.importing = YES;
     self.importButtons.userInteractionEnabled = NO;
     self.importButtons.alpha = .5;
-    self.status.text = @"Checking and copying your game files…";
+    BOOL package = self.pickingPackage;
+    self.status.text = package ? @"Checking and importing your prepared package…" : @"Checking and copying your game files…";
     NSString *hash = game_profile_hash();
+    NSDictionary *identity = game_core_identity();
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
         BOOL scoped = [src startAccessingSecurityScopedResource];
         NSFileCoordinator *coordinator = [[NSFileCoordinator alloc] initWithFilePresenter:nil];
@@ -295,14 +320,15 @@ static void resolve_device_paths(void)
                               writingItemAtURL:[NSURL fileURLWithPath:documents_game_dir()]
                                        options:NSFileCoordinatorWritingForReplacing
                                          error:&coordinationError byAccessor:^(NSURL *readURL, NSURL *writeURL) {
-            ok = HPImportGameDirectory(readURL, writeURL, hash, &backup, &importError);
+            ok = package ? HPImportGamePackage(readURL, writeURL, identity, &backup, &importError)
+                         : HPImportGameDirectory(readURL, writeURL, hash, &backup, &importError);
         }];
         if (scoped) [src stopAccessingSecurityScopedResource];
         dispatch_async(dispatch_get_main_queue(), ^{
             self.importing = NO;
             self.importButtons.userInteractionEnabled = YES;
             self.importButtons.alpha = 1;
-            if (!ok) self.status.text = (importError ?: coordinationError).localizedDescription ?: @"The folder could not be imported.";
+            if (!ok) self.status.text = (importError ?: coordinationError).localizedDescription ?: @"The game data could not be imported.";
             else if (backup) {
                 self.status.text = [NSString stringWithFormat:@"Game files imported. Your previous folder is saved as %@. Tap Check Again to start.", backup.lastPathComponent];
             } else [self check];

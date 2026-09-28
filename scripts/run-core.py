@@ -68,7 +68,7 @@ def build(work, target, main_src, extra=()):
            '-Wno-override-module', '-I', str(SUPPORT), '-I', str(ROOT / 'generated' / 'runtime'), *xiph.include_flags(),
            str(main_src), *map(str, extra), *map(str, sorted((ROOT / 'port/runtime').glob('*.c'))),
            *map(str, sorted(SUPPORT.glob('llasm_*.c'))), str(va / 'dispatch.ll'), *map(str, runtime_ll),
-           str(out / 'stubs.ll'), str(obj), *map(str, mod_objs), *[str(m) for m in sorted((ROOT / 'port/apple').glob('*.m'))], str(xiph.archive(target, sdk)), '-fobjc-arc', '-framework', 'CoreGraphics', '-framework', 'CoreText', '-framework', 'UIKit' if ios else 'Cocoa', '-framework', 'Metal', '-framework', 'GameController', '-framework', 'QuartzCore', '-framework', 'AudioToolbox', '-framework', 'AVFoundation', '-framework', 'UniformTypeIdentifiers', '-o', str(exe)]
+           str(out / 'stubs.ll'), str(obj), *map(str, mod_objs), *[str(m) for m in sorted((ROOT / 'port/apple').glob('*.m'))], str(xiph.archive(target, sdk)), '-fobjc-arc', '-framework', 'CoreGraphics', '-framework', 'CoreText', '-framework', 'UIKit' if ios else 'Cocoa', '-framework', 'Metal', '-framework', 'GameController', '-framework', 'QuartzCore', '-framework', 'AudioToolbox', '-framework', 'AVFoundation', '-framework', 'UniformTypeIdentifiers', '-lz', '-o', str(exe)]
     link = subprocess.run(cmd, capture_output=True, text=True)
     (out / 'link.log').write_text(' '.join(cmd) + '\n' + link.stdout + link.stderr)
     if link.returncode:
