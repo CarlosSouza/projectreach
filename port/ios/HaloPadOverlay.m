@@ -50,7 +50,7 @@ static void post_key(uint32_t vk, uint32_t side, uint32_t scan, int ext, int dow
 }
 static void post_mouse(int32_t dx, int32_t dy)
 {
-    hp_input e = {.kind = HPI_MOUSEMOVE, .x = 400, .y = 300, .dx = dx, .dy = dy};
+    hp_input e = {.kind = HPI_MOUSEMOVE, .flags = HPI_TOUCH, .x = 400, .y = 300, .dx = dx, .dy = dy};
     halopad_host_post_input(&e);
 }
 static void post_button(int b, int down)
@@ -304,11 +304,11 @@ typedef NS_ENUM(NSInteger, HPControlKind) { HPKey, HPMouseButton };
 }
 - (void)setSymbol:(NSString *)name { _icon.image = [UIImage systemImageNamed:name]; [self setNeedsLayout]; }
 - (void)setPrimary:(BOOL)primary { _primary = primary; [self paint]; }
-/* glass: dark and translucent at rest, brighter while held; the primary (FIRE) a muted red */
+/* Quiet at rest; the larger FIRE target uses Halo's cool HUD palette. */
 - (void)paint
 {
-    UIColor *rest = self.primary ? [UIColor colorWithRed:0.72 green:0.12 blue:0.16 alpha:0.50] : [UIColor colorWithWhite:0.05 alpha:0.42];
-    UIColor *held = self.primary ? [UIColor colorWithRed:0.92 green:0.20 blue:0.24 alpha:0.75] : [UIColor colorWithWhite:1 alpha:0.30];
+    UIColor *rest = self.primary ? [UIColor colorWithRed:0.12 green:0.32 blue:0.43 alpha:0.55] : [UIColor colorWithWhite:0.05 alpha:0.42];
+    UIColor *held = self.primary ? [UIColor colorWithRed:0.38 green:0.72 blue:0.88 alpha:0.75] : [UIColor colorWithWhite:1 alpha:0.30];
     self.backgroundColor = self.held ? held : rest;
     if (!self.editing) self.layer.borderColor = [UIColor colorWithWhite:1 alpha:self.held ? 0.8 : 0.32].CGColor;
 }
@@ -650,7 +650,7 @@ static const hp_control_def CONTROLS[] = {
     k = fmax(0.65, k);
     CGFloat stick = fmax(100, 128 * k), action = fmax(44, 52 * k);
     CGFloat utility = fmax(44, 44 * k), fire = fmax(60, 72 * k);
-    CGFloat gaps[] = {10, 16, 24};
+    CGFloat gaps[] = {8, 12, 18};
     CGFloat gap = fmax(8, gaps[HPSettings.shared.ringSpacing] * k);
     /* Thumb reach is measured in points, not a fraction of the display width.
        Keep both sticks on one baseline and leave identical space around them. */
@@ -660,22 +660,24 @@ static const hp_control_def CONTROLS[] = {
     /* Tablet thumbs rest along the sides, above the bottom-left motion tracker.
        A phone's shorter display needs the lower grip instead. */
     CGFloat bottom = CGRectGetMaxY(safe) - (self.phone ? fmax(20, 32 * k) : fmax(160, 128 * k));
-    /* A single square grid for the action columns. Centre its lower two rows on
-       the sticks; leave a full gap between FIRE and LOOK even at minimum sizes. */
-    CGFloat pitch = fmax(action + gap, (stick + fire + 2 * gap) / 3);
+    /* Small actions share one compact pitch. FIRE has its own clearance above
+       LOOK, so its larger diameter does not inflate every small-button gap. */
+    CGFloat pitch = action + gap;
     CGFloat lowY = bottom - stick / 2 + pitch / 2;
     CGFloat midY = lowY - pitch, rowY = midY - pitch;
     CGFloat nearX = right - stick - gap - action / 2;
     CGFloat farX = nearX - pitch;
     CGFloat fireX = right - stick / 2;
+    CGFloat fireY = bottom - stick - gap - fire / 2;
+    CGFloat throwY = bottom - stick - gap - action / 2;
     CGFloat leftInnerX = left + stick + gap + action / 2;
     BOOL mirror = HPSettings.shared.leftHanded;
     CGFloat (^mx)(CGFloat) = ^CGFloat(CGFloat x) { return mirror ? CGRectGetMinX(safe) + CGRectGetMaxX(safe) - x : x; };
     [self place:_move frame:CGRectMake(mx(left + stick / 2) - stick / 2, bottom - stick, stick, stick)];
     [self place:_aim frame:CGRectMake(mx(right - stick / 2) - stick / 2, bottom - stick, stick, stick)];
     CGPoint points[NCONTROLS] = {
-        {fireX, rowY}, {farX, midY}, {farX, lowY}, {farX, rowY},
-        {left + stick / 2, rowY}, {nearX, midY}, {nearX, rowY},
+        {fireX, fireY}, {farX, midY}, {farX, lowY}, {farX, rowY},
+        {left + stick / 2, throwY}, {nearX, midY}, {nearX, rowY},
         {leftInnerX, lowY}, {nearX, lowY},
         {leftInnerX, midY},
         {leftInnerX, rowY},

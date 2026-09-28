@@ -40,6 +40,8 @@ Operating loop: [HaloPad-GOAL-LOOP-PHASE2.md](HaloPad-GOAL-LOOP-PHASE2.md) (repl
 
 - **Analog MOVE groundwork:** original binding/polling/movement path verified with 175 passing iPad DirectInput assertions and ten bit-exact original-x86 comparisons. Independent keyboard and partial controller movement coexist. The overlay still uses digital WASD; a cancelable virtual controller source, production configuration and gameplay acceptance remain to implement (SUNPAD-TRANSFER.md).
 
+- **Touch spacing/look cancellation:** tightened action-button spacing independently of FIRE size, retained symmetric sticks and radar clearance, and changed FIRE to a quieter blue. Native-menu cancellation now removes unread touch-look motion while preserving physical mouse input. Four reproduced failures fixed; 181 DirectInput checks, 61 overlay assertions/90 layouts, and five iPad gameplay outcomes pass. Current iPad preview runs the updated build (`G9/touch-spacing-look-cancel`). Analog MOVE integration and physical multi-touch acceptance remain open.
+
 ## Parked, waiting on Chris
 
 | Item | Parks | Status |

@@ -1930,3 +1930,34 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   gameplay motion before switching the default MOVE control. Current overlay remains digital.
   Stop PID 76313 before another core test; no reference process started. All larger campaign,
   online comparison, import/lifecycle and exact-device gates remain open. No terminal state.
+
+## 2026-09-28 — G9 / tighter touch spacing and no look replay after native menus
+
+- **Classification: progress.** Full goal remains active. Reread the objective attachment;
+  started clean at e6788cb. Five source pins and locked executable SHA pass. Parked inputs
+  unchanged. Latest user asks for continued touch-control/spacing iteration and already
+  authorized private GitHub pushes. No reference process started; phone remains shut down.
+- Screenshot showed small actions spaced according to the large FIRE diameter. Decoupled
+  the two clearances and reduced compact/normal/spread gaps to 8/12/18 points before scaling.
+  Kept aligned sticks, HUD clearance, minimum targets and saved v3 custom layouts. FIRE is
+  now blue. Inspected native phone/tablet renders and the installed iPad layout.
+- Also found that touch look was untagged and survived native-menu cancellation. Hypothesis:
+  queued or already-pumped look replays after cancellation while physical input should survive.
+  Before-fix evidence `G3/core-arm64-apple-ios17.0-simulator-20260928T174609Z`: four target
+  regressions fail. A fifth failure was fixture contamination: the queue-barrier physical W
+  tap reached the later analog sample. Fixed fixture isolation by consuming those events.
+- Touch motion now has source ownership; host cancellation purges older virtual events,
+  DirectInput removes unread virtual deltas/events, and physical/fresh motion survives.
+  Final 181 assertions pass in `G3/core-arm64-apple-ios17.0-simulator-20260928T174735Z`.
+  Overlay: 61 assertions and 90 layouts pass (`G9/overlay-20260928T174631Z`).
+- Stopped preview PID 76313 before core tests. Backed up device Application Support/preferences
+  into ignored `G9/touch-spacing-look-cancel/before-install`, rebuilt and installed the scene.
+  PID 78478 runs on the project iPad with LAN policy and the one-shot touch self-test, now
+  finished: all five gameplay outcomes pass (movement, swipe, FIRE, immediate JUMP, held LOOK).
+  Original menus created Battle Creek Slayer. Actual CUA swipe and three-dot open/dismiss
+  verified afterward. No held or recurring input driver remains. Preview left running.
+- Initial intention was analog-source integration; prioritized the user's visible spacing
+  request and the reproduced look-cancellation defect. No analog source/configuration changes
+  landed. Next: cancelable analog MOVE plus original configuration without overwriting saved
+  physical mappings; physical multi-touch remains unverified. Campaign, online comparison,
+  import/lifecycle and device gates remain open. Stop PID 78478 before further core tests.

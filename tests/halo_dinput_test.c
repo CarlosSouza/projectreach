@@ -283,6 +283,36 @@ int main(void)
     check("mouse: GetDeviceData unbuffered: DIERR_NOTBUFFERED", M(m, GetDeviceData, 20, od, n, 0), 0x80040207);
     check("mouse: Poll on an interrupt device: DI_NOEFFECT", M0(m, Poll), 1);
 
+    /* Opening native UI must discard unread aiming, without swallowing a real mouse. */
+    input((hp_input){.kind = HPI_MOUSEMOVE, .flags = HPI_TOUCH, .dx = 90, .dy = -45});
+    input((hp_input){.kind = HPI_MOUSEMOVE, .dx = 7, .dy = -3});
+    input((hp_input){.kind = HPI_CANCEL_TOUCH});
+    M(m, GetDeviceState, 20, ms);
+    check("cancel discards unread touch look but preserves physical deltas", rd(ms) == 7 && rd(ms + 4) == (uint32_t)-3, 1);
+    input((hp_input){.kind = HPI_MOUSEMOVE, .flags = HPI_TOUCH, .dx = 11});
+    M(m, GetDeviceState, 20, ms);
+    check("fresh look after cancel still reaches the reader", rd(ms), 11);
+    input((hp_input){.kind = HPI_CANCEL_TOUCH});
+    M(m, GetDeviceState, 20, ms);
+    check("cancel after a consumed look does not create reverse motion", rd(ms) == 0 && rd(ms + 4) == 0, 1);
+#if TARGET_OS_IPHONE
+    halopad_host_input_off = 0;
+    halopad_host_post_input(&(hp_input){.kind = HPI_KEY, .vk = 'W', .scan = 0x11, .down = 1});
+    halopad_host_post_input(&(hp_input){.kind = HPI_KEY, .vk = 'W', .scan = 0x11, .down = 0});
+    halopad_host_post_input(&(hp_input){.kind = HPI_MOUSEMOVE, .flags = HPI_TOUCH, .dx = 50});
+    halopad_host_pump(); /* leave the look behind the physical-key release barrier */
+    halopad_host_post_input(&(hp_input){.kind = HPI_CANCEL_TOUCH});
+    halopad_host_post_input(&(hp_input){.kind = HPI_MOUSEMOVE, .flags = HPI_TOUCH, .dx = 4});
+    halopad_host_post_input(&(hp_input){.kind = HPI_MOUSEMOVE, .dx = 3});
+    for (int i = 0; i < 8; i++) halopad_host_pump();
+    M(m, GetDeviceState, 20, ms);
+    check("cancel purges queued look behind barriers but retains fresh and physical motion", rd(ms), 7);
+    /* Consume the unrelated physical tap so it cannot contaminate later movement fixtures. */
+    memcpy(halopad_guest_ptr(n), (uint32_t[]){32}, 4);
+    M(k, GetDeviceData, 20, od, n, 0);
+    halopad_host_input_off = 1;
+#endif
+
     /* A real UIKit-style tap can reach two host pumps before Halo samples the
        unbuffered mouse. Test the queue, not just a direct handler hold. */
 #if TARGET_OS_IPHONE
@@ -355,6 +385,14 @@ int main(void)
     /* Buffered clients consume the ordinary event stream, not a second replay. */
     check("buffered mouse setup", M(m, SetProperty, 1, prop), 0);
     M0(m, Acquire);
+    input((hp_input){.kind = HPI_MOUSEMOVE, .flags = HPI_TOUCH, .dx = 90, .dy = 45});
+    input((hp_input){.kind = HPI_MOUSEMOVE, .dx = 7});
+    input((hp_input){.kind = HPI_CANCEL_TOUCH});
+    memcpy(halopad_guest_ptr(n), (uint32_t[]){32}, 4);
+    M(m, GetDeviceData, 20, od, n, 0);
+    check("buffered cancel removes only touch motion", rd(n) == 1 && rd(od) == 0 && rd(od + 4) == 7, 1);
+    M(m, GetDeviceState, 20, ms);
+    check("buffered cancel also preserves only physical state delta", rd(ms) == 7 && rd(ms + 4) == 0, 1);
     input((hp_input){.kind = HPI_BUTTON, .flags = HPI_TOUCH, .button = 0, .down = 1});
     input((hp_input){.kind = HPI_CANCEL_TOUCH});
     memcpy(halopad_guest_ptr(n), (uint32_t[]){32}, 4);

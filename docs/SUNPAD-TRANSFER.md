@@ -355,3 +355,30 @@ assigns a logical pad slot and unit thresholds directly; production must not cop
 or assume every user's thresholds equal 1. Enumeration/activation, profile changes, cancellation
 before the next poll, reconnect and actual two-finger operation still need implementation and
 acceptance. No app behavior changed in this investigation.
+
+### Compact action spacing and canceled look (2026-09-28)
+
+Small actions now use their own diameter plus the selected gap. The larger FIRE target
+has independent clearance above LOOK, instead of inflating the pitch of the entire grid.
+Default gaps are 8/12/18 points before group scaling; FIRE uses a quieter blue treatment.
+Both sticks retain their shared baseline and equal edge reach. Existing v3 custom origins
+and sizes remain intact. The real UIKit renders pass 90 phone/tablet, size, spacing and
+handedness combinations, including 44-point minimum targets and tablet radar clearance.
+Evidence: `G9/overlay-20260928T174631Z` (61 assertions plus the layout matrix).
+
+Touch-generated mouse motion now carries source ownership. Opening native UI removes
+older touch motion from the host queue, including behind a physical-key barrier. DirectInput
+also subtracts already-delivered but unread touch deltas and removes buffered touch motion,
+while preserving hardware deltas and new motion posted after cancellation. Consumed motion
+cannot be subtracted twice. Four failing regressions were reproduced before the fix in
+`G3/core-arm64-apple-ios17.0-simulator-20260928T174609Z`; that run also exposed a test-only
+physical-W event leaking into the subsequent analog fixture. The test now consumes that
+unrelated tap explicitly. Final DirectInput run passes all 181 assertions:
+`G3/core-arm64-apple-ios17.0-simulator-20260928T174735Z`.
+
+The installed iPad development scene reaches Battle Creek through Halo's touch menus and
+passes five handler-driven outcomes: movement 2.38 units, swipe 39.7 degrees, FIRE battery
+1.00→0.89, immediate JUMP height -0.22→0.42, held LOOK 24.7 degrees. Actual UI swipe and
+three-dot open/dismiss also work. Logs and pre-install state backup:
+`G9/touch-spacing-look-cancel`. These checks do not establish simultaneous physical fingers
+or handheld ergonomics. MOVE remains digital WASD; proportional integration remains open.

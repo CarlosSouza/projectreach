@@ -367,6 +367,7 @@ int main(void)
         run_for(0.15);
         check("held LOOK stick produces continued rightward mouse motion",
               count > 1 && events[0].kind == HPI_MOUSEMOVE && events[0].dx > 0 && events[0].dy == 0);
+        check("LOOK identifies its cancelable touch source", events[0].flags & HPI_TOUCH);
         [overlay clearTouchInput];
         int afterRelease = count;
         run_for(0.15);
