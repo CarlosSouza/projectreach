@@ -2392,3 +2392,39 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   acceptance, then unavailable-action feedback/support for those binding types.
   Physical controller capture, fingers/ergonomics and full phase-2 goals remain
   open. This is progress on touch compatibility, not completion of the goal.
+
+## 2026-09-28 — remapped digital fallback in real gameplay
+
+- Previous goal turn: progress (74acddf, runtime fix and gameplay evidence).
+  Current turn: progress. Read objective in full; clean tree, five source pins,
+  locked executable hash, one iPad PID 8274, two project bottles, no Wine.
+  `devicectl list devices` reports no physical devices. Parked inputs unchanged.
+- Backed up profiles, changed New002 Move Forward W → I using original Controls
+  Setup and software keyboard, then saved. Only two keyboard entries and CRC
+  change; New001 untouched. Stopped exact PID before each test/build switch.
+- Added five permanent assertions to the DirectInput fixture using Halo's
+  original setter: W becomes backward, I becomes forward; semantic touch MOVE
+  reaches the original consumer as forward with I pressed and W neutral, and
+  release/menu cancellation return to neutral. Full suite passes 231 assertions,
+  G3/core-arm64-apple-ios17.0-simulator-20260928T212237Z. No runtime fix needed.
+- Built base `tests/halo_app_scene.c` rather than the analog scene. It never
+  enables the virtual device, and its linked readiness/slot hooks are the weak
+  false/-1 defaults (nm evidence retained). PID 10441, same saved I profile,
+  original-menu Battle Creek: five gameplay checks pass, movement 3.07 units,
+  JUMP -0.22 → 0.44. This closes remapped digital MOVE gameplay acceptance;
+  prior analog tests alone could not establish it.
+- Reopened Controls Setup after relaunch and captured I. Restored W using the
+  original menu, saved, verified both profiles exactly match their backups.
+  Stopped 10441; rebuilt analog scene. Executable SHA-256 exactly equals the
+  previously accepted binary (G9/touch-action-bindings/final.json), so no repeat
+  of unchanged five-plus-seven assertions. Installed/relaunched PID 10825,
+  New002 Battle Creek, LAN policy, ready device 1/slot 1. UDP confirms one
+  player/openplaying. No test drivers enabled in the final preview.
+- Evidence G9/touch-digital-remap: saves/diffs, build logs, weak-symbol and binary
+  identities, gameplay output, reloaded-I screenshot, restored profiles, preview
+  image and final metadata. Only test/docs changes this turn; preview runtime
+  remains 74acddf. One Simulator/candidate, no reference process retained.
+- Next substantive touch gap: controller-only/wheel-only bindings currently
+  yield no input and have no unavailable-action feedback. Implement an honest
+  usable path while retaining physical input and cancellation ownership. Keep
+  physical fingers/controller capture and full phase-2 acceptance open.

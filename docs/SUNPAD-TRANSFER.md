@@ -717,3 +717,28 @@ to Halo's actual unbuffered mouse mode made that check valid. Red evidence remai
 UIKit passes 71 assertions and 90 layouts; geometry is unchanged by this fix.
 These checks do not establish physical two-thumb ergonomics. A remapped digital
 MOVE gameplay run and controller-only/wheel-only action handling remain next work.
+
+## Remapped digital MOVE acceptance — 2026-09-28
+
+The keyboard fallback now has gameplay evidence separate from analog MOVE.
+New002 forward was remapped W → I through original Controls Setup and saved.
+Built `tests/halo_app_scene.c`, whose weak MOVE readiness/slot hooks return
+false/-1 and which never enables the virtual MOVE device. The linked weak symbols
+and binary hash are retained. After relaunch, all five touch gameplay checks pass
+in Battle Creek, including 3.07 units of forward movement with W unbound.
+The original Controls Setup visibly retains I. Restoring W via the same menu
+returns both profile files byte-for-byte to their backups.
+
+Five permanent DirectInput assertions additionally use the original binding
+setter to assign W to backward and I to forward, then verify the real poll and
+movement consumer: touch forward uses I without pressing W, release returns to
+neutral, and menu cancellation returns to neutral. The suite passes 231 checks.
+These supplement the previous analog-independence and action-remap evidence.
+
+Evidence: `G9/touch-digital-remap` and
+`G3/core-arm64-apple-ios17.0-simulator-20260928T212237Z`.
+Restored the analog development preview: its rebuilt binary exactly matches the
+previously accepted binary, so the unchanged five-plus-seven checks were not
+repeated. Actual startup reaches New002 Battle Creek and configures slot 1.
+Wheel-only/controller-only actions and unavailable-action feedback remain open,
+along with actual physical multi-touch and the broader phase-2 gates.

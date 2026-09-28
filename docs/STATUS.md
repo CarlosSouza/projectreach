@@ -64,6 +64,9 @@ Operating loop: [HaloPad-GOAL-LOOP-PHASE2.md](HaloPad-GOAL-LOOP-PHASE2.md) (repl
 
 - **Touch action remaps fixed:** buttons and digital MOVE now resolve current Halo keyboard/mouse bindings without editing the profile. Press-time ownership prevents stuck releases after remapping and preserves physical input. Actual original-menu JUMP Space → J makes the old app fail and the rebuilt iPad app pass; all five gameplay and seven analog/cancel checks pass. DirectInput passes 226 assertions; UIKit passes 71 plus 90 layouts. Both saves restored byte-for-byte. Preview PID 8274, New002 Battle Creek (`G9/touch-action-bindings`). Controller-only/wheel-only action support, remapped digital MOVE gameplay and physical fingers remain open.
 
+
+- **Digital MOVE remap accepted:** with the virtual analog device disabled, original-menu W → I save/relaunch passes all five gameplay checks (3.07 units moved). Five new original-setter/consumer assertions cover W rebound to backward, I forward, release and menu cancellation; DirectInput passes 231. Saves restored exactly. The analog preview is restored as PID 10825, New002 Battle Creek, with the same binary hash previously accepted (`G9/touch-digital-remap`). No runtime change this turn. Controller-only/wheel-only bindings and unavailable-action feedback remain open.
+
 ## Parked, waiting on Chris
 
 | Item | Parks | Status |

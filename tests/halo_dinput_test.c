@@ -696,6 +696,29 @@ int main(void)
     halopad_call_guest(0x493520, 0, NULL);
     halopad_call_guest(0x48f850, 0, NULL);
     check("both sources released return movement to neutral", rd(0x6ad4b8) == 0 && rd(0x6ad4bc) == 0, 1);
+    /* Digital touch fallback must follow movement remaps through the original
+       consumer as well. Make the old W key move BACKWARD to catch any accidental
+       fallback to a default; I is now the only forward keyboard binding. */
+    uint16_t i_index;
+    memcpy(&i_index, halopad_guest_ptr(0x5fa358 + 0x17 * 2), 2);
+    memcpy(halopad_guest_ptr(action_descriptor), (uint16_t[]){1, 0, 0, w_index, 0, 0}, 12);
+    cpu._ebx = 20;
+    check("original setter assigns old W key to backward", halopad_call_guest_ex(0x48e360, 0, NULL, action_descriptor, 0) & 255, 1);
+    memcpy(halopad_guest_ptr(action_descriptor), (uint16_t[]){1, 0, 0, i_index, 0, 0}, 12);
+    cpu._ebx = 19;
+    check("original setter assigns I to forward", halopad_call_guest_ex(0x48e360, 0, NULL, action_descriptor, 0) & 255, 1);
+    input((hp_input){.kind = HPI_ACTION, .flags = HPI_TOUCH, .action = 19, .down = 1});
+    halopad_call_guest(0x493520, 0, NULL); halopad_call_guest(0x48f850, 0, NULL);
+    check("digital MOVE uses remapped I and never the old W key", rd(0x6ad4b8) == 0x3f800000 &&
+          *(uint8_t *)halopad_guest_ptr(0x64c550 + i_index) && !*(uint8_t *)halopad_guest_ptr(0x64c550 + w_index), 1);
+    input((hp_input){.kind = HPI_ACTION, .flags = HPI_TOUCH, .action = 19});
+    halopad_call_guest(0x493520, 0, NULL); halopad_call_guest(0x48f850, 0, NULL);
+    check("remapped digital MOVE release is neutral", rd(0x6ad4b8), 0);
+    input((hp_input){.kind = HPI_ACTION, .flags = HPI_TOUCH, .action = 19, .down = 1});
+    halopad_call_guest(0x493520, 0, NULL); halopad_call_guest(0x48f850, 0, NULL);
+    input((hp_input){.kind = HPI_CANCEL_TOUCH});
+    halopad_call_guest(0x493520, 0, NULL); halopad_call_guest(0x48f850, 0, NULL);
+    check("native-menu cancellation stops remapped digital MOVE", rd(0x6ad4b8), 0);
     memcpy(halopad_guest_ptr(0x6ab328), saved_bindings, sizeof saved_bindings);
     memcpy(halopad_guest_ptr(0x6ad498), saved_state, sizeof saved_state);
     memcpy(halopad_guest_ptr(0x64dc18), saved_pad_map, sizeof saved_pad_map);
