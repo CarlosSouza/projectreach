@@ -2545,3 +2545,29 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   driver; inert without its environment variable). Phone shut down.
 - Open: audio interruption, online suspension/reconnect across lock, console
   typing across interruption, physical devices and the parked phase-2 gates.
+
+## 2026-09-28 — online lock with held sticks (private reference server)
+
+- Previous goal turn: progress (620b920, local lock/unlock on iPad and iPhone).
+  Current turn: progress.
+- Hypothesis: a lock during an online session either keeps the session and resumes
+  neutral, or sends Halo to its own menu with the touch slot released and permits
+  a clean reconnect. Fail conditions: stale movement or turning after resume,
+  a held slot in the menu, or input not working after reconnect.
+- Extended the opt-in lifecycle driver with HALOPAD_TOUCH_LIFECYCLE_SERVER
+  (loopback only), adding the disconnect-and-reconnect branch and a 420 s budget.
+- Server: scripts/reference-server.sh --port 2310 (haloceded 1.10, CrossOver 26.3).
+  Run 1 aborted: a stray accessibility-index click hit the LOOK stick before
+  locking (log kept, not counted). Relaunching right after force-quit: Halo showed
+  "Unable to join the game server!"; the server logged QUIT 18:42:16 and no join
+  failure record. Restarted server (two variables changed; cause unconfirmed).
+- Run 3, PID 24035: JOIN 18:44:12; held MOVE -1820/forward 1 and LOOK 14.7°;
+  locked 78.2 s; polls showed 1 player throughout and there was no QUIT; the session
+  survived on bloodgulch; all six checks PASS; server still listed New002 afterwards.
+  Reconnect branch did not run (Simulator did not drop the session).
+- Stopped the server runner; no Wine processes remain. Preview PID 24302 without
+  drivers: New002 Battle Creek, LAN policy, 1 player. Binary 801ab0fe…613b28.
+  Profiles byte-identical to backups.
+- Next: exercise the reconnect branch by forcing a real drop (for example the
+  existing server-loss path while locked), check audio interruption, then continue
+  down the open G9/M30 rows. Physical-device suspension stays parked on hardware.

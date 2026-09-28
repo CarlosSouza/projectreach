@@ -470,9 +470,13 @@ static void touch_lifecycle_selftest(void)
     __block CFAbsoluteTime phaseStart = CFAbsoluteTimeGetCurrent();
     CFAbsoluteTime started = phaseStart;
     int failures = selftest_failures;
+    NSString *server = @(getenv("HALOPAD_TOUCH_LIFECYCLE_SERVER") ?: "");
+    if (server.length && !([server hasPrefix:@"127.0.0.1:"] && [server componentsSeparatedByString:@":"].count == 2)) {
+        fprintf(stderr, "HALOPAD TOUCH LIFECYCLE: FAIL: explicit loopback server required\n"); return;
+    }
     [NSTimer scheduledTimerWithTimeInterval:.1 repeats:YES block:^(NSTimer *timer) {
         CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
-        if (now - started > 240) {
+        if (now - started > 420) {
             [overlay clearTouchInput]; [timer invalidate];
             fprintf(stderr, "HALOPAD TOUCH LIFECYCLE: FAIL timeout phase %d\n", phase); return;
         }
@@ -480,6 +484,23 @@ static void touch_lifecycle_selftest(void)
         pthread_mutex_lock(&analog_observation_lock);
         hp_analog_observation s = analog_observation;
         pthread_mutex_unlock(&analog_observation_lock);
+        /* Online variant: the app was launched with -connect to this explicit
+           loopback server. If the lock cost the connection, Halo must show its
+           own menu with the touch slot released; the driver then types Halo's
+           connect command and requires a real respawn with neutral input. */
+        if (server.length && phase == 2 && test_scene_deactivations != deactivations &&
+            !strcmp(s.map, "ui") && s.frame >= test_scene_resume_frame + 3 && now - phaseStart > 2) {
+            selftest_check("online lock returned to Halo's menu instead of stale play", YES,
+                           [NSString stringWithFormat:@"%.3f s inactive", test_scene_inactive_duration]);
+            selftest_check("lost connection released the touch slot", s.touchSlot == -1,
+                           [NSString stringWithFormat:@"slot %d", s.touchSlot]);
+            fprintf(stderr, "HALOPAD TOUCH LIFECYCLE: disconnected by lock; reconnecting to %s\n", server.UTF8String);
+            [HPOverlay tapKey:0x1B scan:0x01];          /* dismiss the original connection-lost dialog */
+            [HPOverlay tapKey:0xC0 scan:0x29];
+            [HPOverlay typeText:[NSString stringWithFormat:@"connect %@ \"\"\n", server]];
+            [HPOverlay tapKey:0xC0 scan:0x29];
+            phase = 20; frame = s.frame; phaseStart = now; return;
+        }
         BOOL ready = s.unit && s.touchSlot >= 0 && s.touchSlot < 4 &&
                      overlay.analogMoveReady && overlay.inGame && !overlay.haloMenuVisible;
         if (!ready || s.frame < frame + 3 || now - phaseStart < .8) return;
@@ -503,6 +524,7 @@ static void touch_lifecycle_selftest(void)
             if (test_scene_deactivations == deactivations || s.frame < test_scene_resume_frame + 3) return;
             selftest_check("real scene interruption lasts at least 15 seconds", test_scene_inactive_duration >= 15,
                            [NSString stringWithFormat:@"%.3f seconds, %d deactivation(s)", test_scene_inactive_duration, test_scene_deactivations - deactivations]);
+            if (server.length) fprintf(stderr, "HALOPAD TOUCH LIFECYCLE: online session survived the lock on %s\n", s.map);
             selftest_check("resumed original input is neutral in the same game", neutral && s.unit == unit, detail);
             yaw = s.yaw;
             break;
@@ -525,6 +547,21 @@ static void touch_lifecycle_selftest(void)
             selftest_check("released LOOK stays still after unlock", neutral && angle < 1, detail);
             [timer invalidate];
             fprintf(stderr, "HALOPAD TOUCH LIFECYCLE: %s: %d failure(s)\n",
+                    selftest_failures == failures ? "PASS" : "FAIL", selftest_failures - failures);
+            return;
+        case 20:
+            selftest_check("reconnected player after lock starts neutral", neutral, detail);
+            yaw = s.yaw;
+            [overlay driveMoveX:0 y:.5f]; [overlay driveAimX:.6f y:0];
+            break;
+        case 21:
+            selftest_check("MOVE and LOOK work after lock reconnect", moving && angle > 5, detail);
+            [overlay clearTouchInput];
+            break;
+        case 22:
+            selftest_check("reconnected input releases cleanly", neutral, detail);
+            [timer invalidate];
+            fprintf(stderr, "HALOPAD TOUCH LIFECYCLE: %s: %d failure(s) (reconnected)\n",
                     selftest_failures == failures ? "PASS" : "FAIL", selftest_failures - failures);
             return;
         }

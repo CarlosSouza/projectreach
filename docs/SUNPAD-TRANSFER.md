@@ -833,3 +833,34 @@ This covers local play. Online suspension, audio interruption and physical
 devices remain open.
 Evidence: `G9/touch-lock` (both logs, screenshots while locked and resumed,
 profile hashes and final preview metadata).
+
+## Online lock with held sticks — 2026-09-28
+
+The lifecycle driver accepts `HALOPAD_TOUCH_LIFECYCLE_SERVER=127.0.0.1:<port>`
+(loopback only) together with `-connect` in `HALOPAD_ARGS`. After unlock it takes
+one of two paths. If Halo is still in the game, the six local checks apply. If Halo
+has returned to its own menu, the driver requires the touch slot to be released,
+dismisses the original connection-lost dialog, types Halo's `connect` command and
+requires a respawn with neutral input, working MOVE/LOOK and a clean release.
+
+Run: the unchanged 1.10 dedicated server in CrossOver bottle `halopad-reference`
+on 127.0.0.1:2310 (Blood Gulch Slayer). The iPad joined as New002, held MOVE and
+LOOK (both reached Halo), then was locked through Device → Lock for 78 seconds.
+Status queries every five seconds during the lock reported one player. The server
+log records no QUIT during the lock. After unlock the same session continued on
+Blood Gulch and all six checks passed: neutral first frames, no replay two seconds
+later, fresh MOVE/LOOK, clean release, and no turning after release. Profiles are
+unchanged.
+
+Limits. The Simulator stopped presenting frames while locked, but it did not
+suspend Halo long enough to lose the session. The reconnect branch therefore has
+not run, and a physical device, where iOS suspends background apps, may disconnect
+instead. Separately, one relaunch immediately after force-quitting a joined app
+was refused with Halo's own "Unable to join the game server!" dialog, even though
+the server logged the earlier QUIT first. The server was restarted before the
+next, successful join, so the cause is unconfirmed. A single stray tap also
+aborted one run; that log is kept and was not counted.
+
+Evidence: `G9/touch-lock-online` (app log, server polls during the lock, server
+session lines, the refused-rejoin screenshot and log, resumed screenshot, profile
+hashes, final preview metadata).
