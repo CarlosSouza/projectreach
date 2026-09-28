@@ -1483,3 +1483,36 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
 - Final review also latches successful Check Again before dismissing the sheet, preventing a
   second tap from scheduling another start. Compiled this final UI guard without installing or
   restarting Chris's live preview; its rapid-tap behavior is not separately exercised in Simulator.
+
+
+### 2026-09-28 — reproducible prepared-data packages bound to the compiled core
+
+- Previous iteration: **progress**, committed/pushed as `adeb744` (transactional folder import).
+  Read the objective, inherited loop, PRD package requirements, current inventory/status and
+  parked inputs. Starting branch clean; accepted executable SHA and all pinned sources pass.
+  Project bottles unchanged, no Wine process. iPad PID 41176 remains live; phone shut down.
+  Leave the user-controlled preview untouched. No parked input arrived.
+- Hypothesis: package preparation can make M29 progress without disrupting the preview, but a
+  profile-name-only manifest would accept data for a different compiled core. Added build-time
+  signed-bundle metadata binding five native Halo/module object hashes, dispatch/runtime IR,
+  target, locked source identity, bundled inert data and approved stock resource records.
+  Only hashes identify native objects; no native code/signing/player state enters the ZIP.
+- Added `prepare-game-data.py` and shared `halopad_package.py`: selected stock files plus inert
+  core data, exact external expected inventory, streaming SHA-256, deterministic ZIP metadata,
+  no-clobber staged publication, post-write verification, and read-only source handling.
+  Reject wrong-core/content/manifest, unsafe/aliased paths, links/special files, unsupported
+  archive methods, encrypted entries and size violations. No unpacking/execution/downloads.
+- App build succeeds without launch/install, producing core identity before ad-hoc signing.
+  Package tests initially exposed Python 3.8's missing Path.is_relative_to; switched to resolved
+  parent containment. Final 13 package tests plus five real-Git safety tests pass. A source
+  mutation after initial hashing is caught before publication. Ambiguous parent components
+  are rejected as well as full-path aliases. Forced staging of ignored .halopad.zip is rejected.
+- Actual engineering data: `G9/package-20260928T140152Z` contains two independently generated
+  archives of 78 stock files + nine inert data files (456,118,096 expanded; 181,798,693 compressed
+  bytes). Both archive hashes match; final CLI verification passes. Identity/source hashes,
+  build log and tests recorded privately. The packages remain under generated/prepared/.
+- Native ZIP parser/import, picker/preparation UI, equivalent full-content folder validation,
+  custom-map packaging, restore/remove/recovery and full device/provider acceptance remain
+  required. Documented format/trust boundary and next experiment in PREPARED-DATA.md. Do not
+  call this complete import support or M29 acceptance. Goal remains active, all campaign,
+  licensed-startup, interoperability and physical-device gates retained.

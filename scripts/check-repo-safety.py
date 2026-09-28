@@ -10,7 +10,7 @@ SUFFIXES = {'.exe', '.dll', '.xbe', '.map', '.iso', '.dmg', '.ipa', '.dmp', '.pc
 
 def forbidden(name):
     p = pathlib.PurePosixPath(name)
-    return (name.startswith(PROTECTED) or name == 'INPUTS.lock.json' or
+    return (name.startswith(PROTECTED) or name == 'INPUTS.lock.json' or name.lower().endswith('.halopad.zip') or
             p.suffix.lower() in SUFFIXES or '.app' in [pathlib.PurePosixPath(x).suffix for x in p.parts] or
             p.name == '.env' or p.name.startswith('.env.'))
 

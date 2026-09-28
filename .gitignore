@@ -24,3 +24,6 @@ __pycache__/
 *.mobileprovision
 .env
 .env.*
+
+# Prepared packages contain private original game data.
+*.halopad.zip

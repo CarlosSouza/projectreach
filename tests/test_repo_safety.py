@@ -38,3 +38,8 @@ class RepoSafety(unittest.TestCase):
     def test_untracked_disguised_binary_fails(self):
         (self.root/'innocent.txt').write_bytes(b'MZ synthetic fixture')
         self.assertNotEqual(self.guard(), 0)
+    def test_prepared_package_ignored_but_forced_staging_rejected(self):
+        (self.root/'game.halopad.zip').write_bytes(b'PK synthetic fixture')
+        self.assertEqual(self.guard(), 0)
+        self.git('add', '-f', 'game.halopad.zip')
+        self.assertNotEqual(self.guard(), 0)

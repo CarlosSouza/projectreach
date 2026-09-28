@@ -1,7 +1,8 @@
 # Game-data import
 
 The current app accepts an installed Custom Edition folder. This is an incremental folder
-importer, not the `.halopad.zip` prepared-package workflow required by the PRD. M29 remains open.
+importer; native `.halopad.zip` handling required by the PRD is still pending. The Mac preparation
+and verification tool now exists ([PREPARED-DATA.md](PREPARED-DATA.md)). M29 remains open.
 Imported EXE/DLL bytes are never loaded as native code; the signed build's fixed module table
 and compiled profile remain authoritative.
 
@@ -50,7 +51,7 @@ Copy and rename errors are injected only in the test translation unit.
   before the UI test; the source folder remains in Documents. Final relaunch
   `G3/ios-app-20260928T134505Z` recognizes the imported folder and reaches the original menus.
 
-Still required: prepared archive/manifest tool and importer, full profile/content identity,
+Still required: native prepared archive importer and UI, full folder/profile/content identity,
 malformed/archive traversal/size limits, user-facing verify/reimport/remove/restore controls,
 crash recovery, actual cloud/external file-provider failures, collision fixtures on a
 case-sensitive volume, physical-device acceptance, and phone picker/layout inspection.

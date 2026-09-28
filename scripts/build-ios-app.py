@@ -22,6 +22,7 @@ import shutil
 import subprocess
 import sys
 import time
+from halopad_package import create_identity
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location('run_core', ROOT / 'scripts' / 'run-core.py')
@@ -33,7 +34,7 @@ BUNDLE_ID = 'dev.halopad.HaloPad'
 STATE = ROOT / 'generated' / 'halopad-disk-ios'
 
 
-def package(exe, out):
+def package(exe, out, work):
     app = out / 'HaloPad.app'
     if app.exists():
         shutil.rmtree(app)
@@ -66,6 +67,14 @@ def package(exe, out):
     (data / 'config' / 'runtime').mkdir(parents=True)
     shutil.copy2(ROOT / 'config' / 'runtime' / 'registry-machine.txt', data / 'config' / 'runtime' / 'registry-machine.txt')
     shutil.copy2(ROOT / 'config' / 'profiles' / 'custom-en-1.0.10.0621.json', data / 'profile.json')
+    profile = json.loads((data / 'profile.json').read_text())
+    stock = json.loads((ROOT / profile['original_root'] / 'MANIFEST.json').read_text())
+    objects = work / f'slices-va-{TARGET}'
+    inputs = {f'{name}.va.o': objects / f'{name}.va.o' for name in ['haloce', *profile['modules']]}
+    inputs['dispatch.ll'] = work / 'va' / 'dispatch.ll'
+    inputs.update({p.name: p for p in (work / 'va').glob('halopad-*.ll')})
+    identity = create_identity(profile, TARGET, inputs, data, stock)
+    (data / 'core-identity.json').write_text(json.dumps(identity, sort_keys=True, indent=2) + '\n')
     subprocess.run(['codesign', '--force', '--sign', '-', '--timestamp=none', str(app)], check=True, capture_output=True)
     return app
 
@@ -84,7 +93,7 @@ def main():
     work = (a.work or max(run_core.PROFILE.glob('run-*/va/haloce.va.ll'), key=lambda p: p.stat().st_mtime).parent.parent).resolve()
     extra = [ROOT / 'port' / 'ios' / name for name in ('HaloPadOverlay.m', 'HaloPadImport.m')] + ([a.scene.resolve()] if a.scene else [])
     exe, _ = run_core.build(work, TARGET, ROOT / 'port' / 'ios' / 'HaloPadApp.m', extra=extra)
-    app = package(exe, work / f'ios-app-{TARGET}')
+    app = package(exe, work / f'ios-app-{TARGET}', work)
     print('built', app.relative_to(ROOT))
     if not a.launch:
         return 0
