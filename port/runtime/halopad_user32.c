@@ -395,6 +395,7 @@ static uint32_t quit_code;
 static qmsg last_key;                                 /* the key message last retrieved, with its characters */
 static uint32_t active, last_active, focus, capture;
 static int app_active, app_activation_pending;
+static uint64_t system_event_serial;                 /* host notifications handled synchronously */
 static int32_t cursor_x, cursor_y;                    /* screen */
 static int cursor_count;                              /* ShowCursor's display count */
 static uint32_t cursor_handle;
@@ -1049,10 +1050,15 @@ uint32_t MsgWaitForMultipleObjects_c(uint32_t n, uint32_t handles, uint32_t all,
     if (all && n > 1) hp_unsupported("MsgWaitForMultipleObjects", "waiting for all of %u objects", n);
     if (mask & ~0x4FFu) hp_unsupported("MsgWaitForMultipleObjects", "wake mask 0x%x", mask);
     uint32_t start = GetTickCount_c();
+    uint64_t system_events = system_event_serial;
     for (;;) {
         int i = n ? halopad_wait_poll(n, handles) : -1;
         if (i >= 0) return (uint32_t)i;                             /* WAIT_OBJECT_0 + i */
         halopad_host_pump();
+        /* Foreground activation is a system-event wake even with dwWakeMask == 0.
+           The pump already delivered its window callbacks, so it need not leave
+           a posted message. Keep Halo from sleeping after it has been reactivated. */
+        if (system_event_serial != system_events) return n;
         if (mask && (qcount || quit_posted)) return n;              /* WAIT_OBJECT_0 + n: input is available */
         if (ms != 0xFFFFFFFFu && GetTickCount_c() - start >= ms) return 0x102;   /* WAIT_TIMEOUT */
         Sleep_c(1);
@@ -1097,6 +1103,7 @@ void halopad_input_event(const hp_input *e)
     uobj *w = target ? uget(target, H_WINDOW) : NULL;
     switch (e->kind) {
     case HPI_ACTIVATE:
+        system_event_serial++;
         app_activation(e->down);
         return;
     case HPI_CLOSE:

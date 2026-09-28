@@ -198,6 +198,26 @@ int main(void)
     uint32_t hs = halopad_heap_alloc(4, 1);
     memcpy(halopad_guest_ptr(hs), &ev, 4);
     check("  a signaled event wins: WAIT_OBJECT_0", API("MsgWaitForMultipleObjects", 1, hs, 0, 1000, 0xFF), 0);
+#if TARGET_OS_IPHONE
+    /* A foreground notification is dispatched synchronously by the host pump. It
+       must wake MsgWait even when it leaves no posted message (or wake mask is 0).
+       This is the path Halo waits on after the app loses focus. */
+    API("k:ResetEvent", ev);
+    halopad_host_input_off = 0;
+    for (int zero_mask = 0; zero_mask < 2; zero_mask++) {
+        input((hp_input){.kind = HPI_ACTIVATE, .down = 0});
+        while (peek(0, 0, 1)) API("DispatchMessageA", msg);
+        hp_input resume = {.kind = HPI_ACTIVATE, .down = 1};
+        halopad_host_post_input(&resume);
+        check(zero_mask ? "iOS: foreground activation wakes MsgWait with wake mask 0" :
+                         "iOS: foreground activation wakes MsgWait without posted input",
+              API("MsgWaitForMultipleObjects", 1, hs, 0, 30, zero_mask ? 0 : 0xFF), 1);
+        check("  foreground window restored by the notification", API0("GetForegroundWindow"), hwnd);
+        check("  activation left no posted input", peek(0, 0, 1), 0);
+        check("  activation is not replayed on the next wait", API("MsgWaitForMultipleObjects", 1, hs, 0, 30, 0), 0x102);
+    }
+    halopad_host_input_off = 1;
+#endif
 
     /* wsprintfA (cdecl) */
     uint32_t buf = halopad_heap_alloc(128, 1);

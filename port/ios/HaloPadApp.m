@@ -789,8 +789,17 @@ int halopad_host_open_url(const char *url)
     UIWindowSceneGeometryPreferencesIOS *land = [[UIWindowSceneGeometryPreferencesIOS alloc] initWithInterfaceOrientations:UIInterfaceOrientationMaskLandscape];
     [(UIWindowScene *)scene requestGeometryUpdateWithPreferences:land errorHandler:^(NSError *e) { fprintf(stderr, "HALOPAD APP: landscape request: %s\n", e.localizedDescription.UTF8String); }];
 }
-- (void)sceneDidBecomeActive:(UIScene *)scene { hp_input e = {.kind = HPI_ACTIVATE, .down = 1}; halopad_host_post_input(&e); }
-- (void)sceneWillResignActive:(UIScene *)scene { hp_input e = {.kind = HPI_ACTIVATE, .down = 0}; halopad_host_post_input(&e); }
+- (void)sceneDidBecomeActive:(UIScene *)scene
+{
+    if (getenv("HALOPAD_TRACE_LIFECYCLE")) fprintf(stderr, "HALOPAD LIFECYCLE: %.3f scene active, frames %d\n", CFAbsoluteTimeGetCurrent(), atomic_load(&presented));
+    hp_input e = {.kind = HPI_ACTIVATE, .down = 1}; halopad_host_post_input(&e);
+}
+- (void)sceneWillResignActive:(UIScene *)scene
+{
+    if (getenv("HALOPAD_TRACE_LIFECYCLE")) fprintf(stderr, "HALOPAD LIFECYCLE: %.3f scene inactive, frames %d\n", CFAbsoluteTimeGetCurrent(), atomic_load(&presented));
+    [overlay clearTouchInput];
+    hp_input e = {.kind = HPI_ACTIVATE, .down = 0}; halopad_host_post_input(&e);
+}
 @end
 
 @interface HPAppDelegate : UIResponder <UIApplicationDelegate>

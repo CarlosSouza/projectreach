@@ -7,13 +7,14 @@ a replacement scene. Evidence directories are under `docs/artifacts/<date>/G3/` 
 
 ## Result
 
-**Open, with a lifecycle regression under investigation.** In the post-arena run
-`20260928T082315Z`, launch 1 passed but launch 2 exited after 1,438 frames, without leaving `ui`.
-The profile file existed; the test did not play the requested map. Earlier passes do not close
-this failure. The isolated saved-profile recheck `lifecycle-recheck-20260928T105102Z` passed
-(4,702 frames, `ui beavercreek ui`, New001, scripted Quit confirmation). A full consecutive
-relaunch with the corrected harness is still due. G4 also remains subject to the phase-2 requirement for an original-client
-comparison; G1b's client row is parked on a legitimate product key.
+**Local lifecycle revalidated; original-client comparison still open.** The earlier relaunch
+failure (`20260928T082315Z`) remains recorded. After isolating the scripted test from desktop
+input, checking that Quit confirmation was actually sent, and carrying registry state across
+launches, the full consecutive run `core-arm64-apple-macosx14.0.0-20260928T110902Z` passes on
+commit `e252ee2`: launch 1 presents 8,502 frames and visits `ui beavercreek ui beavercreek ui`;
+launch 2 presents 4,702 frames and visits `ui beavercreek ui`. Both use New001 and quit normally.
+This is evidence of recovery with the corrected harness, not proof of the exact cause of the
+original premature exit. G4 still requires G1b's original-client comparison, parked on a key.
 
 ## Requirement by requirement
 
@@ -34,7 +35,7 @@ comparison; G1b's client row is parked on a legitimate product key.
 | HUD | screenshots in every play test: ammo, grenades, shields, motion tracker, crosshair, messages | met |
 | Meaningful audio | `halo_host_test` records the session's mix (`session.wav`): menu music about −11 dBFS, the shot 15+ dB and the fatal explosion 20+ dB over the game's ambience (macOS and iPad Simulator) | met |
 | Menu return, map reload | `halo_lifecycle_test`: Escape > Leave Game back to the main menu, the same game again (the map loads a second time) | met |
-| Clean relaunch | Earlier `halo_lifecycle_test --relaunch` passes; `20260928T082315Z` launch 2 failed to reach gameplay. Per-step screenshot trace added for diagnosis. | **reopened** |
+| Clean relaunch | Full consecutive run `20260928T110902Z`: both launches pass, state and registry carried forward, New001 spawned, scripted Quit confirmation checked. Earlier failure retained above. | met on `e252ee2` |
 | Original-client comparison | G1b's `haloce.exe` row, parked on a legitimate key | **held open** |
 
 ## Known weaknesses (not G4 blockers)

@@ -1164,3 +1164,46 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   single app running for Chris's requested preview on HaloPad iPad Pro 13
   (`E129A00F-D338-4FDC-8AE8-BB243E9BA61B`); iPhone Simulator is shut down and no reference server
   is running. This is a development component scene, not completion of normal licensed startup.
+
+### 2026-09-28 — foreground wake-up and full relaunch
+
+- Previous goal turn was progress: `e252ee2` repaired early window activation, phone settings,
+  and regression reporting. Read the goal objective again; the full campaign, interoperability,
+  physical-device and release scope is unchanged. Input hash matches the locked profile;
+  only the requested iPad preview was active and was stopped before testing.
+- Full consecutive lifecycle test on `e252ee2` **PASS**, runner exit 0:
+  `core-arm64-apple-macosx14.0.0-20260928T110902Z`. Launch 1: 8,502 frames, map reload and
+  `ui beavercreek ui beavercreek ui`; launch 2: 4,702 frames, persisted New001 and
+  `ui beavercreek ui`. Both require the scripted Quit confirmation. G4's local relaunch row
+  is revalidated; the original-client comparison is still required.
+- Found a separate runtime error in MsgWaitForMultipleObjects: host activation invokes the
+  guest window synchronously, but the wait only checked queued input/handles afterward. It
+  could remain asleep after foreground activation restored the game. Microsoft's API contract
+  explicitly requires a system-event wake for foreground activation, even with wake mask 0:
+  https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-msgwaitformultipleobjects
+- Added an iOS queue-path regression with a real guest window and a nonsignaled event. Pre-fix
+  binary `core-arm64-apple-ios17.0-simulator-20260928T111641Z` fails both wake checks with
+  WAIT_TIMEOUT despite restoring the foreground window. Binary and replay are retained in the
+  ignored evidence. Fixed runtime tracks synchronously handled system notifications and wakes
+  the current wait; it does not post a fake key or game action. Final iPad test `…111711Z` passes
+  both wake masks and checks no activation replay on the next wait. Mac USER32 `…111808Z` passes.
+- Added optional scene/pump activation breadcrumbs (`HALOPAD_TRACE_LIFECYCLE`) and clear the
+  touch overlay on scene deactivation. Simulator OS background/foreground checks follow;
+  passing the API regression alone does not close real-app recovery.
+- Actual iPad app `ios-app-20260928T111910Z`: two Home/background → foreground cycles resume
+  local Blood Gulch at 29–30 fps in PID 20447. The second cycle keeps touch settings open;
+  `resume-1.png`, `settings-after-resume.png`, and `resume-settings-open.png` record the result.
+- Actual iPhone app `ios-app-20260928T112538Z`: Home produces scene inactive/pump activation 0
+  at frames 344; reopening keeps PID 21102, delivers activation 1 and resumes 30 fps with
+  advancing presented-frame counters. `resume-1.png` and `settings-after-resume.png` retained.
+  Native menu and touch settings open afterward while game frames continue. Phone stopped
+  and shut down before restoring the iPad preview.
+- Scope: these short offline resume checks pass. Lock/unlock, audio interruptions, long online
+  suspension/reconnect, pending typed text, held hardware/controller input and physical devices
+  still need their own tests. Full lifecycle was run on `e252ee2`; the final additional runtime
+  change was checked by USER32 regressions and actual app recovery, not a repeated full matrix.
+- Final preview `ios-app-20260928T112758Z` is left running in local Blood Gulch on HaloPad
+  iPad Pro 13, PID 21599; Simulator is visible in landscape. iPhone is shut down. Use the
+  three-dot menu → Touch Control Settings to inspect the controls. Build output and native
+  screenshot retained. Repository safety and whitespace checks pass; private remote visibility
+  rechecked before the authorized push.

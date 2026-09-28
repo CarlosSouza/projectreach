@@ -687,5 +687,25 @@ window activates; ordinary switches between already active windows keep their ex
 `docs/artifacts/2026-09-28/G3/`: Mac `core-…-20260928T105956Z` fails the first-show message sequence
 before the change; final Mac `…110133Z` and iPhone Simulator `…110148Z` pass. Normal ordering passes
 on the final source at `…110453Z`. The iPhone app's cold launch `ios-app-20260928T110221Z` reaches
-its menu and presents at 30 fps. Subsequent UI automation again reached a zero-frame interruption
-state; that is a separate open recovery investigation, not a passed lifecycle gate.
+its menu and presents at 30 fps. Subsequent UI automation reached a separate zero-frame
+interruption state, investigated below.
+
+### Foreground system-event wake (2026-09-28)
+
+Host activation delivers guest window callbacks synchronously. `MsgWaitForMultipleObjects`
+previously stayed asleep afterward because no queued input remained. USER32 now records system
+notification delivery and returns `WAIT_OBJECT_0 + nCount` when activation occurs during the wait,
+including with wake mask zero, as required by the
+[Windows contract](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-msgwaitformultipleobjects).
+No synthetic key or game action is used. Scene deactivation also clears touch holds.
+
+The iOS queue-path regression fails both wake checks before the fix (`core-…-20260928T111641Z`)
+and passes afterward (`…111711Z`), including no replay on a later wait. Mac USER32 passes
+(`…111808Z`). Optional `HALOPAD_TRACE_LIFECYCLE` records scene and guest-pump activation.
+
+Real Simulator app checks: iPad `ios-app-20260928T111910Z` resumed local Blood Gulch twice
+after Home, including with settings open, in the same PID 20447 at 29–30 fps. iPhone
+`ios-app-20260928T112538Z` resumed after Home in the same PID 21102 at 30 fps; the native menu
+and touch settings remained usable. Logs and screenshots are in each evidence directory.
+These short offline checks do not establish lock/unlock, audio interruption, long online
+suspension/reconnection, queued-text cancellation, held hardware input or physical-device behavior.

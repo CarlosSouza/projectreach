@@ -79,7 +79,11 @@ void halopad_host_pump(void)
         pthread_mutex_unlock(&q_lock);
         if (!have) return;
         if (e.kind == HPI_BUTTON && getenv("HALOPAD_TRACE_INPUT")) fprintf(stderr, "HALOPAD INPUT: %.3f pumped button %d %s\n", CFAbsoluteTimeGetCurrent(), e.button, e.down ? "down" : "up");
-        if (!halopad_host_input_off) halopad_input_event(&e);
+        if (!halopad_host_input_off) {
+            if (e.kind == HPI_ACTIVATE && getenv("HALOPAD_TRACE_LIFECYCLE"))
+                fprintf(stderr, "HALOPAD LIFECYCLE: %.3f pump activation %d\n", CFAbsoluteTimeGetCurrent(), e.down);
+            halopad_input_event(&e);
+        }
     }
 }
 
