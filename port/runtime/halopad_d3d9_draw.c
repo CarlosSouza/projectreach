@@ -254,6 +254,11 @@ static void dxt_block(uint32_t f, const uint8_t *b, uint8_t out[16][4])
 }
 
 /* one level's slice of blocks (rows of pitch bytes) into w x h BGRA8 */
+/* HALOPAD_TRACE_FRAMES counters (reported by halopad_metal_present) */
+double halopad_trace_now(void);
+extern int halopad_trace_decodes;
+extern double halopad_trace_decode_s, halopad_trace_decode_px;
+
 static void dxt_decode(uint32_t f, const uint8_t *src, uint32_t pitch, uint8_t *dst, uint32_t w, uint32_t h)
 {
     uint32_t bs = f == 0x31545844u ? 8 : 16;
@@ -286,7 +291,9 @@ static void *upload_texture(res *t)
             if (convert == 2) {
                 uint32_t n = t->lw[l] * t->lh[l];
                 uint8_t *tmp = malloc(4 * n * depth);
+                double t0 = halopad_trace_now();
                 for (uint32_t z = 0; z < depth; z++) dxt_decode(t->format, src + z * slice, t->pitch[l], tmp + 4 * n * z, t->lw[l], t->lh[l]);
+                halopad_trace_decodes++; halopad_trace_decode_s += halopad_trace_now() - t0; halopad_trace_decode_px += n * depth;
                 halopad_metal_texture_upload(t->native, l, f, tmp, 4 * t->lw[l], 4 * n, t->lw[l], t->lh[l], depth);
                 free(tmp);
             } else if (convert) {
@@ -484,13 +491,12 @@ static uint32_t draw(device *d, uint32_t type, uint32_t prims, uint32_t start, i
         }
     }
     uint32_t nverts = vertex_count(type, prims);
-    void *temp_v = NULL, *temp_i = NULL;
+    uint32_t toff = 0;                                              /* transient data lives until Present (halopad_metal_temp) */
     if (up) {
         uint32_t span = ib || up_indices ? 0 : nverts;
         if (up_indices) span = start + (uint32_t)base;              /* MinVertexIndex + NumVertices, passed in */
-        temp_v = halopad_metal_buffer(G(up), span * up_stride);
-        dd.vbuf[0] = temp_v;
-        dd.voff[0] = 0;
+        dd.vbuf[0] = halopad_metal_temp(G(up), span * up_stride, &toff);
+        dd.voff[0] = toff;
     }
 
     /* render state */
@@ -576,30 +582,28 @@ static uint32_t draw(device *d, uint32_t type, uint32_t prims, uint32_t start, i
                 uint32_t idx[3] = {0, i + 1, i + 2};
                 for (int k = 0; k < 3; k++) list[3 * i + k] = i32 ? ((const uint32_t *)src)[idx[k]] : ((const uint16_t *)src)[idx[k]];
             }
-            temp_i = halopad_metal_buffer(list, 4 * n);
+            dd.ibuf = halopad_metal_temp(list, 4 * n, &toff);
             free(list);
-            dd.ibuf = temp_i; dd.index32 = 1; dd.index_offset = 0; dd.count = n;
+            dd.index32 = 1; dd.index_offset = toff; dd.count = n;
         } else if (ib) {
             dd.ibuf = upload_buffer(ib); dd.index32 = (uint8_t)i32; dd.index_offset = first_index * isz; dd.count = nverts;
         } else {
-            temp_i = halopad_metal_buffer(src, nverts * isz);
-            dd.ibuf = temp_i; dd.index32 = (uint8_t)i32; dd.index_offset = 0; dd.count = nverts;
+            dd.ibuf = halopad_metal_temp(src, nverts * isz, &toff);
+            dd.index32 = (uint8_t)i32; dd.index_offset = toff; dd.count = nverts;
         }
         dd.base_vertex = ib ? base : 0;
     } else if (type == 6) {                                         /* non-indexed fan -> indexed list */
         uint32_t n = 3 * prims;
         uint32_t *list = malloc(4 * n);
         for (uint32_t i = 0; i < prims; i++) { list[3 * i] = start; list[3 * i + 1] = start + i + 1; list[3 * i + 2] = start + i + 2; }
-        temp_i = halopad_metal_buffer(list, 4 * n);
+        dd.ibuf = halopad_metal_temp(list, 4 * n, &toff);
         free(list);
-        dd.ibuf = temp_i; dd.index32 = 1; dd.count = n;
+        dd.index32 = 1; dd.index_offset = toff; dd.count = n;
     } else {
         dd.start = up ? 0 : start;
         dd.count = nverts;
     }
     halopad_metal_draw(d->target, &dd);
-    halopad_metal_release(temp_v);                                  /* the encoder keeps what it uses */
-    halopad_metal_release(temp_i);
     return D3D_OK;
 }
 

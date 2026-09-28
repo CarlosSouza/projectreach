@@ -226,9 +226,36 @@ void halopad_host_window_gamma(void *p, const uint16_t ramp[768]);
 void halopad_metal_target_gamma(void *p, const uint16_t ramp[768]) { halopad_host_window_gamma(((hp_target *)p)->win, ramp); }
 
 /* Show the back buffer in the window (through its gamma table). */
+/* HALOPAD_TRACE_FRAMES: shader and pipeline compilation in the current 10 s window */
+static int trace_libs, trace_pipes;
+static double trace_lib_s, trace_pipe_s;
+int halopad_trace_decodes;                          /* DXT decodes on upload (halopad_d3d9_draw.c) */
+double halopad_trace_decode_s, halopad_trace_decode_px;
+double halopad_trace_now(void) { return CFAbsoluteTimeGetCurrent(); }
+static void arena_reset(void);                       /* the transient arena, below */
+
 int halopad_metal_present(void *p)
 {
     hp_target *t = p;
+    /* HALOPAD_TRACE_FRAMES: every 10 s, the frames presented, the longest gap between two
+       presents and how many gaps passed 100 ms (input waits for the next pump) */
+    static int trace = -1;
+    static double last, since, longest;
+    static int frames, long_gaps;
+    if (trace < 0) trace = getenv("HALOPAD_TRACE_FRAMES") != NULL;
+    if (trace) {
+        double now = CFAbsoluteTimeGetCurrent();
+        if (last) { double gap = now - last; frames++; if (gap > longest) longest = gap; if (gap > 0.1) long_gaps++; }
+        else since = now;
+        last = now;
+        if (now - since >= 10) {
+            fprintf(stderr, "HALOPAD FRAMES: %d in %.1f s (%.1f/s), longest gap %.0f ms, %d gaps over 100 ms; %d shader libraries (%.2f s), %d pipelines (%.2f s), %d DXT decodes (%.2f s, %.1f Mpx)\n",
+                    frames, now - since, frames / (now - since), longest * 1000, long_gaps, trace_libs, trace_lib_s, trace_pipes, trace_pipe_s,
+                    halopad_trace_decodes, halopad_trace_decode_s, halopad_trace_decode_px / 1e6);
+            since = now; frames = 0; longest = 0; long_gaps = 0; trace_libs = trace_pipes = 0; trace_lib_s = trace_pipe_s = 0;
+            halopad_trace_decodes = 0; halopad_trace_decode_s = halopad_trace_decode_px = 0;
+        }
+    }
     @autoreleasepool {
         end_encoder(t);
         id<MTLCommandBuffer> cb = frame(t);
@@ -236,6 +263,7 @@ int halopad_metal_present(void *p)
         present_texture(t->win, cb, t->back);
         [cb commit];
         [cb waitUntilCompleted];
+        arena_reset();                                    /* the GPU is done with this frame's transient data */
     }
     halopad_host_pump();
     return 1;
@@ -291,7 +319,9 @@ static id<MTLFunction> function(const char *src, NSString *name, char *err, uint
     id<MTLLibrary> lib = libraries[s];
     if (!lib) {
         NSError *e = nil;
+        double t0 = CFAbsoluteTimeGetCurrent();
         lib = [gpu newLibraryWithSource:s options:nil error:&e];
+        trace_libs++; trace_lib_s += CFAbsoluteTimeGetCurrent() - t0;
         if (!lib) { snprintf(err, errlen, "%s", e.localizedDescription.UTF8String); return nil; }
         libraries[s] = lib;
     }
@@ -337,7 +367,9 @@ void *halopad_metal_pipeline(const hp_pipeline_desc *d, char *err, uint32_t errl
         ca.writeMask = d->write_mask;
         if (d->depth) { pd.depthAttachmentPixelFormat = MTLPixelFormatDepth32Float_Stencil8; pd.stencilAttachmentPixelFormat = MTLPixelFormatDepth32Float_Stencil8; }
         NSError *e = nil;
+        double t0 = CFAbsoluteTimeGetCurrent();
         ps = [gpu newRenderPipelineStateWithDescriptor:pd error:&e];
+        trace_pipes++; trace_pipe_s += CFAbsoluteTimeGetCurrent() - t0;
         if (!ps) { snprintf(err, errlen, "%s", e.localizedDescription.UTF8String); return NULL; }
     }
     pipelines[key] = ps;
@@ -385,6 +417,42 @@ void *halopad_metal_sampler(const hp_sampler_desc *d)
     s = [gpu newSamplerStateWithDescriptor:sd];
     samplers[key] = s;
     return (__bridge void *)s;
+}
+
+/* Transient data for one frame: shader constants and the vertex and index data Direct3D's
+   DrawPrimitiveUP passes by pointer. Bump-allocated from 4 MB shared buffers that are reused
+   after Present (which waits for the GPU); one Metal buffer per draw was three to five driver
+   round trips on the Simulator, and a rules screen ran at 5 frames a second. */
+#define ARENA_CHUNK (4u << 20)
+static NSMutableArray<id<MTLBuffer>> *arena, *arena_big;
+static uint32_t arena_i, arena_used;
+
+static id<MTLBuffer> arena_alloc(const void *data, uint32_t len, uint32_t *offset)
+{
+    if (!arena) { arena = [NSMutableArray new]; arena_big = [NSMutableArray new]; }
+    uint32_t need = (len + 255) & ~255u;
+    if (!need) need = 256;
+    if (need > ARENA_CHUNK) {                             /* larger than a chunk: its own buffer, dropped at the reset */
+        id<MTLBuffer> b = [gpu newBufferWithBytes:data length:len options:MTLResourceStorageModeShared];
+        [arena_big addObject:b];
+        *offset = 0;
+        return b;
+    }
+    if (arena_i < arena.count && arena_used + need > ARENA_CHUNK) { arena_i++; arena_used = 0; }
+    while (arena_i >= arena.count) [arena addObject:[gpu newBufferWithLength:ARENA_CHUNK options:MTLResourceStorageModeShared]];
+    id<MTLBuffer> b = arena[arena_i];
+    if (len) memcpy((uint8_t *)b.contents + arena_used, data, len);
+    *offset = arena_used;
+    arena_used += need;
+    return b;
+}
+static void arena_reset(void) { arena_i = 0; arena_used = 0; [arena_big removeAllObjects]; }
+
+/* For the runtime: data that lives until the next Present, as an unretained buffer and offset */
+void *halopad_metal_temp(const void *data, uint32_t length, uint32_t *offset)
+{
+    ensure_app();
+    return (__bridge void *)arena_alloc(data, length, offset);
 }
 
 void *halopad_metal_buffer(const void *data, uint32_t length)
@@ -484,9 +552,11 @@ void halopad_metal_draw(void *target, const hp_draw_desc *d)
     for (int s = 0; s < 16; s++) if (d->vbuf[s]) [e setVertexBuffer:(__bridge id<MTLBuffer>)d->vbuf[s] offset:d->voff[s] atIndex:s];
     if (!constant_attr) { float v[4] = {0, 0, 0, 1}; constant_attr = [gpu newBufferWithBytes:v length:16 options:MTLResourceStorageModeShared]; }
     [e setVertexBuffer:constant_attr offset:0 atIndex:18];
-    /* constant blocks exceed setVertexBytes' 4 KB guideline: one buffer per draw */
-    [e setVertexBuffer:[gpu newBufferWithBytes:d->vs_consts length:d->vs_len options:MTLResourceStorageModeShared] offset:0 atIndex:16];
-    [e setFragmentBuffer:[gpu newBufferWithBytes:d->ps_consts length:d->ps_len options:MTLResourceStorageModeShared] offset:0 atIndex:0];
+    /* constant blocks exceed setVertexBytes' 4 KB guideline: transient arena space per draw */
+    uint32_t vo, po;
+    id<MTLBuffer> vb = arena_alloc(d->vs_consts, d->vs_len, &vo), pb = arena_alloc(d->ps_consts, d->ps_len, &po);
+    [e setVertexBuffer:vb offset:vo atIndex:16];
+    [e setFragmentBuffer:pb offset:po atIndex:0];
     for (int s = 0; s < 16; s++) {
         if (d->tex[s]) [e setFragmentTexture:(__bridge id<MTLTexture>)d->tex[s] atIndex:s];
         if (d->smp[s]) [e setFragmentSamplerState:(__bridge id<MTLSamplerState>)d->smp[s] atIndex:s];

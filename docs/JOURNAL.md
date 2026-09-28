@@ -1100,3 +1100,8 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   the import screen's folder picker), accepting it only with the locked 1.10 `haloce.exe` hash and
   the stock files present. On the Simulator with `--device-data`: no folder shows the import
   screen; the copied folder is accepted and Halo reaches its menu from device paths alone.
+
+- **Input lag on the Simulator found and fixed:** `HALOPAD_TRACE_FRAMES` showed 3-6 frames a second for
+  30 s after a join; a stack sample put 61% of Halo's thread in `DrawPrimitiveUP` making Metal
+  buffers (one per draw plus two per draw for constants, each a driver round trip on the
+  Simulator). A per-frame transient arena replaces them: 30 frames a second, longest gap 40 ms.

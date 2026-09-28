@@ -439,8 +439,20 @@ on the iPad Simulator: no folder gives the screen; the 1.10 folder copied into D
 accepted and Halo reaches its main menu from device paths alone. The shipping start (Halo's own
 entry point) still stops at the product-key check, as on a PC without the installer's key.
 
-**Still open here:** input latency on the Simulator (Halo's frames are uneven: a press can wait
-up to about 0.2 s for the next pump); physical devices.
+**Frame times on the Simulator, and the input lag they caused.** `HALOPAD_TRACE_FRAMES` reports,
+every 10 s, the frames presented, the longest gap between presents, gaps over 100 ms, and the
+shader libraries, pipelines and DXT decodes made with their time. Right after joining a game the
+Simulator ran at 3 to 6 frames a second for about 30 s with every frame over 100 ms, and a press
+posted then waited up to 0.2 s for the next pump. Compilation and decoding were innocent (68
+shaders, 56 pipelines and 888 texture decodes took 0.07 s in all). A stack sample showed 61% of
+Halo's thread inside `DrawPrimitiveUP` making Metal buffers: HaloPad made one buffer for each
+draw's vertex data and two more for its shader constants, and on the Simulator each is a
+synchronous round trip to the Metal driver. Those now come from a transient arena of 4 MB shared
+buffers, bump-allocated and reset after Present, which waits for the GPU
+(`halopad_metal_temp`). After the change the same join runs at 30 frames a second (Halo's own cap)
+with the longest gap 40 ms and none over 100 ms; the self-test still passes.
+
+**Still open here:** physical devices.
 
 ## Map changes, reconnecting, passwords and timeouts (G5: M13, M15)
 
