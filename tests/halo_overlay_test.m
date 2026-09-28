@@ -186,6 +186,43 @@ int main(void)
         for (UIView *v in typingTargets) restored &= !v.hidden;
         check("keyboard dismissal restores gameplay targets without replaying holds",
               restored && all_released() && count == afterKeyboard);
+        UIView *back = nil;
+        for (UIView *v in typingTargets)
+            if ([v.accessibilityIdentifier isEqualToString:@"menu"]) back = v;
+        [overlay driveMoveX:0 y:1];
+        [overlay driveControl:@"fire" down:YES];
+        [overlay driveAimX:1 y:0];
+        int beforeMenu = count;
+        overlay.haloMenuVisible = YES;
+        int afterMenu = count;
+        fireReleased = NO;
+        for (int i = beforeMenu; i < afterMenu; i++)
+            fireReleased |= events[i].kind == HPI_BUTTON && !events[i].down;
+        run_for(0.15);
+        check("Halo menu releases movement, fire and continuous LOOK",
+              fireReleased && all_released() && count == afterMenu);
+        hidden = YES;
+        for (UIView *v in typingTargets) if (v != back) {
+            hidden &= v.hidden && [overlay hitTest:v.center withEvent:nil] == nil;
+        }
+        check("Halo menu passes through former gameplay targets and the blank surface",
+              hidden && [overlay hitTest:CGPointMake(512, 384) withEvent:nil] == nil);
+        check("Halo menu retains a reachable Back control",
+              back && !back.hidden && [overlay hitTest:back.center withEvent:nil] == back &&
+              [back.accessibilityLabel isEqualToString:@"Back to game or previous menu"]);
+        overlay.haloMenuVisible = YES; /* changing to a child widget keeps menu ownership */
+        check("child menus do not replay releases", count == afterMenu);
+        overlay.softwareKeyboardVisible = YES;
+        check("keyboard also hides the menu Back target", back.hidden);
+        overlay.softwareKeyboardVisible = NO;
+        overlay.haloMenuVisible = NO;
+        restored = YES;
+        for (UIView *v in typingTargets) restored &= !v.hidden;
+        check("resume restores both sticks and actions without replaying input",
+              restored && count == afterMenu && [back.accessibilityLabel isEqualToString:@"Pause"]);
+        overlay.haloMenuVisible = YES;
+        overlay.inGame = NO;
+        check("main menu hides the in-game Back target", back.hidden);
         check_layouts();
 
         fprintf(stderr, "OVERLAY INPUT: %s (%d failures)\n", failures ? "FAIL" : "PASS", failures);

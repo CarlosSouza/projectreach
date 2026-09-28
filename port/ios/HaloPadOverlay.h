@@ -40,8 +40,10 @@ typedef NS_ENUM(NSInteger, HPAspectMode) { HPAspectOriginal = 0, HPAspectFill = 
 
 @interface HPOverlay : UIView
 @property(nonatomic, weak, nullable) id<HPOverlayDelegate> delegate;
-/* In a game (Halo's current map is not its menu map): the touch controls show and take touches. */
+/* A gameplay map is loaded; Halo may also have its pause/child menu open. */
 @property(nonatomic) BOOL inGame;
+/* Actual Halo widget state: release/hide gameplay targets and retain an Escape/Back target. */
+@property(nonatomic) BOOL haloMenuVisible;
 /* Hide and release gameplay controls while the system keyboard occupies the game display. */
 @property(nonatomic) BOOL softwareKeyboardVisible;
 /* Frames Halo presented in the last second, for the FPS counter; -1 hides it. */

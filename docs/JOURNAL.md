@@ -1356,3 +1356,44 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   iPhone remains shut down; no reference processes. Full campaign/interoperability/licensed
   startup/device gates stay intact; next unblocked work includes safe import, pause-menu touch
   ownership and further keyboard lifecycle checks. No full-goal completion claim.
+
+
+### 2026-09-28 — release gameplay touches while Halo menus are open
+
+- Previous iteration: **progress**, committed/pushed as `f589887` (docked keyboard visibility,
+  input release and full-viewport restoration). Goal remains active. Re-read the objective and
+  phase loop; checked clean starting Git state, locked executable hash, pinned sources, project
+  bottles and the sole iPad candidate. Parked inputs unchanged; no reference process running.
+- Hypothesis: map-name-only overlay visibility leaves controls active over in-game menus.
+  First tried queued 50 ms and held 300 ms Escape in the `map_name` development preview
+  (`G3/ios-app-20260928T123743Z`, `...124104Z`). Neither opened a widget. This fixture is
+  insufficient to diagnose pause delivery; no guest state was patched to force a menu.
+- Switched to Halo's normal Multiplayer → Create Game → LAN → Battle Creek → Slayer flow,
+  navigating with the connected Simulator hardware keyboard. Actual Pause touch opened the
+  menu in `G3/ios-app-20260928T124534Z`, with both sticks/actions still overlaid. Captured
+  `pause-before.png`. Mouse acquisition/cursor-display flags stayed unchanged through menus,
+  so they cannot determine touch ownership.
+- Read-only research: Chimera `c41414e2c729f61a6b98d1f35470a89f8bd18dc0` widget signature
+  locates the locked CE loader; inspected that executable's loader/deletion accesses to
+  confirm the active root at `0x6b401c`. Runtime observations matched the main menu, child
+  widgets, gameplay and pause. Source remains ignored research, not linked/copied code.
+  Do not substitute the game-paused flag: multiplayer can keep simulating with a menu open.
+- Snapshot map/menu eligibility on Halo's presenting thread, dispatch only ownership changes
+  to UIKit. Opening a widget clears held MOVE/FIRE/LOOK and hides gameplay targets, passing
+  the surface through. Keep the existing Escape target as a small Back chevron during in-game
+  menus; it returns one level or resumes. Keyboard visibility still hides it. Main-menu state
+  hides all gameplay controls, including this in-game Back target.
+- Real-overlay boundary `G9/overlay-20260928T125353Z`: 30 assertions and 90 phone/tablet,
+  handedness, size and gap combinations pass. New checks cover release/no replay, former
+  control-center hit testing, Back reachability, keyboard precedence and main-menu hiding.
+- Actual final-build app `G3/ios-app-20260928T125447Z`: started another normal local match,
+  tapped Pause and Back to resume, opened Game Options using keyboard navigation, then used
+  touch Back twice to return through pause to gameplay. Both sticks/actions stayed hidden
+  in the child menu and returned on resume. Screenshots `pause-after.png`, `child-menu.png`,
+  and `final-preview.png`; frame-state transitions in stderr. Candidate PID 34612 remains
+  in local Battle Creek. No phone/reference process started this iteration.
+- Remaining: absolute touch selection of Halo's own menu items (cursor remains at its old
+  position), short-input edge retention across multiple pumps, true simultaneous multi-touch,
+  physical ergonomics, and safe prepared-data import. The hardware keyboard was connected
+  for this menu route and was disconnected again before leaving the touch preview. This increment
+  closes overlay menu ownership, not complete menu navigation or G9/full-goal acceptance.

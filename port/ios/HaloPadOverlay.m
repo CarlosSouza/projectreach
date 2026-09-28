@@ -366,7 +366,8 @@ static const hp_control_def CONTROLS[] = {
         [b setSymbol:@(d->symbol)];
         b.primary = d->size == 2;
         b.accessibilityIdentifier = @(d->ident);
-        b.accessibilityLabel = strlen(d->caption) ? @(d->caption).capitalizedString : @(d->ident).capitalizedString;
+        b.accessibilityLabel = strlen(d->caption) ? @(d->caption).capitalizedString :
+            (strcmp(d->ident, "menu") == 0 ? @"Pause" : @"Scoreboard");
         b.lookBy = ^(CGFloat dx, CGFloat dy) { [weak lookX:dx y:dy]; };
         [_buttons addObject:b];
         [self addSubview:b];
@@ -461,11 +462,18 @@ static const hp_control_def CONTROLS[] = {
 - (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event { [_lookTouches minusSet:touches]; }
 - (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event { [_lookTouches minusSet:touches]; }
 
-- (BOOL)controlsHidden { return HPSettings.shared.hideTouchControls || _controllerHidden || _softwareKeyboardVisible; }
+- (BOOL)controlsHidden { return HPSettings.shared.hideTouchControls || _controllerHidden || _softwareKeyboardVisible || _haloMenuVisible; }
 - (void)setSoftwareKeyboardVisible:(BOOL)visible
 {
     if (_softwareKeyboardVisible == visible) return;
     _softwareKeyboardVisible = visible;
+    if (visible) [self clearTouchInput];
+    [self updateAppearance];
+}
+- (void)setHaloMenuVisible:(BOOL)visible
+{
+    if (_haloMenuVisible == visible) return;
+    _haloMenuVisible = visible;
     if (visible) [self clearTouchInput];
     [self updateAppearance];
 }
@@ -593,7 +601,16 @@ static const hp_control_def CONTROLS[] = {
         if ([v isKindOfClass:HPStickView.class]) ((HPStickView *)v).editing = _editing;
         v.layer.borderWidth = picked ? 3 : 1.5;
         v.layer.borderColor = (picked ? UIColor.systemYellowColor : [UIColor colorWithWhite:1 alpha:0.32]).CGColor;
-        if ([v isKindOfClass:HPControlButton.class]) ((HPControlButton *)v).editing = _editing;
+        if ([v isKindOfClass:HPControlButton.class]) {
+            HPControlButton *button = (HPControlButton *)v;
+            button.editing = _editing;
+            if ([button.accessibilityIdentifier isEqualToString:@"menu"]) {
+                /* Keep a touch route back/resume while gameplay touches pass to Halo. */
+                button.hidden = !(show || (_haloMenuVisible && self.inGame && !_softwareKeyboardVisible));
+                [button setSymbol:_haloMenuVisible ? @"chevron.backward" : @"pause.fill"];
+                button.accessibilityLabel = _haloMenuVisible ? @"Back to game or previous menu" : @"Pause";
+            }
+        }
     }
 }
 

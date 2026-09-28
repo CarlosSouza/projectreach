@@ -35,11 +35,34 @@ extern void (*halopad_d3d9_present_hook)(uint32_t device);
 
 /* frames Halo presents (the FPS counter) */
 static atomic_int presented;
+static HPOverlay *overlay;
+/* Read the locked CE 1.10 UI state on Halo's presenting thread. The root widget
+   exists in pause/child menus even while an online match continues to simulate. */
+static void update_overlay_game_state(void)
+{
+    if (!halopad_guest_base) return;
+    const char *map = halopad_guest_ptr(0x643064);
+    uint32_t root;
+    memcpy(&root, halopad_guest_ptr(0x6b401c), sizeof root);
+    BOOL inGame = map[0] && strcmp(map, "ui");
+    BOOL menuVisible = root != 0;
+    static int previous = -1;
+    int state = inGame | (menuVisible << 1);
+    if (state == previous) return;
+    previous = state;
+    if (getenv("HALOPAD_TRACE_INPUT"))
+        fprintf(stderr, "HALOPAD MENU: in game %d menu visible %d\n", inGame, menuVisible);
+    dispatch_async(dispatch_get_main_queue(), ^{
+        overlay.haloMenuVisible = menuVisible;
+        overlay.inGame = inGame;
+    });
+}
 void *halopad_d3d9_device_target(uint32_t g);
 void halopad_metal_read_image(void *p, uint32_t *out, uint32_t w, uint32_t h);
 static void count_present(uint32_t device)
 {
     int n = atomic_fetch_add(&presented, 1) + 1;
+    update_overlay_game_state();
     /* development: the back buffer of frame 600 as a PPM beside the registry (HALOPAD_TRACE_WINDOWS) */
     const char *reg = getenv("HALOPAD_REGISTRY");
     if (n == 600 && getenv("HALOPAD_TRACE_WINDOWS") && reg && strrchr(reg, '/')) {
@@ -259,7 +282,6 @@ static void resolve_device_paths(void)
 static HPGameViewController *game_vc;
 static UIView *game_view;
 static NSLayoutConstraint *keyboard_bottom, *full_bottom;
-static HPOverlay *overlay;
 static HPKeyboardProxy *keyboard;
 
 static void *input_window;                          /* the window touches and the pointer act on */
@@ -454,10 +476,9 @@ static void touch_selftest(void)
     }];
     overlay.hidden = getenv("HALOPAD_NO_OVERLAY") != NULL;   /* development: the game view alone */
     [v addSubview:overlay];
-    /* in a game or in Halo's menus, and the frame rate: polled from Halo's state */
+    /* Frame rate and optional map diagnostics. Menu ownership follows presented frames. */
     [NSTimer scheduledTimerWithTimeInterval:0.25 repeats:YES block:^(NSTimer *t) {
         NSString *m = current_map();
-        overlay.inGame = m.length && ![m isEqualToString:@"ui"];
         static int ticks, last;
         if (++ticks % 4 == 0) {
             int n = atomic_load(&presented);

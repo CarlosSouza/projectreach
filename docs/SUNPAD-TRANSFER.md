@@ -140,3 +140,19 @@ For Simulator touch testing, use **I/O → Keyboard → Connect Hardware Keyboar
 the simulated hardware keyboard if Show Keyboard produces no visible keyboard. This was the
 cause of the earlier zero-height keyboard traces; it is a Simulator setting, not a Halo key
 check. The project iPad and iPhone previews were tested with it disconnected.
+
+
+### Pause and child menus
+
+Gameplay controls now follow the active Halo widget as well as the map. Opening Pause releases
+held movement, fire and continuous look, hides both sticks/actions and passes the surface through.
+The top Pause target becomes a Back chevron, returning one menu level or resuming the game.
+It is also hidden while the software keyboard is visible. Halo's state is sampled on its frame
+thread and ownership changes are delivered to UIKit; this does not infer pause from mouse capture
+or stop an online game's simulation.
+
+Verified in a menu-started local Battle Creek match on iPad (`G3/ios-app-20260928T125447Z`),
+including a nested Game Options menu and touch Back/resume. The boundary suite passes 30
+assertions and 90 layout combinations. Direct touch positioning of Halo's original menu cursor
+and very short input edges remain open; use the connected hardware keyboard for menu navigation
+in Simulator for now. Disconnect it again when previewing the software keyboard.
