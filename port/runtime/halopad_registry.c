@@ -93,7 +93,15 @@ static void load_file(const char *file, int required)
         char path[1024], namehex[1024], datahex[4096];
         uint32_t type;
         if (!strncmp(line, "key ", 4)) { add_key(line + 4); continue; }
-        if (sscanf(line, "value %1023s %u %1023s %4095s", path, &type, namehex, datahex) == 4) {
+        /* value <PATH> <type> <name-hex> <data-hex>: the path may hold spaces ("Microsoft Games\Halo CE"),
+           so the three fields are taken from the end of the line */
+        char *sp3 = strrchr(line, ' '), *sp2 = NULL, *sp1 = NULL;
+        if (sp3) { *sp3 = 0; sp2 = strrchr(line, ' '); *sp3 = ' '; }
+        if (sp2) { *sp2 = 0; sp1 = strrchr(line, ' '); *sp2 = ' '; }
+        if (!strncmp(line, "value ", 6) && sp1 && sp1 > line + 6 && (size_t)(sp1 - line - 6) < sizeof path &&
+            sscanf(sp1, " %u %1023s %4095s", &type, namehex, datahex) == 3) {
+            memcpy(path, line + 6, (size_t)(sp1 - line - 6));
+            path[sp1 - line - 6] = 0;
             uint8_t name[512], data[2048];
             int nn = strcmp(namehex, "-") ? unhex(namehex, name, sizeof name - 1) : 0;
             int dn = strcmp(datahex, "-") ? unhex(datahex, data, sizeof data) : 0;

@@ -997,3 +997,27 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
 - **Graphics.** The fixed-function program cache no longer stops at 256 programs; it is a growing hash table. The Warthog scene needed more.
 - **Suites.** The host test runs with one retry (grenade bounces vary from run to run). 25 suites, the join and 11 slices pass on macOS and on the iPad Simulator.
 
+
+## 2026-09-27 — Public servers, Halo on the iPad's screen, SunPad's touch controls
+
+- **Public servers.** HaloPad joined the Custom Edition servers people play on, listed by the
+  master server `s1.master.hosthpc.com` (252 listed, 193 answering, all 1.10): AUSSIES MADNESS 5
+  (Blood Gulch CTF), DEADLY ZOMBIES (wizard), POQclan Ice Fields and POQclan Massacre Island
+  (Death Island). Each loaded the server's map and spawned the player; the servers' own welcome
+  messages are in the screenshots. A full server (16/16) did not let it in. No server refused
+  Halo's key value; one that checks keys would. `scripts/public-join.sh`, HaloQuery in `ref/tools`.
+- **Halo on screen in the iOS app.** Frames reached the layer but never showed: Halo's thread
+  changed its CAMetalLayers without a run loop to commit them. The host now flushes Core
+  Animation after each change. The iPad Simulator shows Halo's menu and games.
+- **Touch controls and the three-dot menu from SunPad** (`port/ios/HaloPadOverlay.m`,
+  [SUNPAD-TRANSFER.md](SUNPAD-TRANSFER.md)): a move stick, a look area and Halo's PC controls in
+  games; a menu with Join Server by Address, recent servers, keyboard, console, chat, aspect
+  ratio, FPS counter, touch-control settings and a problem report. The iPad Simulator app joined
+  POQclan's Death Island game and played at about 26 frames per second.
+- **Fixes:** registry values under paths with spaces (Halo's gamma) no longer stop the next
+  launch; the app asks for landscape; the host test's combat is timed in frames again (a
+  millisecond version stopped the player dying), with the session's sound captured and checked
+  (menu music, gunfire, the explosion that kills); the lifecycle test (menu return, map reload,
+  quit, relaunch with the saved profile) and `run-core.py --relaunch`.
+- **Open:** Simulator audio in the app, an unattended touch test, iPhone layouts, the host test's
+  rare hang after the respawn (one run of three timed out at frame 2900).

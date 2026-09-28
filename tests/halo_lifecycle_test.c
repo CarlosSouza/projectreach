@@ -1,17 +1,16 @@
-/* Host test (G4): a local Slayer game started through Halo's own menus, then played.
+/* Lifecycle test (G4): menu return, map reload, quitting from the menu, and a clean relaunch.
  *
- * From the main menu, with keys as a player presses them: Multiplayer (creating profile "New001"
- * in a fresh state folder: run with scripts/run-core.py --fresh-state), Create Game > LAN, the
- * first map (Battle Creek), the Slayer gametype, Server Setup > Start Game. Halo hosts the game
- * itself: the Slayer engine runs, with its rules, spawning and respawning. Then, in Halo's game
- * state (players 0x815920, objects 0x7fb710; see tests/halo_play_test.c): walk to a loose weapon
- * and pick it up (it joins the unit's weapons at +0x2f8), walk back to the spawn point, fire (projectiles
- * appear), melee (F), look down and throw frag grenades at the player's own feet (right
- * button; unit +0x31e counts frags, +0xe0/+0xe4 are health and shields), die from them and
- * respawn as a new unit. WinMain's GameSpy set-up and key string are set as in the other
- * component tests (see tests/halo_connect_test.c). The whole session's sound is pulled from
- * DirectSound's mix at real-time rate and saved as session.wav; the menu music, gunfire and the
- * grenade explosions are checked in it. */
+ * Run with scripts/run-core.py --relaunch: two processes, one after the other, on one fresh state
+ * folder (HALOPAD_LAUNCH 1 and 2). Only keys, as a player presses them:
+ *  launch 1: Multiplayer (creating profile "New001"), Create Game > LAN > Battle Creek > Slayer >
+ *    Start Game; in the game, Escape > Leave Game back to the main menu; the same again (the map
+ *    loads a second time); then Quit > OK. Halo's own main returns: the test never sets the quit
+ *    flag unless a 20,000-frame guard runs out, which fails the test.
+ *  launch 2: Multiplayer goes straight to the multiplayer menu (the profile Halo saved is loaded,
+ *    so there is no name prompt), the same game starts, the player is New001; Leave Game; Quit > OK.
+ * Checks: the map sequence, the player's name, main returning by itself, and the saved profile
+ * files on disk between the launches. WinMain's GameSpy set-up and key string are set as in the
+ * other component tests (see tests/halo_connect_test.c). */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -65,7 +64,7 @@ static void shot(uint32_t device, int n)
     halopad_metal_read_image(halopad_d3d9_device_target(device), img, w, h);
     const char *reg = getenv("HALOPAD_REGISTRY");
     char path[1200];
-    snprintf(path, sizeof path, "%.*s/host-%02d.ppm", (int)(strrchr(reg, '/') - reg), reg, n);
+    snprintf(path, sizeof path, "%.*s/life-%02d.ppm", (int)(strrchr(reg, '/') - reg), reg, n);
     FILE *f = fopen(path, "wb");
     fprintf(f, "P6\n%u %u\n255\n", w, h);
     for (uint32_t i = 0; i < w * h; i++) { uint8_t rgb[3] = {(uint8_t)(img[i] >> 16), (uint8_t)(img[i] >> 8), (uint8_t)img[i]}; fwrite(rgb, 1, 3, f); }
@@ -176,119 +175,42 @@ static void save_wav(void)
     v = 44100; fwrite(&v, 4, 1, f); v = 44100 * 4; fwrite(&v, 4, 1, f); h[0] = 4; h[1] = 16; fwrite(h, 2, 2, f);
     fwrite("data", 1, 4, f); fwrite(&data, 4, 1, f); fwrite(rec, 4, rec_n, f); fclose(f);
 }
+static char maps_seen[256];
+static int quit_by_test, launch = 1, spawned_as_new001;
 static void on_present(uint32_t device)
 {
     frames++;
-    if (frames == 150 || frames == 2900) printf("    checkpoint frame %d: map \"%s\", %.1f s of sound mixed\n", frames, (const char *)halopad_guest_ptr(0x643064), rec_n / 44100.0);
+    static const char *const start[] = {"down", "down", "down", "down", "enter", "enter",
+        "down", "down", "down", "down", "down", "down", "down", "down", "down", "down", "down", "down", "enter",
+        "wait", "wait", "down", "down", "down", "enter", "wait", "wait", "wait", "wait"};
+    static const char *const leave[] = {"esc", "wait", "down", "down", "down", "enter", "wait"};
+    static const char *const quit[] = {"down", "down", "down", "down", "enter", "wait", "left", "wait", "enter", "wait"};
+    static const char *route[128]; static int n = -1;
+    if (n < 0) {
+        n = 0;
+        route[n++] = "enter";                                           /* Multiplayer */
+        if (launch == 1) route[n++] = "enter";                          /* accept the new profile's name */
+        for (int rep = 0; rep < (launch == 1 ? 2 : 1); rep++) {
+            for (unsigned q = 0; q < sizeof start / sizeof *start; q++) route[n++] = start[q];
+            for (unsigned q = 0; q < sizeof leave / sizeof *leave; q++) route[n++] = leave[q];
+            if (rep == 0 && launch == 1) route[n++] = "enter";          /* Multiplayer again */
+        }
+        for (unsigned q = 0; q < sizeof quit / sizeof *quit; q++) route[n++] = quit[q];
+    }
     int k = (frames - 200) / 100, s2 = (frames - 200) % 100;
-    if (frames > 200 && k < NROUTE) {
-        static const struct { const char *n; uint32_t vk, scan; int ext; } map[] = {{"enter", 13, 0x1c, 0}, {"down", 40, 0x50, 1}};
-        for (unsigned m = 0; m < 2; m++) if (!strcmp(map[m].n, route[k])) {
+    if (frames > 200 && k < n) {
+        static const struct { const char *n; uint32_t vk, scan; int ext; } map[] = {{"enter", 13, 0x1c, 0}, {"esc", 27, 1, 0}, {"down", 40, 0x50, 1}, {"left", 37, 0x4b, 1}};
+        for (unsigned m = 0; m < sizeof map / sizeof map[0]; m++) if (!strcmp(map[m].n, route[k])) {
             if (s2 == 1) keyx(map[m].vk, map[m].scan, map[m].ext, 1);
             if (s2 == 6) keyx(map[m].vk, map[m].scan, map[m].ext, 0);
         }
     }
+    const char *m = (const char *)halopad_guest_ptr(0x643064);
+    const char *last = strrchr(maps_seen, ' ') ? strrchr(maps_seen, ' ') + 1 : maps_seen;
+    if (*m && strcmp(m, last) && strlen(maps_seen) + strlen(m) + 2 < sizeof maps_seen) { if (*maps_seen) strcat(maps_seen, " "); strcat(maps_seen, m); shot(device, (int)strlen(maps_seen) % 100); }
     uint32_t p = local_player(), u = p ? object(rd(p + 0x34)) : 0;
-    if (!spawn_frame && u && frames > 200 + 100 * NROUTE) {
-        spawn_frame = frames; first_unit = rd(p + 0x34);
-        snprintf(map_at_spawn, sizeof map_at_spawn, "%s", (const char *)halopad_guest_ptr(0x643064));
-        /* the player's name (UTF-16 at player +0x4) is the profile's */
-        const uint16_t *nm = halopad_guest_ptr(p + 4); name_ok = nm[0] == 'N' && nm[1] == 'e' && nm[2] == 'w' && nm[3] == '0';
-        shot(device, 1);
-    }
-    if (!spawn_frame) goto end;
-    /* after the respawn (Slayer picks a random spawn point): walk to the nearest loose weapon on the
-       player's level that it does not hold, and take it when Halo offers it (player +0x24, "Hold E
-       to pick up"). Blocked (no progress for 60 frames): strafe left, then right; then try the next
-       weapon. */
-    if (!combat_start) combat_start = spawn_frame;
-
-    if (respawn_frame) {
-        int tp = frames - respawn_frame;
-        /* choose (again, if the way is blocked: no progress for 60 frames) the nearest loose weapon */
-        if (u && !picked && pickup && tp - progress_frame > 60 && stuck_tries < 2) {       /* blocked: strafe */
-            strafe_key = stuck_tries == 0 ? 'A' : 'D'; strafe_until = tp + 40; stuck_tries++; progress_frame = tp + 40;
-            if (w_down) { keyx('W', 0x11, 0, 0); w_down = 0; }
-            keyx(strafe_key, strafe_key == 'A' ? 0x1e : 0x20, 0, 1);
-        }
-        if (strafe_key && tp >= strafe_until) { keyx(strafe_key, strafe_key == 'A' ? 0x1e : 0x20, 0, 0); strafe_key = 0; }
-        if (u && !picked && tp >= 20 && tp < 1000 && (tp == 20 || (pickup && tp - progress_frame > 60))) {
-            stuck_tries = 0;
-            if (pickup && nskip < 16) skip[nskip++] = pickup;
-            uint32_t ot = rd(0x7fb710), held = object(rd(u + 0x2f8));
-            float best = 40.0f, up[3] = {f32(u + 0x5c), f32(u + 0x60), f32(u + 0x64)};
-            pickup = 0;
-            for (uint32_t i = 0; i < u16(ot + 0x20); i++) {
-                uint32_t e = rd(ot + 0x34) + i * 12;
-                if (!u16(e)) continue;
-                uint32_t o = rd(e + 8), hnd = (uint32_t)u16(e) << 16 | i;
-                int skipped = 0; for (int q = 0; q < nskip; q++) skipped |= skip[q] == hnd;
-                if (skipped || (int16_t)u16(o + 0xb4) != 2 || rd(o + 0xcc) != 0xffffffff || (held && (rd(o) & 0xffff) == (rd(held) & 0xffff))) continue;
-                float d = hypotf(f32(o + 0x5c) - up[0], f32(o + 0x60) - up[1]);
-                if (fabsf(f32(o + 0x64) - up[2]) < 2.0f && d < best) { best = d; pickup = hnd; }
-            }
-            if (tp == 20) weapons_before = rd(u + 0x2f8 + 4);
-            progress_frame = tp; best_dist = 1e9f;
-            if (getenv("HALOPAD_TRACE_PICKUP")) { uint32_t oo = object(pickup); printf("      pickup choose t%d: %08x at %.2f %.2f %.2f; player %.2f %.2f %.2f\n", tp, pickup, oo ? f32(oo + 0x5c) : 0, oo ? f32(oo + 0x60) : 0, oo ? f32(oo + 0x64) : 0, up[0], up[1], up[2]); }
-        }
-        if (u && pickup && object(pickup)) {
-            uint32_t o = object(pickup);
-            float d = hypotf(f32(o + 0x5c) - f32(u + 0x5c), f32(o + 0x60) - f32(u + 0x60));
-            if (d < best_dist - 0.3f) { best_dist = d; progress_frame = tp; }
-        }
-        if (tp > 20 && tp < 1000 && pickup && u && !picked && !strafe_key) {
-            uint32_t o = object(pickup);
-            float up[3] = {f32(u + 0x5c), f32(u + 0x60), f32(u + 0x64)}, look[3] = {f32(u + 0x23c), f32(u + 0x240), f32(u + 0x244)};
-            if (o) {
-                float yaw = atan2f(look[1], look[0]) * 57.29578f, b = atan2f(f32(o + 0x60) - up[1], f32(o + 0x5c) - up[0]) * 57.29578f, err = b - yaw;
-                while (err > 180) err -= 360; while (err < -180) err += 360;
-                int dx = (int)(-err * 6); if (dx > 60) dx = 60; if (dx < -60) dx = -60;
-                if (dx) mouse(dx, 0);
-                int want = fabsf(err) < 20;
-                if (want != w_down) { keyx('W', 0x11, 0, want); w_down = want; }
-            }
-            if (tp % 40 == 0 && getenv("HALOPAD_TRACE_PICKUP")) printf("      pickup t%d player %.2f %.2f %.2f weapon %.2f %.2f %.2f interaction %08x/%d\n", tp, up[0], up[1], up[2], o ? f32(o + 0x5c) : 0, o ? f32(o + 0x60) : 0, o ? f32(o + 0x64) : 0, rd(p + 0x24), (int16_t)u16(p + 0x28));
-            /* Halo offers the weapon (player +0x24, the "Hold E to pick up" prompt); hold E to take it */
-            if (rd(p + 0x24) == pickup && !e_down) { offered_pickup = (int16_t)u16(p + 0x28); keyx('E', 0x12, 0, 1); e_down = frames; }
-            if (e_down && frames - e_down == 40) keyx('E', 0x12, 0, 0);
-            for (uint32_t q = 0; q < 4; q++) if (rd(u + 0x2f8 + 4 * q) == pickup) { picked = frames; shot(device, 7); }
-        }
-        if ((picked || tp == 1000) && w_down) { keyx('W', 0x11, 0, 0); w_down = 0; }
-        if ((picked || tp == 1000) && e_down > 0 && frames - e_down < 40) { keyx('E', 0x12, 0, 0); e_down = -1; }
-    }
-    if (frames < combat_start) goto end;
-    int t = frames - combat_start;
-    if (u && rd(p + 0x34) == first_unit) {
-        float hp = f32(u + 0xe0), sh = f32(u + 0xe4);
-        if (t > 300 && hp < health_min) health_min = hp;
-        if (t > 300 && sh < shield_min) shield_min = sh;
-    }
-    /* fire */
-    if (t == 60) objects_before = live_objects();
-    if (t == 70) { button(0, 1); mark_fire = rec_n; }
-    if (t > 70 && t < 110) { uint32_t n = live_objects(); if (n > objects_most) { if (n > objects_before && !mark_shot) mark_shot = rec_n; objects_most = n; } }
-    if (t == 90) shot(device, 2);
-    if (t == 100) button(0, 0);
-    /* melee */
-    if (t == 180) keyx('F', 0x21, 0, 1);
-    if (t > 180 && t < 230 && u && rd(u + 0x2ac)) melee_seen = 1;
-    if (t == 186) shot(device, 3);
-    if (t == 192) keyx('F', 0x21, 0, 0);
-    /* look down, then frag grenades at the player's feet until it dies */
-    if (t >= 240 && t < 270) mouse(0, 40);
-    if (t == 325 && u) { look_down = f32(u + 0x244); frags0 = *(uint8_t *)halopad_guest_ptr(u + 0x31e); }
-    /* both frags close together, so they go off at the player's feet together; again later if
-       the player still stands (a grenade can bounce away) */
-    if (t == 330) mark_frag = rec_n;
-    if (t == 330 || t == 370 || t == 900 || t == 940) button(1, 1);
-    if (t == 340 || t == 380 || t == 910 || t == 950) button(1, 0);
-    if (t == 365) shot(device, 4);
-    if (t == 360 && u) frags1 = *(uint8_t *)halopad_guest_ptr(u + 0x31e);   /* after the first throw */
-    if (!death_frame && t > 300 && (!u || rd(p + 0x34) != first_unit)) { death_frame = frames; mark_death = rec_n; shot(device, 5); }
-    if (death_frame && !respawn_frame && u && rd(p + 0x34) != first_unit) { respawn_frame = frames; second_unit = rd(p + 0x34); }
-    if (respawn_frame && frames == respawn_frame + 10) shot(device, 6);
-end:
-    if (frames == QUIT_AFTER || (respawn_frame && (frames == respawn_frame + 1060 || (picked && frames == picked + 60)))) *(uint8_t *)halopad_guest_ptr(0x6b47eb) = 1;
+    if (u && !strcmp(m, "beavercreek")) { const uint16_t *nm = halopad_guest_ptr(p + 4); if (nm[0] == 'N' && nm[1] == 'e' && nm[2] == 'w' && nm[3] == '0' && nm[4] == '0' && nm[5] == '1') spawned_as_new001 = 1; }
+    if (frames == 20000) { quit_by_test = 1; *(uint8_t *)halopad_guest_ptr(0x6b47eb) = 1; }
 }
 
 static int dialogs;
@@ -302,6 +224,18 @@ int halopad_host_dialog(const halopad_dialog_view *v)
     return HPD_CLOSE;
 }
 
+static int profile_on_disk(void)
+{
+    const char *st = getenv("HALOPAD_STATE_ROOT");
+    char path[1200];
+    snprintf(path, sizeof path, "%s/C/Documents and Settings/Player/My Documents/My Games/Halo CE/savegames/New001/blam.sav", st ? st : ".");
+    FILE *f = fopen(path, "rb");
+    if (!f) return 0;
+    fseek(f, 0, SEEK_END);
+    long n = ftell(f);
+    fclose(f);
+    return n == 8192;
+}
 int main(void)
 {
     const char *image = getenv("HALOPAD_IMAGE");
@@ -401,46 +335,22 @@ int main(void)
 
 
     /* main: initialization, then frames until the hook asks it to quit */
+    launch = getenv("HALOPAD_LAUNCH") ? atoi(getenv("HALOPAD_LAUNCH")) : 1;
+    if (launch == 2) check("launch 2 starts from the state launch 1 left (profile New001 on disk)", profile_on_disk(), 1);
     tap_run = 1;
     pthread_t tap;
     pthread_create(&tap, NULL, audio_tap, NULL);
     halopad_d3d9_present_hook = on_present;
     halopad_call_guest_ex(0x4ca9c0, 0, NULL, 0, 0);
     printf("    %d frames presented; main returned\n", frames);
-    check("main ran and returned when asked to quit", frames > 0, 1);
-    printf("    the menus started a game on \"%s\"; the player spawned at frame %d\n", map_at_spawn, spawn_frame);
-    check("  Multiplayer > Create Game (LAN) > Battle Creek > Slayer > Start Game loads beavercreek", !strcmp(map_at_spawn, "beavercreek"), 1);
-    check("  the player is New001, the profile made in the menus", name_ok, 1);
-    tap_run = 0;
-    pthread_join(tap, NULL);
-    save_wav();
-    {
-        uint32_t sec = 44100;
-        double menu = loudest_db(sec * 2, sec * 20 < mark_fire ? sec * 20 : mark_fire);
-        /* the game's ambience: the median 100 ms level over the 8.5 s before the shot (spawn and
-           announcer sounds are short and do not move it) */
-        double quiet = mark_shot > 10 * sec ? median_db(mark_shot - 10 * sec, mark_shot - 3 * sec / 2) : 0;
-        double shot = loudest_db(mark_shot > sec / 4 ? mark_shot - sec / 4 : 0, mark_shot + sec / 2);
-        double boom = loudest_db(mark_death > sec / 2 ? mark_death - sec / 2 : 0, mark_death + sec / 4);
-        printf("    audio marks: trigger %.2f s, projectile %.2f s, first frag %.2f s, death %.2f s\n", mark_fire / 44100.0, mark_shot / 44100.0, mark_frag / 44100.0, mark_death / 44100.0);
-        printf("    audio: %.1f s recorded (session.wav); menu loudest %.1f dBFS; game ambience %.1f dBFS; the shot %.1f dBFS; the explosion that kills %.1f dBFS\n",
-               rec_n / 44100.0, menu, quiet, shot, boom);
-        check("  the menu makes sound (music, louder than -40 dBFS)", menu > -40, 1);
-        check("  the shot is heard when its projectile appears (15 dB over the ambience)", mark_shot && shot > quiet + 15, 1);
-        check("  the explosion is heard when it kills the player (20 dB over the ambience)", mark_death && boom > quiet + 20, 1);
-    }
-    printf("    pickup: weapon %08x (offered as interaction type %d), second slot %08x before, taken at frame %d\n", pickup, offered_pickup, weapons_before, picked);
-    check("  walking over a loose weapon picks it up (it joins the unit's weapons, +0x2f8)", pickup && picked, 1);
-    printf("    live objects %u before firing, up to %u while firing\n", objects_before, objects_most);
-    check("  the trigger fires (projectiles appear)", objects_most > objects_before, 1);
-    check("  F melees (unit +0x2ac set during the swing)", melee_seen, 1);
-    printf("    looking down: k = %.2f; frag grenades %u -> %u; lowest health %.2f, shields %.2f\n", look_down, frags0, frags1, health_min, shield_min);
-    check("  the mouse looks down", look_down < -0.5f, 1);
-    check("  the right button throws a frag grenade (one fewer)", frags0 != 0xff && frags1 + 1 == frags0, 1);
-    check("  the grenade at the player's feet does damage", shield_min < 1.0f || health_min < 1.0f, 1);
-    printf("    died at frame %d, respawned at frame %d as unit %08x (was %08x)\n", death_frame, respawn_frame, second_unit, first_unit);
-    check("  the player dies", death_frame > 0, 1);
-    check("  Slayer respawns the player as a new unit", respawn_frame > death_frame && second_unit && second_unit != first_unit, 1);
+    printf("    launch %d: %d frames; maps in order: %s\n", launch, frames, maps_seen);
+    check("main returned by itself after Quit > OK (the test did not stop it)", !quit_by_test, 1);
+    if (launch == 1)
+        check("  maps: menu, Battle Creek, menu (Leave Game), Battle Creek again, menu", !strcmp(maps_seen, "ui beavercreek ui beavercreek ui"), 1);
+    else
+        check("  maps: menu, Battle Creek (no profile prompt: the saved profile is loaded), menu", !strcmp(maps_seen, "ui beavercreek ui"), 1);
+    check("  the player in the game is New001", spawned_as_new001, 1);
+    check("  the profile is saved on disk", profile_on_disk(), 1);
     check("  no dialog", (uint32_t)dialogs, 0);
     DeleteFileA_c(str(script_name));
     printf("%s: %d failure(s)\n", failures ? "FAIL" : "PASS", failures);

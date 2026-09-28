@@ -20,8 +20,8 @@
  * no internet. Only loopback, private (RFC 1918), link-local and broadcast destinations are
  * reachable (others fail with WSAENETUNREACH), and only the machine's own name and
  * "localhost" resolve (others fail with WSAHOST_NOT_FOUND, as offline). scripts/run-core.py
- * sets it for every test run: public servers are out of bounds in this phase. Unset: the
- * host's network as it is. */
+ * sets it for test runs unless it is set; scripts/public-join.sh sets "internet" to join
+ * public servers. Unset or any other value: the host's network as it is. */
 #include "halopad_win32.h"
 #include <arpa/inet.h>
 #include <errno.h>

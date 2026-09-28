@@ -84,6 +84,7 @@ void *halopad_host_window_create(uint32_t width, uint32_t height, const char *ti
         w->layer.drawableSize = CGSizeMake(width, height);
         w->layer.contentsGravity = kCAGravityResizeAspect;   /* letterboxed in the shell's view */
         w->layer.hidden = !visible;
+        [CATransaction flush];                           /* Halo's thread has no run loop to commit it */
     }
     w->w = width; w->h = height;
     if (window_handler) {
@@ -122,7 +123,7 @@ void halopad_host_window_destroy(void *p)
 void halopad_host_window_show(void *p, int visible)
 {
     hp_window *w = p;
-    @autoreleasepool { w->layer.hidden = !visible; }
+    @autoreleasepool { w->layer.hidden = !visible; [CATransaction flush]; }
 }
 
 void halopad_host_window_title(void *p, const char *title) { (void)p; (void)title; }   /* iOS windows have no title bar */

@@ -55,6 +55,7 @@ void halopad_metal_read_image(void *p, uint32_t *out, uint32_t w, uint32_t h);
 extern void (*halopad_d3d9_present_hook)(uint32_t device);
 #define QUIT_AFTER 1200
 static int frames, map_frame;
+static const char *expect_map = "bloodgulch";     /* HALOPAD_TEST_MAP: the map the server runs */
 static uint32_t unit_seen;
 static uint16_t u16(uint32_t g) { uint16_t v; memcpy(&v, halopad_guest_ptr(g), 2); return v; }
 /* the player's unit: players table 0x815920, object table 0x7fb710 (see tests/halo_play_test.c) */
@@ -87,7 +88,7 @@ static void save(uint32_t device)
 static void on_present(uint32_t device)
 {
     frames++;
-    if (!map_frame && !strcmp((const char *)halopad_guest_ptr(0x643064), "bloodgulch")) map_frame = frames;
+    if (!map_frame && !strcasecmp((const char *)halopad_guest_ptr(0x643064), expect_map)) map_frame = frames;
     uint32_t u = player_unit();
     if (u && map_frame) unit_seen = u;
     if (frames == 900) save(device);
@@ -127,6 +128,7 @@ int main(void)
     halopad_audio_manual = 1;                                     /* no audio device in tests */
 
     const char *server = getenv("HALOPAD_TEST_SERVER") ? getenv("HALOPAD_TEST_SERVER") : "127.0.0.1:2310";
+    if (getenv("HALOPAD_TEST_MAP")) expect_map = getenv("HALOPAD_TEST_MAP");
     char args[128];
     snprintf(args, sizeof args, "-connect %s", server);
     setenv("HALOPAD_ARGS", args, 1);
@@ -198,7 +200,8 @@ int main(void)
     printf("    %d frames presented; main returned\n", frames);
     check("main ran and returned when asked to quit", frames >= QUIT_AFTER, 1);
     printf("    joined %s: the server's map loaded at frame %d\n", server, map_frame);
-    check("  the server's map (bloodgulch) loaded through the connection", map_frame > 0, 1);
+    printf("    expected map \"%s\"; the map in memory is \"%s\"\n", expect_map, (const char *)halopad_guest_ptr(0x643064));
+    check("  the server's map loaded through the connection", map_frame > 0, 1);
     check("  the server spawned the player's unit", unit_seen != 0, 1);
     check("  no dialog", (uint32_t)dialogs, 0);
     printf("%s: %d failure(s)\n", failures ? "FAIL" : "PASS", failures);

@@ -15,6 +15,7 @@ import argparse
 import datetime
 import importlib.util
 import json
+import os
 import pathlib
 import plistlib
 import shutil
@@ -42,8 +43,9 @@ def package(exe, out):
         'CFBundleIdentifier': BUNDLE_ID, 'CFBundleExecutable': 'HaloPad', 'CFBundleName': 'HaloPad',
         'CFBundleDisplayName': 'HaloPad', 'CFBundlePackageType': 'APPL', 'CFBundleVersion': '1',
         'CFBundleShortVersionString': '0.1', 'CFBundleSupportedPlatforms': ['iPhoneSimulator'],
-        'MinimumOSVersion': '17.0', 'UIDeviceFamily': [2], 'UIRequiresFullScreen': True, 'UILaunchScreen': {},
+        'MinimumOSVersion': '17.0', 'UIDeviceFamily': [1, 2], 'UIRequiresFullScreen': True, 'UILaunchScreen': {},
         'UIStatusBarHidden': True,
+        'UISupportedInterfaceOrientations': ['UIInterfaceOrientationLandscapeLeft', 'UIInterfaceOrientationLandscapeRight'],
         'UISupportedInterfaceOrientations~ipad': ['UIInterfaceOrientationLandscapeLeft', 'UIInterfaceOrientationLandscapeRight'],
         'UIApplicationSceneManifest': {'UIApplicationSupportsMultipleScenes': False},
     }
@@ -63,7 +65,8 @@ def main():
                     help='development only: a C file whose halopad_app_entry replaces the core start (evidence scenes in tests/)')
     a = ap.parse_args()
     work = (a.work or max(run_core.PROFILE.glob('run-*/va/haloce.va.ll'), key=lambda p: p.stat().st_mtime).parent.parent).resolve()
-    exe, _ = run_core.build(work, TARGET, ROOT / 'port' / 'ios' / 'HaloPadApp.m', extra=[a.scene.resolve()] if a.scene else [])
+    extra = [ROOT / 'port' / 'ios' / 'HaloPadOverlay.m'] + ([a.scene.resolve()] if a.scene else [])
+    exe, _ = run_core.build(work, TARGET, ROOT / 'port' / 'ios' / 'HaloPadApp.m', extra=extra)
     app = package(exe, work / f'ios-app-{TARGET}')
     print('built', app.relative_to(ROOT))
     if not a.launch:
@@ -75,12 +78,14 @@ def main():
     env = {'HALOPAD_IMAGE': run_core.IMAGE, 'HALOPAD_MODULE_IMAGES': run_core.IMAGE.parent / 'modules',
            'HALOPAD_REFERENCE_ROOT': ROOT / 'ref' / 'inputs' / 'reference-machine', 'HALOPAD_GAME_ROOT': run_core.GAME_ROOT,
            'HALOPAD_STATE_ROOT': STATE, 'HALOPAD_REPO_ROOT': ROOT, 'HALOPAD_REGISTRY': STATE / 'registry.txt'}
+    # development settings from the Mac's environment: Halo's command line, the network policy,
+    # an overlay part to open for the screenshot
+    env.update({k: os.environ[k] for k in ('HALOPAD_ARGS', 'HALOPAD_NET', 'HALOPAD_OVERLAY_DEMO', 'HALOPAD_TRACE_NET', 'HALOPAD_TRACE_WINDOWS', 'HALOPAD_NO_OVERLAY') if k in os.environ})
     child = {'SIMCTL_CHILD_' + k: str(v) for k, v in env.items()}
     dev = a.device
     subprocess.run(['xcrun', 'simctl', 'boot', dev], capture_output=True)          # already booted is fine
     subprocess.run(['xcrun', 'simctl', 'bootstatus', dev, '-b'], check=True, capture_output=True)
     subprocess.run(['xcrun', 'simctl', 'install', dev, str(app)], check=True)
-    import os
     launch = subprocess.run(['xcrun', 'simctl', 'launch', '--terminate-running-process', f'--stdout={evid / "stdout.txt"}',
                              f'--stderr={evid / "stderr.txt"}', dev, BUNDLE_ID], env=dict(os.environ, **child),
                             capture_output=True, text=True)

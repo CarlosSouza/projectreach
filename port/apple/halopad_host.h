@@ -4,7 +4,7 @@
 #define HALOPAD_HOST_H
 #include <TargetConditionals.h>
 #import <Metal/Metal.h>
-#import <QuartzCore/CAMetalLayer.h>
+#import <QuartzCore/QuartzCore.h>
 #include <stdint.h>
 #if TARGET_OS_OSX
 @class NSWindow;

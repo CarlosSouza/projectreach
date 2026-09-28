@@ -34,10 +34,14 @@ int halopad_audio_start(void (*render_fn)(float *out, uint32_t frames), uint32_t
     AudioStreamBasicDescription f = {(Float64)rate, kAudioFormatLinearPCM, kAudioFormatFlagIsFloat | kAudioFormatFlagIsPacked,
                                      8, 1, 8, 2, 32, 0};
     AURenderCallbackStruct cb = {render, NULL};
-    if (AudioUnitSetProperty(unit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input, 0, &f, sizeof f)
-        || AudioUnitSetProperty(unit, kAudioUnitProperty_SetRenderCallback, kAudioUnitScope_Input, 0, &cb, sizeof cb)
-        || AudioUnitInitialize(unit) || AudioOutputUnitStart(unit)) {
-        fprintf(stderr, "HALOPAD: audio output unit would not start\n");
+    OSStatus e = 0;
+    const char *step = "stream format";
+    if (!(e = AudioUnitSetProperty(unit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input, 0, &f, sizeof f))
+        && (step = "render callback", !(e = AudioUnitSetProperty(unit, kAudioUnitProperty_SetRenderCallback, kAudioUnitScope_Input, 0, &cb, sizeof cb)))
+        && (step = "initialize", !(e = AudioUnitInitialize(unit))))
+        step = "start", e = AudioOutputUnitStart(unit);
+    if (e) {
+        fprintf(stderr, "HALOPAD: audio output unit would not start (%s: OSStatus %d)\n", step, (int)e);
         AudioComponentInstanceDispose(unit);
         unit = NULL;
         return 0;

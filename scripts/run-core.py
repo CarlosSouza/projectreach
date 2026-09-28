@@ -67,7 +67,7 @@ def build(work, target, main_src, extra=()):
            '-Wno-override-module', '-I', str(SUPPORT), '-I', str(ROOT / 'generated' / 'runtime'), *xiph.include_flags(),
            str(main_src), *map(str, extra), *map(str, sorted((ROOT / 'port/runtime').glob('*.c'))),
            *map(str, sorted(SUPPORT.glob('llasm_*.c'))), str(va / 'dispatch.ll'), *map(str, runtime_ll),
-           str(out / 'stubs.ll'), str(obj), *map(str, mod_objs), *[str(m) for m in sorted((ROOT / 'port/apple').glob('*.m'))], str(xiph.archive(target, sdk)), '-fobjc-arc', '-framework', 'CoreGraphics', '-framework', 'CoreText', '-framework', 'UIKit' if ios else 'Cocoa', '-framework', 'Metal', '-framework', 'GameController', '-framework', 'QuartzCore', '-framework', 'AudioToolbox', '-o', str(exe)]
+           str(out / 'stubs.ll'), str(obj), *map(str, mod_objs), *[str(m) for m in sorted((ROOT / 'port/apple').glob('*.m'))], str(xiph.archive(target, sdk)), '-fobjc-arc', '-framework', 'CoreGraphics', '-framework', 'CoreText', '-framework', 'UIKit' if ios else 'Cocoa', '-framework', 'Metal', '-framework', 'GameController', '-framework', 'QuartzCore', '-framework', 'AudioToolbox', '-framework', 'AVFoundation', '-o', str(exe)]
     link = subprocess.run(cmd, capture_output=True, text=True)
     (out / 'link.log').write_text(' '.join(cmd) + '\n' + link.stdout + link.stderr)
     if link.returncode:
@@ -82,6 +82,8 @@ def main():
     ap.add_argument('--timeout', type=int, default=120)
     ap.add_argument('--fresh-state', action='store_true',
                     help='start from an empty state folder (no profile, settings or saves), kept in the evidence')
+    ap.add_argument('--relaunch', action='store_true',
+                    help='run twice, one after the other, on the same fresh state folder (HALOPAD_LAUNCH=1, 2); evidence under launch-<n>/')
     ap.add_argument('--clients', type=int, default=1,
                     help='run this many instances at once (network tests): each gets HALOPAD_CLIENT=<i>, its own state\n'
                          'folder generated/halopad-disk-client<i> and evidence under client-<i>/')
@@ -98,15 +100,24 @@ def main():
     # each run starts from the reference machine's registry; the final state is evidence
     env = dict(os.environ, HALOPAD_IMAGE=str(IMAGE), HALOPAD_MODULE_IMAGES=str(IMAGE.parent / 'modules'), HALOPAD_REFERENCE_ROOT=str(ROOT / 'ref' / 'inputs' / 'reference-machine'), HALOPAD_GAME_ROOT=str(GAME_ROOT), HALOPAD_STATE_ROOT=str(ROOT / 'generated' / 'halopad-disk'), HALOPAD_REPO_ROOT=str(ROOT),
                HALOPAD_REGISTRY=str(evid / 'registry.txt'))
-    if a.fresh_state:
+    if a.fresh_state or a.relaunch:
         env['HALOPAD_STATE_ROOT'] = str(evid / 'state')
-    env.setdefault('HALOPAD_NET', 'lan')                   # tests never reach public hosts (halopad_winsock.c)
+    env.setdefault('HALOPAD_NET', 'lan')                   # tests stay on the LAN unless set (scripts/public-join.sh: internet)
     acceptance = ROOT / 'generated' / 'runtime-state' / 'eula-acceptance.txt'   # written only by scripts/accept-eula.sh
     if acceptance.exists():
         env['HALOPAD_EULA_ACCEPTANCE'] = str(acceptance)
     if a.run_prefix:                                    # e.g. xcrun simctl spawn <device>: it passes SIMCTL_CHILD_* variables on
         env.update({'SIMCTL_CHILD_' + k: v for k, v in list(env.items()) if k.startswith('HALOPAD_')})
-    if a.clients == 1:
+    if a.relaunch:
+        runs = []
+        for i in (1, 2):
+            d = evid / f'launch-{i}'
+            d.mkdir()
+            e = dict(env, HALOPAD_LAUNCH=str(i), HALOPAD_REGISTRY=str(d / 'registry.txt'))
+            if a.run_prefix:
+                e.update({'SIMCTL_CHILD_' + k: v for k, v in list(e.items()) if k.startswith('HALOPAD_')})
+            runs.append((d, e))
+    elif a.clients == 1:
         runs = [(evid, env)]
     else:
         runs = []
@@ -118,14 +129,19 @@ def main():
             if a.run_prefix:
                 e.update({'SIMCTL_CHILD_' + k: v for k, v in list(e.items()) if k.startswith('HALOPAD_')})
             runs.append((d, e))
-    procs = [(d, subprocess.Popen([*a.run_prefix, str(exe)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=e))
-             for d, e in runs]
+    start = lambda e: subprocess.Popen([*a.run_prefix, str(exe)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=e)
+    # clients run at once; launches run one after the other (the second starts when the first has exited)
+    procs = [(d, e if a.relaunch else start(e)) for d, e in runs]
     codes = []
     for d, p in procs:
+        if a.relaunch:
+            p = start(p)
         try:
             out, err = p.communicate(timeout=a.timeout)
             code = p.returncode
         except subprocess.TimeoutExpired:
+            if not a.run_prefix:                            # a hang: every thread's stack before it is stopped
+                subprocess.run(['sample', str(p.pid), '3', '-file', str(d / 'hang-sample.txt')], capture_output=True)
             p.kill()
             out, err = p.communicate()
             code = 'timeout'
@@ -141,8 +157,8 @@ def main():
         report = {'target': target, 'work': str(work.relative_to(ROOT)), 'exit': code, 'stopped_at': stop,
                   'identities': {'image.bin': sha(IMAGE), 'haloce.va.o': sha(obj), 'executable': sha(exe)}}
         (d / 'result.json').write_text(json.dumps(report, indent=1) + '\n')
-        if a.clients > 1:
-            print(f'--- client {len(codes)}')
+        if a.clients > 1 or a.relaunch:
+            print(f'--- {"launch" if a.relaunch else "client"} {len(codes) + (1 if a.relaunch else 0)}')
         print(err[-1500:])
         print('exit', code, '| stopped at:', stop)
         codes.append(code)

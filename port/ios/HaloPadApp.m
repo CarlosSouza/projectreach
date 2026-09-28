@@ -13,10 +13,14 @@
  * Development builds on the Simulator get their data paths from the environment
  * (scripts/build-ios-app.py passes HALOPAD_* through simctl launch). */
 #import <UIKit/UIKit.h>
+#import <AVFoundation/AVFoundation.h>
 #include <stdio.h>
 #include <math.h>
+#include <stdatomic.h>
+#include <sys/utsname.h>
 
 #include "../runtime/halopad_input.h"
+#import "HaloPadOverlay.h"
 
 int halopad_core_run(void);
 /* what the core thread runs: Halo from its entry point, unless a development scene replaces it
@@ -25,20 +29,84 @@ __attribute__((weak, noinline)) int halopad_app_entry(void) { return halopad_cor
 void halopad_host_set_window_handler(void (*handler)(void *window));
 void halopad_host_attach_view(void *window, UIView *view);
 void halopad_host_window_size(void *window, uint32_t *w, uint32_t *h);
+extern uint64_t halopad_guest_base;
+void *halopad_guest_ptr(uint32_t guest);
+extern void (*halopad_d3d9_present_hook)(uint32_t device);
 
-@interface HPGameViewController : UIViewController
+/* frames Halo presents (the FPS counter) */
+static atomic_int presented;
+void *halopad_d3d9_device_target(uint32_t g);
+void halopad_metal_read_image(void *p, uint32_t *out, uint32_t w, uint32_t h);
+static void count_present(uint32_t device)
+{
+    int n = atomic_fetch_add(&presented, 1) + 1;
+    /* development: the back buffer of frame 600 as a PPM beside the registry (HALOPAD_TRACE_WINDOWS) */
+    const char *reg = getenv("HALOPAD_REGISTRY");
+    if (n == 600 && getenv("HALOPAD_TRACE_WINDOWS") && reg && strrchr(reg, '/')) {
+        uint32_t w = 800, h = 600, *img = malloc(w * h * 4);
+        halopad_metal_read_image(halopad_d3d9_device_target(device), img, w, h);
+        char path[1200];
+        snprintf(path, sizeof path, "%.*s/frame600.ppm", (int)(strrchr(reg, '/') - reg), reg);
+        FILE *f = fopen(path, "wb");
+        if (f) {
+            fprintf(f, "P6\n%u %u\n255\n", w, h);
+            for (uint32_t i = 0; i < w * h; i++) { uint8_t rgb[3] = {(uint8_t)(img[i] >> 16), (uint8_t)(img[i] >> 8), (uint8_t)img[i]}; fwrite(rgb, 1, 3, f); }
+            fclose(f);
+            fprintf(stderr, "HALOPAD APP: frame 600 saved to %s\n", path);
+        }
+        free(img);
+    }
+}
+
+/* Halo's current map (0x643064 in haloce.exe 1.10): "ui" is its menus; empty before it starts */
+static NSString *current_map(void)
+{
+    if (!halopad_guest_base) return @"";
+    char m[32];
+    memcpy(m, halopad_guest_ptr(0x643064), sizeof m - 1);
+    m[sizeof m - 1] = 0;
+    return [NSString stringWithCString:m encoding:NSASCIIStringEncoding] ?: @"";
+}
+
+/* The system keyboard for Halo's text entry: what is typed becomes key presses with characters. */
+@interface HPKeyboardProxy : UIView <UIKeyInput>
+@end
+@implementation HPKeyboardProxy
+- (BOOL)canBecomeFirstResponder { return YES; }
+- (BOOL)hasText { return YES; }
+- (void)insertText:(NSString *)text { [HPOverlay typeText:text]; }
+- (void)deleteBackward { [HPOverlay typeText:@"\b"]; }
+- (UITextAutocorrectionType)autocorrectionType { return UITextAutocorrectionTypeNo; }
+- (UITextAutocapitalizationType)autocapitalizationType { return UITextAutocapitalizationTypeNone; }
+- (UITextSpellCheckingType)spellCheckingType { return UITextSpellCheckingTypeNo; }
+- (UIReturnKeyType)returnKeyType { return UIReturnKeySend; }
+@end
+
+@interface HPGameViewController : UIViewController <HPOverlayDelegate>
 @end
 
 static HPGameViewController *game_vc;
 static UIView *game_view;
+static HPOverlay *overlay;
+static HPKeyboardProxy *keyboard;
 
 static void *input_window;                          /* the window touches and the pointer act on */
+
+@interface HPGameViewController ()
+- (void)applyDisplay;
+@end
 
 static void on_window(void *w)
 {
     if (!game_view) return;
     halopad_host_attach_view(w, game_view);
     input_window = w;
+    if (getenv("HALOPAD_TRACE_WINDOWS")) {
+        uint32_t cw, ch;
+        halopad_host_window_size(w, &cw, &ch);
+        fprintf(stderr, "HALOPAD APP: window %p attached, %ux%u\n", w, cw, ch);
+    }
+    dispatch_async(dispatch_get_main_queue(), ^{ [game_vc applyDisplay]; });
 }
 
 @implementation HPGameViewController
@@ -54,6 +122,29 @@ static void on_window(void *w)
     [v addGestureRecognizer:scroll];
     self.view = v;
     game_view = v;
+    keyboard = [[HPKeyboardProxy alloc] initWithFrame:CGRectZero];
+    [v addSubview:keyboard];
+    overlay = [[HPOverlay alloc] initWithFrame:v.bounds];
+    overlay.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    overlay.delegate = self;
+    overlay.layer.zPosition = 100;                    /* above the Metal layers Halo's windows attach later */
+    overlay.opaque = NO;
+    overlay.backgroundColor = UIColor.clearColor;
+    keyboard.opaque = NO;
+    overlay.hidden = getenv("HALOPAD_NO_OVERLAY") != NULL;   /* development: the game view alone */
+    [v addSubview:overlay];
+    /* in a game or in Halo's menus, and the frame rate: polled from Halo's state */
+    [NSTimer scheduledTimerWithTimeInterval:0.25 repeats:YES block:^(NSTimer *t) {
+        NSString *m = current_map();
+        overlay.inGame = m.length && ![m isEqualToString:@"ui"];
+        static int ticks, last;
+        if (++ticks % 4 == 0) {
+            int n = atomic_load(&presented);
+            [overlay setFramesPerSecond:n - last];
+            if (getenv("HALOPAD_TRACE_WINDOWS") && ticks % 20 == 0) fprintf(stderr, "HALOPAD APP: %d frames/s, map \"%s\"\n", n - last, m.UTF8String);
+            last = n;
+        }
+    }];
 }
 - (void)viewDidAppear:(BOOL)animated
 {
@@ -62,7 +153,9 @@ static void on_window(void *w)
     static int started;
     if (started) return;
     started = 1;
+    [self applyDisplay];
     halopad_host_set_window_handler(on_window);
+    if (!halopad_d3d9_present_hook) halopad_d3d9_present_hook = count_present;
     NSThread *t = [[NSThread alloc] initWithBlock:^{
         int code = halopad_app_entry();
         fprintf(stderr, "HALOPAD: Halo returned %d\n", code);
@@ -76,6 +169,29 @@ static void on_window(void *w)
 {
     [super viewDidLayoutSubviews];
     for (CALayer *l in self.view.layer.sublayers) l.frame = self.view.layer.bounds;
+    [self.view bringSubviewToFront:overlay];
+}
+/* ---- the overlay's requests ---- */
+- (void)applyDisplay
+{
+    NSString *g = HPSettings.shared.aspect == HPAspectFill ? kCAGravityResize : kCAGravityResizeAspect;
+    for (CALayer *l in self.view.layer.sublayers) if (l != overlay.layer && l != keyboard.layer) l.contentsGravity = g;
+    if (getenv("HALOPAD_TRACE_WINDOWS"))
+        for (CALayer *l in self.view.layer.sublayers)
+            fprintf(stderr, "HALOPAD APP:   layer %s %s hidden %d opaque %d frame %.0fx%.0f z %.0f\n", l.class.description.UTF8String,
+                    l == overlay.layer ? "(overlay)" : "", l.hidden, l.opaque, l.frame.size.width, l.frame.size.height, l.zPosition);
+}
+- (UIInterfaceOrientationMask)supportedInterfaceOrientations { return UIInterfaceOrientationMaskLandscape; }
+- (void)overlayDisplayChanged:(HPOverlay *)o { [self applyDisplay]; }
+- (void)overlayRequestsKeyboard:(HPOverlay *)o { [keyboard becomeFirstResponder]; }
+- (NSString *)overlayDiagnostics:(HPOverlay *)o
+{
+    struct utsname u;
+    uname(&u);
+    NSString *ver = [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"?";
+    return [NSString stringWithFormat:@"HaloPad %@\nDevice %s, %@ %@\nHalo's map: %@\nDisplay: %@, touch controls %@",
+            ver, u.machine, UIDevice.currentDevice.systemName, UIDevice.currentDevice.systemVersion, current_map(),
+            HPSettings.shared.aspect == HPAspectFill ? @"stretch to fill" : @"original 4:3", HPSettings.shared.hideTouchControls ? @"hidden" : @"shown"];
 }
 /* ---- input: hardware keyboard, touch and pointer, queued for Halo's thread ---- */
 - (BOOL)canBecomeFirstResponder { return YES; }
@@ -104,18 +220,19 @@ static void on_window(void *w)
 - (void)pressesEnded:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event { [self keys:presses down:0]; }
 - (void)pressesCancelled:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event { [self keys:presses down:0]; }
 
-/* A view point as the window's client pixels (the layer is letterboxed: aspect fit). */
+/* A view point as the window's client pixels (the layer is letterboxed, or stretched to fill). */
 - (BOOL)client:(CGPoint)p x:(int32_t *)x y:(int32_t *)y scale:(double *)scale
 {
     if (!input_window) return NO;
     uint32_t w, h;
     halopad_host_window_size(input_window, &w, &h);
     CGRect b = self.view.bounds;
-    double s = fmin(b.size.width / w, b.size.height / h);
-    double ox = (b.size.width - w * s) / 2, oy = (b.size.height - h * s) / 2;
-    *x = (int32_t)floor((p.x - ox) / s);
-    *y = (int32_t)floor((p.y - oy) / s);
-    *scale = 1 / s;
+    double sx = b.size.width / w, sy = b.size.height / h;
+    if (HPSettings.shared.aspect != HPAspectFill) sx = sy = fmin(sx, sy);
+    double ox = (b.size.width - w * sx) / 2, oy = (b.size.height - h * sy) / 2;
+    *x = (int32_t)floor((p.x - ox) / sx);
+    *y = (int32_t)floor((p.y - oy) / sy);
+    *scale = 1 / fmin(sx, sy);
     return YES;
 }
 - (void)pointer:(UITouch *)t event:(UIEvent *)ev kind:(int)kind down:(int)down
@@ -386,10 +503,19 @@ int halopad_host_open_url(const char *url)
 @implementation HPSceneDelegate
 - (void)scene:(UIScene *)scene willConnectToSession:(UISceneSession *)session options:(UISceneConnectionOptions *)options
 {
+    /* Halo's sound: a playback session, so Remote I/O can start (DirectSound starts it) */
+    NSError *err = nil;
+    AVAudioSession *audio = AVAudioSession.sharedInstance;
+    if (![audio setCategory:AVAudioSessionCategoryPlayback mode:AVAudioSessionModeDefault options:AVAudioSessionCategoryOptionMixWithOthers error:&err] ||
+        ![audio setActive:YES error:&err])
+        fprintf(stderr, "HALOPAD APP: audio session: %s\n", err.localizedDescription.UTF8String);
     self.window = [[UIWindow alloc] initWithWindowScene:(UIWindowScene *)scene];
     game_vc = [HPGameViewController new];
     self.window.rootViewController = game_vc;
     [self.window makeKeyAndVisible];
+    /* landscape, as Halo's desktop is (iPadOS 26 no longer holds apps to Info.plist's list) */
+    UIWindowSceneGeometryPreferencesIOS *land = [[UIWindowSceneGeometryPreferencesIOS alloc] initWithInterfaceOrientations:UIInterfaceOrientationMaskLandscape];
+    [(UIWindowScene *)scene requestGeometryUpdateWithPreferences:land errorHandler:^(NSError *e) { fprintf(stderr, "HALOPAD APP: landscape request: %s\n", e.localizedDescription.UTF8String); }];
 }
 - (void)sceneDidBecomeActive:(UIScene *)scene { hp_input e = {.kind = HPI_ACTIVATE, .down = 1}; halopad_host_post_input(&e); }
 - (void)sceneWillResignActive:(UIScene *)scene { hp_input e = {.kind = HPI_ACTIVATE, .down = 0}; halopad_host_post_input(&e); }

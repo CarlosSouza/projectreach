@@ -212,11 +212,7 @@ It passes on macOS and on the iPad Simulator, and it passed on repeated runs. Th
 - **Fault reports name the translated procedure.** A fault now prints the host program counter and return addresses. `run-core.py` turns them into procedure names with `atos`, for example `loc_5BBE18`. Translated code has no guest program counter, so this is how a fault's location is found.
 - **`run-core.py --fresh-state`:** the run starts from an empty state folder, kept in the evidence.
 
-**Not done yet for G4.** Vehicles and pickups are covered below. The G4 list still needs:
-
-- **Audio verified by ear or by capture.**
-- **Menu return and map reload.**
-- **Clean relaunch.**
+Vehicles and pickups, sound, menu return, map reload and relaunch are covered in the next two sections.
 
 ## Vehicles and pickups (G4)
 
@@ -240,6 +236,30 @@ Earlier attempts that did not enter the Warthog stood 1.5 units from it. Halo of
 The host test is in the suites with one retry. Frags can bounce away from the player's feet in some runs, because Halo's ticks follow real time while the test's inputs follow frames. In the last seven runs with the final settings, every run passed on the first try. The look-down amount is kept at 1,200 counts: 1,800 or 3,200 counts turned the look vector back up (k 0.27, 0.22), and the throws went up.
 
 **A graphics limit removed.** Halo's fixed-function draws produced more than 256 distinct stage cascades once the Warthog and its effects were in view, and a draw trapped. The generated programs are now kept in a hash table that grows.
+
+## Sound, menu return and relaunch (G4)
+
+**Sound, captured** (in `tests/halo_host_test.c`). Tests have no audio device, so a thread in the test plays the device's part. Every 10 ms it pulls from DirectSound's mix (`halopad_dsound_mix`) as many frames as real time has used, just as Core Audio's callback would. It records the whole session and saves it as `session.wav` next to the other evidence. Three checks run on the recording:
+
+- **Menu music:** the loudest 50 ms window between 2 s and the first shot is above −40 dBFS. It measured about −11 dBFS.
+- **Gunfire:** the loudest window from 0.25 s before to 0.5 s after the first projectile appears is at least 15 dB above the game's ambience. Ambience is the median 100 ms level over the 8.5 s before the shot, so short spawn and announcer sounds do not raise it. Measured: shot about −10 dBFS, ambience about −40 dBFS.
+- **The explosion that kills:** the loudest window around the death is at least 20 dB above the same ambience. It measured about −8 dBFS.
+
+The recording is a real session and can be listened to. The combat sequence stays timed in frames. A version timed in milliseconds threw the frags at the wrong moment for the player's look and speed, and the player stopped dying on both platforms.
+
+**Menu return, map reload, quitting and relaunch** (`tests/halo_lifecycle_test.c`, run with `scripts/run-core.py --fresh-state --relaunch`). `--relaunch` runs the build twice, one run after the other, on one state folder (`HALOPAD_LAUNCH` 1 and 2), with evidence under `launch-1/` and `launch-2/`. The test only presses keys:
+
+1. **Launch 1:**
+   - Multiplayer, which creates profile "New001", then Create Game > LAN > Battle Creek > Slayer > Start Game.
+   - In the game, Escape > Leave Game back to the main menu.
+   - The same game again, so the map loads a second time, then Leave Game.
+   - Quit > OK. Halo's own `main` returns by itself. The test sets the quit flag only if a 20,000-frame guard runs out, and that counts as a failure.
+2. **Launch 2:**
+   - Multiplayer goes straight to the multiplayer menu with no name prompt, because Halo loads the profile it saved.
+   - The same game starts with the player named New001.
+   - Leave Game, then Quit > OK.
+
+The checks cover the order of maps loaded, the player's name, `main` returning by itself, and the saved profile files between the launches.
 
 ## Joining a server (G5, step 1)
 
@@ -289,6 +309,68 @@ Client 0 walks and fires. Client 1 is meant to watch the other player's unit mov
 **Result: the original server accepts only one of them.** Both complete the handshake and are logged as `JOIN SUCCESS`. About a second later the server drops the later one (`QUIT <No Player> machine 2`), which shows "Your CD Key is invalid.". Both present the same key hash (the MD5 of the empty key string), and Custom Edition refuses a second player with a key already in the game. Which client stays is decided by arrival order.
 
 So a two-player match needs two different legitimate keys: the parked "second legitimately provisioned player". No key is generated to get around this. The test and runner are ready for that day, and they are not in the regression suites because they cannot pass without it. The client that stays is spawned, walks (10.7 units in 200 frames of W) and fires, as in the single-client join.
+
+## Public servers (G5): the games people play
+
+HaloPad's Halo joins the public Custom Edition servers people play on today, through Halo's own
+`-connect` path.
+
+**Finding them.** The community master server `s1.master.hosthpc.com` lists the servers. Sigmmma's
+HaloQuery (`ref/tools/HaloQuery`, private; its native GameSpy decoder needs
+`GCC_ENABLE_CPP_EXCEPTIONS` in `binding.gyp` to build on macOS) lists them, and a status query
+reads each one's name, map, players and version. On 2026-09-27 the list held 252 servers and
+193 answered. All ran 01.00.10.0621, most with SAPP 10.2.1; the busiest held 15 of 16 players.
+
+**Joining them** (`scripts/public-join.sh [--list N] [ADDR:PORT ...]`). For each server it reads
+the current map, runs `tests/halo_connect_test.c` with the host's network (`HALOPAD_NET=internet`),
+stays about 25 seconds (1,200 frames) and quits. The test checks, in Halo's own state, that the
+server's map loaded and that the server spawned the player's unit. The client sends Halo's own
+key value, the MD5 of the empty string from `0x5829e0`; nothing is made up.
+
+| server | map, mode, players | result |
+| --- | --- | --- |
+| AUSSIES MADNESS 5 (216.245.177.89:2308) | Blood Gulch CTF, 4/16 | spawned (twice); the server's "GIDAY **BE NICE OR BE GONE" on screen |
+| DEADLY ZOMBIES (102.129.137.87:2302) | wizard Slayer, 7/16 | spawned |
+| POQclan (74.91.125.79:2302) | Ice Fields CTF, 4/16 | spawned; "Become a member! JOIN at poqclan.com" |
+| POQclan CE17: Massacre Island (74.91.124.220:2302) | Death Island CTF, 5/16 | spawned; also from the iPad app (next section) |
+| 74.91.125.111:2302 | Sidewinder CTF, 16/16 | full: 2 packets, no join |
+
+No server refused the key value. A server can check keys (SAPP's `sv_cdkeycheck`); a server that
+does, or that already holds a player with the same key hash, will refuse it, and only a
+legitimate key typed into Halo's installer changes that. Tests other than this script keep the
+LAN policy (`run-core.py` sets `HALOPAD_NET=lan` unless it is set).
+
+## The iOS and iPadOS app: Halo on screen, touch controls, the menu
+
+**On screen.** Halo's frames now reach the app's view. Halo's thread creates its windows'
+CAMetalLayers and changes them (drawable size, visibility), and that thread has no run loop, so
+Core Animation never committed those changes: every frame was presented to a layer that showed
+nothing (a red test background filled the area, and Halo's back buffer, read back, held the
+menu). The host now commits its layer changes itself (`[CATransaction flush]` after creating,
+showing or resizing). Component tests never saw it: they read the back buffer.
+
+**Registry values under paths with spaces.** The registry file's reader split lines at spaces,
+so a value under `HKCU\Software\Microsoft\Microsoft Games\Halo CE` (Halo's `gamma`) stopped the next
+launch. The type, name and data are now read from the end of the line.
+
+**Touch controls and the three-dot menu** (`port/ios/HaloPadOverlay.m`), adapted from SunPad (see
+[SUNPAD-TRANSFER.md](SUNPAD-TRANSFER.md)). In a game (Halo's map is not "ui") a move stick, a look
+area and Halo's PC controls appear; in Halo's menus touches reach the game view as clicks. The
+menu adds what Halo's menus lack: joining a server by address through Halo's console, recent
+servers, the keyboard, console and chat, aspect ratio, an FPS counter, touch-control settings
+and a problem report. The app is landscape on iPad and iPhone (it asks the scene for landscape,
+since iPadOS 26 no longer holds apps to Info.plist's list).
+
+**Development scene** (`tests/halo_app_scene.c`, `scripts/build-ios-app.py --scene ...`): Halo from
+its main menu in the app, prepared as the component tests prepare it (the key string from Halo's
+own `0x5829e0`; nothing is written or made up). With `HALOPAD_ARGS='-connect 74.91.124.220:2302'` the
+iPad Simulator app joined POQclan's Death Island CTF game and played at about 26 frames per
+second with the controls over Halo's HUD.
+
+**Still open here:** the Simulator's audio output unit does not start in the app ("audio output
+unit would not start"); the touch controls are checked by screenshot only (no unattended touch
+test yet); iPhone layouts are unchecked; the menu's console path (`connect` typed into Halo's
+console) needs a test.
 
 ## Rasterizer initialization (Halo's graphics start-up)
 

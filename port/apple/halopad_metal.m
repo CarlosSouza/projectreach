@@ -67,11 +67,21 @@ static void present_texture(hp_window *win, id<MTLCommandBuffer> cb, id<MTLTextu
         present_pipe = [gpu newRenderPipelineStateWithDescriptor:pd error:&e];
         if (!present_pipe) { fprintf(stderr, "HALOPAD TRAP: present pipeline: %s\n", e.localizedDescription.UTF8String); abort(); }
     }
-    if (!win->on_screen) return;                                    /* nothing to show it on */
+    static int traced = -1, n_off, n_nil, n_shown;
+    if (traced < 0) traced = getenv("HALOPAD_TRACE_WINDOWS") != NULL;
+    if (traced && (n_off + n_nil + n_shown) % 300 == 299)
+        fprintf(stderr, "HALOPAD PRESENT: %d off screen, %d without a drawable, %d shown (layer %.0fx%.0f, drawable %.0fx%.0f, src %lux%lu)\n",
+                n_off, n_nil, n_shown, win->layer.bounds.size.width, win->layer.bounds.size.height,
+                win->layer.drawableSize.width, win->layer.drawableSize.height, (unsigned long)src.width, (unsigned long)src.height);
+    if (!win->on_screen) { n_off++; return; }                      /* nothing to show it on */
     if (win->layer.drawableSize.width != src.width || win->layer.drawableSize.height != src.height)
+    {
         win->layer.drawableSize = CGSizeMake(src.width, src.height);
+        [CATransaction flush];                                      /* committed from Halo's thread */
+    }
     id<CAMetalDrawable> drawable = [win->layer nextDrawable];
-    if (!drawable) return;
+    if (!drawable) { n_nil++; return; }
+    n_shown++;
     MTLRenderPassDescriptor *rp = [MTLRenderPassDescriptor renderPassDescriptor];
     rp.colorAttachments[0].texture = drawable.texture;
     rp.colorAttachments[0].loadAction = MTLLoadActionDontCare;
@@ -97,6 +107,9 @@ void halopad_host_window_gamma(void *p, const uint16_t ramp[768])
 {
     hp_window *w = p;
     for (int i = 0; i < 768; i++) w->lut[i] = ramp[i] / 65535.0f;
+    if (getenv("HALOPAD_TRACE_WINDOWS"))
+        fprintf(stderr, "HALOPAD GAMMA: ramp r %u %u %u  g %u %u %u  b %u %u %u\n", ramp[0], ramp[128], ramp[255],
+                ramp[256], ramp[384], ramp[511], ramp[512], ramp[640], ramp[767]);
 }
 
 /* GDI: copy (scaling, nearest) a region of a top-down BGRA image into the client area,
