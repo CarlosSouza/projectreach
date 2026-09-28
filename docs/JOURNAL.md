@@ -2150,3 +2150,49 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   while the touch manager owns its slot; log release/reacquisition and verify
   neutral input followed by movement after each transition. No full-goal closure;
   original controller-action edit and physical simultaneous fingers remain open.
+
+
+## 2026-09-28 — iPad touch input through server map change and reconnect
+
+- Previous goal turn: progress (0961fe4, editor improvement with verification).
+  Current turn: progress. Read the objective, current journal/status, verified all
+  five source pins and locked CE executable hash. Clean starting tree; one iPad
+  preview, no Wine processes. Parked inputs unchanged. Full goal remains active.
+- Hypothesis: the touch manager and UIKit cancel a held MOVE on a natural server
+  map change, then acquire the profile slot again without replaying stale input.
+  A subsequent original-console disconnect/reconnect must start neutral and accept
+  new movement. This addresses G8/G9 integration without claiming G5's second-client
+  requirement.
+- Added an explicit bounded iPad driver selected by
+  HALOPAD_TOUCH_TRANSITION_SERVER=127.0.0.1:2310. It uses overlay handlers and typed
+  original console commands only. Map/unit/input observations are captured together
+  on Halo's Present thread. Eight assertions, 210-second deadline, no repeated
+  input after completion. Other self-test modes are mutually exclusive with it.
+- Backed up the app Library before writes; stopped PID 94466, rebuilt the verified
+  work directory with tests/halo_touch_move_scene.c, installed, launched PID 96070
+  with LAN networking, -connect 127.0.0.1:2310 -cport 2305 -console.
+- Original dedicated server: CrossOver 26.3, project bottle halopad-reference,
+  loopback/private, tests/server/mapcycle.txt (one-minute Slayer). Removed the
+  runner's global executable-name pkill; cleanup uses only its own bottle.
+- All eight transition checks pass. Initial Blood Gulch slot 1 is neutral; .5 MOVE
+  yields axis -1820 and original forward 1. Natural Battle Creek transition
+  releases/reacquires slot 1 and resets axis/forward to zero. New MOVE works;
+  disconnect reaches ui with slot -1; reconnect respawns on Battle Creek neutral,
+  new MOVE works, final release is neutral. Original server records the natural
+  change and separate quit/rejoin, independently of app assertions.
+- Evidence: docs/artifacts/2026-09-28/G9/touch-network-transition contains backup,
+  app logs, exact source/binary identity, redacted current server session, server
+  configuration/version, status query and screenshot. New001 and New002 remain
+  byte-identical to pre-test backup. No runtime mapping fix was required.
+- Stopped exact server runner 95973; its child and all recorded Wine/server PIDs
+  are gone. Stopped candidate 96070 before relaunching the same binary locally.
+  Final preview PID 96288, New002 Battle Creek, LAN, explicit analog development
+  scene: all five gameplay and seven analog/cancel checks pass again. One-shot
+  drivers finished. One project iPad remains, phone off, no reference server.
+- Shell syntax and diff checks pass. Default layout was unchanged, so its prior
+  71-assertion/90-layout verification was not repeated. No physical-finger or
+  second-original-client acceptance inferred from handler-driven observations.
+- Next bounded experiment: abrupt private-server loss while MOVE is held. Require
+  original timeout/disconnect behavior, neutral input on return, then restart that
+  server and reconnect with fresh movement. Preserve the active preview before
+  replacing it; do not treat normal map-cycle success as timeout acceptance.

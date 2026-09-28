@@ -62,7 +62,8 @@ SERVER_PID=""
 stop_all() {
   WINEPREFIX="$BOTTLE_DIR" "$CX/wineserver" -k >/dev/null 2>&1 || true
   if [[ -n "$SERVER_PID" ]]; then kill "$SERVER_PID" 2>/dev/null || true; wait "$SERVER_PID" 2>/dev/null || true; fi
-  if pgrep -f 'haloceded.exe' >/dev/null; then pkill -9 -f 'haloceded.exe' || true; fi
+  # wineserver above is scoped to our bottle. Never kill another Halo server
+  # merely because it has the same executable name.
 }
 trap stop_all EXIT
 trap 'stop_all; trap - EXIT; exit 143' INT TERM

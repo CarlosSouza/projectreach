@@ -51,6 +51,8 @@ Operating loop: [HaloPad-GOAL-LOOP-PHASE2.md](HaloPad-GOAL-LOOP-PHASE2.md) (repl
 
 - **Touch layout editor:** controls snap to nearby rows/columns on drop while retaining safe clearance; resized targets remain at least 44 points. UIKit suite passes 71 assertions, five renders and 90 layouts. Actual editor opens/selects/exits on iPad; automated drag/resize persistence was not established. Original controller sensitivity save changes only its setting/checksum, and the saved test profile relaunch passes five gameplay plus seven analog/cancel checks. Preview PID 94466, New002 Battle Creek; source/binary evidence in `G9/touch-binding-edit`. Physical drag/two-thumb ergonomics remain open.
 
+- **Touch network transitions:** the iPad analog development scene passes eight checks through an original dedicated server's natural Blood Gulch → Battle Creek change and console disconnect/reconnect. Held MOVE clears, each new spawn starts neutral, and movement works again. Server-side map/rejoin records and unchanged profile hashes corroborate the app checks (`G9/touch-network-transition`). This closes the tested transition path; abrupt loss, physical fingers and second-original-client acceptance remain open.
+
 ## Parked, waiting on Chris
 
 | Item | Parks | Status |

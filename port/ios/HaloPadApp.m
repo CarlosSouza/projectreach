@@ -52,7 +52,10 @@ typedef struct {
     uint16_t gameMode;
     int touchSlot;
     int frame;
+    char map[32];
+    uint32_t unit;
 } hp_analog_observation;
+static uint32_t g_unit(void);
 static hp_analog_observation analog_observation;
 static pthread_mutex_t analog_observation_lock = PTHREAD_MUTEX_INITIALIZER;
 static uint32_t menu_touch_root;
@@ -107,7 +110,7 @@ static void count_present(uint32_t device)
 {
     int n = atomic_fetch_add(&presented, 1) + 1;
     update_overlay_game_state();
-    if (getenv("HALOPAD_ANALOG_SELFTEST")) {
+    if (getenv("HALOPAD_ANALOG_SELFTEST") || getenv("HALOPAD_TOUCH_TRANSITION_SERVER")) {
         /* One completed frame's input, captured on Halo's thread. Reading these
            fields independently from a UIKit timer can observe an update in flight. */
         hp_analog_observation sample = {.touchSlot = halopad_app_touch_move_slot(), .frame = n};
@@ -117,6 +120,8 @@ static void count_present(uint32_t device)
         memcpy(sample.source, halopad_guest_ptr(0x6ad8e8), sizeof sample.source);
         sample.alternate = *(uint8_t *)halopad_guest_ptr(0x64c529);
         memcpy(&sample.gameMode, halopad_guest_ptr(0x6b47b0), 2);
+        memcpy(sample.map, halopad_guest_ptr(0x643064), sizeof sample.map - 1);
+        sample.unit = g_unit();
         pthread_mutex_lock(&analog_observation_lock);
         analog_observation = sample;
         pthread_mutex_unlock(&analog_observation_lock);
@@ -440,6 +445,86 @@ static void selftest_check(const char *what, int ok, NSString *detail)
     selftest_failures += !ok;
 }
 static void after(double s, dispatch_block_t b) { dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(s * NSEC_PER_SEC)), dispatch_get_main_queue(), b); }
+
+/* A bounded, explicit private-server experiment. Hold the real overlay MOVE
+   through a natural map change, then disconnect/reconnect through typed console
+   commands. The only guest access is the coherent Present observation above. */
+static void touch_transition_selftest(void)
+{
+    NSString *server = @(getenv("HALOPAD_TOUCH_TRANSITION_SERVER") ?: "");
+    NSArray *parts = [server componentsSeparatedByString:@":"];
+    NSCharacterSet *notDigits = NSCharacterSet.decimalDigitCharacterSet.invertedSet;
+    if (parts.count != 2 || ![parts[0] isEqualToString:@"127.0.0.1"] ||
+        ![parts[1] length] || [parts[1] rangeOfCharacterFromSet:notDigits].location != NSNotFound ||
+        [parts[1] intValue] < 1024 || [parts[1] intValue] > 65535) {
+        fprintf(stderr, "HALOPAD TOUCH TRANSITION: FAIL: explicit loopback port required\n"); return;
+    }
+    __block int phase = 0, frame = 0, failures = selftest_failures;
+    __block NSString *firstMap;
+    __block CFAbsoluteTime phaseStart = CFAbsoluteTimeGetCurrent();
+    CFAbsoluteTime start = phaseStart;
+    [NSTimer scheduledTimerWithTimeInterval:.1 repeats:YES block:^(NSTimer *timer) {
+        CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
+        pthread_mutex_lock(&analog_observation_lock);
+        hp_analog_observation s = analog_observation;
+        pthread_mutex_unlock(&analog_observation_lock);
+        if (now - start > 210) {
+            [overlay clearTouchInput]; [HPOverlay setTextInputActive:NO]; [timer invalidate];
+            fprintf(stderr, "HALOPAD TOUCH TRANSITION: FAIL: timeout phase %d map %s\n", phase, s.map); return;
+        }
+        if (s.frame < frame + 3 || now - phaseStart < .8) return;
+        NSString *map = @(s.map);
+        BOOL ready = s.unit && s.touchSlot >= 0 && s.touchSlot < 4 && overlay.analogMoveReady &&
+                     overlay.inGame && !overlay.haloMenuVisible;
+        BOOL neutral = ready && s.axes[s.touchSlot] == 0 && s.forward == 0 && s.strafe == 0;
+        BOOL moving = ready && s.axes[s.touchSlot] == -1820 && s.forward > 0;
+        BOOL advance = NO;
+        switch (phase) {
+        case 0:
+            if (!ready) return;
+            firstMap = map;
+            selftest_check("first network spawn has neutral touch input", neutral, map);
+            [overlay driveMoveX:0 y:.5f]; advance = YES; break;
+        case 1:
+            selftest_check("MOVE reaches original network input consumer", moving, map);
+            /* Deliberately retain the hold until the server changes maps. */
+            advance = YES; break;
+        case 2:
+            if ([map isEqualToString:firstMap] || !ready) return;
+            selftest_check("natural map change cancels old MOVE hold", neutral, map);
+            [overlay driveMoveX:0 y:.5f]; advance = YES; break;
+        case 3:
+            selftest_check("MOVE works after natural server map change", moving, map);
+            [overlay clearTouchInput];
+            [HPOverlay tapKey:0xC0 scan:0x29]; [HPOverlay typeText:@"disconnect\n"];
+            [HPOverlay tapKey:0xC0 scan:0x29]; advance = YES; break;
+        case 4:
+            if (![map isEqualToString:@"ui"]) return;
+            selftest_check("disconnect releases touch slot in original menu", s.touchSlot == -1, map);
+            [HPOverlay tapKey:0xC0 scan:0x29];
+            [HPOverlay typeText:[NSString stringWithFormat:@"connect %@ \"\"\n", server]];
+            [HPOverlay tapKey:0xC0 scan:0x29]; advance = YES; break;
+        case 5:
+            if (!ready) return;
+            selftest_check("reconnected player starts with neutral touch input", neutral, map);
+            [overlay driveMoveX:0 y:.5f]; advance = YES; break;
+        case 6:
+            selftest_check("MOVE works after reconnect", moving, map);
+            [overlay clearTouchInput]; advance = YES; break;
+        case 7:
+            selftest_check("reconnected MOVE releases cleanly", neutral, map);
+            [timer invalidate];
+            fprintf(stderr, "HALOPAD TOUCH TRANSITION: %s: %d failure(s)\n",
+                    selftest_failures == failures ? "PASS" : "FAIL", selftest_failures - failures);
+            break;
+        }
+        if (advance) {
+            fprintf(stderr, "HALOPAD TOUCH TRANSITION: phase %d map %s slot %d axis %d forward %.6f\n",
+                    phase, s.map, s.touchSlot, ready ? s.axes[s.touchSlot] : 0, s.forward);
+            phase++; frame = s.frame; phaseStart = now;
+        }
+    }];
+}
 
 /* Opt-in action acceptance, through overlay handlers only. Reads the same object
    fields as halo_host_test; never writes guest state or supplies weapons/ammo. */
@@ -798,7 +883,8 @@ static void touch_selftest(void)
     [self applyDisplay];
     halopad_host_set_window_handler(on_window);
     if (!halopad_d3d9_present_hook) halopad_d3d9_present_hook = count_present;
-    if (getenv("HALOPAD_ACTION_SELFTEST")) after(5, ^{ action_selftest(); });
+    if (getenv("HALOPAD_TOUCH_TRANSITION_SERVER")) after(5, ^{ touch_transition_selftest(); });
+    else if (getenv("HALOPAD_ACTION_SELFTEST")) after(5, ^{ action_selftest(); });
     else if (getenv("HALOPAD_TOUCH_SELFTEST")) after(5, ^{ touch_selftest(); });
     if (getenv("HALOPAD_GAME_ROOT")) { [self startHalo]; return; }
     /* no game folder yet: the import screen, then Halo */

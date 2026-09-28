@@ -539,3 +539,49 @@ and seven analog/cancel checks. Evidence and exact source/binary/profile hashes:
 `G9/touch-binding-edit/`. One playable iPad preview remains open on the explicit
 analog development scene. Controller-action edits and natural server transitions
 still require their own evidence.
+
+
+## Touch movement across network transitions (2026-09-28)
+
+The explicit iPad analog scene now has a bounded acceptance driver,
+`HALOPAD_TOUCH_TRANSITION_SERVER=127.0.0.1:2310`. It only accepts an explicit
+loopback port and runs instead of the other self-tests. It drives the overlay
+MOVE handler and types Halo's own disconnect/connect commands, without writing
+guest state. Observations of the map, spawned unit, slot, axes and movement come
+from the same completed Present on Halo's thread. Timeout is 210 seconds.
+
+PID 96070 passed eight checks against the unchanged original 1.10 dedicated
+server in CrossOver 26.3: neutral first spawn, MOVE reaches the original network
+consumer, held MOVE cancels on natural Blood Gulch → Battle Creek transition,
+MOVE works on the new map, disconnect releases the slot, reconnect starts neutral,
+MOVE works after reconnect, and final release is neutral. The server's own log
+confirms the map transition, disconnect and successful rejoin. This is a real
+network session with handler-driven touch input, not simultaneous finger or
+second-original-client acceptance. Both saved profiles are unchanged.
+
+Evidence: `G9/touch-network-transition/` has app logs, a redacted server session,
+server configuration/version, exact source/binary hashes, before-state backup,
+profile hashes and the rejoined screenshot. The development driver stops itself
+after the last check. The reference-server runner now shuts down only its own
+bottle; its former global executable-name kill was removed. Cleanup verified
+all processes belonging to this reference run had stopped.
+
+Reproduction (stop the active preview before installing/launching another app):
+
+1. Back up the project Simulator app's Library. Build `tests/halo_touch_move_scene.c`
+   using `scripts/build-ios-app.py --work <verified-work-directory> --scene ...`.
+2. Run `HALOPAD_SERVER_INIT=tests/server/mapcycle.txt bash scripts/reference-server.sh --seconds 600 --port 2310`.
+3. Install the app and launch with `SIMCTL_CHILD_HALOPAD_NET=lan`,
+   `SIMCTL_CHILD_HALOPAD_ARGS="-connect 127.0.0.1:2310 -cport 2305 -console"`,
+   `SIMCTL_CHILD_HALOPAD_TOUCH_TRANSITION_SERVER=127.0.0.1:2310`, and
+   `SIMCTL_CHILD_HALOPAD_TRACE_TOUCH_BINDING=1`, capturing stdout/stderr.
+4. Require `HALOPAD TOUCH TRANSITION: PASS: 0 failure(s)` plus the original server's
+   map/rejoin records. Stop the exact server runner and verify its processes exit.
+
+Still open: abrupt server loss with held input, original controller-action edits,
+physical hot-plug and simultaneous fingers. Normal entry-point and second-player
+gates remain separate.
+
+The same binary's final local preview (PID 96288, New002 Battle Creek) also passes
+the existing five gameplay and seven analog/cancel checks (`preview-err.txt`).
+All test drivers finish; one requested iPad preview remains open.
