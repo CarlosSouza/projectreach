@@ -48,6 +48,9 @@ typedef NS_ENUM(NSInteger, HPAspectMode) { HPAspectOriginal = 0, HPAspectFill = 
 + (void)typeText:(NSString *)text;
 /* Press and release a Windows key (virtual key, set-1 scan code). */
 + (void)tapKey:(uint32_t)vk scan:(uint32_t)scan;
+/* Scene focus, on the main thread: losing focus cancels unfinished typing and releases
+   its delivered keys. Regaining focus starts empty; it never replays a partial command. */
++ (void)setTextInputActive:(BOOL)active;
 - (void)refreshControllerVisibility;
 - (void)clearTouchInput;
 /* Development self-test (HALOPAD_TOUCH_SELFTEST): drive the controls through the same handlers

@@ -63,17 +63,24 @@ static void post_button(int b, int down)
    50 ms, a little over one of Halo's frames: its keyboard is read once a frame, and a key that
    goes down and up between two reads is never seen. Held controls post at once. */
 static NSMutableArray<NSValue *> *typed_queue;
+static NSMutableDictionary<NSNumber *, NSValue *> *typed_held;
+static BOOL typed_active = YES;
 static void queue_key(uint32_t vk, uint32_t side, uint32_t scan, int down, unichar ch)
 {
+    if (!typed_active) return;
     hp_input e = {.kind = HPI_KEY, .vk = vk, .side_vk = side ? side : vk, .scan = scan, .down = down};
     if (down && ch) { e.chars[0] = ch; e.nchars = 1; }
     if (!typed_queue) {
         typed_queue = [NSMutableArray array];
+        typed_held = [NSMutableDictionary dictionary];
         [NSTimer scheduledTimerWithTimeInterval:0.05 repeats:YES block:^(NSTimer *t) {
-            if (!typed_queue.count) return;
+            if (!typed_active || !typed_queue.count) return;
             hp_input next;
             [typed_queue.firstObject getValue:&next size:sizeof next];
             [typed_queue removeObjectAtIndex:0];
+            NSNumber *key = @(next.side_vk);
+            if (next.down) typed_held[key] = [NSValue valueWithBytes:&next objCType:@encode(hp_input)];
+            else [typed_held removeObjectForKey:key];
             halopad_host_post_input(&next);
         }];
     }
@@ -387,6 +394,7 @@ static CGRect at(CGRect safe, CGFloat x, CGFloat y, CGFloat w, CGFloat h)
     _moveTouch = nil;
     if (!_editing && _moveRest.x) _move.center = _moveRest;
     [_lookTouches removeAllObjects];
+    _lookRestX = _lookRestY = 0;
 }
 
 - (BOOL)driveControl:(NSString *)identifier down:(BOOL)down
@@ -700,6 +708,25 @@ static CGRect at(CGRect safe, CGFloat x, CGFloat y, CGFloat w, CGFloat h)
     share.popoverPresentationController.sourceView = _menuButton;
     share.popoverPresentationController.sourceRect = _menuButton.bounds;
     [self.presenter presentViewController:share animated:YES completion:nil];
+}
+
++ (void)setTextInputActive:(BOOL)active
+{
+    NSAssert(NSThread.isMainThread, @"Text input belongs to UIKit's main thread");
+    typed_active = active;
+    if (active) return;
+    [typed_queue removeAllObjects];
+    /* A canceled Shift-up (or ordinary key-up) must not leave that key held. These
+       releases precede the scene's deactivation event in the host queue. */
+    for (NSValue *value in typed_held.allValues) {
+        hp_input up;
+        [value getValue:&up size:sizeof up];
+        up.down = 0;
+        up.nchars = 0;
+        memset(up.chars, 0, sizeof up.chars);
+        halopad_host_post_input(&up);
+    }
+    [typed_held removeAllObjects];
 }
 
 + (void)tapKey:(uint32_t)vk scan:(uint32_t)scan

@@ -88,6 +88,18 @@ local SunPad path. The donor copy used for the work is private and ignored (`ref
 
 ## Checks
 
+- `.venv/bin/python scripts/test-ios-overlay.py --device UDID` runs the real overlay timer and
+  control handlers on a booted Simulator, capturing their outgoing host events. Stop the game
+  candidate first. It checks uppercase/Enter ordering, interruption while Shift and a letter
+  are held, cancellation before delivery, ignored inactive input, no replay after resume,
+  fresh typing, movement/fire release and discarded fractional look motion. This is an input
+  boundary test, not proof of UIKit multi-touch routing or Halo observing every short press.
+- On scene deactivation, unfinished typed text is canceled and keys already delivered by the
+  text queue are released. Reactivation starts with an empty queue. Clearing touch controls
+  also resets fractional look motion. Evidence: `docs/artifacts/2026-09-28/G9/overlay-20260928T113413Z`
+  (16 checks pass). The corresponding iPad gameplay smoke is
+  `docs/artifacts/2026-09-28/G3/ios-app-20260928T113459Z`: movement/look/fire/jump pass and a
+  Home/foreground cycle with the native keyboard open resumes at 30 fps in the same process.
 - `scripts/build-ios-app.py --scene tests/halo_app_scene.c --launch` runs Halo from its main menu
   in the app. With `HALOPAD_ARGS='-connect ADDR:PORT'` it joins that server; the screenshot shows
   the game and the controls. `HALOPAD_OVERLAY_DEMO=settings|layout` opens the settings panel or the

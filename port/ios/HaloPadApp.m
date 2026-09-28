@@ -791,6 +791,7 @@ int halopad_host_open_url(const char *url)
 }
 - (void)sceneDidBecomeActive:(UIScene *)scene
 {
+    [HPOverlay setTextInputActive:YES];
     if (getenv("HALOPAD_TRACE_LIFECYCLE")) fprintf(stderr, "HALOPAD LIFECYCLE: %.3f scene active, frames %d\n", CFAbsoluteTimeGetCurrent(), atomic_load(&presented));
     hp_input e = {.kind = HPI_ACTIVATE, .down = 1}; halopad_host_post_input(&e);
 }
@@ -798,6 +799,7 @@ int halopad_host_open_url(const char *url)
 {
     if (getenv("HALOPAD_TRACE_LIFECYCLE")) fprintf(stderr, "HALOPAD LIFECYCLE: %.3f scene inactive, frames %d\n", CFAbsoluteTimeGetCurrent(), atomic_load(&presented));
     [overlay clearTouchInput];
+    [HPOverlay setTextInputActive:NO];
     hp_input e = {.kind = HPI_ACTIVATE, .down = 0}; halopad_host_post_input(&e);
 }
 @end

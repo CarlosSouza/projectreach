@@ -1207,3 +1207,40 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   three-dot menu → Touch Control Settings to inspect the controls. Build output and native
   screenshot retained. Repository safety and whitespace checks pass; private remote visibility
   rechecked before the authorized push.
+
+### 2026-09-28 — cancel unfinished typing on interruption
+
+- Previous turn: **progress**, committed and pushed `bc38545` with foreground wake recovery.
+  Re-read the supplied objective and current loop/status. Clean initial tree; source locks
+  verify, accepted input hash matches, project bottles remain halopad-patch/halopad-reference,
+  no reference server is running, only the requested iPad preview was active. Stopped that
+  candidate before the boundary test. Parked inputs have not changed.
+- Hypothesis: the overlay's 50 ms typed-key timer retained unfinished text across scene
+  deactivation, allowing a partial command to finish after interruption. The old source had
+  no text-queue cancellation; clearing touch controls only released buttons/stick/look touches.
+- Added main-thread text activation handling. Deactivation clears pending events, immediately
+  posts key-up for keys the timer delivered (including Shift), and rejects new queued typing
+  while inactive. Activation resumes empty. The scene callbacks invoke it alongside existing
+  activation events. Touch clearing also resets fractional look motion.
+- New `.venv/bin/python scripts/test-ios-overlay.py` compiles the actual Objective-C overlay
+  and timer for a booted Simulator with a capturing host-input boundary. Evidence records
+  source/header and executable hashes, build command, output and process exit. First build
+  needed CoreGraphics added to its link. The first runtime test used a run-loop wait that
+  drained the whole text queue before checking the intended mid-key fixture; corrected the
+  test to poll in 5 ms intervals. No runtime fix was made for that harness timing issue.
+- Final boundary test `G9/overlay-20260928T113413Z`: **16 checks PASS**, exit 0. Normal uppercase
+  and Enter ordering, interruption with a letter/Shift held, no character payload on releases,
+  repeated cancellation, inactive input rejection, no replay, fresh lowercase typing, cancel
+  before first delivery, movement/fire release and fractional look reset all pass.
+- Highest-known gameplay smoke on this source: `G3/ios-app-20260928T113459Z`, local Blood Gulch
+  with `HALOPAD_TOUCH_SELFTEST=1`. Move 4.42 units; look 39.7 degrees; fire 60→57 rounds; jump
+  height 0.11→0.76. Four handler-driven game-state checks pass. These do not prove multi-touch
+  hit routing or every short press surviving multiple host pumps per frame.
+- Actual Home/foreground cycle with the native keyboard open kept PID 23229 and resumed 30 fps
+  with advancing frame counters. `text-resume-ready.png` retained. The attempted UI console
+  typing check is **inconclusive**: the resumed screenshot shows gameplay and the keyboard,
+  not a visible console/text line. Do not treat this as end-to-end text cancellation evidence.
+  Keyboard dismissed afterward; the same updated iPad preview remains in Blood Gulch.
+- Next: trace native-menu console key delivery through the host queue and Halo's input reads;
+  short-press visibility and actual touch routing remain open, alongside the full original
+  campaign/interoperability/device scope. No gate was narrowed to these passing checks.
