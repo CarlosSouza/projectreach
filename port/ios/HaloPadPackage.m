@@ -3,6 +3,7 @@
    Stored/DEFLATE, ZIP64 and data descriptors; no executable loading. zlib is an SDK library.
    Both metadata and streaming output are bounded independently of archive claims. */
 #import "HaloPadImport.h"
+#import "HaloPadDataIdentity.h"
 #import <CommonCrypto/CommonDigest.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -44,78 +45,11 @@ static BOOL write_all(int fd, const void *bytes, size_t length)
     }
     return YES;
 }
-static BOOL safe_path(NSString *name)
-{
-    if (![name isKindOfClass:NSString.class] || !name.length || [name lengthOfBytesUsingEncoding:NSUTF8StringEncoding] > 512) return NO;
-    for (NSUInteger i = 0; i < name.length; i++) {
-        unichar c = [name characterAtIndex:i];
-        if (c < 32 || c == 127 || c == '\\' || c == ':') return NO;
-    }
-    for (NSString *part in [name componentsSeparatedByString:@"/"])
-        if (!part.length || [part isEqual:@"."] || [part isEqual:@".."] || [part hasSuffix:@"."] || [part hasSuffix:@" "]) return NO;
-    return YES;
-}
-static NSString *fold(NSString *s)
-{
-    return [s.precomposedStringWithCanonicalMapping stringByFoldingWithOptions:NSCaseInsensitiveSearch locale:[NSLocale localeWithLocaleIdentifier:@"en_US_POSIX"]];
-}
-static BOOL safe_names(NSArray<NSString *> *names)
-{
-    NSMutableDictionary *prefixes = [NSMutableDictionary dictionary];
-    NSMutableSet *files = [NSMutableSet set];
-    for (NSString *name in names) {
-        if (!safe_path(name) || [files containsObject:fold(name)]) return NO;
-        [files addObject:fold(name)];
-        NSString *prefix = @"";
-        for (NSString *part in [name componentsSeparatedByString:@"/"]) {
-            prefix = prefix.length ? [prefix stringByAppendingFormat:@"/%@", part] : part;
-            NSString *key = fold(prefix);
-            if (prefixes[key] && ![prefixes[key] isEqual:prefix]) return NO;
-            prefixes[key] = prefix;
-        }
-    }
-    for (NSString *name in names) {
-        NSString *parent = name.stringByDeletingLastPathComponent;
-        while (parent.length) {
-            if ([files containsObject:fold(parent)]) return NO;
-            parent = parent.stringByDeletingLastPathComponent;
-        }
-    }
-    return YES;
-}
 static BOOL integer(id n)
 {
     return [n isKindOfClass:NSNumber.class] && CFGetTypeID((__bridge CFTypeRef)n) != CFBooleanGetTypeID() &&
            strchr("cCsSiIlLqQ", [(NSNumber *)n objCType][0]) != NULL;
 }
-static BOOL sha_string(id value)
-{
-    if (![value isKindOfClass:NSString.class] || [value length] != 64) return NO;
-    return [value rangeOfCharacterFromSet:[[NSCharacterSet characterSetWithCharactersInString:@"0123456789abcdef"] invertedSet]].location == NSNotFound;
-}
-/* Trust comes from the signed bundle, not this checksum or the archive's manifest. */
-static NSDictionary *expected_manifest(NSDictionary *identity)
-{
-    if (![identity isKindOfClass:NSDictionary.class] || !integer(identity[@"schema"]) || [identity[@"schema"] intValue] != 1 ||
-        !sha_string(identity[@"id"]) || ![identity[@"profile"] isKindOfClass:NSString.class] || ![identity[@"profile"] length]) return nil;
-    NSMutableDictionary *files = [NSMutableDictionary dictionary];
-    uint64_t total = 0;
-    for (NSString *kind in @[@"stock_files", @"core_data"]) {
-        NSDictionary *records = identity[kind];
-        if (![records isKindOfClass:NSDictionary.class] || !records.count) return nil;
-        for (NSString *name in records) {
-            id row = records[name];
-            if (!safe_path(name) || ![row isKindOfClass:NSDictionary.class] || [row count] != 2 ||
-                !integer(row[@"size"]) || [row[@"size"] longLongValue] < 0 || [row[@"size"] unsignedLongLongValue] > HP_MAX_FILE || !sha_string(row[@"sha256"])) return nil;
-            total += [row[@"size"] unsignedLongLongValue];
-            if (total > HP_MAX_TOTAL) return nil;
-            files[[NSString stringWithFormat:@"%@/%@", [kind isEqual:@"stock_files"] ? @"game" : @"core-data", name]] = row;
-        }
-    }
-    if (files.count >= 4096 || !safe_names(files.allKeys)) return nil;
-    return @{@"schema":@1, @"format":@"halopad-data", @"profile":identity[@"profile"], @"core_id":identity[@"id"], @"files":files};
-}
-
 /* Foundation checks JSON syntax. This second bounded walk rejects duplicate decoded keys,
    including escaped aliases, instead of accepting Foundation's last-key-wins behavior. */
 static void spaces(NSString *s, NSUInteger *i)
@@ -268,7 +202,7 @@ static BOOL zip64(const uint8_t *p, size_t n, uint64_t *expanded, uint64_t *comp
         uint32_t attributes = u32(h+38), type = (attributes >> 16) & S_IFMT;
         entry.flags = u16(h+8); entry.method = u16(h+10); entry.crc = u32(h+16);
         entry.expanded = expanded; entry.compressed = compressed; entry.offset = offset;
-        if (!safe_path(entry.name) || self.entries[entry.name] || (type && type != S_IFREG) || (attributes & 0x18) ||
+        if (!HPDataPathIsSafe(entry.name) || self.entries[entry.name] || (type && type != S_IFREG) || (attributes & 0x18) ||
             (entry.flags & ~0x080e) || (entry.method != 0 && entry.method != 8)) return zp_fail(error, @"The package contains an unsafe path, link, or unsupported ZIP entry.");
         BOOL manifest = [entry.name isEqual:@"manifest.json"];
         NSDictionary *wanted = expected[entry.name];
@@ -277,7 +211,7 @@ static BOOL zip64(const uint8_t *p, size_t n, uint64_t *expanded, uint64_t *comp
             (entry.method == 0 && compressed != expanded)) return zp_fail(error, @"The package file inventory or sizes do not match this app.");
         self.entries[entry.name] = entry; cursor += extent;
     }
-    if (cursor != boundary || !self.entries[@"manifest.json"] || !safe_names(self.entries.allKeys)) return zp_fail(error, @"The package has ambiguous or missing files.");
+    if (cursor != boundary || !self.entries[@"manifest.json"] || !HPDataPathsAreSafe(self.entries.allKeys)) return zp_fail(error, @"The package has ambiguous or missing files.");
     /* Check every local record, and reject overlaps, hidden records and trailing payloads. */
     NSArray<HPZipEntry *> *ordered = [self.entries.allValues sortedArrayUsingComparator:^NSComparisonResult(HPZipEntry *a, HPZipEntry *b) {
         return a.offset < b.offset ? NSOrderedAscending : a.offset > b.offset ? NSOrderedDescending : NSOrderedSame;
@@ -370,7 +304,7 @@ BOOL HPImportGamePackage(NSURL *archive, NSURL *destination, NSDictionary *ident
 {
     if (previous) *previous = nil;
     if (error) *error = nil;
-    NSDictionary *manifest = expected_manifest(identity);
+    NSDictionary *manifest = HPExpectedDataManifest(identity);
     if (!manifest) return zp_fail(error, @"The app's prepared-data identity is missing or invalid. Rebuild the app before preparing data.");
     if (!archive.isFileURL || !destination.isFileURL) return zp_fail(error, @"Choose a local prepared-data package.");
     HPZipReader *reader = [HPZipReader new];

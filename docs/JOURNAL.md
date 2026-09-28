@@ -1587,3 +1587,45 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   recovery. All campaign, licensed normal startup, controlled-player comparison, actual touch
   and physical-device requirements remain intact. Current user preview PID 41176 is unchanged;
   no new candidate process, server or Simulator was left running by this iteration.
+
+### 2026-09-28 — complete stock validation for folders and device startup
+
+- Previous goal turn: **progress**, private push `793d414` (native ZIP import). Read the goal
+  attachment; inherited full scope remains intact. Started clean. Locked executable SHA,
+  pinned sources and project process checks pass; no parked input arrived. Only the existing
+  iPad PID 41176 is running; phone shut down, no Wine. Preserve the user's live preview.
+- Removed the old executable-only/minimum-files folder check. Extracted the signed inventory/
+  path policy into HaloPadDataIdentity, shared with ZIP import. Every stock size and hash now
+  matches the bundled identity. Folder selection copies only approved records, using canonical
+  output names; source extra installers, DLLs, maps and player files remain untouched.
+- A stock-only same-folder selection remains validation-only. A legacy folder with extras is
+  prepared via sibling staging and atomic swap; its entire original tree becomes the retained
+  backup. Altered/missing stock data cannot be repaired by filtering. Application Support state
+  is not moved or rewritten. Custom-map validation/import remains required, not silently accepted.
+- Replaced unbounded directory arrays with streaming enumeration and an entry budget. Account
+  for the signed inventory's own directory count/depth so the folder validator does not reject
+  an otherwise approved package solely for its topology. Open relative components through
+  directory descriptors without following symlinks. Copy at most the trusted byte count, flush,
+  then hash the entire staged output before publication. Tests inject growth and parent-link
+  replacement after preflight, including a link to otherwise matching bytes: both fail safely.
+- Device startup clears any inherited game-root shortcut in device-data mode and hashes through
+  the import panel on a worker. Check Again uses the same validator and retains the success latch.
+  Explicit HALOPAD_IMAGE development paths remain separate. Legacy 105-file imports need a
+  stock-copy preparation through Choose Folder before the new build will start them; the UI
+  explains source/backup preservation. The live app remains the previous build.
+- Final folder tests: 20 reported groups pass on Mac ASan/UBSan `G9/import-20260928T145721Z`
+  and iPad `...145651Z`. Include same-size map/module/shader/config corruption, exclusions,
+  same-folder backup, invalid identity, excessive entries/nesting, approved deep paths, growth,
+  parent-link races, failed/partial writes and publication/backup failures. No warnings under
+  -Wall -Wextra -Werror. No new failure was observed in this increment's final checks.
+- Native ZIP regression remains 16/16: Mac ASan/UBSan `G9/native-package-20260928T145718Z`,
+  iPad `...145720Z`. Both also import the actual engineering folder into disposable evidence:
+  exactly 78 approved files match, all 105 source-file hashes are unchanged, prior fixture
+  backup survives, and the complete startup validator accepts the copied result. No new Halo
+  core or window is started by these harnesses.
+- New full app built without installation; record final artifact/signature/source identity with
+  the iPad native-package evidence. Actual startup/migration/picker/provider and iPhone coverage
+  remain open. Highest game smoke was not rerun because it would replace the user-controlled
+  preview. Next: exercise the new startup and folder/package selection on a safely handed-off
+  Simulator session, then restore/remove/crash recovery. G9/M29 and the full goal remain active;
+  all campaign, normal licensed startup, reference-player, actual-touch and device gates remain.

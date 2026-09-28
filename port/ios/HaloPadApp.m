@@ -152,8 +152,7 @@ static NSString *current_map(void)
    bundle for its own data (the translated image and modules, the reference machine's files, the
    registry seed, the input profile), Application Support for its state, and the player's own
    Halo Custom Edition folder in Documents (the Files app, Finder, or the folder picker below),
-   accepted only when its haloce.exe is the locked 1.10 file (SHA-256 from profile.json) and the
-   stock files it needs are there. Nothing is downloaded and no key is involved. */
+   accepted only after every stock file matches the signed bundle inventory. Nothing is downloaded and no key is involved. */
 #import "HaloPadImport.h"
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 
@@ -161,13 +160,6 @@ static NSString *documents_game_dir(void)
 {
     NSURL *docs = [NSFileManager.defaultManager URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask].firstObject;
     return [docs.path stringByAppendingPathComponent:@"Halo Custom Edition"];
-}
-
-static NSString *game_profile_hash(void)
-{
-    NSString *path = [NSBundle.mainBundle.bundlePath stringByAppendingPathComponent:@"data/profile.json"];
-    NSDictionary *profile = [NSJSONSerialization JSONObjectWithData:[NSData dataWithContentsOfFile:path] ?: NSData.data options:0 error:nil];
-    return profile[@"accepted_sha256"];
 }
 
 static NSDictionary *game_core_identity(void)
@@ -179,13 +171,14 @@ static NSDictionary *game_core_identity(void)
 
 static NSString *game_dir_problem(NSString *directory)
 {
-    return HPGameDirectoryProblem(directory, game_profile_hash());
+    return HPGameDirectoryProblem(directory, game_core_identity());
 }
 
 /* the app's own paths, when the environment does not name the Mac's */
 static void resolve_device_paths(void)
 {
-    if (getenv("HALOPAD_IMAGE")) return;
+    if (getenv("HALOPAD_IMAGE")) return; /* Explicit development data paths. */
+    unsetenv("HALOPAD_GAME_ROOT"); /* Device startup always waits for full validation. */
     NSString *data = [NSBundle.mainBundle.bundlePath stringByAppendingPathComponent:@"data"];
     NSString *support = [NSFileManager.defaultManager URLsForDirectory:NSApplicationSupportDirectory inDomains:NSUserDomainMask].firstObject.path;
     NSString *state = [support stringByAppendingPathComponent:@"HaloPad/state"];
@@ -196,8 +189,7 @@ static void resolve_device_paths(void)
     setenv("HALOPAD_REPO_ROOT", data.UTF8String, 1);                  /* config/runtime/registry-machine.txt lives under it */
     setenv("HALOPAD_STATE_ROOT", state.UTF8String, 1);
     setenv("HALOPAD_REGISTRY", [state stringByAppendingPathComponent:@"registry.txt"].UTF8String, 1);
-    if (!game_dir_problem(documents_game_dir())) setenv("HALOPAD_GAME_ROOT", documents_game_dir().UTF8String, 1);
-    fprintf(stderr, "HALOPAD APP: device paths; game folder %s\n", getenv("HALOPAD_GAME_ROOT") ? "accepted" : "not there yet");
+    fprintf(stderr, "HALOPAD APP: device paths; game data validation pending\n");
 }
 
 /* The import screen: what to copy and where, a folder picker, and a re-check. */
@@ -205,7 +197,7 @@ static void resolve_device_paths(void)
 @property(nonatomic, copy) void (^ready)(void);
 @property(nonatomic, strong) UILabel *status;
 @property(nonatomic, strong) UIStackView *importButtons;
-@property(nonatomic) BOOL importing, pickingPackage;
+@property(nonatomic) BOOL importing, pickingPackage, checkedOnAppear;
 @end
 
 @implementation HPImportViewController
@@ -219,12 +211,12 @@ static void resolve_device_paths(void)
     UILabel *text = [UILabel new];
     text.numberOfLines = 0;
     text.font = [UIFont systemFontOfSize:17];
-    text.text = @"Prepare your own Halo Custom Edition 1.10 files on your Mac with HaloPad’s preparation tool, using this app build. Transfer the resulting .halopad.zip package to Files, then choose it below. HaloPad checks the complete package before installing it.\n\nA replacement keeps your previous game folder as a backup. The game and its product key are not included. You can also use the existing installation-folder import.";
+    text.text = @"Prepare your own Halo Custom Edition 1.10 files on your Mac with HaloPad’s preparation tool, using this app build. Transfer the resulting .halopad.zip package to Files, then choose it below. HaloPad checks the complete package before installing it.\n\nA replacement keeps your previous game folder as a backup. The game and its product key are not included. Choose Folder imports only supported stock files. Other files stay in the source folder or retained backup.";
     self.status = [UILabel new];
     self.status.numberOfLines = 0;
     self.status.font = [UIFont systemFontOfSize:15];
     self.status.textColor = UIColor.secondaryLabelColor;
-    self.status.text = game_dir_problem(documents_game_dir());
+    self.status.text = @"Checking your installed game data…";
     UIButton *package = [UIButton buttonWithType:UIButtonTypeSystem];
     [package setTitle:@"Choose Prepared Package…" forState:UIControlStateNormal];
     package.titleLabel.font = [UIFont boldSystemFontOfSize:18];
@@ -268,17 +260,33 @@ static void resolve_device_paths(void)
         [buttons.heightAnchor constraintEqualToConstant:144]]];
     self.view.accessibilityIdentifier = @"HaloPadImport";
 }
+- (void)viewDidAppear:(BOOL)animated
+{
+    [super viewDidAppear:animated];
+    if (!self.checkedOnAppear) { self.checkedOnAppear = YES; [self check]; }
+}
 - (void)check
 {
     if (self.importing) return;
-    NSString *problem = game_dir_problem(documents_game_dir());
-    self.status.text = problem ?: @"Halo Custom Edition 1.10 found. Starting…";
-    if (!problem) {
-        self.importing = YES; /* Ignore another tap while the sheet is dismissing. */
-        self.importButtons.userInteractionEnabled = NO;
-        setenv("HALOPAD_GAME_ROOT", documents_game_dir().UTF8String, 1);
-        if (self.ready) self.ready();
-    }
+    self.importing = YES;
+    self.importButtons.userInteractionEnabled = NO;
+    self.importButtons.alpha = .5;
+    self.status.text = @"Verifying your installed game files…";
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        NSString *problem = game_dir_problem(documents_game_dir());
+        dispatch_async(dispatch_get_main_queue(), ^{
+            self.status.text = problem ?: @"Game data verified. Starting…";
+            if (problem) {
+                self.importing = NO;
+                self.importButtons.userInteractionEnabled = YES;
+                self.importButtons.alpha = 1;
+            } else {
+                /* Keep the success latch until dismissal: no second core on repeated taps. */
+                setenv("HALOPAD_GAME_ROOT", documents_game_dir().UTF8String, 1);
+                if (self.ready) self.ready();
+            }
+        });
+    });
 }
 - (void)pickPackage
 {
@@ -307,7 +315,6 @@ static void resolve_device_paths(void)
     self.importButtons.alpha = .5;
     BOOL package = self.pickingPackage;
     self.status.text = package ? @"Checking and importing your prepared package…" : @"Checking and copying your game files…";
-    NSString *hash = game_profile_hash();
     NSDictionary *identity = game_core_identity();
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
         BOOL scoped = [src startAccessingSecurityScopedResource];
@@ -321,7 +328,7 @@ static void resolve_device_paths(void)
                                        options:NSFileCoordinatorWritingForReplacing
                                          error:&coordinationError byAccessor:^(NSURL *readURL, NSURL *writeURL) {
             ok = package ? HPImportGamePackage(readURL, writeURL, identity, &backup, &importError)
-                         : HPImportGameDirectory(readURL, writeURL, hash, &backup, &importError);
+                         : HPImportGameDirectory(readURL, writeURL, identity, &backup, &importError);
         }];
         if (scoped) [src stopAccessingSecurityScopedResource];
         dispatch_async(dispatch_get_main_queue(), ^{

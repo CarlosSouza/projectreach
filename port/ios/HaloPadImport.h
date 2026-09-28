@@ -1,8 +1,8 @@
 #import <Foundation/Foundation.h>
 
 /* Original files remain inert data. This service never loads executable code. */
-NSString *HPGameDirectoryProblem(NSString *directory, NSString *expectedSHA256);
-BOOL HPImportGameDirectory(NSURL *source, NSURL *destination, NSString *expectedSHA256,
+NSString *HPGameDirectoryProblem(NSString *directory, NSDictionary *trustedIdentity);
+BOOL HPImportGameDirectory(NSURL *source, NSURL *destination, NSDictionary *trustedIdentity,
                            NSURL **previousFolder, NSError **error);
 
 /* Internal: publish a fully verified sibling staging directory. Never delete the old tree. */

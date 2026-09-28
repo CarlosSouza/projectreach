@@ -38,7 +38,13 @@ int main(int argc, const char **argv)
         dispatch_semaphore_t finished = dispatch_semaphore_create(0);
         dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
             @autoreleasepool {
-                ok = HPImportGamePackage([NSURL fileURLWithPath:@(argv[2])], [NSURL fileURLWithPath:@(argv[3])], identity, &backup, &error);
+                if (argc > 4 && !strcmp(argv[4], "folder"))
+                    ok = HPImportGameDirectory([NSURL fileURLWithPath:@(argv[2])], [NSURL fileURLWithPath:@(argv[3])], identity, &backup, &error);
+                else if (argc > 4 && !strcmp(argv[4], "validate")) {
+                    NSString *problem = HPGameDirectoryProblem(@(argv[2]), identity);
+                    ok = !problem;
+                    if (problem) error = [NSError errorWithDomain:@"FolderTest" code:1 userInfo:@{NSLocalizedDescriptionKey:problem}];
+                } else ok = HPImportGamePackage([NSURL fileURLWithPath:@(argv[2])], [NSURL fileURLWithPath:@(argv[3])], identity, &backup, &error);
             }
             dispatch_semaphore_signal(finished);
         });

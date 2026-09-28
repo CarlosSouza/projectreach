@@ -128,10 +128,10 @@ expansion bombs, invalid bundled metadata, first/replacement imports, failed/par
 publication failure and failed backup naming. The first tests exposed an autoreleased NSError
 escaping an inner pool; the pool was removed and these failure paths now pass.
 
-Remaining: equivalent full folder-content validation, custom-map policy, restore/remove/recovery,
-iPhone package harness and both-device actual picker/provider/launch acceptance. The app's
-startup/folder path still checks only the executable identity and minimum resources. The new
-ZIP path does full content validation but does not retroactively validate direct Files copies.
+Folder import and device startup now share full stock-content validation with the ZIP path;
+see [IMPORT.md](IMPORT.md) for stock-only selection, legacy-folder backup and background startup
+checks. Remaining: custom-map policy, restore/remove/recovery, iPhone harness and both-device
+actual picker/provider/migration/launch acceptance.
 Campaign/licensed-startup/device gates remain unchanged. M29 is open.
 
 Native evidence (2026-09-28): Mac background-worker sanitizer suite and real-data import
@@ -142,7 +142,12 @@ output has exactly 78 approved stock files with matching hashes; nine inert-data
 verify. The source archive is unchanged and the previous test install is retained. These are
 filesystem service tests, not a new gameplay launch or picker/provider acceptance.
 
-Next experiment: apply the signed stock-content inventory to the folder route and startup
-without accepting arbitrary extra executable input; test altered/missing maps and same-folder
-revalidation while preserving installed data and player state. Continue with package Files-picker
-and iPhone coverage when the user-controlled preview can be handed off safely.
+The shared identity/path policy now lives in `HaloPadDataIdentity.m`. The native harness also
+accepts `--real-folder <installation> --app-data <trusted-app/data>`: it copies to disposable
+evidence, compares all output files with the signed stock inventory, verifies source files
+(including excluded extras) are unchanged, checks the retained backup, and runs the startup
+validator against the imported result. It never updates the live app's game folder.
+
+Next experiment: actual startup and package/folder picker migration acceptance on Simulator,
+then iPhone and file-provider cases. Retain the user-controlled live preview until a safe handoff.
+Restore/remove and crash recovery remain required; full G9 acceptance is still open.
