@@ -216,7 +216,7 @@ static void on_present(uint32_t device)
             stuck_tries = 0;
             if (pickup && nskip < 16) skip[nskip++] = pickup;
             uint32_t ot = rd(0x7fb710), held = object(rd(u + 0x2f8));
-            float best = 40.0f, up[3] = {f32(u + 0x5c), f32(u + 0x60), f32(u + 0x64)};
+            float best = 25.0f, up[3] = {f32(u + 0x5c), f32(u + 0x60), f32(u + 0x64)};
             pickup = 0;
             for (uint32_t i = 0; i < u16(ot + 0x20); i++) {
                 uint32_t e = rd(ot + 0x34) + i * 12;
@@ -225,11 +225,11 @@ static void on_present(uint32_t device)
                 int skipped = 0; for (int q = 0; q < nskip; q++) skipped |= skip[q] == hnd;
                 if (skipped || (int16_t)u16(o + 0xb4) != 2 || rd(o + 0xcc) != 0xffffffff || (held && (rd(o) & 0xffff) == (rd(held) & 0xffff))) continue;
                 float d = hypotf(f32(o + 0x5c) - up[0], f32(o + 0x60) - up[1]);
-                if (fabsf(f32(o + 0x64) - up[2]) < 2.0f && d < best) { best = d; pickup = hnd; }
+                if (fabsf(f32(o + 0x64) - up[2]) < 1.0f && d < best) { best = d; pickup = hnd; }
             }
             if (tp == 20) weapons_before = rd(u + 0x2f8 + 4);
             progress_frame = tp; best_dist = 1e9f;
-            if (getenv("HALOPAD_TRACE_PICKUP")) { uint32_t oo = object(pickup); printf("      pickup choose t%d: %08x at %.2f %.2f %.2f; player %.2f %.2f %.2f\n", tp, pickup, oo ? f32(oo + 0x5c) : 0, oo ? f32(oo + 0x60) : 0, oo ? f32(oo + 0x64) : 0, up[0], up[1], up[2]); }
+            if (1) { uint32_t oo = object(pickup); printf("      pickup choose t%d: %08x at %.2f %.2f %.2f; player %.2f %.2f %.2f\n", tp, pickup, oo ? f32(oo + 0x5c) : 0, oo ? f32(oo + 0x60) : 0, oo ? f32(oo + 0x64) : 0, up[0], up[1], up[2]); }
         }
         if (u && pickup && object(pickup)) {
             uint32_t o = object(pickup);
@@ -247,7 +247,7 @@ static void on_present(uint32_t device)
                 int want = fabsf(err) < 20;
                 if (want != w_down) { keyx('W', 0x11, 0, want); w_down = want; }
             }
-            if (tp % 40 == 0 && getenv("HALOPAD_TRACE_PICKUP")) printf("      pickup t%d player %.2f %.2f %.2f weapon %.2f %.2f %.2f interaction %08x/%d\n", tp, up[0], up[1], up[2], o ? f32(o + 0x5c) : 0, o ? f32(o + 0x60) : 0, o ? f32(o + 0x64) : 0, rd(p + 0x24), (int16_t)u16(p + 0x28));
+            if (tp % 80 == 0) printf("      pickup t%d player %.2f %.2f %.2f weapon %.2f %.2f %.2f interaction %08x/%d\n", tp, up[0], up[1], up[2], o ? f32(o + 0x5c) : 0, o ? f32(o + 0x60) : 0, o ? f32(o + 0x64) : 0, rd(p + 0x24), (int16_t)u16(p + 0x28));
             /* Halo offers the weapon (player +0x24, the "Hold E to pick up" prompt); hold E to take it */
             if (rd(p + 0x24) == pickup && !e_down) { offered_pickup = (int16_t)u16(p + 0x28); keyx('E', 0x12, 0, 1); e_down = frames; }
             if (e_down && frames - e_down == 40) keyx('E', 0x12, 0, 0);
@@ -275,16 +275,27 @@ static void on_present(uint32_t device)
     if (t == 186) shot(device, 3);
     if (t == 192) keyx('F', 0x21, 0, 0);
     /* look down, then frag grenades at the player's feet until it dies */
+    /* look down: 1,200 counts over 30 frames, done well before the first throw (k -0.76 in 52
+       runs, where the two frags killed; a slower closed-loop turn still moving at the throw, or
+       k -0.91, left the player wounded) */
     if (t >= 240 && t < 270) mouse(0, 40);
     if (t == 325 && u) { look_down = f32(u + 0x244); frags0 = *(uint8_t *)halopad_guest_ptr(u + 0x31e); }
-    /* both frags close together, so they go off at the player's feet together; again later if
-       the player still stands (a grenade can bounce away) */
+    /* grenades at the player's feet until it dies: a throw every 40 frames (a press while the last
+       throw is still in its animation is ignored, so fixed times sometimes threw one frag, which
+       leaves the player at 0.40 health); when the frags are gone, G switches to plasma grenades
+       (unit +0x31e frags, +0x31f plasma) */
     if (t == 330) mark_frag = rec_n;
-    if (t == 330 || t == 370 || t == 900 || t == 940) button(1, 1);
-    if (t == 340 || t == 380 || t == 910 || t == 950) button(1, 0);
+    if (t >= 330 && t < 1400 && !death_frame && u && rd(p + 0x34) == first_unit) {
+        uint8_t frags = *(uint8_t *)halopad_guest_ptr(u + 0x31e), plasma = *(uint8_t *)halopad_guest_ptr(u + 0x31f);
+        static int switched;
+        if ((t - 330) % 40 == 0 && (frags || (switched && plasma))) button(1, 1);
+        if ((t - 330) % 40 == 10) button(1, 0);
+        if (!frags && plasma && !switched && (t - 330) % 40 == 20) { keyx('G', 0x22, 0, 1); switched = t; }
+        if (switched && t == switched + 6) keyx('G', 0x22, 0, 0);
+    }
     if (t == 365) shot(device, 4);
     if (t == 360 && u) frags1 = *(uint8_t *)halopad_guest_ptr(u + 0x31e);   /* after the first throw */
-    if (!death_frame && t > 300 && (!u || rd(p + 0x34) != first_unit)) { death_frame = frames; mark_death = rec_n; shot(device, 5); }
+    if (!death_frame && t > 300 && (!u || rd(p + 0x34) != first_unit)) { death_frame = frames; mark_death = rec_n; button(1, 0); shot(device, 5); }
     if (death_frame && !respawn_frame && u && rd(p + 0x34) != first_unit) { respawn_frame = frames; second_unit = rd(p + 0x34); }
     if (respawn_frame && frames == respawn_frame + 10) shot(device, 6);
 end:

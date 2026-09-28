@@ -55,6 +55,27 @@ static void post_button(int b, int down)
     halopad_host_post_input(&e);
 }
 
+/* Typed keys (text, the console key, chat keys) wait in a queue and go to Halo one event every
+   50 ms, a little over one of Halo's frames: its keyboard is read once a frame, and a key that
+   goes down and up between two reads is never seen. Held controls post at once. */
+static NSMutableArray<NSValue *> *typed_queue;
+static void queue_key(uint32_t vk, uint32_t side, uint32_t scan, int down, unichar ch)
+{
+    hp_input e = {.kind = HPI_KEY, .vk = vk, .side_vk = side ? side : vk, .scan = scan, .down = down};
+    if (down && ch) { e.chars[0] = ch; e.nchars = 1; }
+    if (!typed_queue) {
+        typed_queue = [NSMutableArray array];
+        [NSTimer scheduledTimerWithTimeInterval:0.05 repeats:YES block:^(NSTimer *t) {
+            if (!typed_queue.count) return;
+            hp_input next;
+            [typed_queue.firstObject getValue:&next size:sizeof next];
+            [typed_queue removeObjectAtIndex:0];
+            halopad_host_post_input(&next);
+        }];
+    }
+    [typed_queue addObject:[NSValue valueWithBytes:&e objCType:@encode(hp_input)]];
+}
+
 /* A character on a US keyboard: virtual key, scan code, whether Shift is held. */
 static int us_key(unichar c, uint32_t *vk, uint32_t *scan, int *shift)
 {
@@ -477,7 +498,7 @@ static CGRect at(CGRect safe, CGFloat x, CGFloat y, CGFloat w, CGFloat h)
     HPSettings *s = HPSettings.shared;
     NSMutableArray<UIMenuElement *> *recent = [NSMutableArray array];
     for (NSString *addr in s.recentServers)
-        [recent addObject:[UIAction actionWithTitle:addr image:nil identifier:nil handler:^(__kindof UIAction *a) { [weak joinServer:addr]; }]];
+        [recent addObject:[UIAction actionWithTitle:addr image:nil identifier:nil handler:^(__kindof UIAction *a) { [weak joinServer:addr password:@""]; }]];
     UIMenu *online = [UIMenu menuWithTitle:@"" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[
         [UIAction actionWithTitle:@"Join Server by Address…" image:[UIImage systemImageNamed:@"network"] identifier:nil
                           handler:^(__kindof UIAction *a) { [weak promptJoin]; }],
@@ -540,15 +561,14 @@ static CGRect at(CGRect safe, CGFloat x, CGFloat y, CGFloat w, CGFloat h)
     [a addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
     [a addAction:[UIAlertAction actionWithTitle:@"Join" style:UIAlertActionStyleDefault handler:^(UIAlertAction *x) {
         NSString *addr = [wa.textFields[0].text stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet];
-        NSString *pw = wa.textFields[1].text;
-        if (addr.length) [weak joinServer:pw.length ? [NSString stringWithFormat:@"%@ %@", addr, pw] : addr];
+        if (addr.length) [weak joinServer:addr password:wa.textFields[1].text ?: @""];
     }]];
     [self.presenter presentViewController:a animated:YES completion:nil];
 }
 
-- (void)joinServer:(NSString *)target
+/* Halo's console: connect <address> <password> (both arguments are required; an empty password is "") */
+- (void)joinServer:(NSString *)addr password:(NSString *)pw
 {
-    NSString *addr = [target componentsSeparatedByString:@" "].firstObject;
     NSMutableArray *recent = [HPSettings.shared.recentServers mutableCopy];
     [recent removeObject:addr];
     [recent insertObject:addr atIndex:0];
@@ -556,7 +576,9 @@ static CGRect at(CGRect safe, CGFloat x, CGFloat y, CGFloat w, CGFloat h)
     HPSettings.shared.recentServers = recent;
     [self rebuildMenu];
     [HPOverlay tapKey:0xC0 scan:0x29];                              /* open Halo's console */
-    [HPOverlay typeText:[NSString stringWithFormat:@"connect %@\n", target]];
+    NSString *quoted = [pw stringByReplacingOccurrencesOfString:@"\"" withString:@""];
+    [HPOverlay typeText:[NSString stringWithFormat:@"connect %@ \"%@\"\n", addr, quoted]];
+    [HPOverlay tapKey:0xC0 scan:0x29];                              /* and close it: in a game its keys would type there */
 }
 
 - (void)report
@@ -570,8 +592,8 @@ static CGRect at(CGRect safe, CGFloat x, CGFloat y, CGFloat w, CGFloat h)
 
 + (void)tapKey:(uint32_t)vk scan:(uint32_t)scan
 {
-    post_key(vk, 0, scan, 0, 1, 0);
-    post_key(vk, 0, scan, 0, 0, 0);
+    queue_key(vk, 0, scan, 1, 0);
+    queue_key(vk, 0, scan, 0, 0);
 }
 
 + (void)typeText:(NSString *)text
@@ -581,10 +603,10 @@ static CGRect at(CGRect safe, CGFloat x, CGFloat y, CGFloat w, CGFloat h)
         uint32_t vk, scan; int shift;
         if (!us_key(c, &vk, &scan, &shift)) continue;
         if (c == '\n') c = '\r';
-        if (shift) post_key(0x10, 0xA0, 0x2a, 0, 1, 0);
-        post_key(vk, 0, scan, 0, 1, c);
-        post_key(vk, 0, scan, 0, 0, 0);
-        if (shift) post_key(0x10, 0xA0, 0x2a, 0, 0, 0);
+        if (shift) queue_key(0x10, 0xA0, 0x2a, 1, 0);
+        queue_key(vk, 0, scan, 1, c == '\b' ? 0x08 : c);
+        queue_key(vk, 0, scan, 0, 0);
+        if (shift) queue_key(0x10, 0xA0, 0x2a, 0, 0);
     }
 }
 
@@ -787,5 +809,13 @@ static CGRect at(CGRect safe, CGFloat x, CGFloat y, CGFloat w, CGFloat h)
         if (!strcmp(demo, "layout")) { [self beginEditing]; }
         fprintf(stderr, "HALOPAD OVERLAY: demo \"%s\" open\n", demo);
     });
+    /* join:ADDRESS: the menu's Join Server, once Halo's menu is up */
+    if (!strncmp(demo, "join:", 5)) {
+        NSString *addr = @(demo + 5);
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 20 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+            fprintf(stderr, "HALOPAD OVERLAY: demo joins %s through Halo's console\n", addr.UTF8String);
+            [self joinServer:addr password:@""];
+        });
+    }
 }
 @end

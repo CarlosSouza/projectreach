@@ -1021,3 +1021,26 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   quit, relaunch with the saved profile) and `run-core.py --relaunch`.
 - **Open:** Simulator audio in the app, an unattended touch test, iPhone layouts, the host test's
   rare hang after the respawn (one run of three timed out at frame 2900).
+
+## 2026-09-27 — Joining from the app's menu; a steadier host test
+
+- **Join Server from the three-dot menu works.** It types Halo's console command, which needed
+  Halo's `-console` switch (the app adds it), both of `connect`'s arguments (address and password,
+  `""` when empty) and typed keys spread one per 50 ms, since Halo reads its keyboard once a frame.
+  The console closes afterwards. Checked on the Mac against the private server
+  (`HALOPAD_TEST_VIA=console`: `JOIN SUCCESS "New001"`) and in the iPad app
+  (`HALOPAD_OVERLAY_DEMO=join:ADDRESS`): POQclan's Ice Fields and Massacre Island games.
+- **Sound in the iOS app:** an audio session lets Remote I/O start on the Simulator.
+- **The host test.** Grenades are now thrown every 40 frames until the player dies (a press
+  during the previous throw's animation was ignored, which left the player at 0.40 health), with
+  a switch to plasma grenades when the frags run out. The pickup keeps to weapons on the player's
+  level (within 1 unit of height, 25 units away), and its route is always traced. With the
+  final version: 5 of 5 on the Mac, 1 of 2 on the iPad Simulator; the miss was a spawn point
+  where both frags fell away (no damage), which the suite's retry covers. On a timeout,
+  `run-core.py` now samples every thread's stack (`hang-sample.txt`).
+- **Why tests failed mid-session:** a HaloPad app left running in the Simulator held UDP 2302
+  and 2303 on the Mac, and the host test and the reference join could not use them. The
+  Simulator is shut down after every app run.
+- macOS: all 25 suites, the join, the host and lifecycle tests pass. iPad Simulator: the full
+  run passed everything except the host test, which failed both tries with the earlier
+  fixed-time throws; the final version passed 1 of 2 runs there.

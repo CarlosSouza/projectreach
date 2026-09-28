@@ -53,9 +53,50 @@ static void check(const char *what, uint32_t got, uint32_t want)
 void *halopad_d3d9_device_target(uint32_t g);
 void halopad_metal_read_image(void *p, uint32_t *out, uint32_t w, uint32_t h);
 extern void (*halopad_d3d9_present_hook)(uint32_t device);
-#define QUIT_AFTER 1200
+#include "../port/runtime/halopad_input.h"
+static int QUIT_AFTER = 1200;
 static int frames, map_frame;
 static const char *expect_map = "bloodgulch";     /* HALOPAD_TEST_MAP: the map the server runs */
+/* HALOPAD_TEST_VIA=console: no -connect; at frame 300 the test opens Halo's console (the grave
+   key) and types "connect <server>" and Enter, the keys and characters the iOS app's Join Server
+   sends (port/ios/HaloPadOverlay.m) */
+static const char *via_console;
+/* typed keys wait in a queue: each key goes down on one frame and up two frames later, so Halo's
+   once-a-frame keyboard read sees it */
+static hp_input typed[512];
+static int ntyped, next_typed;
+static void queue_key(uint32_t vk, uint32_t side, uint32_t scan, int down, uint16_t ch)
+{
+    if (ntyped >= 512) return;
+    hp_input e = {0};
+    e.kind = HPI_KEY; e.vk = vk; e.side_vk = side ? side : vk; e.scan = scan; e.down = down;
+    if (down && ch) { e.chars[0] = ch; e.nchars = 1; }
+    typed[ntyped++] = e;
+}
+static void key_char(uint32_t vk, uint32_t scan, int shift, uint16_t ch)
+{
+    if (shift) queue_key(0x10, 0xA0, 0x2a, 1, 0);
+    queue_key(vk, 0, scan, 1, ch);
+    queue_key(vk, 0, scan, 0, 0);
+    if (shift) queue_key(0x10, 0xA0, 0x2a, 0, 0);
+}
+static void type_text(const char *s)
+{
+    static const char row1[] = "1234567890", q[] = "qwertyuiop", a[] = "asdfghjkl", z[] = "zxcvbnm";
+    for (; *s; s++) {
+        const char *p;
+        char c = *s;
+        if ((p = strchr(row1, c))) key_char((uint32_t)c, 0x02 + (uint32_t)(p - row1), 0, (uint16_t)c);
+        else if ((p = strchr(q, c))) key_char((uint32_t)(c - 32), 0x10 + (uint32_t)(p - q), 0, (uint16_t)c);
+        else if ((p = strchr(a, c))) key_char((uint32_t)(c - 32), 0x1e + (uint32_t)(p - a), 0, (uint16_t)c);
+        else if ((p = strchr(z, c))) key_char((uint32_t)(c - 32), 0x2c + (uint32_t)(p - z), 0, (uint16_t)c);
+        else if (c == ' ') key_char(0x20, 0x39, 0, ' ');
+        else if (c == '.') key_char(0xBE, 0x34, 0, '.');
+        else if (c == ':') key_char(0xBA, 0x27, 1, ':');
+        else if (c == '"') key_char(0xDE, 0x28, 1, '"');
+        else if (c == '\n') key_char(0x0D, 0x1c, 0, '\r');
+    }
+}
 static uint32_t unit_seen;
 static uint16_t u16(uint32_t g) { uint16_t v; memcpy(&v, halopad_guest_ptr(g), 2); return v; }
 /* the player's unit: players table 0x815920, object table 0x7fb710 (see tests/halo_play_test.c) */
@@ -68,6 +109,7 @@ static uint32_t player_unit(void)
     uint32_t e = rd(ot + 0x34) + (h & 0xffff) * 12;
     return u16(e) == h >> 16 ? rd(e + 8) : 0;
 }
+static const char *save_name = "join.ppm";
 static void save(uint32_t device)
 {
     uint32_t w = 800, h = 600, *img = malloc(w * h * 4);
@@ -75,7 +117,7 @@ static void save(uint32_t device)
     const char *reg = getenv("HALOPAD_REGISTRY");
     if (reg && strrchr(reg, '/')) {
         char path[1200];
-        snprintf(path, sizeof path, "%.*s/join.ppm", (int)(strrchr(reg, '/') - reg), reg);
+        snprintf(path, sizeof path, "%.*s/%s", (int)(strrchr(reg, '/') - reg), reg, save_name);
         FILE *f = fopen(path, "wb");
         if (f) {
             fprintf(f, "P6\n%u %u\n255\n", w, h);
@@ -92,6 +134,16 @@ static void on_present(uint32_t device)
     uint32_t u = player_unit();
     if (u && map_frame) unit_seen = u;
     if (frames == 900) save(device);
+    if (via_console && frames == 300) {
+        key_char(0xC0, 0x29, 0, 0);                              /* Halo's console */
+        char line[160];
+        snprintf(line, sizeof line, "connect %s \"\"\n", via_console);     /* Halo's connect: address and password */
+        type_text(line);
+        printf("    frame 300: typed \"%s\" into Halo's console\n", line);
+    }
+    if (via_console && frames == 480) { save_name = "console-typing.ppm"; save(device); save_name = "join.ppm"; }
+    if (via_console && frames == 1500) save(device);
+    if (next_typed < ntyped && frames % 2 == 0) halopad_input_event(&typed[next_typed++]);
     if (frames == QUIT_AFTER) *(uint8_t *)halopad_guest_ptr(0x6b47eb) = 1;
 }
 
@@ -130,7 +182,9 @@ int main(void)
     const char *server = getenv("HALOPAD_TEST_SERVER") ? getenv("HALOPAD_TEST_SERVER") : "127.0.0.1:2310";
     if (getenv("HALOPAD_TEST_MAP")) expect_map = getenv("HALOPAD_TEST_MAP");
     char args[128];
-    snprintf(args, sizeof args, "-connect %s", server);
+    if (getenv("HALOPAD_TEST_VIA") && !strcmp(getenv("HALOPAD_TEST_VIA"), "console")) { via_console = server; QUIT_AFTER = 2100; }
+    if (via_console) snprintf(args, sizeof args, "-console");     /* Halo's console needs its -console switch */
+    else snprintf(args, sizeof args, "-connect %s", server);
     setenv("HALOPAD_ARGS", args, 1);
     uint32_t one = 1;
     halopad_call_guest_ex(0x5d6ba6, 1, &one, 0, 0);

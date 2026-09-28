@@ -46,7 +46,9 @@ local SunPad path. The donor copy used for the work is private and ignored (`ref
 - Default positions keep clear of Halo's HUD: its ammo and shield displays in the top corners
   and its motion tracker in the bottom-left corner.
 - **The menu holds what Halo's own menus do not:**
-  - Join Server by Address (and Recent Servers), through Halo's own console command `connect`;
+  - Join Server by Address (and Recent Servers), through Halo's own console command
+    `connect ADDRESS "PASSWORD"` (Halo runs with `-console`; typed keys go one every 50 ms so
+    Halo's once-a-frame keyboard read sees each);
   - Show Keyboard (the system keyboard types into Halo), Halo Console, Team Chat and All Chat;
   - Display: aspect ratio (Original 4:3 or Stretch to Fill, applied to Halo's layer and to touch
     mapping at once) and an FPS counter (Halo's presented frames);

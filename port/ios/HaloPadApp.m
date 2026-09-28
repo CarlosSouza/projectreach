@@ -535,5 +535,12 @@ int halopad_host_open_url(const char *url)
 
 int main(int argc, char *argv[])
 {
+    /* Halo's console (the menu's Join Server, Halo Console) needs its -console switch */
+    const char *args = getenv("HALOPAD_ARGS");
+    if (!args || !strstr(args, "-console")) {
+        char with[1024];
+        snprintf(with, sizeof with, "%s%s-console", args ? args : "", args && *args ? " " : "");
+        setenv("HALOPAD_ARGS", with, 1);
+    }
     @autoreleasepool { return UIApplicationMain(argc, argv, nil, NSStringFromClass(HPAppDelegate.class)); }
 }

@@ -367,10 +367,29 @@ own `0x5829e0`; nothing is written or made up). With `HALOPAD_ARGS='-connect 74.
 iPad Simulator app joined POQclan's Death Island CTF game and played at about 26 frames per
 second with the controls over Halo's HUD.
 
-**Still open here:** the Simulator's audio output unit does not start in the app ("audio output
-unit would not start"); the touch controls are checked by screenshot only (no unattended touch
-test yet); iPhone layouts are unchecked; the menu's console path (`connect` typed into Halo's
-console) needs a test.
+**Joining by address from the menu.** Join Server types Halo's own console command, and three
+things were needed for it to work:
+
+- Halo's console opens only when Halo was started with `-console`; the app adds it to Halo's
+  command line.
+- `connect` takes two arguments, the address and a password; with the address alone it does
+  nothing. The menu types `connect ADDRESS "PASSWORD"` (an empty password is `""`), then closes the
+  console, whose prompt would otherwise take the movement keys in the game.
+- Typed keys go to Halo one event every 50 ms: Halo reads its keyboard once a frame, and a key
+  that goes down and up between two reads is never seen. Held controls post at once.
+
+`tests/halo_connect_test.c` with `HALOPAD_TEST_VIA=console` checks the same keys and characters on
+the Mac against the private reference server (`scripts/reference-join.sh`): the console shows
+`halo( connect 127.0.0.1:` while typing, and the server logs `JOIN SUCCESS "New001"`. In the app,
+`HALOPAD_OVERLAY_DEMO=join:ADDRESS` runs the menu's Join Server 20 seconds after launch; on the
+iPad Simulator it joined POQclan's Ice Fields and Massacre Island games with the console closed.
+
+**Sound in the app.** Remote I/O needs an active audio session on iOS; the app activates a
+playback session (mixing with other audio) at launch, and the output unit now starts on the
+Simulator.
+
+**Still open here:** the touch controls are checked by screenshot only (no unattended touch test
+yet); iPhone layouts are unchecked.
 
 ## Rasterizer initialization (Halo's graphics start-up)
 
