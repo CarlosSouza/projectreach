@@ -2112,3 +2112,41 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   Then controlled natural server restarts/reconnects with touch input. Physical
   hot-plug and simultaneous fingers remain open; do not promote default analog or
   close G9 on the strength of the color-save path alone.
+
+
+## 2026-09-28 — touch editor alignment and controller settings save
+
+- Continuing active goal, starting clean at 162da47. Objective and current evidence
+  read; user requested continued spacing/twin-stick iteration and private pushes.
+  Existing runtime/source identity checks and state backup precede this step.
+- Investigated the original controller editor on New002. It lists the distinct
+  touch source but its movement bindings are empty in the saved profile. Original
+  setter disassembly writes only the selected table entry; no evidence of the
+  suspected cross-controller action clearing. No runtime binding change made.
+- Saved touch-device horizontal sensitivity 3→4 through original Controls Setup /
+  Advanced / OK / profile OK. Only offset 0x957 and CRC change; New001 unchanged.
+  Manager releases/reacquires slot 1 during profile application. Evidence
+  `G9/touch-binding-edit/controller-settings-diff.json` and settings log. This
+  is settings-save acceptance, not an action-binding edit. Backup in `before/`.
+- Layout improvement: snap released controls to centres within eight points,
+  rejecting snaps that crowd controls or cross safe bounds. Drag itself remains
+  continuous. Minimum 44-point target applies to individual saved scales too.
+  Reset editor hint when reopening. No default or user-position reset.
+- `.venv/bin/python scripts/test-ios-overlay.py`: 71 assertions plus five rendered
+  previews, 90 layouts, zero failures (`G9/overlay-20260928T193648Z`). New tests
+  cover pair alignment, intentional offset, obstructed snap and minimum size.
+- Stopped PID 92034 before rebuilding/installing the explicit touch-move scene.
+  PID 94466 loads saved New002 and Battle Creek through original menus; five
+  gameplay and seven analog/cancel checks pass. Original profile hashes remain
+  unchanged by reinstall/relaunch. Exact source/app identity in `editor-identity.json`.
+- Live editor opens with revised hint, selection and Done work. CUA drags select
+  without moving; AX slider sets its value but does not persist a scale. Do not
+  count those as real drag/resize acceptance. No tablet layout preferences were
+  created. Game swipes after closing editor turn the scene.
+- One requested playable iPad preview remains: E129A00F-D338-4FDC-8AE8-BB243E9BA61B,
+  PID 94466, New002 Battle Creek, LAN policy, explicit development scene. Drivers
+  are one-shot and finished. Phone stays off; no reference process started.
+- Next bounded experiment: controlled server map transition/disconnect/reconnect
+  while the touch manager owns its slot; log release/reacquisition and verify
+  neutral input followed by movement after each transition. No full-goal closure;
+  original controller-action edit and physical simultaneous fingers remain open.

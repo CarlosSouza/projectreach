@@ -49,6 +49,8 @@ Operating loop: [HaloPad-GOAL-LOOP-PHASE2.md](HaloPad-GOAL-LOOP-PHASE2.md) (repl
 
 - **Fresh-profile analog fix:** New002 already had an empty touch-device assignment in slot 1; configuration now reuses it and preserves that assignment on cleanup. Two regressions reproduced, then 31 policy assertions passed under ASan/UBSan. New002 Sidewinder and its saved-profile Battle Creek relaunch each pass five gameplay and seven analog/cancel checks. Same-process map reload reuses slot 1. An actual in-game color save changes only the color field/checksum, with no touch bindings persisted. Evidence: `G9/touch-profile-config`. Physical/controller edits and natural server-transition acceptance remain open; analog still opt-in.
 
+- **Touch layout editor:** controls snap to nearby rows/columns on drop while retaining safe clearance; resized targets remain at least 44 points. UIKit suite passes 71 assertions, five renders and 90 layouts. Actual editor opens/selects/exits on iPad; automated drag/resize persistence was not established. Original controller sensitivity save changes only its setting/checksum, and the saved test profile relaunch passes five gameplay plus seven analog/cancel checks. Preview PID 94466, New002 Battle Creek; source/binary evidence in `G9/touch-binding-edit`. Physical drag/two-thumb ergonomics remain open.
+
 ## Parked, waiting on Chris
 
 | Item | Parks | Status |

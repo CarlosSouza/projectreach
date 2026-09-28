@@ -20,6 +20,41 @@ static BOOL all_released(void);
 - (UIEdgeInsets)safeAreaInsets { return self.simulatedInsets; }
 @end
 
+@interface HPOverlay (LayoutTesting)
+- (CGPoint)alignedCenter:(CGPoint)center forView:(UIView *)view;
+- (void)place:(UIView *)view frame:(CGRect)frame;
+- (NSString *)key:(NSString *)what;
+@end
+
+static void check_editor_alignment(void)
+{
+    HPTestOverlay *view = [[HPTestOverlay alloc] initWithFrame:CGRectMake(0, 0, 1024, 768)];
+    view.inGame = YES;
+    [view layoutIfNeeded];
+    UIView *move = [view valueForKey:@"move"], *aim = [view valueForKey:@"aim"];
+    for (UIView *other in view.subviews) other.hidden = other != move && other != aim;
+    move.frame = CGRectMake(40, 400, 144, 144);
+    aim.frame = CGRectMake(840, 400, 144, 144);
+    CGPoint near = CGPointMake(move.center.x, move.center.y + 6);
+    check("editor aligns the two sticks after a near-baseline drop",
+          CGPointEqualToPoint([view alignedCenter:near forView:move], move.center));
+    CGPoint far = CGPointMake(move.center.x, move.center.y + 20);
+    check("editor preserves deliberate offsets outside snap distance",
+          CGPointEqualToPoint([view alignedCenter:far forView:move], far));
+    aim.frame = CGRectMake(194, 406, 144, 144);
+    near = CGPointMake(move.center.x + 6, move.center.y);
+    check("editor refuses alignment that crowds another control",
+          CGPointEqualToPoint([view alignedCenter:near forView:move], near));
+    NSString *key = [view key:@"scales"];
+    NSDictionary *saved = [NSUserDefaults.standardUserDefaults dictionaryForKey:key];
+    [NSUserDefaults.standardUserDefaults setObject:@{@"move": @0.6} forKey:key];
+    [view place:move frame:CGRectMake(0, 0, 52, 52)];
+    check("saved small scales retain a 44-point tappable target",
+          move.bounds.size.width == 44 && move.bounds.size.height == 44);
+    if (saved) [NSUserDefaults.standardUserDefaults setObject:saved forKey:key];
+    else [NSUserDefaults.standardUserDefaults removeObjectForKey:key];
+}
+
 @interface HPLookDrag : NSObject
 @property(nonatomic, copy) void (^delta)(CGFloat dx, CGFloat dy);
 - (void)begin:(id)token at:(CGPoint)point;
@@ -477,6 +512,7 @@ int main(void)
         check_stick_tracking();
         check_stick_ownership();
         check_layouts();
+        check_editor_alignment();
 
         fprintf(stderr, "OVERLAY INPUT: %s (%d failures)\n", failures ? "FAIL" : "PASS", failures);
         return failures ? 1 : 0;

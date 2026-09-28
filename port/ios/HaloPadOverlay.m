@@ -649,7 +649,7 @@ static const hp_control_def CONTROLS[] = {
     NSString *ident = v.accessibilityIdentifier;
     NSNumber *scale = [NSUserDefaults.standardUserDefaults dictionaryForKey:[self key:@"scales"]][ident];
     CGFloat s = scale ? scale.doubleValue : 1;
-    v.bounds = CGRectMake(0, 0, f.size.width * s, f.size.height * s);
+    v.bounds = CGRectMake(0, 0, fmax(44, f.size.width * s), fmax(44, f.size.height * s));
     NSString *saved = [NSUserDefaults.standardUserDefaults dictionaryForKey:[self key:@"origins"]][ident];
     CGRect safe = self.safe;
     CGPoint c = CGPointMake(CGRectGetMidX(f), CGRectGetMidY(f));
@@ -1069,7 +1069,7 @@ static const hp_control_def CONTROLS[] = {
     _editorHint = [UILabel new];
     _editorHint.textColor = UIColor.whiteColor;
     _editorHint.font = [UIFont systemFontOfSize:14 weight:UIFontWeightMedium];
-    _editorHint.text = @"Drag controls • tap one to resize";
+    _editorHint.text = @"Drag to align • tap to resize";
     _selectedSize = [self slider:0.6 max:1.75 action:@selector(selectedSizeChanged:)];
     _selectedSize.enabled = NO;
     UIButton *done = [UIButton buttonWithType:UIButtonTypeSystem];
@@ -1105,6 +1105,7 @@ static const hp_control_def CONTROLS[] = {
     _editorBar.hidden = NO;
     _selected = nil;
     _selectedSize.enabled = NO;
+    _editorHint.text = @"Drag to align • tap to resize";
     for (UIGestureRecognizer *g in _editGestures) g.enabled = YES;
     [self updateAppearance];
 }
@@ -1129,6 +1130,40 @@ static const hp_control_def CONTROLS[] = {
     [self updateAppearance];
 }
 - (void)tapped:(UITapGestureRecognizer *)t { if (t.state == UIGestureRecognizerStateEnded) [self select:t.view]; }
+/* Snap only on release so the control follows the finger throughout the drag.
+   Nearby centres line up rows/columns, including the two sticks. Reject a snap
+   that would reduce clearance below eight points or cross the safe area. */
+- (CGPoint)alignedCenter:(CGPoint)center forView:(UIView *)view
+{
+    NSMutableArray<UIView *> *targets = [NSMutableArray arrayWithArray:_buttons];
+    [targets addObjectsFromArray:@[_move, _aim]];
+    CGPoint aligned = center;
+    CGFloat closestX = 8.01, closestY = 8.01;
+    for (UIView *other in targets) {
+        if (other == view || other.hidden) continue;
+        CGFloat dx = fabs(other.center.x - center.x), dy = fabs(other.center.y - center.y);
+        if (dx < closestX) { closestX = dx; aligned.x = other.center.x; }
+        if (dy < closestY) { closestY = dy; aligned.y = other.center.y; }
+    }
+    /* Try both axes, then each separately if the combined snap is obstructed. */
+    CGPoint candidates[] = {aligned, {aligned.x, center.y}, {center.x, aligned.y}};
+    for (int i = 0; i < 3; i++) {
+        CGRect frame = CGRectMake(candidates[i].x - view.bounds.size.width / 2,
+                                  candidates[i].y - view.bounds.size.height / 2,
+                                  view.bounds.size.width, view.bounds.size.height);
+        BOOL clear = CGRectContainsRect(self.safe, frame);
+        for (UIView *other in targets) {
+            if (other == view || other.hidden) continue;
+            CGFloat dx = MAX(0, MAX(CGRectGetMinX(frame) - CGRectGetMaxX(other.frame),
+                                    CGRectGetMinX(other.frame) - CGRectGetMaxX(frame)));
+            CGFloat dy = MAX(0, MAX(CGRectGetMinY(frame) - CGRectGetMaxY(other.frame),
+                                    CGRectGetMinY(other.frame) - CGRectGetMaxY(frame)));
+            if (hypot(dx, dy) < 7.99) { clear = NO; break; }
+        }
+        if (clear) return candidates[i];
+    }
+    return center;
+}
 - (void)dragged:(UIPanGestureRecognizer *)g
 {
     UIView *v = g.view;
@@ -1140,6 +1175,7 @@ static const hp_control_def CONTROLS[] = {
     v.center = CGPointMake(fmin(fmax(v.center.x + d.x, CGRectGetMinX(safe) + hw), CGRectGetMaxX(safe) - hw),
                            fmin(fmax(v.center.y + d.y, CGRectGetMinY(safe) + hh), CGRectGetMaxY(safe) - hh));
     if (g.state == UIGestureRecognizerStateEnded || g.state == UIGestureRecognizerStateCancelled) {
+        if (g.state == UIGestureRecognizerStateEnded) v.center = [self alignedCenter:v.center forView:v];
         NSMutableDictionary *o = [[NSUserDefaults.standardUserDefaults dictionaryForKey:[self key:@"origins"]] mutableCopy] ?: [NSMutableDictionary dictionary];
         o[v.accessibilityIdentifier] = NSStringFromCGPoint(CGPointMake((v.center.x - CGRectGetMinX(safe)) / safe.size.width,
                                                                        (v.center.y - CGRectGetMinY(safe)) / safe.size.height));

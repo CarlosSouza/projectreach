@@ -508,3 +508,34 @@ This closes the reproduced fresh-profile assignment failure and the tested color
 save/relaunch path. It does not prove physical hot-plug behavior, controller-binding
 edits, natural server restarts or simultaneous physical fingers. The integration
 remains an explicit development scene until those remaining paths are verified.
+
+
+## Layout editing and controller sensitivity (2026-09-28)
+
+Dropping a control within eight points of another control's centre now aligns that
+row or column. Snapping happens on release, so dragging still follows the finger;
+a snap that violates safe bounds or eight-point clearance is rejected. Individual
+resize scales (including old saved values) now retain at least a 44-point target.
+The editor resets its instruction when reopened. Existing custom layouts persist.
+
+The UIKit boundary suite passes 71 assertions plus five renders and 90 layout
+combinations (`G9/overlay-20260928T193648Z`). Four added checks cover stick alignment,
+deliberate offsets, obstructed snapping and small saved scales. Actual Simulator
+UI opens the revised editor, selects controls and returns to gameplay. Automated
+drags selected the stick without moving it, and accessibility slider changes did
+not persist a scale; those attempts are not end-to-end drag/resize acceptance.
+No tablet layout preferences were created. Physical drag and two-thumb comfort
+remain open.
+
+Separately, the original Controls Setup exposes HaloPad Touch Move. In the backed-up
+New002 test profile, Advanced horizontal sensitivity changed from 3 to 4 and saved
+through Halo's original menus. Only byte 0x957 and the trailing checksum changed;
+CRC verified. The primary New001 file is unchanged. Temporary touch axes did not
+persist; the manager released and reacquired slot 1. This tests controller settings,
+not remapping a controller action.
+
+The rebuilt app, PID 94466, loads saved New002 Battle Creek and passes five gameplay
+and seven analog/cancel checks. Evidence and exact source/binary/profile hashes:
+`G9/touch-binding-edit/`. One playable iPad preview remains open on the explicit
+analog development scene. Controller-action edits and natural server transitions
+still require their own evidence.
