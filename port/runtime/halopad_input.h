@@ -5,7 +5,7 @@
 #define HALOPAD_INPUT_H
 #include <stdint.h>
 
-enum { HPI_KEY, HPI_MOUSEMOVE, HPI_BUTTON, HPI_WHEEL, HPI_ACTIVATE, HPI_CLOSE, HPI_CANCEL_TOUCH, HPI_TOUCH_MOVE };
+enum { HPI_KEY, HPI_MOUSEMOVE, HPI_BUTTON, HPI_WHEEL, HPI_ACTIVATE, HPI_CLOSE, HPI_CANCEL_TOUCH, HPI_TOUCH_MOVE, HPI_ACTION };
 enum { HPI_TOUCH = 1u };                 /* cancelable gameplay controls, separate from hardware/text input */
 
 typedef struct {
@@ -19,9 +19,11 @@ typedef struct {
     int button;                          /* 0 left, 1 right, 2 middle */
     int32_t wheel;                       /* WHEEL_DELTA units (120 per notch) */
     uint32_t flags;
+    uint32_t action;                     /* HPI_ACTION: original CE action index */
     float move_x, move_y;                /* absolute touch stick, -1..1, up positive */
 } hp_input;
 
+int halopad_touch_action_event(const hp_input *e); /* runtime dispatcher; Halo thread only */
 void halopad_input_event(const hp_input *e);
 void halopad_dinput_event(const hp_input *e);       /* halopad_dinput.c, fed by halopad_input_event */
 /* A Mac virtual key code (kVK_*) as a Windows key; 0 if there is no equivalent. */

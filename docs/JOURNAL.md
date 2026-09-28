@@ -2354,3 +2354,41 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   then implement binding-aware touch dispatch with correct release ownership and
   no player-profile mutation. Keep actual controller capture/physical fingers open.
   Full goal remains active; this is a completed keyboard persistence check only.
+
+## 2026-09-28 — touch actions respect original keyboard/mouse remaps
+
+- Previous goal turn: progress (d2f36b6); current turn: progress. Full objective
+  reread; clean tree, pinned sources and locked executable verified. One iPad
+  PID 5315, phone off, two project bottles, no Wine; parked inputs unchanged.
+- Identified original action-name table 0x5f9d10 (29 entries) via 0x492c20;
+  original setter 0x48e360 confirms keyboard 0x6ab330 and mouse 0x6ab40a.
+  Added HPI_ACTION host events and read-only runtime resolution before USER32/
+  DirectInput. Buttons and digital MOVE use actions; Pause/Back stays Escape.
+  Holds retain their resolved input across remapping. Shared touch controls
+  release only after the last owner; cancellation preserves physical input.
+- DirectInput red run 20260928T210725Z fails JUMP remap and next-binding checks.
+  Its mouse remap check initially had an invalid fixture (queue disabled, mouse
+  still buffered from earlier cases); fixed setup rather than input semantics.
+  Final 20260928T211329Z passes 226 assertions, including original keyboard
+  polling, remapped mouse tap retention, collision ownership, focus loss/regain.
+  UIKit overlay 20260928T210859Z passes 71 assertions and 90 layout combinations.
+- Backed up saves. Launched old cached app PID 7745, used original Settings →
+  Controls Setup → Actions and software keyboard to remap JUMP Space → J.
+  Only J/Space entries and CRC change in New002; New001 unchanged. Relaunched
+  old binary PID 7855: Battle Creek gameplay JUMP fails, height -1.36 unchanged;
+  other four checks pass. This is the actual pre-fix gameplay reproduction.
+- Stopped old app, rebuilt regular analog development scene, installed and
+  launched PID 8274. Same saved J profile, original menus, Battle Creek: all five
+  gameplay and seven analog/cancel checks pass; JUMP rises -1.36 → -0.70.
+  Reopened Controls Setup, visibly verified J, restored Space and saved through
+  the original UI. Both blam.sav files match backup byte-for-byte. Resumed 8274.
+- Evidence G9/touch-action-bindings: red/intermediate/final logs, source/binary
+  hashes, pre/remapped saves and byte diffs, original-menu screenshot, live
+  preview and UDP status. Current preview: New002 Battle Creek, LAN policy,
+  iPad E129A00F-D338-4FDC-8AE8-BB243E9BA61B, one player/openplaying. One-shot
+  drivers finished; no server/Wine or second Simulator retained.
+- Limitation: wheel-only/controller-only or wholly unbound actions deliberately
+  produce no replacement key. Next bounded work: remapped digital MOVE gameplay
+  acceptance, then unavailable-action feedback/support for those binding types.
+  Physical controller capture, fingers/ergonomics and full phase-2 goals remain
+  open. This is progress on touch compatibility, not completion of the goal.

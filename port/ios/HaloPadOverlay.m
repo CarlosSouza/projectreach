@@ -53,9 +53,9 @@ static void post_mouse(int32_t dx, int32_t dy)
     hp_input e = {.kind = HPI_MOUSEMOVE, .flags = HPI_TOUCH, .x = 400, .y = 300, .dx = dx, .dy = dy};
     halopad_host_post_input(&e);
 }
-static void post_button(int b, int down)
+static void post_action(uint32_t action, int down)
 {
-    hp_input e = {.kind = HPI_BUTTON, .flags = HPI_TOUCH, .x = 400, .y = 300, .button = b, .down = down};
+    hp_input e = {.kind = HPI_ACTION, .flags = HPI_TOUCH, .action = action, .down = down};
     halopad_host_post_input(&e);
 }
 
@@ -159,8 +159,6 @@ static void trace_touches(UIView *view, NSSet<UITouch *> *touches, const char *p
 }
 - (void)clear { [_points removeAllObjects]; }
 @end
-
-typedef NS_ENUM(NSInteger, HPControlKind) { HPKey, HPMouseButton };
 
 @interface HPStickView : UIView
 @property(nonatomic, copy) void (^valueChanged)(float x, float y);
@@ -270,12 +268,11 @@ typedef NS_ENUM(NSInteger, HPControlKind) { HPKey, HPMouseButton };
 }
 @end
 
-/* A Halo control: a key or a mouse button, held while touched; a translucent glass circle with an
+/* A Halo action, resolved against current bindings and held while touched; a translucent glass circle with an
    SF Symbol and a small caption. Fire and grenade also look while the finger moves, as a mobile
    shooter's fire button does. */
 @interface HPControlButton : UIView
-@property(nonatomic) HPControlKind kind;
-@property(nonatomic) uint32_t vk, side, scan, button;
+@property(nonatomic) int action; /* original CE action, -1 for Escape/Back */
 @property(nonatomic) BOOL looks, held, primary;
 @property(nonatomic, strong) UILabel *label;
 @property(nonatomic, strong) UIImageView *icon;
@@ -343,8 +340,8 @@ typedef NS_ENUM(NSInteger, HPControlKind) { HPKey, HPMouseButton };
 {
     if (down == self.held) return;
     self.held = down;
-    if (self.kind == HPMouseButton) post_button((int)self.button, down);
-    else post_key(self.vk, self.side, self.scan, 0, down, 0);
+    if (self.action >= 0) post_action((uint32_t)self.action, down);
+    else post_key(0x1b, 0, 0x01, 0, down, 0);
     self.transform = down ? CGAffineTransformMakeScale(0.92, 0.92) : CGAffineTransformIdentity;
     [self paint];
 }
@@ -378,25 +375,24 @@ typedef NS_ENUM(NSInteger, HPControlKind) { HPKey, HPMouseButton };
    rows above/beside them. Size 0 is a utility, 1 an action, 2 the fire target. */
 typedef struct {
     const char *ident, *caption, *symbol;
-    HPControlKind kind;
-    uint32_t vk, side, scan, button;
+    int action;
     int looks, size;
 } hp_control_def;
 
 static const hp_control_def CONTROLS[] = {
-    {"fire",     "FIRE",   "scope",                    HPMouseButton, 0, 0, 0, 0,    1, 2},
-    {"action",   "USE",    "hand.tap.fill",            HPKey, 'E', 0, 0x12, 0,       0, 1},
-    {"switch",   "SWAP",   "arrow.left.arrow.right",   HPKey, 0x09, 0, 0x0f, 0,      0, 1},
-    {"zoom",     "ZOOM",   "plus.magnifyingglass",     HPKey, 'Z', 0, 0x2c, 0,       0, 1},
-    {"grenade",  "THROW",  "flame.fill",               HPMouseButton, 0, 0, 0, 1,    1, 1},
-    {"melee",    "MELEE",  "hand.raised.fill",         HPKey, 'F', 0, 0x21, 0,       0, 1},
-    {"reload",   "RELOAD", "arrow.clockwise",          HPKey, 'R', 0, 0x13, 0,       0, 1},
-    {"crouch",   "CROUCH", "arrow.down.to.line",       HPKey, 0x11, 0xA2, 0x1d, 0,   0, 1},
-    {"jump",     "JUMP",   "arrow.up",                 HPKey, 0x20, 0, 0x39, 0,      0, 1},
-    {"flash",    "LIGHT",  "flashlight.on.fill",       HPKey, 'Q', 0, 0x10, 0,       0, 1},
-    {"nadetype", "NADE",   "arrow.triangle.2.circlepath", HPKey, 'G', 0, 0x22, 0,    0, 1},
-    {"scores",   "",       "list.number",              HPKey, 0x70, 0, 0x3b, 0,      0, 0},
-    {"menu",     "",       "pause.fill",               HPKey, 0x1B, 0, 0x01, 0,      0, 0},
+    {"fire",      "FIRE",    "scope",                           7, 1, 2},
+    {"action",    "USE",     "hand.tap.fill",                   2, 0, 1},
+    {"switch",    "SWAP",    "arrow.left.arrow.right",          3, 0, 1},
+    {"zoom",      "ZOOM",    "plus.magnifyingglass",           11, 0, 1},
+    {"grenade",   "THROW",   "flame.fill",                      6, 1, 1},
+    {"melee",     "MELEE",   "hand.raised.fill",                4, 0, 1},
+    {"reload",    "RELOAD",  "arrow.clockwise",                13, 0, 1},
+    {"crouch",    "CROUCH",  "arrow.down.to.line",             10, 0, 1},
+    {"jump",      "JUMP",    "arrow.up",                        0, 0, 1},
+    {"flash",     "LIGHT",   "flashlight.on.fill",              5, 0, 1},
+    {"nadetype",  "NADE",    "arrow.triangle.2.circlepath",     1, 0, 1},
+    {"scores",    "",        "list.number",                    12, 0, 0},
+    {"menu",      "",        "pause.fill",                     -1, 0, 0},
 };
 #define NCONTROLS (int)(sizeof CONTROLS / sizeof CONTROLS[0])
 
@@ -474,7 +470,7 @@ static const hp_control_def CONTROLS[] = {
     for (int i = 0; i < NCONTROLS; i++) {
         const hp_control_def *d = &CONTROLS[i];
         HPControlButton *b = [HPControlButton new];
-        b.kind = d->kind; b.vk = d->vk; b.side = d->side; b.scan = d->scan; b.button = d->button; b.looks = d->looks;
+        b.action = d->action; b.looks = d->looks;
         b.label.text = @(d->caption);
         [b setSymbol:@(d->symbol)];
         b.primary = d->size == 2;
@@ -488,7 +484,7 @@ static const hp_control_def CONTROLS[] = {
     }
 }
 
-/* the move stick as Halo's W A S D (digital, as Halo's keyboard movement is), with hysteresis */
+/* Digital fallback follows the player's movement bindings, with hysteresis. */
 - (void)moveX:(float)x y:(float)y
 {
     if (_editing) return;
@@ -497,11 +493,11 @@ static const hp_control_def CONTROLS[] = {
         halopad_host_post_input(&event);
         return;
     }
-    static const uint32_t vk[4] = {'W', 'A', 'S', 'D'}, scan[4] = {0x11, 0x1e, 0x1f, 0x20};
+    static const uint32_t actions[4] = {19, 21, 20, 22};
     float v[4] = {y, -x, -y, x};
     for (int i = 0; i < 4; i++) {
         int want = _wasd[i] ? v[i] > 0.25f : v[i] > 0.38f;
-        if (want != _wasd[i]) { _wasd[i] = want; post_key(vk[i], 0, scan[i], 0, want, 0); }
+        if (want != _wasd[i]) { _wasd[i] = want; post_action(actions[i], want); }
     }
 }
 - (void)setAnalogMoveReady:(BOOL)ready

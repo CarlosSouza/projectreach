@@ -6,7 +6,7 @@
 
 static hp_input events[512];
 static int count, failures, cancellations, countAtCancel;
-static BOOL held[256];
+static BOOL held[256], actions[29];
 static void check(const char *name, BOOL ok);
 static void run_for(double seconds);
 static BOOL all_released(void);
@@ -146,7 +146,7 @@ static void check_stick_ownership(void)
     [move touchesBegan:touch_set(left) withEvent:nil];
     [aim touchesBegan:touch_set(right) withEvent:nil];
     run_for(0.08);
-    check("independent MOVE and LOOK handlers can remain held together", held['W'] && count > 1);
+    check("independent MOVE and LOOK handlers can remain held together", actions[19] && count > 1);
     [move touchesEnded:touch_set(left) withEvent:nil];
     int afterMoveRelease = count;
     run_for(0.08);
@@ -155,7 +155,7 @@ static void check_stick_ownership(void)
     [aim touchesEnded:touch_set(right) withEvent:nil];
     int afterAimRelease = count;
     run_for(0.08);
-    check("releasing LOOK keeps movement held without further aim", held['W'] && count == afterAimRelease);
+    check("releasing LOOK keeps movement held without further aim", actions[19] && count == afterAimRelease);
     [aim touchesBegan:touch_set(right) withEvent:nil];
     [overlay clearTouchInput];
     int afterClear = count;
@@ -172,7 +172,7 @@ static void check_stick_ownership(void)
     [move touchesBegan:touch_set(stray) withEvent:nil];
     [move touchesMoved:touch_set(stray) withEvent:nil];
     [move touchesEnded:touch_set(stray) withEvent:nil];
-    check("another touch cannot steal or release an owned stick", held['W'] && count == afterBegin);
+    check("another touch cannot steal or release an owned stick", actions[19] && count == afterBegin);
     [move touchesCancelled:touch_set(left) withEvent:nil];
     check("owner cancellation releases movement", all_released());
     afterClear = count;
@@ -307,6 +307,7 @@ void halopad_host_post_input(const hp_input *e)
     if (e->kind == HPI_CANCEL_TOUCH) { cancellations++; countAtCancel = count; return; }
     if (count >= 512) abort();
     events[count++] = *e;
+    if (e->kind == HPI_ACTION && e->action < 29) actions[e->action] = e->down;
     if (e->kind == HPI_KEY && e->side_vk < 256) held[e->side_vk] = e->down;
 }
 
@@ -333,6 +334,7 @@ static void await_events(int wanted)
 
 static BOOL all_released(void)
 {
+    for (int i = 0; i < 29; i++) if (actions[i]) return NO;
     for (int i = 0; i < 256; i++) if (held[i]) return NO;
     return YES;
 }
@@ -383,7 +385,7 @@ int main(void)
 
         HPOverlay *overlay = [[HPOverlay alloc] initWithFrame:CGRectMake(0, 0, 1024, 768)];
         [overlay driveMoveX:0 y:1];
-        check("move fixture holds forward", held['W']);
+        check("move fixture holds forward", actions[19]);
         check("movement identifies its cancelable touch source", events[count - 1].flags & HPI_TOUCH);
         check("fire fixture finds the actual control", [overlay driveControl:@"fire" down:YES]);
         int cancelsBefore = cancellations;
@@ -393,8 +395,8 @@ int main(void)
         check("cancel follows all gameplay releases", countAtCancel == count);
         check("movement release keeps its touch source", events[count - 1].flags & HPI_TOUCH);
         check("clearing touch input releases movement and fire",
-              all_released() && count >= 4 && events[count - 2].kind == HPI_BUTTON &&
-              !events[count - 2].down && events[count - 1].vk == 'W' && !events[count - 1].down);
+              all_released() && count >= 4 && events[count - 2].kind == HPI_ACTION && events[count - 2].action == 7 &&
+              !events[count - 2].down && events[count - 1].action == 19 && !events[count - 1].down);
         [overlay driveMoveX:0 y:1];
         overlay.analogMoveReady = YES;
         check("switching MOVE sources releases the old keyboard hold", all_released());
@@ -408,7 +410,7 @@ int main(void)
               events[count - 1].move_x == 0 && events[count - 1].move_y == 0 && countAtCancel == count);
         overlay.analogMoveReady = NO;
         [overlay driveMoveX:0 y:1];
-        check("unconfigured MOVE retains the existing keyboard route", held['W']);
+        check("unconfigured MOVE retains the existing keyboard route", actions[19]);
         [overlay clearTouchInput];
         count = 0;
         CGFloat scale = 2.2 * HPSettings.shared.lookSensitivity;
@@ -459,7 +461,7 @@ int main(void)
         int afterKeyboard = count;
         BOOL fireReleased = NO;
         for (int i = beforeKeyboard; i < afterKeyboard; i++)
-            fireReleased |= events[i].kind == HPI_BUTTON && !events[i].down;
+            fireReleased |= events[i].kind == HPI_ACTION && events[i].action == 7 && !events[i].down;
         run_for(0.15);
         check("opening software keyboard releases held movement, fire and aim",
               fireReleased && all_released() && count == afterKeyboard);
@@ -482,7 +484,7 @@ int main(void)
         int afterMenu = count;
         fireReleased = NO;
         for (int i = beforeMenu; i < afterMenu; i++)
-            fireReleased |= events[i].kind == HPI_BUTTON && !events[i].down;
+            fireReleased |= events[i].kind == HPI_ACTION && events[i].action == 7 && !events[i].down;
         run_for(0.15);
         check("Halo menu releases movement, fire and continuous LOOK",
               fireReleased && all_released() && count == afterMenu);

@@ -685,3 +685,35 @@ a different action or none. The next experiment should reproduce one action rema
 through original Controls Setup, then implement action-aware touch dispatch without
 changing the player's bindings. Physical input and release ownership must remain
 independent; analog MOVE passing this test does not prove action-button independence.
+
+## Touch actions follow keyboard/mouse bindings — 2026-09-28
+
+The fixed-default issue above is repaired. The overlay now posts original CE
+semantic actions for its buttons and digital MOVE fallback. On Halo's thread,
+`halopad_touch_action.c` resolves the current keyboard binding (using the original
+DIK→key table), then a mouse-button binding if needed, before ordinary USER32 and
+DirectInput delivery. It reads the mappings only. Pause/Back remains Escape.
+Original action names at 0x5f9d10 and setter 0x48e360 establish the mapping.
+
+Each held action retains its press-time input for release. If a remap makes two
+held actions share an input, the last touch owner releases it. Cancellation drops
+pending touch edges and ownership through the existing source-aware path; physical
+keys/buttons remain independent. An unbound, wheel-only or controller-only action
+emits nothing rather than a potentially unrelated default key. Supporting those
+last two binding types and presenting unavailable actions remain open.
+
+Actual New002 Controls Setup changed JUMP Space → J, then saved and relaunched.
+The old binary fails its immediate touch JUMP check (height -1.36 stays -1.36).
+The rebuilt app with the same profile passes (height -1.36 → -0.70), together with
+all five gameplay and seven analog/cancel checks. Restoring Space through Halo's
+menus returns both saves byte-for-byte to the backups. The original menu visibly
+retained J after relaunch. Evidence: `G9/touch-action-bindings`.
+
+The iPad DirectInput suite passes 226 assertions, including remap during a hold,
+short remapped keyboard and mouse taps, shared touch ownership, physical-key
+preservation, and focus cancellation/recovery. An intermediate mouse fixture
+incorrectly left the host queue disabled and mouse buffered; correcting its setup
+to Halo's actual unbuffered mouse mode made that check valid. Red evidence remains.
+UIKit passes 71 assertions and 90 layouts; geometry is unchanged by this fix.
+These checks do not establish physical two-thumb ergonomics. A remapped digital
+MOVE gameplay run and controller-only/wheel-only action handling remain next work.

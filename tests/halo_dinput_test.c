@@ -560,6 +560,92 @@ int main(void)
         printf("    axes %.2f/%.2f -> forward %.6f, strafe %.6f; bits %08x/%08x\n", movement[i].x, movement[i].y, forward, strafe, rd(0x6ad4b8), rd(0x6ad4bc));
         check(label, fabsf(forward - movement[i].forward) < 0.00001f && fabsf(strafe - movement[i].strafe) < 0.00001f, 1);
     }
+    /* Touch actions follow original menu bindings, not the default keys. Use
+       the original setter for every remap and exercise real DirectInput reads. */
+    halopad_host_input_off = 0;
+    M0(m, Unacquire);
+    uint32_t no_buffer = bytes((uint32_t[]){20, 16, 0, 0, 0}, 20);
+    M(m, SetProperty, 1, no_buffer); M0(m, Acquire);
+    uint16_t j_index, space_index;
+    memcpy(&j_index, halopad_guest_ptr(0x5fa358 + 0x24 * 2), 2);
+    memcpy(&space_index, halopad_guest_ptr(0x5fa358 + 0x39 * 2), 2);
+    uint32_t action_descriptor = bytes((uint16_t[]){1, 0, 0, j_index, 0, 0}, 12);
+    cpu._ebx = 0; /* jump */
+    check("original setter remaps JUMP to J", halopad_call_guest_ex(0x48e360, 0, NULL, action_descriptor, 0) & 255, 1);
+    input((hp_input){.kind = HPI_ACTION, .flags = HPI_TOUCH, .action = 0, .down = 1});
+    M(k, GetDeviceState, 256, st);
+    check("touch JUMP follows J, leaving Space neutral", ((uint8_t *)halopad_guest_ptr(st))[0x24] == 128 && !((uint8_t *)halopad_guest_ptr(st))[0x39], 1);
+    input((hp_input){.kind = HPI_ACTION, .flags = HPI_TOUCH, .action = 0});
+    input((hp_input){.kind = HPI_CANCEL_TOUCH});
+    halopad_call_guest(0x493520, 0, NULL);
+    queued_input((hp_input){.kind = HPI_ACTION, .flags = HPI_TOUCH, .action = 0, .down = 1});
+    queued_input((hp_input){.kind = HPI_ACTION, .flags = HPI_TOUCH, .action = 0}); pump_many();
+    halopad_call_guest(0x493520, 0, NULL);
+    check("original Halo poll retains a remapped short JUMP tap", *(uint8_t *)halopad_guest_ptr(0x64c550 + j_index), 1);
+    halopad_call_guest(0x493520, 0, NULL);
+    check("original Halo poll releases remapped short JUMP", *(uint8_t *)halopad_guest_ptr(0x64c550 + j_index), 0);
+    input((hp_input){.kind = HPI_ACTION, .flags = HPI_TOUCH, .action = 0, .down = 1});
+    /* Change the mapping while the finger is held. Its release must use J. */
+    cpu._ebx = 0x7fff;
+    halopad_call_guest_ex(0x48e360, 0, NULL, action_descriptor, 0);
+    memcpy(halopad_guest_ptr(action_descriptor), (uint16_t[]){1, 0, 0, space_index, 0, 0}, 12);
+    cpu._ebx = 0;
+    halopad_call_guest_ex(0x48e360, 0, NULL, action_descriptor, 0);
+    input((hp_input){.kind = HPI_ACTION, .flags = HPI_TOUCH, .action = 0});
+    M(k, GetDeviceState, 256, st);
+    check("remapped held action releases its down-time key", !((uint8_t *)halopad_guest_ptr(st))[0x24] && !((uint8_t *)halopad_guest_ptr(st))[0x39], 1);
+    input((hp_input){.kind = HPI_ACTION, .flags = HPI_TOUCH, .action = 0, .down = 1});
+    M(k, GetDeviceState, 256, st);
+    check("next touch uses the new Space binding", ((uint8_t *)halopad_guest_ptr(st))[0x39], 128);
+    input((hp_input){.kind = HPI_KEY, .vk = 0x20, .scan = 0x39, .down = 1});
+    input((hp_input){.kind = HPI_CANCEL_TOUCH});
+    input((hp_input){.kind = HPI_ACTION, .flags = HPI_TOUCH, .action = 0});
+    M(k, GetDeviceState, 256, st);
+    check("action cancellation preserves physical Space", ((uint8_t *)halopad_guest_ptr(st))[0x39], 128);
+    input((hp_input){.kind = HPI_KEY, .vk = 0x20, .scan = 0x39});
+    cpu._ebx = 0x7fff;
+    halopad_call_guest_ex(0x48e360, 0, NULL, action_descriptor, 0);
+    input((hp_input){.kind = HPI_ACTION, .flags = HPI_TOUCH, .action = 0, .down = 1});
+    M(k, GetDeviceState, 256, st);
+    check("unbound action does not fall back to an unrelated default", !((uint8_t *)halopad_guest_ptr(st))[0x39], 1);
+    input((hp_input){.kind = HPI_ACTION, .flags = HPI_TOUCH, .action = 0});
+    memcpy(halopad_guest_ptr(action_descriptor), (uint16_t[]){2, 0, 0, 2, 0, 0}, 12);
+    cpu._ebx = 7; /* fire */
+    check("original setter remaps FIRE to middle mouse", halopad_call_guest_ex(0x48e360, 0, NULL, action_descriptor, 0) & 255, 1);
+    queued_input((hp_input){.kind = HPI_ACTION, .flags = HPI_TOUCH, .action = 7, .down = 1});
+    queued_input((hp_input){.kind = HPI_ACTION, .flags = HPI_TOUCH, .action = 7}); pump_many();
+    M(m, GetDeviceState, 20, ms);
+    check("remapped FIRE tap survives host pumps", ((uint8_t *)halopad_guest_ptr(ms))[14] == 128 && !((uint8_t *)halopad_guest_ptr(ms))[12], 1);
+    M(m, GetDeviceState, 20, ms);
+    check("remapped FIRE tap releases on the next read", ((uint8_t *)halopad_guest_ptr(ms))[14], 0);
+    queued_input((hp_input){.kind = HPI_ACTION, .flags = HPI_TOUCH, .action = 7, .down = 1});
+    queued_input((hp_input){.kind = HPI_CANCEL_TOUCH}); pump_many();
+    M(m, GetDeviceState, 20, ms);
+    check("cancel drops unread remapped actions", ((uint8_t *)halopad_guest_ptr(ms))[14], 0);
+    input((hp_input){.kind = HPI_ACTION, .flags = HPI_TOUCH, .action = 7, .down = 1});
+    M(m, GetDeviceState, 20, ms);
+    cpu._ebx = 0; /* same mouse button rebound to JUMP while FIRE remains held */
+    halopad_call_guest_ex(0x48e360, 0, NULL, action_descriptor, 0);
+    input((hp_input){.kind = HPI_ACTION, .flags = HPI_TOUCH, .action = 0, .down = 1});
+    input((hp_input){.kind = HPI_ACTION, .flags = HPI_TOUCH, .action = 7});
+    M(m, GetDeviceState, 20, ms);
+    check("remap collision preserves the second touch owner", ((uint8_t *)halopad_guest_ptr(ms))[14], 128);
+    input((hp_input){.kind = HPI_ACTION, .flags = HPI_TOUCH, .action = 0});
+    M(m, GetDeviceState, 20, ms);
+    check("last touch owner releases a shared remapped button", ((uint8_t *)halopad_guest_ptr(ms))[14], 0);
+    input((hp_input){.kind = HPI_ACTION, .flags = HPI_TOUCH, .action = 0, .down = 1});
+    input((hp_input){.kind = HPI_ACTIVATE});
+    input((hp_input){.kind = HPI_ACTIVATE, .down = 1}); M0(m, Acquire); M0(k, Acquire);
+    M(m, GetDeviceState, 20, ms);
+    check("focus loss cancels remapped actions without replay", ((uint8_t *)halopad_guest_ptr(ms))[14], 0);
+    input((hp_input){.kind = HPI_ACTION, .flags = HPI_TOUCH, .action = 0, .down = 1});
+    M(m, GetDeviceState, 20, ms);
+    check("fresh touch after focus regain works", ((uint8_t *)halopad_guest_ptr(ms))[14], 128);
+    cpu._ebx = 0x7fff;
+    halopad_call_guest_ex(0x48e360, 0, NULL, action_descriptor, 0);
+    input((hp_input){.kind = HPI_CANCEL_TOUCH});
+    halopad_host_input_off = 1;
+
     /* Halo's player-command builder (0x473c70) applies this original quantizer
        when its game-mode word is nonzero. Presentation may occur on either side
        of a simulation tick; a later +/-1 does not mean analog polling failed. */

@@ -1109,6 +1109,7 @@ void halopad_input_event(const hp_input *e)
         hp_input cancel = {.kind = HPI_CANCEL_TOUCH};
         halopad_input_event(&cancel);
     }
+    if (halopad_touch_action_event(e)) return;
     halopad_dinput_event(e);
     uint32_t target = capture ? capture : active;
     uobj *w = target ? uget(target, H_WINDOW) : NULL;
