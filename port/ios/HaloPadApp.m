@@ -452,6 +452,11 @@ static void after(double s, dispatch_block_t b) { dispatch_after(dispatch_time(D
 static void touch_transition_selftest(void)
 {
     NSString *server = @(getenv("HALOPAD_TOUCH_TRANSITION_SERVER") ?: "");
+    BOOL loss = getenv("HALOPAD_TOUCH_TRANSITION_LOSS") != NULL;
+    NSString *restartGate = @(getenv("HALOPAD_TOUCH_RESTART_READY") ?: "");
+    if (loss && !restartGate.length) {
+        fprintf(stderr, "HALOPAD TOUCH TRANSITION: FAIL: loss test needs restart-ready file\n"); return;
+    }
     NSArray *parts = [server componentsSeparatedByString:@":"];
     NSCharacterSet *notDigits = NSCharacterSet.decimalDigitCharacterSet.invertedSet;
     if (parts.count != 2 || ![parts[0] isEqualToString:@"127.0.0.1"] ||
@@ -487,9 +492,16 @@ static void touch_transition_selftest(void)
             [overlay driveMoveX:0 y:.5f]; advance = YES; break;
         case 1:
             selftest_check("MOVE reaches original network input consumer", moving, map);
-            /* Deliberately retain the hold until the server changes maps. */
+            /* Deliberately retain the hold through the transition or outage. */
+            if (loss) fprintf(stderr, "HALOPAD TOUCH LOSS: holding MOVE; stop the private server now\n");
             advance = YES; break;
         case 2:
+            if (loss) {
+                if (![map isEqualToString:@"ui"]) return;
+                selftest_check("server loss releases touch slot in original menu", s.touchSlot == -1, map);
+                fprintf(stderr, "HALOPAD TOUCH LOSS: returned to menu; waiting for server restart\n");
+                phase = 4; frame = s.frame; phaseStart = now; return;
+            }
             if ([map isEqualToString:firstMap] || !ready) return;
             selftest_check("natural map change cancels old MOVE hold", neutral, map);
             [overlay driveMoveX:0 y:.5f]; advance = YES; break;
@@ -500,7 +512,12 @@ static void touch_transition_selftest(void)
             [HPOverlay tapKey:0xC0 scan:0x29]; advance = YES; break;
         case 4:
             if (![map isEqualToString:@"ui"]) return;
+            /* External test orchestration creates this only after a fresh status
+               query answers. It permits typing; the actual rejoin still has to
+               spawn a player and pass the original input checks below. */
+            if (loss && ![NSFileManager.defaultManager fileExistsAtPath:restartGate]) return;
             selftest_check("disconnect releases touch slot in original menu", s.touchSlot == -1, map);
+            if (loss) [HPOverlay tapKey:0x1B scan:0x01]; /* dismiss original connection-lost dialog */
             [HPOverlay tapKey:0xC0 scan:0x29];
             [HPOverlay typeText:[NSString stringWithFormat:@"connect %@ \"\"\n", server]];
             [HPOverlay tapKey:0xC0 scan:0x29]; advance = YES; break;

@@ -53,6 +53,8 @@ Operating loop: [HaloPad-GOAL-LOOP-PHASE2.md](HaloPad-GOAL-LOOP-PHASE2.md) (repl
 
 - **Touch network transitions:** the iPad analog development scene passes eight checks through an original dedicated server's natural Blood Gulch → Battle Creek change and console disconnect/reconnect. Held MOVE clears, each new spawn starts neutral, and movement works again. Server-side map/rejoin records and unchanged profile hashes corroborate the app checks (`G9/touch-network-transition`). This closes the tested transition path; abrupt loss, physical fingers and second-original-client acceptance remain open.
 
+- **Abrupt server-loss acceptance:** held MOVE → verified private-server process exit/UDP outage → original “Network connection lost” dialog → released slot → restarted server → neutral respawn/new movement/release all pass on iPad (seven assertions, `G9/touch-server-loss`). Both original-server joins and unchanged saves corroborate the app result. No runtime fix required. iPhone network-transition coverage, physical fingers and controller-action edits remain open.
+
 ## Parked, waiting on Chris
 
 | Item | Parks | Status |

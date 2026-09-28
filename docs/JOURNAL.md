@@ -2196,3 +2196,47 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   original timeout/disconnect behavior, neutral input on return, then restart that
   server and reconnect with fresh movement. Preserve the active preview before
   replacing it; do not treat normal map-cycle success as timeout acceptance.
+
+
+## 2026-09-28 — held MOVE survives abrupt server-loss recovery
+
+- Previous goal turn: progress (01b5ffa, original-server map/reconnect acceptance).
+  Current turn: progress. Objective read in full; current tree clean at 01b5ffa,
+  five pins and locked executable hash verified. One iPad PID 96288, no Wine
+  processes; parked inputs unchanged. Full goal remains active.
+- Added an opt-in loss branch to the existing bounded transition driver. It keeps
+  MOVE held while the external test stops the private server. A fresh-file gate
+  allows reconnect typing only after an external status query confirms restart;
+  that gate does not assert or alter any guest outcome. Original spawn, neutral
+  input, movement and release remain required. Normal map-change mode unchanged.
+- Backed up Library, stopped PID 96288 before rebuild/install. Used the verified
+  cached translation and explicit tests/halo_touch_move_scene.c. Candidate PID
+  97675 joined original dedicated server on loopback 2310, client 2305, LAN policy.
+- Initial neutral and MOVE checks pass (slot 1, Y=-1820, forward=1). Recorded a
+  successful server status query, then terminated exact runner 97583. Its server
+  97637 and recorded Wine processes exited; a new UDP query timed out. This is
+  abrupt process loss, without an in-game graceful disconnect command.
+- Halo naturally displayed “Network connection lost”, returned to ui and released
+  the touch slot. Screenshot and log corroborate it. Restarted original server
+  through a new runner, required a fresh status answer, then created restart-ready.
+  Driver dismissed the dialog with Escape and typed Halo's connect command.
+- Rejoined Blood Gulch neutral, new MOVE reaches the original consumer, final
+  release returns neutral. All seven assertions pass. Original server logs
+  independently record separate initial/restarted sessions and successful joins.
+  No runtime fix required. Both saved profiles remain byte-identical to backup.
+- Evidence in G9/touch-server-loss: timestamped stop/outage/restart/query events,
+  original connection-lost and rejoined screenshots, redacted server-session logs,
+  settings/version, exact source/app hashes, before-state and profile hashes.
+- Stopped restarted runner 97782 and verified its recorded server/Wine PIDs gone.
+  Driver already invalidated its timer after PASS; no repeating input remains.
+  Dismissed the subsequent original lost-connection dialog and started a local
+  Sidewinder match through original menus in the same app process. One iPad preview
+  remains, PID 97675, New002, LAN, explicit analog development scene; phone off.
+- This is handler-driven network/input evidence, not physical two-thumb or
+  second-original-client acceptance. No graphics/layout/runtime changes, so the
+  prior layout and general gameplay suites were not needlessly repeated.
+- Next bounded experiment: bring the current analog scene and transition driver
+  to the project iPhone Simulator. Back up its independent data, use one project
+  Simulator at a time, verify fresh-profile slot ownership, natural map change and
+  reconnect there, then restore the requested iPad preview. Physical ergonomics
+  and original controller-action edits remain separate open paths.

@@ -585,3 +585,31 @@ gates remain separate.
 The same binary's final local preview (PID 96288, New002 Battle Creek) also passes
 the existing five gameplay and seven analog/cancel checks (`preview-err.txt`).
 All test drivers finish; one requested iPad preview remains open.
+
+
+## Abrupt server loss while MOVE is held (2026-09-28)
+
+The transition driver also accepts `HALOPAD_TOUCH_TRANSITION_LOSS=1` and an
+explicit `HALOPAD_TOUCH_RESTART_READY` file path. It holds MOVE until the private
+server is stopped externally, waits for Halo's own return to `ui`, and permits
+reconnect typing only after the external runner confirms the restarted server
+answers a fresh status query and creates that file. The file is a synchronization
+cue, not evidence of a successful connection: a spawned player, neutral original
+input, fresh movement and release are still required. Use a new evidence path
+for each run; this orchestration is for the Simulator.
+
+PID 97675 passes seven checks. The first server answered with one player; after
+stopping its exact runner, all recorded server/Wine PIDs exited and UDP queries
+timed out. MOVE was held beforehand (slot 1, Y=-1820, forward=1). Halo displayed
+its original “Network connection lost” dialog, released the slot and reached
+`ui`. After restarting the unchanged original server, a fresh query answered;
+the driver dismissed the dialog through Escape and typed the original connect
+command. It spawned on Blood Gulch with zero input, accepted new MOVE and released
+cleanly. The original server's separate sessions independently record both joins.
+
+Evidence: `G9/touch-server-loss/` contains timestamped stop/query/restart events,
+app assertions, connection-lost/rejoined screenshots, redacted original-server
+sessions, settings/version, exact app/source hashes and saved-profile backup.
+Both New001 and New002 remain byte-identical. No runtime fix was needed; the
+only code addition is this opt-in experiment branch. Physical multi-touch,
+controller-action edits and the same transition acceptance on iPhone remain open.
