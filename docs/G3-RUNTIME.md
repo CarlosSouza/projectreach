@@ -731,3 +731,17 @@ after Home, including with settings open, in the same PID 20447 at 29–30 fps. 
 and touch settings remained usable. Logs and screenshots are in each evidence directory.
 These short offline checks do not establish lock/unlock, audio interruption, long online
 suspension/reconnection, queued-text cancellation, held hardware input or physical-device behavior.
+
+
+### Movement has two original stages (2026-09-28)
+
+The analog input consumer `0x48f850` preserves magnitude, but player-command builder
+`0x473c70` subsequently uses `0x473c30` when the game-mode word at `0x6b47b0` is
+nonzero. Its original thresholds are +/-0.05; output is -1/0/+1. In local LAN mode
+(observed word 2), a present may see the raw input or the converted command depending
+on simulation timing. This explained the apparent intermittent analog integration
+failure; it was not evidence of a translator bug. Native and original x86 agree on
+all twelve boundary/direction quantization samples and ten movement samples
+(`G9/analog-oracle-20260928T182753Z`). Temporary runtime tracing was removed.
+The cancelable touch source remains opt-in via `tests/halo_touch_move_scene.c`;
+see SUNPAD-TRANSFER.md for the live acceptance and remaining profile lifecycle work.

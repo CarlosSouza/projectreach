@@ -72,6 +72,21 @@ def main():
         ok = original == expected and observed['stack_delta'] == 4
         cases.append(dict(stick=[float(x), float(y)], axes=reference.axes,
                           native_bits=expected, x86_bits=original, ok=ok))
+    quantized = re.findall(r'quantize ([0-9a-f]{8}) -> ([0-9a-f]{8})', log)
+    if len(quantized) != 12:
+        parser.error('expected twelve player-command quantization samples')
+    for input_bits, native_bits in quantized:
+        observed = reference.call(0x473c30, args=[int(input_bits, 16)], convention='cdecl')
+        # UC FP0 is physical register zero; x87 returns on the register named by TOP.
+        top = (reference.machine.reg_read(oracle.X.UC_X86_REG_FPSW) >> 11) & 7
+        significand, exponent = reference.machine.reg_read(getattr(oracle.X, f'UC_X86_REG_FP{top}'))
+        value = 0.0 if not significand else math.ldexp(significand / 2**63, (exponent & 0x7fff) - 16383)
+        if exponent & 0x8000:
+            value = -value
+        original_bits = struct.unpack('<I', struct.pack('<f', value))[0]
+        cases.append(dict(function='0x473c30', input_bits=input_bits, native_bits=native_bits,
+                          x86_bits=f'{original_bits:08x}',
+                          ok=original_bits == int(native_bits, 16) and observed['stack_delta'] == 4))
     stamp = datetime.datetime.now(datetime.timezone.utc)
     evidence = ROOT / 'docs/artifacts' / stamp.strftime('%Y-%m-%d') / 'G9' / ('analog-oracle-' + stamp.strftime('%Y%m%dT%H%M%SZ'))
     evidence.mkdir(parents=True)
@@ -82,7 +97,7 @@ def main():
                   source_sha256={str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
                                  for p in (pathlib.Path(__file__).resolve(), ROOT / 'tests/halo_dinput_test.c')})
     (evidence / 'result.json').write_text(json.dumps(report, indent=2) + '\n')
-    print(f"ORACLE: {len(cases)} movement cases, {report['failures']} failures")
+    print(f"ORACLE: {len(cases)} movement/quantization cases, {report['failures']} failures")
     print('evidence', evidence.relative_to(ROOT))
     return int(report['failures'] != 0)
 

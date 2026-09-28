@@ -382,3 +382,52 @@ passes five handler-driven outcomes: movement 2.38 units, swipe 39.7 degrees, FI
 three-dot open/dismiss also work. Logs and pre-install state backup:
 `G9/touch-spacing-look-cancel`. These checks do not establish simultaneous physical fingers
 or handheld ergonomics. MOVE remains digital WASD; proportional integration remains open.
+
+### Cancelable analog source and multiplayer movement (2026-09-28)
+
+`HPI_TOUCH_MOVE` supplies absolute axes to a distinct virtual DirectInput device,
+HaloPad Touch Move. It has a stable identity separate from physical controllers.
+The UIKit queue keeps the newest axes in a separate lane, so a full event queue
+cannot swallow release. Cancel clears queued axes and already-polled snapshots;
+focus loss discards inactive motion, and physical pad state survives touch cancel.
+The regular entry point leaves this device disabled. The explicit development scene
+`tests/halo_touch_move_scene.c` enables it, finds an unused/unbound logical slot,
+and calls Halo's own `input_activate_joy` evaluator and binding setter. No input
+mapping or movement field is directly overwritten. Production ownership, rollback,
+profile changes, map reload and reconnect acceptance are still required.
+
+The live scene initially failed a faulty expectation that the analog consumer's
+partial value would remain unchanged until Present. Captured input replayed at
+`0x48f850` returns 0.222330734 in both original x86 and native ARM64. Temporary
+write tracing then identified the second writer: player-command builder `0x473c70`
+uses original `0x473c30` when the word at `0x6b47b0` is nonzero (observed mode 2).
+That routine maps values above +0.05 to +1, below -0.05 to -1, and the inclusive
+middle interval to zero. Thus partial polling is real, but multiplayer walking
+is intentionally quantized. No game behavior or translation was changed.
+A Present may observe either stage; the corrected live test checks the raw axis
+and the original permitted stage, rather than asserting smooth walking speed.
+
+Evidence under `docs/artifacts/2026-09-28/`:
+
+- `G3/core-arm64-apple-ios17.0-simulator-20260928T182711Z`: 210 assertions pass.
+- `G3/core-arm64-apple-macosx14.0.0-20260928T182902Z`: 206 assertions pass.
+- `G9/analog-oracle-20260928T182753Z`: ten input and twelve quantization cases
+  match original x86 bit-for-bit, including both threshold boundaries.
+- `G9/touch-analog-device/app9-*`: original-menu Battle Creek; five gameplay
+  outcomes plus six axis/stage samples and cancellation pass. Actual three-dot
+  open/dismiss and a swipe beside the LOOK corner were also observed.
+- `G9/touch-analog-device/partial.bin` and its replay report preserve the original
+  misleading end-of-frame observation. `scripts/replay-analog-capture.py` and
+  `tests/halo_analog_capture_test.c` replay this data at the consumer stage only;
+  neither claims that end-of-frame data is function-entry state.
+- `G9/overlay-20260928T182808Z`: 67 assertions, five renders and 90 layouts pass.
+  Both sticks highlight an owned touch and relinquish invisible square corners
+  to the look surface. Dragging an already-owned stick outside its rim still works.
+
+The latest preview uses the explicit analog scene; the regular scene retains WASD
+movement. The profile file hash is unchanged from the retained pre-game backup;
+playlist/last-map files changed normally. This is not persistence or profile-switch
+acceptance. Next: verify original configuration across profile/map transitions,
+retain ownership only of the spare touch slot, and restore/fall back without
+modifying physical mappings before enabling the source by default. Actual two-finger
+routing and physical handheld ergonomics remain open.

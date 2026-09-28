@@ -42,6 +42,8 @@ Operating loop: [HaloPad-GOAL-LOOP-PHASE2.md](HaloPad-GOAL-LOOP-PHASE2.md) (repl
 
 - **Touch spacing/look cancellation:** tightened action-button spacing independently of FIRE size, retained symmetric sticks and radar clearance, and changed FIRE to a quieter blue. Native-menu cancellation now removes unread touch-look motion while preserving physical mouse input. Four reproduced failures fixed; 181 DirectInput checks, 61 overlay assertions/90 layouts, and five iPad gameplay outcomes pass. Current iPad preview runs the updated build (`G9/touch-spacing-look-cancel`). Analog MOVE integration and physical multi-touch acceptance remain open.
 
+- **Touch analog source and input-stage correction:** distinct, cancelable touch controller implemented behind an explicit development scene; it preserves physical controllers and survives a saturated host queue. Original activation/binding succeeds without writing input tables. The apparent full-speed defect was a mistaken test expectation: original `0x473c30` quantizes movement in multiplayer after the analog consumer. Native/original comparisons pass 22 cases; 210 iPad and 206 Mac DirectInput assertions pass. Updated iPad scene passes five gameplay checks plus seven analog/cancel checks. Sticks now highlight while held and their invisible square corners no longer intercept aiming swipes; 67 overlay assertions, five renders and 90 layouts pass. Current preview is the opt-in analog scene, not a promoted production default. Profile ownership/reload and actual physical multi-touch remain open; details in SUNPAD-TRANSFER.md and the latest journal.
+
 ## Parked, waiting on Chris
 
 | Item | Parks | Status |

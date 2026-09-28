@@ -5,7 +5,7 @@
 #define HALOPAD_INPUT_H
 #include <stdint.h>
 
-enum { HPI_KEY, HPI_MOUSEMOVE, HPI_BUTTON, HPI_WHEEL, HPI_ACTIVATE, HPI_CLOSE, HPI_CANCEL_TOUCH };
+enum { HPI_KEY, HPI_MOUSEMOVE, HPI_BUTTON, HPI_WHEEL, HPI_ACTIVATE, HPI_CLOSE, HPI_CANCEL_TOUCH, HPI_TOUCH_MOVE };
 enum { HPI_TOUCH = 1u };                 /* cancelable gameplay controls, separate from hardware/text input */
 
 typedef struct {
@@ -19,6 +19,7 @@ typedef struct {
     int button;                          /* 0 left, 1 right, 2 middle */
     int32_t wheel;                       /* WHEEL_DELTA units (120 per notch) */
     uint32_t flags;
+    float move_x, move_y;                /* absolute touch stick, -1..1, up positive */
 } hp_input;
 
 void halopad_input_event(const hp_input *e);
@@ -37,4 +38,8 @@ void halopad_host_post_input(const hp_input *e);
    stick; dpad -1 centred or 0..7 clockwise from up. id stays the same while it is connected. */
 typedef struct { uint32_t id; float lx, ly, rx, ry, lt, rt; uint32_t buttons; int dpad; } hp_gamepad;
 int halopad_host_gamepads(hp_gamepad *out, int max);
+/* Virtual MOVE device. Enable before Halo enumerates input; call only on Halo's thread.
+   Touch values reach it through the host queue, never directly from UIKit. */
+#define HP_TOUCH_MOVE_ID 0x10000000u
+void halopad_touch_move_enable(int enabled);
 #endif

@@ -32,6 +32,10 @@ void halopad_host_screen_size(int32_t *w, int32_t *h)
 static hp_input queue_ev[QSIZE];
 static uint32_t q_head, q_tail;
 static int cancel_touch_pending;
+/* Absolute axes need only their latest value. A separate lane guarantees release
+   even with a full key queue; cancel is delivered first and erases older axes. */
+static int touch_move_pending;
+static hp_input touch_move_event;
 static pthread_mutex_t q_lock = PTHREAD_MUTEX_INITIALIZER;
 
 void halopad_host_post_input(const hp_input *e)
@@ -51,7 +55,11 @@ void halopad_host_post_input(const hp_input *e)
             if (!(queued.flags & HPI_TOUCH)) queue_ev[write++ % QSIZE] = queued;
         }
         q_tail = write;
+        touch_move_pending = 0;
         cancel_touch_pending = 1;
+    } else if (e->kind == HPI_TOUCH_MOVE) {
+        touch_move_event = *e;
+        touch_move_pending = 1;
     } else if (q_tail - q_head < QSIZE) queue_ev[q_tail++ % QSIZE] = *e;   /* a full queue drops, as a stalled Windows queue would */
     pthread_mutex_unlock(&q_lock);
 }
@@ -78,10 +86,13 @@ void halopad_host_pump(void)
     for (;;) {
         hp_input e;
         pthread_mutex_lock(&q_lock);
-        int have = cancel_touch_pending || q_head != q_tail;
+        int have = cancel_touch_pending || touch_move_pending || q_head != q_tail;
         if (cancel_touch_pending) {
             e = (hp_input){.kind = HPI_CANCEL_TOUCH};
             cancel_touch_pending = 0;
+        } else if (touch_move_pending) {
+            e = touch_move_event;
+            touch_move_pending = 0;
         } else if (have) {
             e = queue_ev[q_head % QSIZE];
             uint32_t id = e.kind == HPI_KEY ? 0x10000u | (e.scan & 0xFF) | (e.extended ? 0x100u : 0) : e.kind == HPI_BUTTON && !(e.flags & HPI_TOUCH) ? 0x20000u | (uint32_t)e.button : 0;

@@ -83,6 +83,22 @@ typedef struct {
 
 static device *devices[8];
 static uint32_t sequence;
+static int touch_move_enabled, touch_move_active = 1;
+static hp_gamepad touch_move = {.id = HP_TOUCH_MOVE_ID, .dpad = -1};
+
+static void reset_touch_move(void)
+{
+    touch_move = (hp_gamepad){.id = HP_TOUCH_MOVE_ID, .dpad = -1};
+    /* Cancel even a snapshot that was polled before a native menu opened. */
+    for (int i = 0; i < 8; i++)
+        if (devices[i] && devices[i]->kind == GAMEPAD && devices[i]->pad_id == HP_TOUCH_MOVE_ID)
+            devices[i]->snap = touch_move;
+}
+void halopad_touch_move_enable(int enabled)
+{
+    touch_move_enabled = !!enabled;
+    reset_touch_move();
+}
 
 static int guid_is(uint32_t g, uint32_t d1, uint16_t d2, uint16_t d3, const uint8_t d4[8])
 {
@@ -228,6 +244,7 @@ static void set_acquired(device *d, int on)
 {
     if (d->acquired == on) return;
     d->acquired = on;
+    if (!on && d->kind == GAMEPAD && d->pad_id == HP_TOUCH_MOVE_ID) reset_touch_move();
     if (!on) cancel_touch_keys(d);
     clear_touch(d);
     if (d->kind == MOUSE && (d->coop & 1)) halopad_host_mouse_capture(on);
@@ -405,12 +422,13 @@ int halopad_gamepad_test_count = -1;
 
 static int pads(hp_gamepad *out, int max)
 {
+    int n;
     if (halopad_gamepad_test_count >= 0) {
-        int n = halopad_gamepad_test_count < max ? halopad_gamepad_test_count : max;
+        n = halopad_gamepad_test_count < max ? halopad_gamepad_test_count : max;
         memcpy(out, halopad_gamepad_test, sizeof *out * (size_t)n);
-        return n;
-    }
-    return halopad_host_gamepads(out, max);
+    } else n = halopad_host_gamepads(out, max);
+    if (touch_move_enabled && n < max) out[n++] = touch_move;
+    return n;
 }
 static int pad_now(uint32_t id, hp_gamepad *out)
 {
@@ -435,10 +453,12 @@ static void put_instance(uint32_t at, uint32_t id)
     memset(G(at), 0, 580);
     wr32(at, 580);                                          /* DIDEVICEINSTANCEA */
     put_guid(at + 4, 0x2A7F6B10u + id, 0x3E7C, 0x11EF, pad_tail);
-    put_guid(at + 0x14, 0x028E045Eu, 0, 0, pidvid);
+    if (id == HP_TOUCH_MOVE_ID) put_guid(at + 0x14, 0x3A7F6B11u, 0x3E7C, 0x11EF, pad_tail);
+    else put_guid(at + 0x14, 0x028E045Eu, 0, 0, pidvid);
     wr32(at + 0x24, PAD_DEVTYPE);
-    memcpy(G(at + 0x28), pad_name, sizeof pad_name);        /* instance name */
-    memcpy(G(at + 0x12C), pad_name, sizeof pad_name);       /* product name */
+    const char *name = id == HP_TOUCH_MOVE_ID ? "HaloPad Touch Move" : pad_name;
+    strcpy(G(at + 0x28), name);                            /* instance name */
+    strcpy(G(at + 0x12C), name);                           /* product name */
     wr16(at + 0x240, 1); wr16(at + 0x242, 5);               /* HID usage page 1 (generic desktop), usage 5 (game pad) */
 }
 
@@ -660,12 +680,29 @@ static void record(device *d, uint32_t ofs, uint32_t data) { record_source(d, of
 
 void halopad_dinput_event(const hp_input *e)
 {
+    if (e->kind == HPI_CANCEL_TOUCH) reset_touch_move();
+    if (e->kind == HPI_ACTIVATE) {
+        touch_move_active = !!e->down;
+        if (!touch_move_active) reset_touch_move();
+    }
+    if (e->kind == HPI_TOUCH_MOVE) {
+        if (touch_move_enabled && touch_move_active) {
+            float x = isfinite(e->move_x) ? fmaxf(-1, fminf(1, e->move_x)) : 0;
+            float y = isfinite(e->move_y) ? fmaxf(-1, fminf(1, e->move_y)) : 0;
+            float magnitude = hypotf(x, y);
+            if (magnitude > 1) { x /= magnitude; y /= magnitude; }
+            touch_move.lx = x; touch_move.ly = y;
+        }
+        return;
+    }
     static int trace = -1;
     if (trace < 0) trace = getenv("HALOPAD_TRACE_INPUT") != NULL;
     if (trace && e->kind == HPI_BUTTON) fprintf(stderr, "HALOPAD INPUT: button %d %s\n", e->button, e->down ? "down" : "up");
     for (int i = 0; i < 8; i++) {
         device *d = devices[i];
-        if (!d || d->kind == GAMEPAD) continue;
+        if (!d) continue;
+        if (d->kind == GAMEPAD && d->pad_id != HP_TOUCH_MOVE_ID) continue;
+        if (d->kind == GAMEPAD && e->kind != HPI_ACTIVATE) continue;
         if (e->kind == HPI_CANCEL_TOUCH) {
             cancel_touch_keys(d);
             for (uint32_t b = 0; b < 8; b++)

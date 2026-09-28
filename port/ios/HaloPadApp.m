@@ -28,6 +28,9 @@ int halopad_core_run(void);
 /* what the core thread runs: Halo from its entry point, unless a development scene replaces it
    (scripts/build-ios-app.py --scene) */
 __attribute__((weak, noinline)) int halopad_app_entry(void) { return halopad_core_run(); }
+/* Development scenes can exercise original controller configuration before it
+   becomes the production default. Called only on the Halo thread. */
+__attribute__((weak, noinline)) int halopad_app_touch_move_ready(void) { return 0; }
 void halopad_host_set_window_handler(void (*handler)(void *window));
 void halopad_host_attach_view(void *window, UIView *view);
 void halopad_host_window_size(void *window, uint32_t *w, uint32_t *h);
@@ -40,6 +43,15 @@ static atomic_int presented;
 static HPOverlay *overlay;
 static hp_menu_touch menu_touch;
 static pthread_mutex_t menu_touch_lock = PTHREAD_MUTEX_INITIALIZER;
+typedef struct {
+    float forward, strafe;
+    int16_t axes[4];
+    uint32_t source[3];
+    uint8_t alternate;
+    uint16_t gameMode;
+} hp_analog_observation;
+static hp_analog_observation analog_observation;
+static pthread_mutex_t analog_observation_lock = PTHREAD_MUTEX_INITIALIZER;
 static uint32_t menu_touch_root;
 static void cancel_menu_touch(void)
 {
@@ -74,7 +86,8 @@ static void update_overlay_game_state(void)
     BOOL inGame = map[0] && strcmp(map, "ui");
     BOOL menuVisible = root != 0;
     static int previous = -1;
-    int state = inGame | (menuVisible << 1);
+    BOOL analogMove = halopad_app_touch_move_ready();
+    int state = inGame | (menuVisible << 1) | (analogMove << 2);
     if (state == previous) return;
     previous = state;
     if (getenv("HALOPAD_TRACE_INPUT"))
@@ -82,6 +95,7 @@ static void update_overlay_game_state(void)
     dispatch_async(dispatch_get_main_queue(), ^{
         overlay.haloMenuVisible = menuVisible;
         overlay.inGame = inGame;
+        overlay.analogMoveReady = analogMove;
     });
 }
 void *halopad_d3d9_device_target(uint32_t g);
@@ -90,6 +104,20 @@ static void count_present(uint32_t device)
 {
     int n = atomic_fetch_add(&presented, 1) + 1;
     update_overlay_game_state();
+    if (getenv("HALOPAD_ANALOG_SELFTEST")) {
+        /* One completed frame's input, captured on Halo's thread. Reading these
+           fields independently from a UIKit timer can observe an update in flight. */
+        hp_analog_observation sample;
+        memcpy(&sample.forward, halopad_guest_ptr(0x6ad4b8), 4);
+        memcpy(&sample.strafe, halopad_guest_ptr(0x6ad4bc), 4);
+        for (int i = 0; i < 4; i++) memcpy(&sample.axes[i], halopad_guest_ptr(0x64d9ba + 0xa0 * i), 2);
+        memcpy(sample.source, halopad_guest_ptr(0x6ad8e8), sizeof sample.source);
+        sample.alternate = *(uint8_t *)halopad_guest_ptr(0x64c529);
+        memcpy(&sample.gameMode, halopad_guest_ptr(0x6b47b0), 2);
+        pthread_mutex_lock(&analog_observation_lock);
+        analog_observation = sample;
+        pthread_mutex_unlock(&analog_observation_lock);
+    }
     /* development: the back buffer of frame 600 as a PPM beside the registry (HALOPAD_TRACE_WINDOWS) */
     const char *reg = getenv("HALOPAD_REGISTRY");
     if (n == 600 && getenv("HALOPAD_TRACE_WINDOWS") && reg && strrchr(reg, '/')) {
@@ -532,6 +560,59 @@ static void action_selftest(void)
     });
 }
 
+/* Development scene acceptance: observe Halo's live movement consumer while
+   driving the real overlay. The original profile thresholds are read, never set. */
+static void analog_selftest(int step)
+{
+    static const float values[] = {0.25f, 0.5f, 1, 0, -0.5f, 0};
+    if (!overlay.analogMoveReady) {
+        selftest_check("analog MOVE is configured", NO, @"original configuration unavailable");
+        return;
+    }
+    if (step == sizeof values / sizeof values[0]) {
+        [overlay driveMoveX:.5f y:.5f];
+        after(.25, ^{
+            [overlay clearTouchInput];
+            after(.25, ^{
+                pthread_mutex_lock(&analog_observation_lock);
+                hp_analog_observation sample = analog_observation;
+                pthread_mutex_unlock(&analog_observation_lock);
+                selftest_check("native-menu cancellation clears analog movement", sample.forward == 0 && sample.strafe == 0,
+                               [NSString stringWithFormat:@"forward %.6f strafe %.6f", sample.forward, sample.strafe]);
+                fprintf(stderr, "HALOPAD ANALOG SELFTEST: %s: %d failure(s)\n", selftest_failures ? "FAIL" : "PASS", selftest_failures);
+            });
+        });
+        return;
+    }
+    float value = values[step], threshold = gf(0x6abb58);
+    uint32_t unit = g_unit();
+    float beforeX = gf(unit + 0x5c), beforeY = gf(unit + 0x60);
+    [overlay driveMoveX:0 y:value];
+    after(.5, ^{
+        float counts = roundf(fmaxf(0, (fabsf(value) - .1f) / .9f) * 4096);
+        float expected = threshold > 0 ? copysignf(fminf(1, counts / 4096 / threshold), value) : NAN;
+        pthread_mutex_lock(&analog_observation_lock);
+        hp_analog_observation sample = analog_observation;
+        pthread_mutex_unlock(&analog_observation_lock);
+        float actual = sample.forward;
+        fprintf(stderr, "HALOPAD ANALOG SAMPLE: axes Y %d %d %d %d, source %08x %08x %08x, alternate %u\n",
+                sample.axes[0], sample.axes[1], sample.axes[2], sample.axes[3],
+                sample.source[0], sample.source[1], sample.source[2], sample.alternate);
+        uint32_t current = g_unit();
+        float distance = hypotf(gf(current + 0x5c) - beforeX, gf(current + 0x60) - beforeY);
+        /* Halo 0x473c70 converts input through 0x473c30 for multiplayer. A
+           Present between input polling and a simulation tick sees the raw value;
+           after that tick it sees the original -1/0/+1 quantization instead. */
+        float command = expected > .05f ? 1 : expected < -.05f ? -1 : 0;
+        BOOL validStage = fabsf(actual - expected) < .00001f ||
+                          (sample.gameMode != 0 && actual == command);
+        int16_t expectedAxis = (int16_t)-copysignf(counts, value);
+        selftest_check("analog axis and original movement stages agree", isfinite(expected) && sample.axes[3] == expectedAxis && validStage,
+                       [NSString stringWithFormat:@"stick %.2f raw %.6f observed %.6f command %.0f mode %u moved %.3f", value, expected, actual, command, sample.gameMode, distance]);
+        analog_selftest(step + 1);
+    });
+}
+
 static void touch_selftest(void)
 {
     uint32_t u = g_unit();
@@ -604,6 +685,7 @@ static void touch_selftest(void)
                         selftest_check("the LOOK stick turns while held", angle > 5,
                                        [NSString stringWithFormat:@"turned %.1f degrees", angle]);
                         fprintf(stderr, "HALOPAD SELFTEST: %s: %d failure(s)\n", selftest_failures ? "FAIL" : "PASS", selftest_failures);
+                        if (getenv("HALOPAD_ANALOG_SELFTEST")) analog_selftest(0);
                     });
                 });
             });

@@ -106,7 +106,7 @@ def main():
            'HALOPAD_STATE_ROOT': STATE, 'HALOPAD_REPO_ROOT': ROOT, 'HALOPAD_REGISTRY': STATE / 'registry.txt'}
     # development settings from the Mac's environment: Halo's command line, the network policy,
     # an overlay part to open for the screenshot
-    env.update({k: os.environ[k] for k in ('HALOPAD_ARGS', 'HALOPAD_NET', 'HALOPAD_OVERLAY_DEMO', 'HALOPAD_TRACE_NET', 'HALOPAD_TRACE_WINDOWS', 'HALOPAD_NO_OVERLAY', 'HALOPAD_TOUCH_SELFTEST', 'HALOPAD_ACTION_SELFTEST', 'HALOPAD_TRACE_INPUT', 'HALOPAD_TRACE_TOUCH', 'HALOPAD_TRACE_WEAPON', 'HALOPAD_TRACE_FRAMES', 'HALOPAD_TRACE_LIFECYCLE') if k in os.environ})
+    env.update({k: os.environ[k] for k in ('HALOPAD_ARGS', 'HALOPAD_NET', 'HALOPAD_OVERLAY_DEMO', 'HALOPAD_TRACE_NET', 'HALOPAD_TRACE_WINDOWS', 'HALOPAD_NO_OVERLAY', 'HALOPAD_TOUCH_SELFTEST', 'HALOPAD_ANALOG_SELFTEST', 'HALOPAD_ANALOG_CAPTURE', 'HALOPAD_ACTION_SELFTEST', 'HALOPAD_TRACE_INPUT', 'HALOPAD_TRACE_TOUCH', 'HALOPAD_TRACE_WEAPON', 'HALOPAD_TRACE_FRAMES', 'HALOPAD_TRACE_LIFECYCLE') if k in os.environ})
     if a.device_data:
         env = {k: v for k, v in env.items() if k not in ('HALOPAD_IMAGE', 'HALOPAD_MODULE_IMAGES', 'HALOPAD_REFERENCE_ROOT', 'HALOPAD_GAME_ROOT',
                                                           'HALOPAD_STATE_ROOT', 'HALOPAD_REPO_ROOT', 'HALOPAD_REGISTRY')}

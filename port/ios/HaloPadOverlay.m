@@ -212,6 +212,20 @@ typedef NS_ENUM(NSInteger, HPControlKind) { HPKey, HPMouseButton };
 {
     CGFloat half = self.bounds.size.width / 2, travel = half - _thumb.bounds.size.width / 2 - 3;
     _thumb.center = CGPointMake(half + _x * travel, half - _y * travel);
+    BOOL held = _activeTouch != nil;
+    _thumb.backgroundColor = held ? [UIColor colorWithRed:0.60 green:0.85 blue:1 alpha:0.9] : [UIColor colorWithWhite:1 alpha:0.45];
+    if (!self.editing) {
+        self.layer.borderColor = held ? [UIColor colorWithRed:0.60 green:0.85 blue:1 alpha:0.8].CGColor : [UIColor colorWithWhite:1 alpha:0.3].CGColor;
+        self.layer.borderWidth = held ? 2 : 1.5;
+    }
+}
+- (BOOL)pointInside:(CGPoint)point withEvent:(UIEvent *)event
+{
+    if (self.editing) return [super pointInside:point withEvent:event];
+    /* The invisible corners of a square stick view must not steal an adjacent
+       look swipe. Once a finger owns a stick, UIKit keeps its outside drags. */
+    CGFloat radius = fmin(self.bounds.size.width, self.bounds.size.height) / 2;
+    return hypot(point.x - CGRectGetMidX(self.bounds), point.y - CGRectGetMidY(self.bounds)) <= radius;
 }
 - (void)reset { _activeTouch = nil; _x = _y = 0; [self place]; if (self.valueChanged) self.valueChanged(0, 0); }
 - (void)track:(UITouch *)t
@@ -478,12 +492,23 @@ static const hp_control_def CONTROLS[] = {
 - (void)moveX:(float)x y:(float)y
 {
     if (_editing) return;
+    if (self.analogMoveReady) {
+        hp_input event = {.kind = HPI_TOUCH_MOVE, .flags = HPI_TOUCH, .move_x = x, .move_y = y};
+        halopad_host_post_input(&event);
+        return;
+    }
     static const uint32_t vk[4] = {'W', 'A', 'S', 'D'}, scan[4] = {0x11, 0x1e, 0x1f, 0x20};
     float v[4] = {y, -x, -y, x};
     for (int i = 0; i < 4; i++) {
         int want = _wasd[i] ? v[i] > 0.25f : v[i] > 0.38f;
         if (want != _wasd[i]) { _wasd[i] = want; post_key(vk[i], 0, scan[i], 0, want, 0); }
     }
+}
+- (void)setAnalogMoveReady:(BOOL)ready
+{
+    if (_analogMoveReady == ready) return;
+    [self clearTouchInput]; /* release the old source before switching ownership */
+    _analogMoveReady = ready;
 }
 /* looking: points dragged as mouse counts (DirectInput), fractions kept */
 - (void)lookX:(CGFloat)dx y:(CGFloat)dy

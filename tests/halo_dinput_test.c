@@ -408,11 +408,12 @@ int main(void)
        reads the capabilities, and through EnumObjects (0x494a10) gives every axis the range
        -4096..4096 and a 10% dead zone */
     halopad_gamepad_test_count = 1;
+    halopad_touch_move_enable(1);
     halopad_gamepad_test[0] = (hp_gamepad){.id = 7, .lx = 1.0f, .ly = 1.0f, .rx = -0.05f, .ry = 0, .lt = 1.0f, .rt = 0,
                                            .buttons = 1u | 1u << 7, .dpad = 2};   /* stick right and up, A and Start, d-pad right */
     memcpy(halopad_guest_ptr(0x64c52c), &di, 4);                   /* Halo's IDirectInput8 */
     check("Halo's game controller set-up (0x494840) returns TRUE", halopad_call_guest(0x494840, 0, NULL) & 0xFF, 1);
-    check("  one controller counted (0x64c774)", rd(0x64c774), 1);
+    check("  physical controller and distinct touch controller counted", rd(0x64c774), 2);
     uint32_t pad = rd(0x64c778);
     check("  its device (0x64c778)", pad != 0, 1);
     {
@@ -445,6 +446,56 @@ int main(void)
     M0(pad, Poll);
     M(pad, GetDeviceState, 224, js);
     check("  half right: (0.5 - 0.1) / 0.9 of 4096 = 1820", rd(js), 1820);
+    uint32_t touchpad = rd(0x64c77c);
+    check("touch controller has its own DirectInput handle", touchpad != 0 && touchpad != pad, 1);
+    const uint16_t *touchname = halopad_guest_ptr(0x64c798 + 0x240);
+    int named = 1;
+    for (unsigned i = 0; i < sizeof "HaloPad Touch Move"; i++) named &= touchname[i] == (uint8_t)"HaloPad Touch Move"[i];
+    check("touch controller has a distinct displayed name", named, 1);
+    check("touch controller acquire", M0(touchpad, Acquire), 0);
+    input((hp_input){.kind = HPI_TOUCH_MOVE, .move_x = .5f, .move_y = .25f});
+    M0(touchpad, Poll); M(touchpad, GetDeviceState, 224, js);
+    check("touch axes preserve partial magnitude", rd(js) == 1820 && rd(js + 4) == (uint32_t)-683, 1);
+    input((hp_input){.kind = HPI_CANCEL_TOUCH});
+    M(touchpad, GetDeviceState, 224, js);
+    check("cancel clears an already-polled touch snapshot", rd(js) == 0 && rd(js + 4) == 0, 1);
+    M0(touchpad, Poll); M(touchpad, GetDeviceState, 224, js);
+    check("poll cannot resurrect canceled touch axes", rd(js) == 0 && rd(js + 4) == 0, 1);
+    M0(pad, Poll); M(pad, GetDeviceState, 224, js);
+    check("touch cancel preserves physical controller axes", rd(js), 1820);
+    input((hp_input){.kind = HPI_TOUCH_MOVE, .move_x = 1});
+    input((hp_input){.kind = HPI_ACTIVATE, .down = 0});
+    input((hp_input){.kind = HPI_TOUCH_MOVE, .move_x = 1});
+    input((hp_input){.kind = HPI_ACTIVATE, .down = 1});
+    check("touch pad loses foreground acquisition", M(touchpad, GetDeviceState, 224, js), 0x8007001e);
+    M0(touchpad, Acquire); M(touchpad, GetDeviceState, 224, js);
+    check("reacquire does not replay inactive touch motion", rd(js), 0);
+    input((hp_input){.kind = HPI_TOUCH_MOVE, .move_x = NAN, .move_y = INFINITY});
+    M0(touchpad, Poll); M(touchpad, GetDeviceState, 224, js);
+    check("nonfinite touch axes become neutral", rd(js) == 0 && rd(js + 4) == 0, 1);
+    input((hp_input){.kind = HPI_TOUCH_MOVE, .move_x = 1, .move_y = 1});
+    M0(touchpad, Poll); M(touchpad, GetDeviceState, 224, js);
+    check("diagonal touch input is radially bounded", rd(js) > 0 && rd(js) < 4096 && (int32_t)rd(js + 4) == -(int32_t)rd(js), 1);
+#if TARGET_OS_IPHONE
+    halopad_host_input_off = 0;
+    queued_input((hp_input){.kind = HPI_TOUCH_MOVE, .move_x = 1});
+    queued_input((hp_input){.kind = HPI_CANCEL_TOUCH});
+    pump_many(); M0(touchpad, Poll); M(touchpad, GetDeviceState, 224, js);
+    check("cancel drops axes still waiting in host queue", rd(js), 0);
+    queued_input((hp_input){.kind = HPI_CANCEL_TOUCH});
+    queued_input((hp_input){.kind = HPI_TOUCH_MOVE, .move_x = .5f});
+    pump_many(); M0(touchpad, Poll); M(touchpad, GetDeviceState, 224, js);
+    check("fresh touch movement after cancel is retained", rd(js), 1820);
+    for (int i = 0; i < 1024; i++) queued_input((hp_input){.kind = HPI_MOUSEMOVE});
+    queued_input((hp_input){.kind = HPI_TOUCH_MOVE, .move_x = 1});
+    queued_input((hp_input){.kind = HPI_TOUCH_MOVE});
+    pump_many(); M0(touchpad, Poll); M(touchpad, GetDeviceState, 224, js);
+    check("touch release survives a saturated host queue", rd(js), 0);
+    halopad_host_input_off = 1;
+#endif
+    input((hp_input){.kind = HPI_CANCEL_TOUCH});
+    check("release touch controller", M0(touchpad, Release), 0);
+    halopad_touch_move_enable(0);
     /* Follow the axes beyond DirectInput into Halo's actual movement consumer.
        Test-only bindings: pad slot 0 X +/- -> right/left, Y +/- -> back/forward;
        keyboard W remains independently bound. Original 0x493520 polls and copies
@@ -509,6 +560,40 @@ int main(void)
         printf("    axes %.2f/%.2f -> forward %.6f, strafe %.6f; bits %08x/%08x\n", movement[i].x, movement[i].y, forward, strafe, rd(0x6ad4b8), rd(0x6ad4bc));
         check(label, fabsf(forward - movement[i].forward) < 0.00001f && fabsf(strafe - movement[i].strafe) < 0.00001f, 1);
     }
+    /* Halo's player-command builder (0x473c70) applies this original quantizer
+       when its game-mode word is nonzero. Presentation may occur on either side
+       of a simulation tick; a later +/-1 does not mean analog polling failed. */
+    const float quantized_inputs[] = {-1, -.5924479f, -.050001f, -.05f, -.02f, 0,
+                                      .02f, .05f, .050001f, .222330734f, .5924479f, 1};
+    for (unsigned i = 0; i < sizeof quantized_inputs / sizeof *quantized_inputs; i++) {
+        float value = quantized_inputs[i]; uint32_t bits;
+        memcpy(&bits, &value, 4);
+        uint32_t old_top = cpu._st_top;
+        halopad_call_guest_ex(0x473c30, 1, &bits, 0, 0);
+        float actual = (float)cpu._st[cpu._st_top & 7];
+        cpu._st_top = old_top; /* caller consumes the original x87 return */
+        uint32_t out_bits; memcpy(&out_bits, &actual, 4);
+        printf("    quantize %08x -> %08x\n", bits, out_bits);
+        check("original player-command movement quantization", actual == (value > .05f ? 1 : value < -.05f ? -1 : 0), 1);
+    }
+    /* The app must use a spare slot, not assume logical controller zero. */
+    memcpy(halopad_guest_ptr(0x64dc18), &(uint32_t){0xffffffff}, 4);
+    memcpy(halopad_guest_ptr(0x64dc24), &(uint32_t){0}, 4);
+    memcpy(halopad_guest_ptr(0x64c9c8), &(uint32_t){3}, 4);
+    memcpy(halopad_guest_ptr(0x6ab536 + 3 * 128), halopad_guest_ptr(0x6ab536), 128);
+    halopad_gamepad_test[0].ly = .5f;
+    halopad_call_guest(0x493520, 0, NULL);
+    halopad_call_guest(0x48f850, 0, NULL);
+    check("spare logical slot preserves partial movement", rd(0x6ad4b8), 0x3ee38000);
+    memcpy(halopad_guest_ptr(0x6abb58), &(float){.75f}, 4);
+    halopad_call_guest(0x48f850, 0, NULL);
+    float profile_throttle; memcpy(&profile_throttle, halopad_guest_ptr(0x6ad4b8), 4);
+    check("spare slot with live profile threshold preserves magnitude", fabsf(profile_throttle - 1820.0f / 4096 / .75f) < .00001f, 1);
+    memcpy(halopad_guest_ptr(0x6abb58), &(float){1}, 4);
+    memcpy(halopad_guest_ptr(0x64dc18), &(uint32_t){0}, 4);
+    memcpy(halopad_guest_ptr(0x64dc24), &(uint32_t){0xffffffff}, 4);
+    memcpy(halopad_guest_ptr(0x64c9c8), &(uint32_t){0}, 4);
+    halopad_gamepad_test[0].ly = 0;
     input((hp_input){.kind = HPI_KEY, .vk = 'W', .scan = 0x11, .down = 1});
     halopad_call_guest(0x493520, 0, NULL);
     halopad_call_guest(0x48f850, 0, NULL);

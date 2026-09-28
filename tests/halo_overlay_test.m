@@ -163,6 +163,8 @@ static void check_stick_tracking(void)
     __block float x = 0, y = 0;
     stick.valueChanged = ^(float a, float b) { x = a; y = b; };
     UIView *thumb = stick.subviews.firstObject;
+    check("stick corners leave open-screen swipes available", ![stick pointInside:CGPointMake(1, 1) withEvent:nil]);
+    check("stick centre and visible rim remain touch targets", [stick pointInside:CGPointMake(64, 64) withEvent:nil] && [stick pointInside:CGPointMake(127, 64) withEvent:nil]);
     [stick trackPoint:CGPointMake(76, 54)];
     check("stick thumb follows the finger inside its travel",
           fabs(thumb.center.x - 76) < 0.01 && fabs(thumb.center.y - 54) < 0.01 && x > 0 && y > 0);
@@ -356,6 +358,21 @@ int main(void)
         check("clearing touch input releases movement and fire",
               all_released() && count >= 4 && events[count - 2].kind == HPI_BUTTON &&
               !events[count - 2].down && events[count - 1].vk == 'W' && !events[count - 1].down);
+        [overlay driveMoveX:0 y:1];
+        overlay.analogMoveReady = YES;
+        check("switching MOVE sources releases the old keyboard hold", all_released());
+        count = 0;
+        [overlay driveMoveX:.25f y:.5f];
+        check("analog MOVE preserves both partial axes without keyboard events", count == 1 &&
+              events[0].kind == HPI_TOUCH_MOVE && events[0].flags == HPI_TOUCH &&
+              events[0].move_x == .25f && events[0].move_y == .5f && all_released());
+        [overlay clearTouchInput];
+        check("clearing analog MOVE sends neutral before cancel", events[count - 1].kind == HPI_TOUCH_MOVE &&
+              events[count - 1].move_x == 0 && events[count - 1].move_y == 0 && countAtCancel == count);
+        overlay.analogMoveReady = NO;
+        [overlay driveMoveX:0 y:1];
+        check("unconfigured MOVE retains the existing keyboard route", held['W']);
+        [overlay clearTouchInput];
         count = 0;
         CGFloat scale = 2.2 * HPSettings.shared.lookSensitivity;
         [overlay driveLookX:0.4 / scale y:0];

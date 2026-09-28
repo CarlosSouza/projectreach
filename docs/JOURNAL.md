@@ -1961,3 +1961,54 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   landed. Next: cancelable analog MOVE plus original configuration without overwriting saved
   physical mappings; physical multi-touch remains unverified. Campaign, online comparison,
   import/lifecycle and device gates remain open. Stop PID 78478 before further core tests.
+
+
+## 2026-09-28 — G9 / analog source, original multiplayer semantics, stick feedback
+
+- **Classification: progress.** Full goal remains active. Continued from 2a9cb81;
+  read the objective and inherited loop. Locked executable and all five source pins
+  pass. Private origin verified; earlier push authorization remains in effect.
+  Parked inputs and broader acceptance gates unchanged. No reference process started.
+- Implemented a stable, distinct virtual touch controller, absolute-axis queue lane,
+  cancellation of both pending and polled movement, focus loss/reacquisition, and
+  preserved physical controller state. Overlay switches source only after original
+  configuration succeeds and clears its old source first. Default source remains off.
+- `tests/halo_touch_move_scene.c` activates an unassigned device in a free unbound
+  logical slot via Halo's original script evaluator, then its original binding setter.
+  Development only: production profile ownership, rollback and reload are not claimed.
+- Initial partial-movement tests failed in apps 3/5/6; app4 happened to sample the
+  raw stage. Coherent frame snapshots alone did not fix the discrepancy. Captured
+  data (`G9/touch-analog-device/partial.bin`) replayed as 0.222330734 in original x86
+  AND native (`G3/core-arm64-apple-ios17.0-simulator-20260928T181619Z`), despite 1.0
+  being observed at capture. This ruled out the reduced consumer calculation.
+- Temporary return/write tracing in apps7/8 found 0.222330734 at the consumer return,
+  followed by 1.0 between original locations 0x473d23 and 0x473d2f. The original
+  command-builder deliberately applies 0x473c30 for nonzero game-mode word. Twelve
+  native/oracle comparisons confirm the +/-0.05 quantizer. Corrected the stage
+  expectation; no clamping workaround, movement patch or translation change made.
+  Removed temporary hot-path tracing. Captures and logs remain ignored.
+- Final native runs: iPad 210 assertions (`G3/...20260928T182711Z`), Mac 206
+  (`G3/...20260928T182902Z`). All 22 original comparisons pass in
+  `G9/analog-oracle-20260928T182753Z`. Overlay passes 67 assertions, five renders,
+  90 layouts (`G9/overlay-20260928T182808Z`). A trial aligning THROW with the top
+  action row reduced stick clearance and failed 56 layouts; reverted that geometry.
+  Kept symmetric stick/grid spacing and added held-touch feedback and circular hit
+  areas so invisible corners no longer consume open-screen aiming gestures.
+- app9 PID 85430 is the final installed analog development scene. Original touch
+  menus created Battle Creek Slayer with backed-up New001; five gameplay checks and
+  seven analog/cancel checks pass (`G9/touch-analog-device/app9-err.txt`). Snapshot
+  identities are in app9-identity.json. The earlier backup attempt used a stale data
+  container after install; the successful backup was taken before gameplay/config
+  and is accurately recorded in backup.json. Final app9-profile-diff.json shows the
+  profile hash unchanged; playlist and last-map files changed, none added/missing.
+- Left one requested preview running on HaloPad iPad Pro 13, device
+  E129A00F-D338-4FDC-8AE8-BB243E9BA61B, PID 85430, LAN policy. The one-shot test
+  drivers finished; no repeating input remains. Native menu open/dismiss and corner
+  swipe verified afterward. Phone remains off. Stop this exact preview before any
+  new core run. This scene is explicitly opt-in, not the production entry point.
+- Next bounded experiment: use the same backed-up development scene to switch
+  profiles, return to menu and load another map; compare the original slot/binding
+  tables before/after, make touch readiness track ownership, and fall back cleanly
+  if no slot is free. Fail on changed physical mappings or stale held input. Only
+  then promote default analog configuration. Actual simultaneous fingers and exact
+  physical-device ergonomics remain unverified. No goal completion/terminal claim.
