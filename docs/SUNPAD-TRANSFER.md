@@ -864,3 +864,20 @@ aborted one run; that log is kept and was not counted.
 Evidence: `G9/touch-lock-online` (app log, server polls during the lock, server
 session lines, the refused-rejoin screenshot and log, resumed screenshot, profile
 hashes, final preview metadata).
+
+## Lost connection during a lock — 2026-09-28
+
+The reconnect branch has now run. The iPad joined the private server (JOIN
+18:48:33), held MOVE and LOOK, and was locked. While locked, the server runner was
+stopped at 18:48:54 and a fresh server answered at 18:49:29 with no players. The
+iPad was unlocked after 51.7 seconds. Halo had returned to its own main menu with
+the touch slot released. The driver pressed Escape, typed Halo's `connect` command,
+and the server logged a new JOIN at 18:49:41. The respawned player started neutral,
+MOVE/LOOK worked, and input released cleanly. The server listed New002 afterwards.
+Profiles are unchanged.
+
+The driver prints "disconnected by lock"; here the server restart caused the loss,
+which the lock only spanned. A physical device that is suspended long enough to
+time out should follow the same path, but that remains to be seen on hardware.
+Evidence: `G9/touch-lock-reconnect` (app log, timeline, both server logs,
+reconnected screenshot, profile hashes).

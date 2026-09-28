@@ -2571,3 +2571,18 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
 - Next: exercise the reconnect branch by forcing a real drop (for example the
   existing server-loss path while locked), check audio interruption, then continue
   down the open G9/M30 rows. Physical-device suspension stays parked on hardware.
+
+## 2026-09-28 — lost connection during a lock, then reconnect
+
+- Previous goal turn: progress (367e678, online lock kept the session).
+  Current turn: progress.
+- Forced the untested branch: joined 127.0.0.1:2310 (JOIN 18:48:33), armed held
+  MOVE/LOOK, locked, stopped the server 18:48:54, restarted it 18:49:29 (0 players),
+  unlocked after 51.7 s. Five checks PASS: menu instead of stale play, slot -1,
+  neutral respawn after console reconnect (JOIN 18:49:41), MOVE/LOOK work, clean
+  release. PID 25028; same binary as 367e678 (801ab0fe…613b28).
+- Server stopped; no Wine. Preview PID 25297, Battle Creek, no drivers. Profiles
+  byte-identical.
+- Remaining M30 rows: audio interruption, console typing across interruption,
+  physical suspension. Next: audio interruption on the Simulator if it can be
+  triggered faithfully, otherwise document why it needs hardware.
