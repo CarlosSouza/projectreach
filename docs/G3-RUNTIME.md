@@ -447,6 +447,30 @@ Each join also fires as a network client: the left button held 45 frames, 250 fr
 spawn (a plasma pistol fires only once fully charged; its battery, weapon `+0x134`, drops from
 1.00 to 0.89). Refusals save Halo's message as `refused.ppm`.
 
+## Maps and mods: the boundary (G6: M16)
+
+**Stock maps.** Every join and every hosted game above uses Halo's stock Custom Edition maps from
+the locked 1.10 file set: Blood Gulch, Battle Creek, Ice Fields, Death Island, Wizard and Hang 'Em
+High have been played on HaloPad; the rest are the same files loaded by the same code.
+
+**A map the client does not have.** POQclan CE01 runs the custom map `coldsnap`. Joining it with
+`-connect` (`HALOPAD_TEST_EXPECT=refused`), Halo stayed in its menus and showed its own message,
+"An error has occurred loading a map file." (`refused.ppm` in the run's evidence). Nothing loaded
+and nothing was made up: that is Halo's own behaviour for a missing map, and it applies to every
+server on the list whose map is not in `maps/`.
+
+**Adding a map.** HaloPad reads the game files through a writable install layer,
+`HALOPAD_STATE_ROOT/install/` over the locked game root. A player who has a custom map's `.map` file
+puts it in `install/maps/` and Halo finds it as it would on a PC. The app does not download maps
+(Halo CE itself never did; that was HAC2's job).
+
+**Mod plugins are rejected by construction.** On Windows, Chimera, HAC2 and OpenSauce load by
+replacing `dinput8.dll` or `strings.dll` in the game folder, or by injection. HaloPad's module table
+(`port/runtime/halopad_modules.c`) is fixed: `dinput8.dll`, `strings.dll` and the other system DLLs
+are HaloPad's own services whatever files sit in the game folder, the game's own DLLs are the
+translated modules, absent modules fail with `ERROR_MOD_NOT_FOUND` as on a plain PC, and any other
+module name stops the program with a named trap. No native x86 plugin can run.
+
 ## Rasterizer initialization (Halo's graphics start-up)
 
 `0x51a240` (reached from `WinMain` through `0x5442e0` and `0x515610`) is Halo's whole graphics start-up. In order:

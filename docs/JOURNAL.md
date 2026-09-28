@@ -1089,3 +1089,8 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   Simulator; the self-test passes in left-handed mode.
 - **Pushed** `codex/halopad-phase2` to the private GitHub repository at Chris's request (a backup,
   not publication: G12 still gates that).
+
+- **Maps and mods (M16):** joining POQclan CE01 on the custom map `coldsnap` gets Halo's own "An error
+  has occurred loading a map file." and stays in the menus; custom maps belong in
+  `HALOPAD_STATE_ROOT/install/maps/`; mod plugins (Chimera, HAC2, OpenSauce) cannot load because the
+  module table is fixed and `dinput8.dll`/`strings.dll` are always HaloPad's own.
