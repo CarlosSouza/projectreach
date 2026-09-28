@@ -71,7 +71,21 @@ static NSString *current_map(void)
 /* The system keyboard for Halo's text entry: what is typed becomes key presses with characters. */
 @interface HPKeyboardProxy : UIView <UIKeyInput>
 @end
-@implementation HPKeyboardProxy
+@implementation HPKeyboardProxy {
+    UIToolbar *_keyboardBar;
+}
+- (UIView *)inputAccessoryView
+{
+    if (!_keyboardBar) {
+        _keyboardBar = [[UIToolbar alloc] initWithFrame:CGRectMake(0, 0, 320, 44)];
+        _keyboardBar.autoresizingMask = UIViewAutoresizingFlexibleWidth;
+        _keyboardBar.items = @[
+            [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace target:nil action:nil],
+            [[UIBarButtonItem alloc] initWithTitle:@"Hide Keyboard" style:UIBarButtonItemStyleDone target:self action:@selector(hideKeyboard)]];
+    }
+    return _keyboardBar;
+}
+- (void)hideKeyboard { [self resignFirstResponder]; }
 - (BOOL)canBecomeFirstResponder { return YES; }
 - (BOOL)pointInside:(CGPoint)point withEvent:(UIEvent *)event { return NO; }
 - (BOOL)hasText { return YES; }
@@ -244,6 +258,7 @@ static void resolve_device_paths(void)
 
 static HPGameViewController *game_vc;
 static UIView *game_view;
+static NSLayoutConstraint *keyboard_bottom, *full_bottom;
 static HPOverlay *overlay;
 static HPKeyboardProxy *keyboard;
 
@@ -393,7 +408,20 @@ static void touch_selftest(void)
     scroll.allowedTouchTypes = @[];                     /* trackpad and mouse-wheel scrolling only */
     [v addGestureRecognizer:scroll];
     self.view = v;
-    game_view = v;
+    /* Keep the console/chat prompt above a docked software keyboard. The input view stays
+       full size; only the guest's render host follows the keyboard. */
+    game_view = [UIView new];
+    game_view.userInteractionEnabled = NO;
+    game_view.translatesAutoresizingMaskIntoConstraints = NO;
+    [v addSubview:game_view];
+    v.keyboardLayoutGuide.usesBottomSafeArea = NO;
+    keyboard_bottom = [game_view.bottomAnchor constraintEqualToAnchor:v.keyboardLayoutGuide.topAnchor];
+    full_bottom = [game_view.bottomAnchor constraintEqualToAnchor:v.bottomAnchor];
+    [NSLayoutConstraint activateConstraints:@[
+        [game_view.leadingAnchor constraintEqualToAnchor:v.leadingAnchor],
+        [game_view.trailingAnchor constraintEqualToAnchor:v.trailingAnchor],
+        [game_view.topAnchor constraintEqualToAnchor:v.topAnchor],
+        full_bottom]];
     keyboard = [[HPKeyboardProxy alloc] initWithFrame:CGRectZero];
     [v addSubview:keyboard];
     overlay = [[HPOverlay alloc] initWithFrame:v.bounds];
@@ -403,6 +431,27 @@ static void touch_selftest(void)
     overlay.opaque = NO;
     overlay.backgroundColor = UIColor.clearColor;
     keyboard.opaque = NO;
+    [NSNotificationCenter.defaultCenter addObserverForName:UIKeyboardWillChangeFrameNotification object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note) {
+        CGRect screenFrame = [note.userInfo[UIKeyboardFrameEndUserInfoKey] CGRectValue];
+        CGRect frame = [v convertRect:screenFrame fromCoordinateSpace:v.window.screen.coordinateSpace];
+        BOOL docked = CGRectGetMinY(frame) < CGRectGetMaxY(v.bounds) &&
+                      CGRectGetMaxY(frame) >= CGRectGetMaxY(v.bounds) &&
+                      CGRectGetMinX(frame) <= CGRectGetMinX(v.bounds) &&
+                      CGRectGetMaxX(frame) >= CGRectGetMaxX(v.bounds);
+        /* iOS can leave an accessory-height guide after resignation. Use full bounds when
+           the reported keyboard is offscreen, rather than retaining that stale inset. */
+        if (keyboard_bottom.active != docked) {
+            keyboard_bottom.active = NO;
+            full_bottom.active = NO;
+            (docked ? keyboard_bottom : full_bottom).active = YES;
+            [v setNeedsLayout];
+        }
+        if (getenv("HALOPAD_TRACE_WINDOWS"))
+            fprintf(stderr, "HALOPAD KEYBOARD: frame %s -> %s local %d docked %d\n",
+                    [note.userInfo[UIKeyboardFrameBeginUserInfoKey] description].UTF8String,
+                    [note.userInfo[UIKeyboardFrameEndUserInfoKey] description].UTF8String,
+                    [note.userInfo[UIKeyboardIsLocalUserInfoKey] boolValue], docked);
+    }];
     overlay.hidden = getenv("HALOPAD_NO_OVERLAY") != NULL;   /* development: the game view alone */
     [v addSubview:overlay];
     /* in a game or in Halo's menus, and the frame rate: polled from Halo's state */
@@ -452,25 +501,31 @@ static void touch_selftest(void)
 - (void)viewDidLayoutSubviews
 {
     [super viewDidLayoutSubviews];
-    /* Only guest render layers belong to this layout pass. UIView-backed layers (including
-       the invisible keyboard proxy) must retain the frames assigned by UIKit. */
-    for (CALayer *l in self.view.layer.sublayers)
-        if ([l isKindOfClass:CAMetalLayer.class]) l.frame = self.view.layer.bounds;
+    for (CALayer *l in game_view.layer.sublayers) l.frame = game_view.bounds;
+    [self applyDisplay];
     [self.view bringSubviewToFront:overlay];
 }
 /* ---- the overlay's requests ---- */
 - (void)applyDisplay
 {
-    NSString *g = HPSettings.shared.aspect == HPAspectFill ? kCAGravityResize : kCAGravityResizeAspect;
-    for (CALayer *l in self.view.layer.sublayers) if (l != overlay.layer && l != keyboard.layer) l.contentsGravity = g;
+    BOOL typing = game_view.bounds.size.height < self.view.bounds.size.height - 1;
+    overlay.softwareKeyboardVisible = typing;
+    /* Preserve readable proportions in the short typing viewport; restore the user's
+       display choice when the keyboard closes. */
+    NSString *g = !typing && HPSettings.shared.aspect == HPAspectFill ? kCAGravityResize : kCAGravityResizeAspect;
+    for (CALayer *l in game_view.layer.sublayers) l.contentsGravity = g;
     if (getenv("HALOPAD_TRACE_WINDOWS"))
-        for (CALayer *l in self.view.layer.sublayers)
+        for (CALayer *l in game_view.layer.sublayers)
             fprintf(stderr, "HALOPAD APP:   layer %s %s hidden %d opaque %d frame %.0fx%.0f z %.0f\n", l.class.description.UTF8String,
                     l == overlay.layer ? "(overlay)" : "", l.hidden, l.opaque, l.frame.size.width, l.frame.size.height, l.zPosition);
 }
 - (UIInterfaceOrientationMask)supportedInterfaceOrientations { return UIInterfaceOrientationMaskLandscape; }
 - (void)overlayDisplayChanged:(HPOverlay *)o { [self applyDisplay]; }
-- (void)overlayRequestsKeyboard:(HPOverlay *)o { [keyboard becomeFirstResponder]; }
+- (void)overlayRequestsKeyboard:(HPOverlay *)o
+{
+    BOOL accepted = [keyboard becomeFirstResponder];
+    if (getenv("HALOPAD_TRACE_WINDOWS")) fprintf(stderr, "HALOPAD KEYBOARD: focus %d, scene %ld, frame %s\n", accepted, (long)self.view.window.windowScene.activationState, NSStringFromCGRect(keyboard.frame).UTF8String);
+}
 - (NSString *)overlayDiagnostics:(HPOverlay *)o
 {
     struct utsname u;
@@ -513,10 +568,11 @@ static void touch_selftest(void)
     if (!input_window) return NO;
     uint32_t w, h;
     halopad_host_window_size(input_window, &w, &h);
-    CGRect b = self.view.bounds;
+    CGRect b = game_view.frame;
+    if (b.size.width <= 0 || b.size.height <= 0) return NO;
     double sx = b.size.width / w, sy = b.size.height / h;
-    if (HPSettings.shared.aspect != HPAspectFill) sx = sy = fmin(sx, sy);
-    double ox = (b.size.width - w * sx) / 2, oy = (b.size.height - h * sy) / 2;
+    if (b.size.height < self.view.bounds.size.height - 1 || HPSettings.shared.aspect != HPAspectFill) sx = sy = fmin(sx, sy);
+    double ox = b.origin.x + (b.size.width - w * sx) / 2, oy = b.origin.y + (b.size.height - h * sy) / 2;
     *x = (int32_t)floor((p.x - ox) / sx);
     *y = (int32_t)floor((p.y - oy) / sy);
     *scale = 1 / fmin(sx, sy);

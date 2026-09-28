@@ -461,7 +461,14 @@ static const hp_control_def CONTROLS[] = {
 - (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event { [_lookTouches minusSet:touches]; }
 - (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event { [_lookTouches minusSet:touches]; }
 
-- (BOOL)controlsHidden { return HPSettings.shared.hideTouchControls || _controllerHidden; }
+- (BOOL)controlsHidden { return HPSettings.shared.hideTouchControls || _controllerHidden || _softwareKeyboardVisible; }
+- (void)setSoftwareKeyboardVisible:(BOOL)visible
+{
+    if (_softwareKeyboardVisible == visible) return;
+    _softwareKeyboardVisible = visible;
+    if (visible) [self clearTouchInput];
+    [self updateAppearance];
+}
 - (void)setInGame:(BOOL)inGame
 {
     if (_inGame == inGame) return;
@@ -575,7 +582,7 @@ static const hp_control_def CONTROLS[] = {
 
 - (void)updateAppearance
 {
-    BOOL show = _editing || (self.inGame && !self.controlsHidden);
+    BOOL show = !_softwareKeyboardVisible && (_editing || (self.inGame && !self.controlsHidden));
     CGFloat alpha = HPSettings.shared.controlOpacity;
     NSMutableArray<UIView *> *all = [NSMutableArray arrayWithArray:_buttons];
     [all addObjectsFromArray:@[_move, _aim]];

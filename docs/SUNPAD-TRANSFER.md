@@ -123,5 +123,20 @@ The app's layout pass now resizes only guest CAMetalLayers. It previously also r
 invisible keyboard proxy's UIView layer to the entire screen. That proxy now rejects hit tests
 explicitly. Console down/up reaches Halo's DirectInput read (`G3/ios-app-20260928T115440Z`),
 and its small bottom-left prompt is visible. General short-tap reliability is not closed by
-this trace. Software-keyboard presentation and keeping console/chat text visible above it
-remain open; the unverified keyboard-aware viewport experiment was removed.
+this trace. The next iteration resolved the presentation problem: Simulator's connected hardware
+keyboard was suppressing the software keyboard. With it disconnected, the docked keyboard
+appears and the render host now fits Halo above it, preserving proportions. Dismissal restores
+the full view and saved aspect choice. Pointer conversion uses the same viewport. Actual
+keyboard taps typed and erased `help` in the local console (`G3/ios-app-20260928T121340Z`).
+Floating/split keyboard occlusion and physical-device behavior remain unverified.
+
+A native **Hide Keyboard** accessory works on phone and tablet. Showing the docked keyboard
+releases MOVE, FIRE and LOOK and hides gameplay controls; dismissal restores their prior
+visibility settings. The keyboard's reported offscreen frame restores the full view even if
+iOS retains an accessory-height layout guide. The boundary suite covers these input releases
+and visibility transitions in addition to the 90 default layout combinations.
+
+For Simulator touch testing, use **I/O → Keyboard → Connect Hardware Keyboard** to disconnect
+the simulated hardware keyboard if Show Keyboard produces no visible keyboard. This was the
+cause of the earlier zero-height keyboard traces; it is a Simulator setting, not a Halo key
+check. The project iPad and iPhone previews were tested with it disconnected.

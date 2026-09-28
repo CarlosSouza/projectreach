@@ -1306,3 +1306,53 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   Inspected the final two-stick layout in the running Simulator; no physical multi-touch pass
   is claimed. iPad preview left running as PID 28415; iPhone remains shut down. The full goal
   stays active with its parked rows unchanged.
+
+### 2026-09-28 — visible console text above the software keyboard
+
+- Previous goal turn is **progress**: `40928b9` corrected root layer sizing and was pushed;
+  the final gameplay smoke and console trace supplied fresh evidence. This turn rechecked
+  clean Git state, the locked executable hash, pinned sources, project bottles and sole live
+  iPad candidate. Parked inputs are unchanged. No reference process was running.
+- Hypothesis: the missing software keyboard is presentation state rather than dropped Halo
+  input. Added opt-in keyboard frame/focus logging. In `G3/ios-app-20260928T121101Z`, UIKit
+  reported a zero-height keyboard at y=1032. Disconnecting Simulator's hardware keyboard via
+  I/O → Keyboard → Connect Hardware Keyboard immediately produced a 460-point docked keyboard
+  at y=572. The screenshot proves the old full-screen game prompt was covered. The project
+  iPad's Simulator preference is now hardware keyboard disconnected for touch testing.
+- Put guest Metal layers in a noninteractive render host constrained above the docked keyboard
+  with UIKit's keyboard layout guide. `usesBottomSafeArea=NO` restores the full display when
+  hidden. While typing, preserve the game's proportions even if stretch was selected; restore
+  the saved display choice on dismissal. Pointer coordinates use the same rendered viewport.
+  The overlay retains its full-screen geometry; the invisible input proxy still rejects taps.
+- `G3/ios-app-20260928T121340Z`: actual software-keyboard taps entered `help` into the local
+  console, visibly above the keyboard. Deleted it without submitting. Hide Keyboard restored
+  1376×1032 from 1376×572; the game continued at 30 fps. Screenshots and keyboard/frame traces
+  retained. This closes the docked iPad visibility reproduction, not all keyboard modes or
+  physical-device input. Floating/split keyboard occlusion remains unverified.
+
+- Phone `G3/ios-app-20260928T121616Z` passes the five gameplay checks with the new render
+  host. Actual phone console input also works in `G3/ios-app-20260928T122107Z`. Added a native
+  Hide Keyboard accessory for the phone and suppressed/released gameplay targets while typing.
+  This exposed an iOS 26.5 guide retaining the 44-point accessory height after resignation;
+  switch back to the full-view constraint when the reported keyboard frame is offscreen.
+- Extended real-overlay boundary tests to verify held MOVE/FIRE/LOOK release, hidden targets,
+  no open-space swipe capture while typing, and dismissal without replaying holds. The first
+  new assertion incorrectly included the always-hidden settings panel as a gameplay target;
+  corrected the fixture to capture the 15 visible gameplay targets before hiding. Final phone
+  boundary `G9/overlay-20260928T122344Z` passes all 23 assertions and 90 layout combinations.
+
+- Final phone dismissal `G3/ios-app-20260928T122415Z` restores 874×402 from 874×194, with all
+  gameplay targets visible; screenshot retained. Phone stopped and shut down before iPad.
+- Final iPad boundary `G9/overlay-20260928T122541Z` passes 23 assertions and 90 combinations.
+  App `G3/ios-app-20260928T122626Z` passes all five gameplay checks (move 4.42 units, swipe
+  39.7°, fire 60→44, jump 0.11→0.76, LOOK 26.4°). Final accessory/viewport presentation and
+  dismissal were inspected on the same build. After reboot/orientation changes, the Simulator
+  initially showed only the accessory despite its disconnected hardware preference; refreshing
+  the hardware connection and using Hide Keyboard then Show Keyboard restored software keys.
+  This Simulator transition remains an observed limitation, not a claim of general keyboard
+  lifecycle closure. Final docked keyboard occupies 504 points including the toolbar; the
+  game returns from 1376×528 to 1376×1032 on dismissal.
+- Left PID 31714 running in local Blood Gulch with console and keyboard closed in landscape.
+  iPhone remains shut down; no reference processes. Full campaign/interoperability/licensed
+  startup/device gates stay intact; next unblocked work includes safe import, pause-menu touch
+  ownership and further keyboard lifecycle checks. No full-goal completion claim.

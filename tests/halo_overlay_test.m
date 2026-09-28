@@ -160,6 +160,32 @@ int main(void)
         run_for(0.15);
         check("LOOK dead zone causes no drift", count == afterRelease);
         [overlay clearTouchInput];
+        overlay.inGame = YES;
+        [overlay setNeedsLayout]; [overlay layoutIfNeeded];
+        [overlay driveMoveX:0 y:1];
+        [overlay driveControl:@"fire" down:YES];
+        [overlay driveAimX:1 y:0];
+        NSMutableArray<UIView *> *typingTargets = [NSMutableArray array];
+        for (UIView *v in overlay.subviews)
+            if (v.accessibilityIdentifier && !v.hidden && ![v.accessibilityIdentifier isEqualToString:@"HaloPadMenu"])
+                [typingTargets addObject:v];
+        int beforeKeyboard = count;
+        overlay.softwareKeyboardVisible = YES;
+        int afterKeyboard = count;
+        BOOL fireReleased = NO;
+        for (int i = beforeKeyboard; i < afterKeyboard; i++)
+            fireReleased |= events[i].kind == HPI_BUTTON && !events[i].down;
+        run_for(0.15);
+        check("opening software keyboard releases held movement, fire and aim",
+              fireReleased && all_released() && count == afterKeyboard);
+        BOOL hidden = typingTargets.count == 15, restored = YES;
+        for (UIView *v in typingTargets) hidden &= v.hidden;
+        check("typing hides gameplay targets and disables open-space swipe capture",
+              hidden && [overlay hitTest:CGPointMake(512, 384) withEvent:nil] == nil);
+        overlay.softwareKeyboardVisible = NO;
+        for (UIView *v in typingTargets) restored &= !v.hidden;
+        check("keyboard dismissal restores gameplay targets without replaying holds",
+              restored && all_released() && count == afterKeyboard);
         check_layouts();
 
         fprintf(stderr, "OVERLAY INPUT: %s (%d failures)\n", failures ? "FAIL" : "PASS", failures);

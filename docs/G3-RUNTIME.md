@@ -363,12 +363,20 @@ so a value under `HKCU\Software\Microsoft\Microsoft Games\Halo CE` (Halo's `gamm
 launch. The type, name and data are now read from the end of the line.
 
 **Touch controls and the three-dot menu** (`port/ios/HaloPadOverlay.m`), adapted from SunPad (see
-[SUNPAD-TRANSFER.md](SUNPAD-TRANSFER.md)). In a game (Halo's map is not "ui") a move stick, a look
-area and Halo's PC controls appear; in Halo's menus touches reach the game view as clicks. The
+[SUNPAD-TRANSFER.md](SUNPAD-TRANSFER.md)). In a game (Halo's map is not "ui") separate MOVE and LOOK
+sticks, swipe aiming and Halo's PC action controls appear; in Halo's menus touches reach the game view as clicks. The
 menu adds what Halo's menus lack: joining a server by address through Halo's console, recent
 servers, the keyboard, console and chat, aspect ratio, an FPS counter, touch-control settings
 and a problem report. The app is landscape on iPad and iPhone (it asks the scene for landscape,
 since iPadOS 26 no longer holds apps to Info.plist's list).
+
+**Software keyboard viewport (2026-09-28).** A noninteractive render host follows the docked
+keyboard's top edge, with aspect-fit rendering while typing. Input coordinates use the same
+viewport. The keyboard accessory exposes Hide Keyboard on phone and tablet. Gameplay targets
+release held input and hide while typing; dismissal restores the full viewport and the user's
+display/control preferences. The reported keyboard frame selects the full-view constraint when
+offscreen because iOS 26.5 can retain an accessory-height layout guide after resignation.
+See SUNPAD-TRANSFER.md for Simulator evidence and the remaining floating/split/device limits.
 
 **Development scene** (`tests/halo_app_scene.c`, `scripts/build-ios-app.py --scene ...`): Halo from
 its main menu in the app, prepared as the component tests prepare it (the key string from Halo's
