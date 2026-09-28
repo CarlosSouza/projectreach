@@ -328,3 +328,30 @@ equipped handle, FIRE consumes 60→51 rounds, and RELOAD restores 51→60. The 
 suite also passes with the corrected melee assertion (`G3/core-arm64-apple-ios17.0-simulator-20260928T171348Z`).
 Final actual UI checks: swipe changes the view; the native three-dot menu opens and dismisses.
 The previous route failures remain relevant to harness reliability.
+
+
+### Proportional MOVE: original input path verified, overlay integration open
+
+MOVE still emits digital WASD. Before replacing that path, `halo_dinput_test` now follows
+controller values through original `0x493520` (DirectInput polling and signed-axis storage)
+and `0x48f850` (binding evaluation and movement throttle). Original setter `0x48e360` accepts
+four axis-direction bindings plus an independent W binding. Keyboard and pad motion combine,
+and releasing either source preserves the other. All fixture configuration is test-only.
+
+The iPad suite passes 175 assertions (`G3/core-arm64-apple-ios17.0-simulator-20260928T173438Z`).
+With Halo's requested 10% DirectInput dead zone and a fixture movement threshold of 1,
+quarter/half/full forward yield 0.166748/0.444336/1.0. The original x86 consumer matches all
+ten native samples bit-for-bit, including neutral, dead zone, reverse, strafe, diagonal and
+release (`G9/analog-oracle-20260928T173451Z`). Reproduce the comparison with:
+
+```sh
+.venv/bin/python scripts/test-analog-movement.py --native-evidence docs/artifacts/2026-09-28/G3/core-arm64-apple-ios17.0-simulator-20260928T173438Z
+```
+
+Next: give touch movement its own cancelable analog input source and stable controller identity,
+configure it through Halo's existing input mechanisms without replacing physical-controller or
+keyboard mappings, then verify partial/full movement in gameplay and source handoff. The fixture
+assigns a logical pad slot and unit thresholds directly; production must not copy those writes
+or assume every user's thresholds equal 1. Enumeration/activation, profile changes, cancellation
+before the next poll, reconnect and actual two-finger operation still need implementation and
+acceptance. No app behavior changed in this investigation.

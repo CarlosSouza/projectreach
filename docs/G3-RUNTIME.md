@@ -639,6 +639,13 @@ Halo reads gamepads through DirectInput 8 (`0x494840`).
   - the range and dead zone Halo set;
   - the state through Halo's format: full deflection, dead zone, half deflection rescaled to 1820, triggers, hats and buttons;
   - unplugging.
+**Proportional movement follow-up (2026-09-28):** the iPad DirectInput suite now passes 175
+assertions, including original `0x493520` polling, `0x48f850` movement evaluation and
+`0x48e360` independent axis/keyboard bindings. All ten native axis/throttle samples match
+the original x86 consumer bit-for-bit (`G9/analog-oracle-20260928T173451Z`). This uses controlled
+test bindings/thresholds and does not establish automatic controller configuration, physical
+handoff, or analog touch integration. See SUNPAD-TRANSFER.md for the remaining integration.
+
 ## Diagnostics
 
 These are environment switches that only print; none of them changes behavior.

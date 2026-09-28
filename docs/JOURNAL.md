@@ -1885,3 +1885,48 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   rapid repeats relative to original consumer behavior, and movement-stick proportionality
   (MOVE currently maps to digital WASD). Broader lifecycle/import/online/campaign/license
   acceptance remains open. No terminal goal state.
+
+
+### 2026-09-28 — establish the original analog movement path
+
+- Previous goal turn: **progress**, `6807c4f` privately pushed; the five-action sequence and
+  corrected melee oracle are authoritative evidence. This turn reread the goal attachment,
+  original loop and M27/M28 requirements. Clean start, all five pinned sources and locked
+  executable SHA pass. Only iPad preview PID 73862 was live; phone shut down, no Wine;
+  project bottles present. Parked inputs unchanged. Goal scope remains intact and active.
+- Hypothesis: Halo's native controller path preserves movement magnitude and can coexist
+  with keyboard mappings, allowing touch MOVE to stop emulating digital WASD. Falsifier:
+  partial axes collapse to full throttle, bindings overwrite W, source release loses the
+  other input, or native movement output differs from original x86.
+- Read original instructions and the existing controller implementation. `0x493520` polls
+  assigned pads, `0x494d90` copies signed axis words into logical pad state at +0x20, and
+  `0x48f850` evaluates both keyboard and controller bindings into forward/strafe floats
+  `0x6ad4b8/+4`. Original `0x48e360` takes a 12-byte binding descriptor in ECX and an action
+  index in EBX; it updates the selected source's mapping rather than replacing keyboard input.
+  Private disassembly in `G9/analog-movement`.
+- Extended `halo_dinput_test` using test-only neutral mappings and logical slot setup, then
+  Halo's own binding setter. Initial run `20260928T172733Z` had two fixture mistakes: W's
+  internal index was guessed instead of read from the original DIK table (it is 32), and
+  quarter deflection expected truncation instead of nearest rounding (683 counts). Corrected
+  both; these were not product defects. An intermediate declaration collided with the CPU
+  header's ecx macro; renamed the parameter entry_ecx.
+- Final native iPad suite: 175 assertions, zero failures, `G3/core-arm64-apple-ios17.0-simulator-20260928T173438Z`.
+  Covers five accepted original bindings, ten throttle samples, W with neutral pad, W plus
+  half strafe, release W while strafe continues, and both released. Fixture thresholds are
+  explicitly 1; quarter/half/full forward are 0.166748/0.444336/1.0 after the 10% dead zone.
+- Added `scripts/test-analog-movement.py --native-evidence <that G3 directory>`. It requires
+  a successful native run and ten exact-bit samples, then executes original x86 `0x48f850`
+  in Unicorn with equivalent input fixtures and no import handlers. All ten match bit-for-bit
+  and return with the correct stack delta (`G9/analog-oracle-20260928T173451Z`). No emulator
+  is linked into a target. Native binary/log and source identities are retained.
+- Stopped PID 73862 before core tests. After the completed harness, relaunched the existing
+  installed app as PID 76313 with only controlled-LAN mode (no automated touch driver).
+  Original touch menus create Battle Creek Slayer. No reinstall or input/profile edits were
+  needed for this investigation. Preview logs: `G9/analog-movement/preview-*.txt`.
+- Next bounded implementation: a distinct cancelable touch analog source and stable device
+  identity, with original input configuration that preserves physical controller slots and
+  user mappings. Fixture slot/threshold writes must not enter production. Verify release
+  before Poll, native-menu/focus cancellation, handoff, profile changes and partial/full
+  gameplay motion before switching the default MOVE control. Current overlay remains digital.
+  Stop PID 76313 before another core test; no reference process started. All larger campaign,
+  online comparison, import/lifecycle and exact-device gates remain open. No terminal state.

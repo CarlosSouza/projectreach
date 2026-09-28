@@ -38,6 +38,8 @@ Operating loop: [HaloPad-GOAL-LOOP-PHASE2.md](HaloPad-GOAL-LOOP-PHASE2.md) (repl
 
 - **Touch action acceptance:** corrected a false-positive melee assertion (the former field was nonzero at idle). The actual player timer now validates immediate MELEE (0→25→0); the full iPad host suite passes with the corrected assertion (`G3/core-arm64-apple-ios17.0-simulator-20260928T171348Z`). The final opt-in overlay sequence passes all five checks together: MELEE, USE, SWAP, FIRE (60→51), RELOAD (51→60), `G9/touch-actions/accepted-stderr.txt`. Bounded pickup navigation can fail after random spawns; incomplete routes remain recorded in `G9/touch-actions`. These are handler-driven gameplay outcomes; actual simultaneous fingers, physical ergonomics and damage against another player remain open.
 
+- **Analog MOVE groundwork:** original binding/polling/movement path verified with 175 passing iPad DirectInput assertions and ten bit-exact original-x86 comparisons. Independent keyboard and partial controller movement coexist. The overlay still uses digital WASD; a cancelable virtual controller source, production configuration and gameplay acceptance remain to implement (SUNPAD-TRANSFER.md).
+
 ## Parked, waiting on Chris
 
 | Item | Parks | Status |

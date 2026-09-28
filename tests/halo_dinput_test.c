@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #include <TargetConditionals.h>
 #define PTROFS_64BIT 1
 #include "llasm_cpu.h"
@@ -20,6 +21,7 @@ uint32_t halopad_guest_init(const char *image_path, uint32_t image_base);
 void halopad_thread_init(uint32_t stack_base, uint32_t stack_limit, uint32_t image_base);
 void halopad_vm_mark(uint32_t base, uint32_t size);
 uint32_t halopad_call_guest(uint32_t va, uint32_t nargs, const uint32_t *args);
+uint32_t halopad_call_guest_ex(uint32_t va, uint32_t nargs, const uint32_t *args, uint32_t entry_ecx, int callee_pops);
 uint32_t halopad_heap_alloc(uint32_t size, int zero);
 void *halopad_guest_ptr(uint32_t guest);
 uint32_t LoadLibraryA_c(uint32_t name);
@@ -405,6 +407,94 @@ int main(void)
     M0(pad, Poll);
     M(pad, GetDeviceState, 224, js);
     check("  half right: (0.5 - 0.1) / 0.9 of 4096 = 1820", rd(js), 1820);
+    /* Follow the axes beyond DirectInput into Halo's actual movement consumer.
+       Test-only bindings: pad slot 0 X +/- -> right/left, Y +/- -> back/forward;
+       keyboard W remains independently bound. Original 0x493520 polls and copies
+       signed axes to +0x20 of the logical pad; 0x48f850 combines configured inputs.
+       None of these fixture writes belong in the app or runtime. */
+    uint8_t saved_bindings[0x868], saved_state[0x600], saved_pad_map[16];
+    memcpy(saved_bindings, halopad_guest_ptr(0x6ab328), sizeof saved_bindings);
+    memcpy(saved_state, halopad_guest_ptr(0x6ad498), sizeof saved_state);
+    memcpy(saved_pad_map, halopad_guest_ptr(0x64dc18), sizeof saved_pad_map);
+    uint32_t saved_mouse = rd(0x64c734), saved_slot = rd(0x64c9c8);
+    saved_keyboard = rd(0x64c730);
+    saved_enabled = *(uint8_t *)halopad_guest_ptr(0x64c528);
+    uint32_t saved_source = rd(0x815900);
+    memset(halopad_guest_ptr(0x6ab328), 0, sizeof saved_bindings);
+    for (uint32_t a = 0x6ab330; a < 0x6abb36; a += 2)
+        memcpy(halopad_guest_ptr(a), &(uint16_t){0x7fff}, 2);
+    for (int i = 0; i < 4; i++) {
+        memcpy(halopad_guest_ptr(0x64dc18 + 4 * i), &(uint32_t){i ? 0xffffffff : 0}, 4);
+        memcpy(halopad_guest_ptr(0x6ab526 + 4 * i), &(uint32_t){0xffffffff}, 4);
+    }
+    memcpy(halopad_guest_ptr(0x64c9c8), &(uint32_t){0}, 4);
+    memcpy(halopad_guest_ptr(0x64c730), &k, 4);
+    memcpy(halopad_guest_ptr(0x64c734), &m, 4);
+    *(uint8_t *)halopad_guest_ptr(0x64c528) = 1;
+    /* Resolve W through the original DIK table; unit digital throttle and pad threshold. */
+    uint16_t w_index; memcpy(&w_index, halopad_guest_ptr(0x5fa358 + 0x11 * 2), 2);
+    /* Use Halo's original binding setter (also used by its bind command), which
+       leaves keyboard and controller mappings independent. ECX is the descriptor;
+       EBX is the action index. This is a test fixture, not automatic user rebinding. */
+    for (unsigned i = 0; i < 5; i++) {
+        uint16_t descriptor[6] = {3, 0, 1, i / 2, i % 2 + 1, 0};
+        uint32_t action = (uint32_t[]){22, 21, 20, 19, 19}[i];
+        if (i == 4) { descriptor[0] = 1; descriptor[2] = 0; descriptor[3] = w_index; descriptor[4] = 0; }
+        uint32_t binding = bytes(descriptor, sizeof descriptor), saved_ebx = cpu._ebx;
+        cpu._ebx = action;
+        check("original setter accepts independent movement binding", halopad_call_guest_ex(0x48e360, 0, NULL, binding, 0) & 0xff, 1);
+        cpu._ebx = saved_ebx;
+    }
+    memcpy(halopad_guest_ptr(0x6abb38), &(float){1}, 4);
+    memcpy(halopad_guest_ptr(0x6abb3c), &(float){1}, 4);
+    memcpy(halopad_guest_ptr(0x6abb58), &(float){1}, 4);
+    memcpy(halopad_guest_ptr(0x6abb5c), &(float){1}, 4);
+    M0(k, Acquire); M0(m, Acquire);
+    input((hp_input){.kind = HPI_CANCEL_TOUCH});
+    static const struct { float x, y, forward, strafe; const char *name; } movement[] = {
+        {0, 0, 0, 0, "neutral"}, {0.05f, 0.05f, 0, 0, "inside dead zone"},
+        {0, 0.25f, 683.0f/4096, 0, "quarter forward"},
+        {0, 0.5f, 1820.0f/4096, 0, "half forward"},
+        {0, 1, 1, 0, "full forward"}, {0, -0.5f, -1820.0f/4096, 0, "half backward"},
+        {0.5f, 0, 0, -1820.0f/4096, "half right"}, {-1, 0, 0, 1, "full left"},
+        {0.5f, 0.5f, 1820.0f/4096, -1820.0f/4096, "diagonal"},
+        {0, 0, 0, 0, "release"}
+    };
+    for (unsigned i = 0; i < sizeof movement / sizeof *movement; i++) {
+        halopad_gamepad_test[0] = (hp_gamepad){.id = 7, .lx = movement[i].x, .ly = movement[i].y, .dpad = -1};
+        halopad_call_guest(0x493520, 0, NULL);
+        halopad_call_guest(0x48f850, 0, NULL);
+        float forward, strafe;
+        memcpy(&forward, halopad_guest_ptr(0x6ad4b8), 4);
+        memcpy(&strafe, halopad_guest_ptr(0x6ad4bc), 4);
+        char label[100]; snprintf(label, sizeof label, "Halo movement consumer: %s", movement[i].name);
+        printf("    axes %.2f/%.2f -> forward %.6f, strafe %.6f; bits %08x/%08x\n", movement[i].x, movement[i].y, forward, strafe, rd(0x6ad4b8), rd(0x6ad4bc));
+        check(label, fabsf(forward - movement[i].forward) < 0.00001f && fabsf(strafe - movement[i].strafe) < 0.00001f, 1);
+    }
+    input((hp_input){.kind = HPI_KEY, .vk = 'W', .scan = 0x11, .down = 1});
+    halopad_call_guest(0x493520, 0, NULL);
+    halopad_call_guest(0x48f850, 0, NULL);
+    check("neutral controller preserves physical W movement", rd(0x6ad4b8), 0x3f800000);
+    halopad_gamepad_test[0].lx = 0.5f;
+    halopad_call_guest(0x493520, 0, NULL);
+    halopad_call_guest(0x48f850, 0, NULL);
+    check("physical W and partial pad strafe coexist", rd(0x6ad4b8) == 0x3f800000 && rd(0x6ad4bc) == 0xbee38000, 1);
+    input((hp_input){.kind = HPI_KEY, .vk = 'W', .scan = 0x11, .down = 0});
+    halopad_call_guest(0x493520, 0, NULL);
+    halopad_call_guest(0x48f850, 0, NULL);
+    check("keyboard release preserves pad strafe", rd(0x6ad4b8) == 0 && rd(0x6ad4bc) == 0xbee38000, 1);
+    halopad_gamepad_test[0].lx = 0;
+    halopad_call_guest(0x493520, 0, NULL);
+    halopad_call_guest(0x48f850, 0, NULL);
+    check("both sources released return movement to neutral", rd(0x6ad4b8) == 0 && rd(0x6ad4bc) == 0, 1);
+    memcpy(halopad_guest_ptr(0x6ab328), saved_bindings, sizeof saved_bindings);
+    memcpy(halopad_guest_ptr(0x6ad498), saved_state, sizeof saved_state);
+    memcpy(halopad_guest_ptr(0x64dc18), saved_pad_map, sizeof saved_pad_map);
+    memcpy(halopad_guest_ptr(0x64c9c8), &saved_slot, 4);
+    memcpy(halopad_guest_ptr(0x64c730), &saved_keyboard, 4);
+    memcpy(halopad_guest_ptr(0x64c734), &saved_mouse, 4);
+    memcpy(halopad_guest_ptr(0x815900), &saved_source, 4);
+    *(uint8_t *)halopad_guest_ptr(0x64c528) = saved_enabled;
     halopad_gamepad_test_count = 0;                                /* unplugged */
     check("gamepad unplugged: Poll gives DIERR_INPUTLOST", M0(pad, Poll), 0x8007001E);
     check("  then GetDeviceState: DIERR_NOTACQUIRED", M(pad, GetDeviceState, 224, js), 0x8007000C);
