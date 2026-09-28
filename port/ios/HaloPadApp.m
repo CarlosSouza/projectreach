@@ -42,10 +42,14 @@ extern void (*halopad_d3d9_present_hook)(uint32_t device);
 /* frames Halo presents (the FPS counter) */
 static atomic_int presented;
 static HPOverlay *overlay;
+/* Main-thread lifecycle observations for the opt-in integration driver. */
+static BOOL test_scene_active;
+static int test_scene_deactivations, test_scene_resume_frame;
+static CFAbsoluteTime test_scene_inactive_at, test_scene_inactive_duration;
 static hp_menu_touch menu_touch;
 static pthread_mutex_t menu_touch_lock = PTHREAD_MUTEX_INITIALIZER;
 typedef struct {
-    float forward, strafe;
+    float forward, strafe, yaw;
     int16_t axes[4];
     uint32_t source[3];
     uint8_t alternate;
@@ -114,7 +118,7 @@ static void count_present(uint32_t device)
 {
     int n = atomic_fetch_add(&presented, 1) + 1;
     update_overlay_game_state();
-    if (getenv("HALOPAD_ANALOG_SELFTEST") || getenv("HALOPAD_TOUCH_TRANSITION_SERVER")) {
+    if (getenv("HALOPAD_ANALOG_SELFTEST") || getenv("HALOPAD_TOUCH_TRANSITION_SERVER") || getenv("HALOPAD_TOUCH_LIFECYCLE_SELFTEST")) {
         /* One completed frame's input, captured on Halo's thread. Reading these
            fields independently from a UIKit timer can observe an update in flight. */
         hp_analog_observation sample = {.touchSlot = halopad_app_touch_move_slot(), .frame = n};
@@ -126,6 +130,12 @@ static void count_present(uint32_t device)
         memcpy(&sample.gameMode, halopad_guest_ptr(0x6b47b0), 2);
         memcpy(sample.map, halopad_guest_ptr(0x643064), sizeof sample.map - 1);
         sample.unit = g_unit();
+        if (sample.unit) {
+            float x, y;
+            memcpy(&x, halopad_guest_ptr(sample.unit + 0x23c), 4);
+            memcpy(&y, halopad_guest_ptr(sample.unit + 0x240), 4);
+            sample.yaw = atan2f(y, x);
+        }
         pthread_mutex_lock(&analog_observation_lock);
         analog_observation = sample;
         pthread_mutex_unlock(&analog_observation_lock);
@@ -449,6 +459,78 @@ static void selftest_check(const char *what, int ok, NSString *detail)
     selftest_failures += !ok;
 }
 static void after(double s, dispatch_block_t b) { dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(s * NSEC_PER_SEC)), dispatch_get_main_queue(), b); }
+
+/* No synthesized lifecycle notifications: this driver waits for a real UI lock
+   or background/foreground transition, observing Halo only on its Present thread. */
+static void touch_lifecycle_selftest(void)
+{
+    __block int phase = 0, frame = 0, deactivations = 0;
+    __block float yaw = 0;
+    __block uint32_t unit = 0;
+    __block CFAbsoluteTime phaseStart = CFAbsoluteTimeGetCurrent();
+    CFAbsoluteTime started = phaseStart;
+    int failures = selftest_failures;
+    [NSTimer scheduledTimerWithTimeInterval:.1 repeats:YES block:^(NSTimer *timer) {
+        CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
+        if (now - started > 240) {
+            [overlay clearTouchInput]; [timer invalidate];
+            fprintf(stderr, "HALOPAD TOUCH LIFECYCLE: FAIL timeout phase %d\n", phase); return;
+        }
+        if (!test_scene_active) return;
+        pthread_mutex_lock(&analog_observation_lock);
+        hp_analog_observation s = analog_observation;
+        pthread_mutex_unlock(&analog_observation_lock);
+        BOOL ready = s.unit && s.touchSlot >= 0 && s.touchSlot < 4 &&
+                     overlay.analogMoveReady && overlay.inGame && !overlay.haloMenuVisible;
+        if (!ready || s.frame < frame + 3 || now - phaseStart < .8) return;
+        BOOL moving = s.axes[s.touchSlot] == -1820 && s.forward > 0;
+        BOOL neutral = s.axes[s.touchSlot] == 0 && s.forward == 0 && s.strafe == 0;
+        float angle = fabsf(remainderf(s.yaw - yaw, 2 * (float)M_PI)) * 57.29578f;
+        NSString *detail = [NSString stringWithFormat:@"frame %d slot %d axis %d forward %.6f strafe %.6f turn %.2f°",
+                           s.frame, s.touchSlot, s.axes[s.touchSlot], s.forward, s.strafe, angle];
+        switch (phase) {
+        case 0:
+            deactivations = test_scene_deactivations; unit = s.unit;
+            yaw = s.yaw;
+            [overlay driveMoveX:0 y:.5f]; [overlay driveAimX:.6f y:0];
+            break;
+        case 1:
+            selftest_check("lifecycle fixture holds MOVE and LOOK before locking", moving && angle > 5, detail);
+            if (!moving || angle <= 5) { [overlay clearTouchInput]; [timer invalidate]; return; }
+            fprintf(stderr, "HALOPAD TOUCH LIFECYCLE: ARMED; lock Simulator for at least 15 seconds, then unlock\n");
+            break;
+        case 2:
+            if (test_scene_deactivations == deactivations || s.frame < test_scene_resume_frame + 3) return;
+            selftest_check("real scene interruption lasts at least 15 seconds", test_scene_inactive_duration >= 15,
+                           [NSString stringWithFormat:@"%.3f seconds, %d deactivation(s)", test_scene_inactive_duration, test_scene_deactivations - deactivations]);
+            selftest_check("resumed original input is neutral in the same game", neutral && s.unit == unit, detail);
+            yaw = s.yaw;
+            break;
+        case 3:
+            if (now - phaseStart < 2) return;
+            selftest_check("old MOVE and LOOK holds never replay after unlock", neutral && s.unit == unit && angle < 1, detail);
+            yaw = s.yaw;
+            [overlay driveMoveX:0 y:.5f]; [overlay driveAimX:.6f y:0];
+            break;
+        case 4:
+            selftest_check("fresh MOVE and LOOK work after unlock", moving && angle > 5, detail);
+            [overlay clearTouchInput];
+            break;
+        case 5:
+            selftest_check("fresh input releases after unlock", neutral, detail);
+            yaw = s.yaw;
+            break;
+        case 6:
+            if (now - phaseStart < 2) return;
+            selftest_check("released LOOK stays still after unlock", neutral && angle < 1, detail);
+            [timer invalidate];
+            fprintf(stderr, "HALOPAD TOUCH LIFECYCLE: %s: %d failure(s)\n",
+                    selftest_failures == failures ? "PASS" : "FAIL", selftest_failures - failures);
+            return;
+        }
+        phase++; frame = s.frame; phaseStart = now;
+    }];
+}
 
 /* A bounded, explicit private-server experiment. Hold the real overlay MOVE
    through a natural map change, then disconnect/reconnect through typed console
@@ -904,7 +986,8 @@ static void touch_selftest(void)
     [self applyDisplay];
     halopad_host_set_window_handler(on_window);
     if (!halopad_d3d9_present_hook) halopad_d3d9_present_hook = count_present;
-    if (getenv("HALOPAD_TOUCH_TRANSITION_SERVER")) after(5, ^{ touch_transition_selftest(); });
+    if (getenv("HALOPAD_TOUCH_LIFECYCLE_SELFTEST")) after(5, ^{ touch_lifecycle_selftest(); });
+    else if (getenv("HALOPAD_TOUCH_TRANSITION_SERVER")) after(5, ^{ touch_transition_selftest(); });
     else if (getenv("HALOPAD_ACTION_SELFTEST")) after(5, ^{ action_selftest(); });
     else if (getenv("HALOPAD_TOUCH_SELFTEST")) after(5, ^{ touch_selftest(); });
     if (getenv("HALOPAD_GAME_ROOT")) { [self startHalo]; return; }
@@ -1322,12 +1405,18 @@ int halopad_host_open_url(const char *url)
 }
 - (void)sceneDidBecomeActive:(UIScene *)scene
 {
+    test_scene_active = YES;
+    test_scene_resume_frame = atomic_load(&presented);
+    if (test_scene_inactive_at) test_scene_inactive_duration = CFAbsoluteTimeGetCurrent() - test_scene_inactive_at;
     [HPOverlay setTextInputActive:YES];
     if (getenv("HALOPAD_TRACE_LIFECYCLE")) fprintf(stderr, "HALOPAD LIFECYCLE: %.3f scene active, frames %d\n", CFAbsoluteTimeGetCurrent(), atomic_load(&presented));
     hp_input e = {.kind = HPI_ACTIVATE, .down = 1}; halopad_host_post_input(&e);
 }
 - (void)sceneWillResignActive:(UIScene *)scene
 {
+    test_scene_active = NO;
+    test_scene_deactivations++;
+    test_scene_inactive_at = CFAbsoluteTimeGetCurrent();
     if (getenv("HALOPAD_TRACE_LIFECYCLE")) fprintf(stderr, "HALOPAD LIFECYCLE: %.3f scene inactive, frames %d\n", CFAbsoluteTimeGetCurrent(), atomic_load(&presented));
     [overlay clearTouchInput];
     cancel_menu_touch();

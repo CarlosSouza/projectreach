@@ -809,3 +809,27 @@ final regular build also receives gameplay acceptance recorded in the journal.
 Evidence: `G9/touch-binding-feedback`, `G9/overlay-20260928T215658Z`,
 `G3/core-arm64-apple-ios17.0-simulator-20260928T215205Z`.
 Actual simultaneous fingers, physical controller capture and ergonomics remain open.
+
+## Lock and unlock with held sticks — 2026-09-28
+
+A real Simulator lock (Device → Lock, then Home to wake and unlock) now has
+gameplay acceptance on both screen classes. The opt-in driver
+`HALOPAD_TOUCH_LIFECYCLE_SELFTEST` holds MOVE at half deflection and LOOK at
+0.6 through the real overlay handlers, confirms both reach Halo's original
+movement consumer and turn the player, then waits for an actual scene
+deactivation. It synthesizes no lifecycle notifications and reads Halo only
+through the per-frame Present observation.
+
+iPad: locked for 60 seconds; Halo presented no frames while locked and resumed
+in the same process at 30 fps. iPhone: locked for 36 seconds (the lock produced a
+brief inactive/active/inactive flicker before settling). On both, the first
+resumed frames show a neutral touch axis and zero forward/strafe in the same game
+and unit; two seconds later neither movement nor turning has replayed; fresh
+MOVE/LOOK work and release cleanly. Saved profiles are byte-identical afterwards.
+The phone had no profile before this test, so Halo created New001 through its own
+menus first; the test itself left it unchanged.
+
+This covers local play. Online suspension, audio interruption and physical
+devices remain open.
+Evidence: `G9/touch-lock` (both logs, screenshots while locked and resumed,
+profile hashes and final preview metadata).

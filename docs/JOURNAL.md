@@ -2517,3 +2517,31 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   controller capture, simultaneous fingers and ergonomics remain open. Full
   phase-2 objective remains active; normal startup/original baseline and physical
   architecture acceptance are still parked, not satisfied by this touch work.
+
+## 2026-09-28 — lock/unlock with held sticks (iPad and iPhone)
+
+- Previous goal turn: progress (097b240, unavailable-binding recovery).
+  Current turn: progress. Full objective and original loop reread; clean tree,
+  five source pins and locked executable hash verified; two project bottles,
+  no Wine, no physical devices. Parked inputs unchanged.
+- Hypothesis: STATUS listed lock/unlock as unverified. A held MOVE/LOOK across a
+  real lock should resume neutral with no replay. Fail condition: nonzero axis or
+  forward/strafe on resume, continued turning, or fresh input not working.
+- Added HALOPAD_TOUCH_LIFECYCLE_SELFTEST (opt-in, HaloPadApp.m). Uses the existing
+  Present-thread observation plus yaw; records real sceneWillResignActive/
+  sceneDidBecomeActive timing on the main thread; posts no lifecycle events.
+- iPad PID 16777: armed with MOVE -1820/forward 1 and LOOK 14.7°; Device → Lock
+  for 60.2 s (0 fps while locked), Home, swipe/Home to unlock. All six checks
+  pass: resume neutral, no replay after 2 s, fresh MOVE/LOOK, clean release,
+  still after release. Profiles byte-identical.
+- iPhone: first launch idled on the menu for over an hour (session gap), so the
+  240 s driver timed out in phase 0 (log kept as iphone-timeout-err.txt; not a
+  runtime failure). Phone had no profile; Halo created New001 via original menus
+  and software keyboard Enter. Relaunched PID 22072, backed up New001, same local
+  Battle Creek run, 35.8 s lock: all six checks pass; profile unchanged.
+- Restored iPad (it booted in portrait; rotated to landscape through Simulator).
+  Regular preview PID 22493 without test drivers: New002 Battle Creek, LAN
+  policy, one player/openplaying, binary e853a7bc…adb906 (includes the opt-in
+  driver; inert without its environment variable). Phone shut down.
+- Open: audio interruption, online suspension/reconnect across lock, console
+  typing across interruption, physical devices and the parked phase-2 gates.
