@@ -2319,3 +2319,38 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
 - Next bounded experiment: perform an original controller-action edit through
   Halo's menu on a backed-up test profile, then save/reload and verify only the
   intended setting persists. Restore a usable preview after that test.
+
+## 2026-09-28 — original keyboard binding save/reload with analog touch
+
+- Previous goal turn: progress (42357fd); current turn: progress. Objective read
+  in full, clean tree, five pins/executable hash verified. One iPad PID 3574,
+  no reference processes, both project bottles present, parked inputs unchanged.
+- Backed up the independent iPad Library before edits. Original Pause → Change
+  Settings → Controls Setup shows empty saved HaloPad Touch Move axes. Its capture
+  prompt requires a controller button/axis while gameplay controls are hidden.
+  Canceled cleanly. Actual controller-action capture remains open; no synthetic UI
+  injection or claim that the following keyboard test covers that path.
+- Changed New002 forward W → I in original Controls Setup. Simulator hardware
+  keyboard capture did not assign I; disabled it and used ⋯ → Keyboard & Chat →
+  Show Keyboard, then the software i key. Original capture accepts it. Saved via
+  Controls OK and Profile OK. Only W/I entries (0x174/0x180, 16-bit) and final CRC
+  change; no temporary analog mapping saved. New001 untouched. CRC validates.
+- Stopped exact PID 3574 and relaunched the same verified cached binary as 5315,
+  LAN policy, explicit analog scene. Original menus start New002 Battle Creek.
+  Five gameplay and seven analog/cancel checks pass with W unbound. Reopening
+  Controls Setup visibly shows I after relaunch, corroborating the saved-file diff.
+- Restored W through the same original menu and software keyboard, saved again.
+  Both profile files match pre-test backup byte-for-byte, including checksum.
+  Resumed gameplay in the same PID 5315; completed one-shot drivers do not repeat.
+  One iPad remains, phone off, no reference processes. Fresh UDP status confirms
+  beavercreek, one player, openplaying. No rebuild or runtime change this turn.
+- Evidence: G9/touch-menu-save (before-Library, capture limitation screenshot,
+  edited-save copies and exact differences, reloaded-I screenshot, app results,
+  restored-profile hashes, binary identity and live preview screenshot).
+- Source inspection identifies the next substantive gap: touch action buttons
+  still emit fixed default keyboard/mouse bindings; remapping a game action can
+  therefore break its touch button even though analog MOVE stays independent.
+  Next bounded experiment: reproduce a JUMP remap via original Controls Setup,
+  then implement binding-aware touch dispatch with correct release ownership and
+  no player-profile mutation. Keep actual controller capture/physical fingers open.
+  Full goal remains active; this is a completed keyboard persistence check only.

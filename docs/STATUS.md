@@ -59,6 +59,8 @@ Operating loop: [HaloPad-GOAL-LOOP-PHASE2.md](HaloPad-GOAL-LOOP-PHASE2.md) (repl
 
 - **Player binding ownership fix:** when a player adds a binding to a touch-device assignment HaloPad activated, cleanup now preserves the active device as well as the binding. Five reproduced regressions pass in the 35-assertion sanitizer suite; 16 original-call iPad checks verify held-input cancellation, edited assignment retention and neutral recovery. Saves remain unchanged (`G9/touch-player-binding`). Actual menu binding edits/save/reload and physical-controller acceptance remain open.
 
+- **Original-menu binding persistence:** New002 forward was remapped W → I through Halo Controls Setup using the software keyboard. Save changes only the two keyboard entries plus CRC; relaunch retains I and passes five gameplay plus seven analog/cancel checks. Restoring W through the same menus returns both profile files exactly to their pre-test hashes. This proves keyboard-edit persistence and analog MOVE independence, not controller-axis capture (`G9/touch-menu-save`). Touch action buttons still emit fixed default keys/buttons; custom action-binding compatibility is the next implementation target.
+
 ## Parked, waiting on Chris
 
 | Item | Parks | Status |

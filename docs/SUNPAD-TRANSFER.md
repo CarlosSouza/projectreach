@@ -656,3 +656,32 @@ transition settle before starting the hold. That failed experiment remains recor
 Evidence: `G9/touch-player-binding`. Saved profiles match the backup byte-for-byte.
 This is original-call integration evidence, not acceptance of actual menu binding
 edits/save/reload or physical controller input. Analog remains development-only.
+
+## Original menu save/reload and MOVE independence — 2026-09-28
+
+Actual iPad Controls Setup changed New002's forward keyboard binding W → I via
+its software keyboard. Saving changed only offsets 0x174–0x175 (old W action
+19 → unbound 32767), 0x180–0x181 (I unbound → action 19), and the final four-byte
+checksum. The 8192-byte profile has the expected complemented CRC32. New001 is
+unchanged; no temporary touch-axis binding was serialized.
+
+The same binary was relaunched with the edited save. Halo's original menu visibly
+retains I; five gameplay and seven analog/cancel checks pass in Battle Creek with
+W unbound. Analog MOVE therefore remains independent of this keyboard remapping.
+Restoring W through Controls Setup and saving returns New002 byte-for-byte to the
+pre-test backup, including its checksum. The existing preview remains playable.
+
+Evidence: `G9/touch-menu-save` contains before-state, exact saved-byte differences,
+reloaded-I screenshot, gameplay/input results, restored hashes and binary identity.
+Simulator keyboard capture alone did not assign the key; the real software-keyboard
+button did. Capture Keyboard is restored off. The controller editor requests a
+controller button/axis while gameplay controls are hidden, so this route has not
+established controller-action capture/save/reload. Do not count it as that gate.
+
+Remaining compatibility issue identified in source: action buttons and digital
+MOVE fallback still emit fixed default keyboard/mouse bindings (`CONTROLS` in
+HaloPadOverlay.m). A player remapping those actions can make a touch button invoke
+a different action or none. The next experiment should reproduce one action remap
+through original Controls Setup, then implement action-aware touch dispatch without
+changing the player's bindings. Physical input and release ownership must remain
+independent; analog MOVE passing this test does not prove action-button independence.
