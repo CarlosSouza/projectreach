@@ -382,6 +382,22 @@ int main(void)
     check("mouse: Unacquire", M0(m, Unacquire), 0);
 
 
+    /* Wheel touch pulses are cancelable independently of physical scrolling. */
+    M0(m, Acquire);
+    input((hp_input){.kind = HPI_WHEEL, .flags = HPI_TOUCH, .wheel = 240});
+    input((hp_input){.kind = HPI_WHEEL, .wheel = -120});
+    input((hp_input){.kind = HPI_CANCEL_TOUCH});
+    M(m, GetDeviceState, 20, ms);
+    check("wheel cancel preserves only physical scroll", rd(ms + 8), (uint32_t)-120);
+    input((hp_input){.kind = HPI_WHEEL, .flags = HPI_TOUCH, .wheel = 120});
+    M(m, GetDeviceState, 20, ms);
+    check("touch wheel reaches an ordinary state read", rd(ms + 8), 120);
+    input((hp_input){.kind = HPI_WHEEL, .wheel = 60});
+    input((hp_input){.kind = HPI_CANCEL_TOUCH});
+    M(m, GetDeviceState, 20, ms);
+    check("cancel after a read does not subtract consumed wheel", rd(ms + 8), 60);
+    M0(m, Unacquire);
+
     /* Buffered clients consume the ordinary event stream, not a second replay. */
     check("buffered mouse setup", M(m, SetProperty, 1, prop), 0);
     M0(m, Acquire);
@@ -400,6 +416,17 @@ int main(void)
     check("buffered touch cancellation supplies down and release", rd(n) == 2 && rd(od) == 12 && rd(od + 4) == 0x80 && rd(od + 20) == 12 && rd(od + 24) == 0, 1);
     M(m, GetDeviceState, 20, ms);
     check("buffered mouse state does not replay consumed tap", ((uint8_t *)halopad_guest_ptr(ms))[12], 0);
+    M0(m, Unacquire);
+
+    M0(m, Acquire);
+    input((hp_input){.kind = HPI_WHEEL, .flags = HPI_TOUCH, .wheel = 120});
+    input((hp_input){.kind = HPI_WHEEL, .wheel = -120});
+    input((hp_input){.kind = HPI_CANCEL_TOUCH});
+    memcpy(halopad_guest_ptr(n), (uint32_t[]){32}, 4);
+    M(m, GetDeviceData, 20, od, n, 0);
+    check("buffered wheel cancel removes only touch scroll", rd(n) == 1 && rd(od) == 8 && rd(od + 4) == (uint32_t)-120, 1);
+    M(m, GetDeviceState, 20, ms);
+    check("buffered wheel cancellation preserves physical state", rd(ms + 8), (uint32_t)-120);
     M0(m, Unacquire);
 
     /* a game controller, set up by Halo's own code: 0x494840 builds its 80-object format at
@@ -719,6 +746,44 @@ int main(void)
     input((hp_input){.kind = HPI_CANCEL_TOUCH});
     halopad_call_guest(0x493520, 0, NULL); halopad_call_guest(0x48f850, 0, NULL);
     check("native-menu cancellation stops remapped digital MOVE", rd(0x6ad4b8), 0);
+    /* Compare touch wheel actions with physical wheel events through Halo's
+       own poll/consumer, in both directions. Remove the keyboard alternative. */
+    cpu._ebx = 0x7fff;
+    halopad_call_guest_ex(0x48e360, 0, NULL, action_descriptor, 0);
+    halopad_host_input_off = 0;
+    uint32_t saved_granularity = rd(0x64c738);
+    uint32_t wheel_property = bytes((uint32_t[]){20, 16, 8, 1, 0}, 20);
+    M(m, GetProperty, 3, wheel_property);
+    memcpy(halopad_guest_ptr(0x64c738), halopad_guest_ptr(wheel_property + 16), 4);
+    memcpy(halopad_guest_ptr(0x6abb48), &(float){1}, 4);
+    for (int direction = 1; direction <= 2; direction++) {
+        int delta = direction == 1 ? -120 : 120;
+        memcpy(halopad_guest_ptr(action_descriptor), (uint16_t[]){2, 0, 1, 2, direction, 0}, 12);
+        cpu._ebx = 19;
+        check("original setter accepts wheel-only forward action", halopad_call_guest_ex(0x48e360, 0, NULL, action_descriptor, 0) & 255, 1);
+        input((hp_input){.kind = HPI_WHEEL, .wheel = delta});
+        halopad_call_guest(0x493520, 0, NULL); halopad_call_guest(0x48f850, 0, NULL);
+        uint32_t physical_wheel = rd(0x6ad4b8);
+        check("physical wheel binding reaches original movement consumer", physical_wheel != 0, 1);
+        halopad_call_guest(0x493520, 0, NULL); halopad_call_guest(0x48f850, 0, NULL);
+        queued_input((hp_input){.kind = HPI_ACTION, .flags = HPI_TOUCH, .action = 19, .down = 1});
+        queued_input((hp_input){.kind = HPI_ACTION, .flags = HPI_TOUCH, .action = 19}); pump_many();
+        halopad_call_guest(0x493520, 0, NULL); halopad_call_guest(0x48f850, 0, NULL);
+        check("touch wheel action matches physical wheel through Halo", rd(0x6ad4b8), physical_wheel);
+        halopad_call_guest(0x493520, 0, NULL); halopad_call_guest(0x48f850, 0, NULL);
+        check("wheel action release never generates another notch", rd(0x6ad4b8), 0);
+        input((hp_input){.kind = HPI_ACTION, .flags = HPI_TOUCH, .action = 19, .down = 1});
+        M(m, GetDeviceState, 20, ms);
+        check("wheel action press generates exactly one assigned notch", rd(ms + 8), (uint32_t)delta);
+        input((hp_input){.kind = HPI_ACTION, .flags = HPI_TOUCH, .action = 19, .down = 1});
+        M(m, GetDeviceState, 20, ms);
+        check("duplicate held action does not repeat wheel", rd(ms + 8), 0);
+        input((hp_input){.kind = HPI_CANCEL_TOUCH});
+        cpu._ebx = 0x7fff;
+        halopad_call_guest_ex(0x48e360, 0, NULL, action_descriptor, 0);
+    }
+    halopad_host_input_off = 1;
+    memcpy(halopad_guest_ptr(0x64c738), &saved_granularity, 4);
     memcpy(halopad_guest_ptr(0x6ab328), saved_bindings, sizeof saved_bindings);
     memcpy(halopad_guest_ptr(0x6ad498), saved_state, sizeof saved_state);
     memcpy(halopad_guest_ptr(0x64dc18), saved_pad_map, sizeof saved_pad_map);

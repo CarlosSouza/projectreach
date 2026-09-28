@@ -28,8 +28,16 @@ static int resolve(uint32_t action, hp_input *out)
                           .button = b, .x = 400, .y = 300};
         return 1;
     }
-    /* Unbound/controller-only/wheel-only actions cannot synthesize a keyboard
-       hold. Never fall back to a key that might now trigger another action. */
+    for (int direction = 0; direction < 2; direction++)
+        if (read16(0x6ab422 + direction * 2) == action) {
+            /* Original mouse conversion 0x494980 negates DI wheel counts.
+               Halo's positive Z binding therefore needs a negative notch. */
+            *out = (hp_input){.kind = HPI_WHEEL, .flags = HPI_TOUCH, .down = 1,
+                              .wheel = direction ? 120 : -120, .x = 400, .y = 300};
+            return 1;
+        }
+    /* Unbound/controller-only actions cannot synthesize a keyboard hold.
+       Never fall back to a key that might now trigger another action. */
     return 0;
 }
 static int same_control(const hp_input *a, const hp_input *b)
@@ -58,6 +66,12 @@ int halopad_touch_action_event(const hp_input *e)
     hp_input mapped = held[action];
     if (!mapped.flags) return 1;
     if (!e->down) held[action] = (hp_input){0};
+    if (mapped.kind == HPI_WHEEL) {
+        /* A wheel is an impulse: one notch per press, none on release or
+           autorepeat. Its unread contribution stays cancelable downstream. */
+        if (e->down) halopad_input_event(&mapped);
+        return 1;
+    }
     /* A remap during a hold can make two fingers share a control. Release it
        only after its last touch owner lets go. Physical ownership is downstream. */
     for (unsigned i = 0; i < ACTION_COUNT; i++)

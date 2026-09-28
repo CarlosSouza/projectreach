@@ -742,3 +742,34 @@ previously accepted binary, so the unchanged five-plus-seven checks were not
 repeated. Actual startup reaches New002 Battle Creek and configures slot 1.
 Wheel-only/controller-only actions and unavailable-action feedback remain open,
 along with actual physical multi-touch and the broader phase-2 gates.
+
+## Wheel-bound actions — 2026-09-28
+
+Touch actions now also resolve Halo's wheel Z+/Z− bindings, after keyboard and
+mouse-button alternatives. Original setter 0x48e360 establishes the two entries
+at 0x6ab422/0x6ab424. Original converter 0x494980 divides DirectInput counts by
+wheel granularity and negates them: positive Halo Z requires −120 counts.
+Each touch press emits one notch; holding, duplicate downs and release emit none.
+This preserves wheel impulse behavior, not continuous movement or repeated fire.
+The adapter never changes the player's mappings.
+
+Unread touch scrolling carries source ownership in both DirectInput state/buffer
+and USER32 messages. Native-menu/focus cancellation removes it while retaining
+physical scrolling; cancellation after a successful read does not subtract an
+already-consumed notch. iPad DirectInput passes 248 assertions and USER32 86.
+Both wheel directions match physical wheel input through Halo's original poll
+and movement consumer, including immediate down/up and duplicate-down checks.
+
+`tests/halo_touch_wheel_scene.c` is an explicit development fixture: original
+setters unbind Space and assign wheel Z+ to JUMP in memory, guarded by the touch
+self-test flag and default-binding assertions. It never saves. With this fixture,
+all five gameplay and seven analog/cancel checks pass; the immediate JUMP rises
+−0.22 → 0.44. Both saved profiles remain byte-for-byte unchanged. Discarding that
+process and reinstalling the regular analog scene restores the ordinary preview.
+This proves runtime wheel resolution, not wheel capture through Controls Setup.
+Evidence: `G9/touch-wheel`, DirectInput `G3/core-arm64-apple-ios17.0-simulator-20260928T213729Z`,
+USER32 `G3/core-arm64-apple-ios17.0-simulator-20260928T213841Z`.
+
+Controller-only or wholly unbound actions still have no usable touch mapping or
+unavailable-action feedback. Physical two-thumb ergonomics remains unverified;
+this increment changes input compatibility, not the established stick spacing.

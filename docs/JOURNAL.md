@@ -2428,3 +2428,43 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   yield no input and have no unavailable-action feedback. Implement an honest
   usable path while retaining physical input and cancellation ownership. Keep
   physical fingers/controller capture and full phase-2 acceptance open.
+
+## 2026-09-28 — wheel-bound touch actions and cancellation
+
+- Previous goal turn: progress (d6f3f43, digital remap acceptance). Current turn:
+  progress. Read full objective; five source pins and locked executable verified,
+  clean tree, one iPad PID 10825, phone off, two project bottles, no Wine. No
+  physical devices; parked inputs unchanged. Stopped exact app before builds.
+- Extended semantic touch resolution to original wheel Z+/Z− after keyboard and
+  mouse buttons. One notch on press, none on release or held-down repeat.
+  Original converter 0x494980 reverses DirectInput wheel sign; adapter follows
+  it. Original binding setter establishes the table, which runtime only reads.
+- Added independently cancelable wheel ownership to DirectInput state/buffer and
+  USER32 messages. Cancellation retains physical scrolling; successful reads
+  clear consumed touch contribution so later cancellation cannot subtract it.
+- DirectInput red 20260928T213315Z has seven failures: three cancellation and two
+  missing-resolver failures, plus two invalid physical baseline fixture checks.
+  The fixture lacked original wheel granularity and assumed the wrong sign;
+  corrected from GetProperty and original disassembly, not counted as runtime
+  fixes. USER32 red 20260928T213346Z has one missing-cancellation defect plus
+  two later queue checks contaminated by that leftover message. Evidence kept.
+- Green DirectInput 20260928T213729Z: 248 assertions, including both wheel
+  directions through original poll/consumer, no repeat and physical ownership.
+  Green USER32 20260928T213841Z: 86 assertions. No geometry changes; existing
+  71-assertion/90-layout UIKit suite was not repeated for unrelated runtime work.
+- New test-only halo_touch_wheel_scene.c uses original setters to unbind Space
+  and assign wheel Z+ to JUMP in memory, with eight setup guards and no save.
+  PID 12863, original-menu New002 Battle Creek: all five gameplay and seven
+  analog/cancel checks pass; immediate JUMP rises -0.22 → 0.44, MOVE 3.11 units,
+  FIRE battery 1.00 → .89. This does not establish original-menu wheel capture.
+- Both saved profiles remain byte-exact to backup. Stopped fixture PID 12863,
+  rebuilt/reinstalled regular halo_touch_move_scene.c with the new runtime.
+  Final preview PID 13346: New002 Battle Creek, one player/openplaying, LAN
+  policy, touch device 1/slot 1. No test driver enabled in the final preview.
+  Binary SHA-256 265b9458747a0a75aa1d0956558886103c79a211c52b4d620a46a8853497b7e8.
+  CUA visibly verifies both sticks and action grid. One candidate/Simulator;
+  no Wine/reference process retained. Evidence G9/touch-wheel includes logs,
+  pre/post save hashes, source/binary identity, UDP status and screenshots.
+- Remaining touch compatibility work: controller-only/unbound action feedback
+  and usable mapping path. Physical fingers/controller capture and ergonomics,
+  normal startup, original-client comparison and other phase-2 gates stay open.

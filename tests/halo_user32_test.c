@@ -190,6 +190,11 @@ int main(void)
     peek(0, 0, 1);
     input((hp_input){.kind = HPI_WHEEL, .wheel = 120, .x = 10, .y = 20});
     check("wheel: WM_MOUSEWHEEL, delta 120 in the high word", peek(0, 0, 1) && M(1) == 0x20A && M(2) == 0x00780000, 1);
+    input((hp_input){.kind = HPI_WHEEL, .flags = HPI_TOUCH, .wheel = 120});
+    input((hp_input){.kind = HPI_WHEEL, .wheel = -120});
+    input((hp_input){.kind = HPI_CANCEL_TOUCH});
+    check("touch cancellation removes only virtual wheel messages", peek(0, 0, 1) && M(1) == 0x20A && M(2) == 0xff880000 && !peek(0, 0, 0), 1);
+
 
     /* filters and PM_NOREMOVE */
     input((hp_input){.kind = HPI_KEY, .vk = 'B', .scan = 0x30, .down = 1});

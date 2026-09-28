@@ -67,6 +67,8 @@ Operating loop: [HaloPad-GOAL-LOOP-PHASE2.md](HaloPad-GOAL-LOOP-PHASE2.md) (repl
 
 - **Digital MOVE remap accepted:** with the virtual analog device disabled, original-menu W → I save/relaunch passes all five gameplay checks (3.07 units moved). Five new original-setter/consumer assertions cover W rebound to backward, I forward, release and menu cancellation; DirectInput passes 231. Saves restored exactly. The analog preview is restored as PID 10825, New002 Battle Creek, with the same binary hash previously accepted (`G9/touch-digital-remap`). No runtime change this turn. Controller-only/wheel-only bindings and unavailable-action feedback remain open.
 
+- **Wheel-bound touch actions:** resolves original mouse-wheel bindings after keyboard/mouse buttons, with one notch per press and no release/hold repeat. Source-aware cancellation preserves physical scrolling in DirectInput and USER32. iPad suites pass 248/86 assertions; an original-setter wheel-only JUMP gameplay fixture passes all five gameplay and seven analog/cancel checks. Both saves remain byte-exact. Evidence `G9/touch-wheel`; controller-only/unbound feedback and physical ergonomics remain open. Latest preview details are in the journal.
+
 ## Parked, waiting on Chris
 
 | Item | Parks | Status |

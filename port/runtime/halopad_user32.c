@@ -1189,6 +1189,7 @@ void halopad_input_event(const hp_input *e)
         } else if (e->kind == HPI_WHEEL) {
             post(focus ? focus : target, WM_MOUSEWHEEL, mk_flags() | (uint32_t)(e->wheel & 0xFFFF) << 16,
                  (uint32_t)(cursor_x & 0xFFFF) | (uint32_t)cursor_y << 16, NULL, 0);
+            queue[qcount - 1].input_flags = e->flags & HPI_TOUCH;
         } else {
             static const uint32_t vk_of[3] = {1, 2, 4};             /* VK_LBUTTON, VK_RBUTTON, VK_MBUTTON */
             static const uint32_t base[3] = {WM_LBUTTONDOWN, 0x0204, 0x0207};

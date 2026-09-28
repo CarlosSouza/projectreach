@@ -68,7 +68,7 @@ typedef struct {
     event buf[MAXBUF];
     uint8_t keys[256], key_physical[256], key_touch[256], key_read[256], key_touch_dirty[256];
     int32_t dx, dy, dz;
-    int32_t touch_dx, touch_dy;         /* unread look contribution, independently cancelable */
+    int32_t touch_dx, touch_dy, touch_dz;         /* unread touch motion/scroll, independently cancelable */
     uint8_t buttons[8], touch_raw[8], touch_read[8];
     uint32_t touch_edges[8]; /* alternating edges, consumed by successful unbuffered reads */
     /* game controllers */
@@ -225,12 +225,12 @@ static void cancel_touch_keys(device *d)
 static void clear_touch(device *d)
 {
     if (d->kind == MOUSE) {
-        d->dx -= d->touch_dx; d->dy -= d->touch_dy;
-        d->touch_dx = d->touch_dy = 0;
+        d->dx -= d->touch_dx; d->dy -= d->touch_dy; d->dz -= d->touch_dz;
+        d->touch_dx = d->touch_dy = d->touch_dz = 0;
         uint32_t kept = 0;
         for (uint32_t i = 0; i < d->count; i++) {
             event e = d->buf[(d->head + i) % MAXBUF];
-            if ((e.flags & HPI_TOUCH) && (e.ofs == 0 || e.ofs == 4)) continue;
+            if ((e.flags & HPI_TOUCH) && (e.ofs == 0 || e.ofs == 4 || e.ofs == 8)) continue;
             d->buf[(d->head + kept++) % MAXBUF] = e;
         }
         d->count = kept;
@@ -387,7 +387,7 @@ uint32_t hpcom_IDirectInputDevice8A_GetDeviceState_c(uint32_t g, uint32_t size, 
         ((uint8_t *)G(data))[12 + b] = d->buttons[b] | (d->bufsize ? d->touch_raw[b] : d->touch_read[b]);
     }
     d->dx = d->dy = d->dz = 0;                                      /* relative: counts since the last read */
-    d->touch_dx = d->touch_dy = 0;
+    d->touch_dx = d->touch_dy = d->touch_dz = 0;
     return DI_OK;
 }
 
@@ -732,7 +732,8 @@ void halopad_dinput_event(const hp_input *e)
                 if (e->dx) { d->dx += e->dx; record_source(d, 0, (uint32_t)e->dx, e->flags & HPI_TOUCH); }
                 if (e->dy) { d->dy += e->dy; record_source(d, 4, (uint32_t)e->dy, e->flags & HPI_TOUCH); }
             } else if (e->kind == HPI_WHEEL) {
-                d->dz += e->wheel; record(d, 8, (uint32_t)e->wheel);
+                if (e->flags & HPI_TOUCH) d->touch_dz += e->wheel;
+                d->dz += e->wheel; record_source(d, 8, (uint32_t)e->wheel, e->flags & HPI_TOUCH);
             } else if (e->kind == HPI_BUTTON && e->button >= 0 && e->button < 8) {
                 uint8_t v = e->down ? 0x80 : 0;
                 uint32_t b = (uint32_t)e->button;
