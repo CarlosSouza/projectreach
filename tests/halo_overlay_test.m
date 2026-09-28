@@ -26,7 +26,7 @@ static void check_layouts(void)
     NSInteger savedSpacing = settings.ringSpacing;
     CGSize screens[] = {{667, 375}, {760, 354}, {844, 390}, {1024, 768}, {1376, 1032}};
     CGFloat sizes[] = {0.7, 1, 1.35};
-    int cases = 0, bad = 0;
+    int cases = 0, bad = 0, badReach = 0;
     for (int form = 0; form < 5; form++) for (int hand = 0; hand < 2; hand++)
     for (int size = 0; size < 3; size++) for (int gap = 0; gap < 3; gap++) {
         settings.controlSize = sizes[size]; settings.leftHanded = hand; settings.ringSpacing = gap;
@@ -35,17 +35,51 @@ static void check_layouts(void)
         view.simulatedInsets = form < 3 ? UIEdgeInsetsMake(0, 44, 21, 44) : UIEdgeInsetsMake(0, 0, 20, 0);
         view.inGame = YES;
         [view setNeedsLayout]; [view layoutIfNeeded];
+        /* Render the actual UIKit controls without presenting a window or loading Halo. */
+        const char *renderPath = getenv("HALOPAD_OVERLAY_RENDER_DIR");
+        if (renderPath && hand == 0 && size == 1 && gap == 1) {
+            UIGraphicsImageRendererFormat *format = [UIGraphicsImageRendererFormat defaultFormat];
+            format.scale = 1;
+            UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:view.bounds.size format:format];
+            UIImage *image = [renderer imageWithActions:^(UIGraphicsImageRendererContext *context) {
+                [[UIColor colorWithRed:0.12 green:0.18 blue:0.21 alpha:1] setFill];
+                UIRectFill(view.bounds);
+                [view.layer renderInContext:context.CGContext];
+            }];
+            NSString *path = [@(renderPath) stringByAppendingPathComponent:[NSString stringWithFormat:@"layout-%.0fx%.0f.png", screens[form].width, screens[form].height]];
+            check("native overlay preview written", [UIImagePNGRepresentation(image) writeToFile:path atomically:YES]);
+        }
         NSMutableArray<UIView *> *controls = [NSMutableArray array];
         for (UIView *v in view.subviews)
             if (v.accessibilityIdentifier && !v.hidden) [controls addObject:v];
         BOOL valid = controls.count == 16; /* 13 actions, two sticks, native menu */
+        UIView *move = nil, *aim = nil, *fire = nil, *crouch = nil;
         for (UIView *v in controls) {
+            if ([v.accessibilityIdentifier isEqualToString:@"move"]) move = v;
+            if ([v.accessibilityIdentifier isEqualToString:@"aim"]) aim = v;
+            if ([v.accessibilityIdentifier isEqualToString:@"fire"]) fire = v;
+            if ([v.accessibilityIdentifier isEqualToString:@"crouch"]) crouch = v;
             valid &= CGRectContainsRect(UIEdgeInsetsInsetRect(view.bounds, view.safeAreaInsets), v.frame) && v.bounds.size.width >= 44 && v.bounds.size.height >= 44;
-            for (UIView *other in controls) if (v != other)
-                valid &= !CGRectIntersectsRect(v.frame, other.frame);
+            for (UIView *other in controls) if (v != other) {
+                CGFloat dx = MAX(0, MAX(CGRectGetMinX(v.frame) - CGRectGetMaxX(other.frame), CGRectGetMinX(other.frame) - CGRectGetMaxX(v.frame)));
+                CGFloat dy = MAX(0, MAX(CGRectGetMinY(v.frame) - CGRectGetMaxY(other.frame), CGRectGetMinY(other.frame) - CGRectGetMaxY(v.frame)));
+                valid &= hypot(dx, dy) >= 7.99; /* an actual gap, not just non-overlap */
+            }
             if ([v.accessibilityIdentifier isEqualToString:@"move"] || [v.accessibilityIdentifier isEqualToString:@"aim"])
                 valid &= [view hitTest:v.center withEvent:nil] == v;
         }
+        CGRect safe = UIEdgeInsetsInsetRect(view.bounds, view.safeAreaInsets);
+        BOOL reachable = move && aim && fire && crouch && fabs(move.center.y - aim.center.y) < 0.01 &&
+            fabs(move.center.x + aim.center.x - CGRectGetMinX(safe) - CGRectGetMaxX(safe)) < 0.01 &&
+            MIN(move.center.x, aim.center.x) - CGRectGetMinX(safe) <= 160 &&
+            fabs(fire.center.x - aim.center.x) < 0.01 &&
+            fabs(crouch.center.x - move.center.x) < fabs(crouch.center.x - aim.center.x);
+        if (form >= 3) {
+            /* Conservative bottom-left HUD box for the stock 4:3 tablet viewport. */
+            CGRect radar = CGRectMake(0, screens[form].height * 0.83, screens[form].width * 0.15, screens[form].height * 0.17);
+            for (UIView *v in controls) reachable &= !CGRectIntersectsRect(v.frame, radar);
+        }
+        if (!reachable) badReach++;
         cases++;
         if (!valid) { bad++; fprintf(stderr, "layout failed: %.0fx%.0f hand %d size %.2f gap %d controls %lu\n",
                                     screens[form].width, screens[form].height, hand, sizes[size], gap, (unsigned long)controls.count); }
@@ -53,6 +87,7 @@ static void check_layouts(void)
     settings.controlSize = savedSize; settings.leftHanded = savedHand; settings.ringSpacing = savedSpacing;
     fprintf(stderr, "LAYOUT: %d combinations, %d failures\n", cases, bad);
     check("phone/tablet defaults have separate targets, safe bounds and two reachable sticks", bad == 0);
+    check("sticks have equal reach, aligned fire, movement-side crouch and tablet radar clearance", badReach == 0);
 }
 
 void halopad_host_post_input(const hp_input *e)

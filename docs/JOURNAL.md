@@ -1516,3 +1516,33 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   required. Documented format/trust boundary and next experiment in PREPARED-DATA.md. Do not
   call this complete import support or M29 acceptance. Goal remains active, all campaign,
   licensed-startup, interoperability and physical-device gates retained.
+
+### 2026-09-28 — symmetric thumb reach and balanced touch action groups
+
+- Previous increment: **progress**, private push `7a30e53` (prepared-data packages).
+  Followed Chris's renewed touch-layout direction for this pass. Locked executable SHA and
+  pinned source checks pass; only the existing iPad candidate PID 41176 is running, no Wine.
+  No parked input arrived. Native ZIP import and all original goal gates remain outstanding.
+- Replaced percentage-of-width stick positions with symmetric point-based edge offsets.
+  FIRE centers over LOOK, CROUCH joins the movement side, and SWAP joins the right grid.
+  Keep at least eight points between default targets. Reviewing the prior actual gameplay
+  screenshot exposed radar overlap in an initial edge-only design; raised the tablet groups
+  to preserve a conservative bottom-left HUD region. Phones retain their lower grip.
+  Saved v3 custom layouts are preserved; Reset Layout adopts the new defaults.
+- Stick captions obey Labels. Circular views clip their contents to the circle, eliminating
+  visible rectangular border remnants in offscreen UIKit renders. No input mappings changed.
+- Extended the real-overlay harness with offscreen native UIKit renders at five landscape
+  sizes. It has a capture-only host boundary, no guest core or window, and cannot send input
+  to the running game; clarified the old stop-candidate comment accordingly. First attempt
+  to launch through /usr/bin/env lost Simulator dyld configuration and aborted. Switched to
+  SIMCTL_CHILD environment forwarding; all subsequent harness launches pass.
+- Final evidence `G9/overlay-20260928T141747Z`: 31 input/layout assertions plus five successful
+  PNG writes; 90 size/spacing/handedness/safe-area combinations pass. Strengthened checks
+  cover actual eight-point gaps, symmetric bounded reach, fire alignment, crouch side and
+  tablet HUD clearance. Inspected final phone/tablet renders. Existing input release/menu/
+  keyboard/continuous LOOK checks remain green. Full Simulator app builds without install.
+- Preserved the live user-controlled Simulator session and queued the tablet layout PNG in
+  Codex for inspection. New controls are built but not installed in that running preview.
+  These are native offscreen overlay images, not new in-game acceptance screenshots.
+  Actual simultaneous touches, on-device grip comfort, updated in-game HUD verification and
+  saved/custom layout behavior remain to be exercised. G9 and the full goal remain active.

@@ -130,6 +130,7 @@ typedef NS_ENUM(NSInteger, HPControlKind) { HPKey, HPMouseButton };
 {
     if ((self = [super initWithFrame:frame])) {
         self.multipleTouchEnabled = NO;
+        self.clipsToBounds = YES;
         self.backgroundColor = [UIColor colorWithWhite:0.05 alpha:0.30];
         self.layer.borderColor = [UIColor colorWithWhite:1 alpha:0.30].CGColor;
         self.layer.borderWidth = 1.5;
@@ -154,6 +155,7 @@ typedef NS_ENUM(NSInteger, HPControlKind) { HPKey, HPMouseButton };
     _thumb.bounds = CGRectMake(0, 0, t, t);
     _thumb.layer.cornerRadius = t / 2;
     _caption.frame = CGRectMake(0, side - 23, side, 14);
+    _caption.hidden = !HPSettings.shared.showCaptions;
     [self place];
 }
 - (void)place
@@ -199,6 +201,7 @@ typedef NS_ENUM(NSInteger, HPControlKind) { HPKey, HPMouseButton };
 {
     if ((self = [super initWithFrame:frame])) {
         self.multipleTouchEnabled = NO;
+        self.clipsToBounds = YES;
         self.layer.borderWidth = 1.5;
         _icon = [UIImageView new];
         _icon.contentMode = UIViewContentModeScaleAspectFit;
@@ -541,29 +544,33 @@ static const hp_control_def CONTROLS[] = {
     CGFloat stick = fmax(100, 128 * k), action = fmax(44, 52 * k);
     CGFloat utility = fmax(44, 44 * k), fire = fmax(60, 72 * k);
     CGFloat gaps[] = {10, 16, 24};
-    CGFloat gap = gaps[HPSettings.shared.ringSpacing] * k;
-    CGFloat inset = fmax(16, 24 * k);
-    CGFloat edge = fmax(inset, safe.size.width * (self.phone ? 0.17 : 0.20) - stick / 2);
-    CGFloat left = CGRectGetMinX(safe) + edge;
-    CGFloat right = CGRectGetMaxX(safe) - edge;
-    CGFloat bottom = CGRectGetMaxY(safe) - inset;
+    CGFloat gap = fmax(8, gaps[HPSettings.shared.ringSpacing] * k);
+    /* Thumb reach is measured in points, not a fraction of the display width.
+       Keep both sticks on one baseline and leave identical space around them. */
+    CGFloat inset = fmax(16, (self.phone ? 20 : 36) * k);
+    CGFloat left = CGRectGetMinX(safe) + inset;
+    CGFloat right = CGRectGetMaxX(safe) - inset;
+    /* Tablet thumbs rest along the sides, above the bottom-left motion tracker.
+       A phone's shorter display needs the lower grip instead. */
+    CGFloat bottom = CGRectGetMaxY(safe) - (self.phone ? fmax(20, 32 * k) : fmax(160, 128 * k));
     CGFloat rowY = bottom - stick - gap - fire / 2;
     CGFloat nearX = right - stick - gap - action / 2;
     CGFloat farX = nearX - action - gap;
     CGFloat lowY = bottom - action / 2, midY = lowY - action - gap;
-    CGFloat fireX = right - fire / 2;
+    CGFloat fireX = right - stick / 2;
     CGFloat reloadX = fireX - fire / 2 - gap - action / 2;
-    CGFloat zoomX = reloadX - action - gap, swapX = zoomX - action - gap;
+    CGFloat zoomX = reloadX - action - gap;
+    CGFloat leftInnerX = left + stick + gap + action / 2;
     BOOL mirror = HPSettings.shared.leftHanded;
     CGFloat (^mx)(CGFloat) = ^CGFloat(CGFloat x) { return mirror ? CGRectGetMinX(safe) + CGRectGetMaxX(safe) - x : x; };
     [self place:_move frame:CGRectMake(mx(left + stick / 2) - stick / 2, bottom - stick, stick, stick)];
     [self place:_aim frame:CGRectMake(mx(right - stick / 2) - stick / 2, bottom - stick, stick, stick)];
     CGPoint points[NCONTROLS] = {
-        {fireX, rowY}, {farX, midY}, {swapX, rowY}, {zoomX, rowY},
-        {left + fire / 2, rowY}, {nearX, midY}, {reloadX, rowY},
-        {farX, lowY}, {nearX, lowY},
-        {left + fire + gap + utility / 2 + utility + gap, rowY},
-        {left + fire + gap + utility / 2, rowY},
+        {fireX, rowY}, {farX, midY}, {farX, lowY}, {zoomX, rowY},
+        {left + stick / 2, rowY}, {nearX, midY}, {reloadX, rowY},
+        {leftInnerX, lowY}, {nearX, lowY},
+        {leftInnerX, midY},
+        {leftInnerX, rowY},
         {CGRectGetMidX(safe) - utility / 2 - 6, CGRectGetMinY(safe) + utility / 2 + 12},
         {CGRectGetMidX(safe) + utility / 2 + 6, CGRectGetMinY(safe) + utility / 2 + 12},
     };
@@ -599,6 +606,7 @@ static const hp_control_def CONTROLS[] = {
         BOOL picked = _editing && v == _selected;
         v.alpha = [v isKindOfClass:HPStickView.class] && !_editing ? alpha * 0.75 : alpha;
         if ([v isKindOfClass:HPStickView.class]) ((HPStickView *)v).editing = _editing;
+        [v setNeedsLayout];
         v.layer.borderWidth = picked ? 3 : 1.5;
         v.layer.borderColor = (picked ? UIColor.systemYellowColor : [UIColor colorWithWhite:1 alpha:0.32]).CGColor;
         if ([v isKindOfClass:HPControlButton.class]) {
@@ -894,7 +902,7 @@ static const hp_control_def CONTROLS[] = {
 - (void)hideChanged:(UISwitch *)s { HPSettings.shared.hideWithController = s.on; [self refreshControllerVisibility]; }
 - (void)editChanged:(UISwitch *)s { if (s.on) [self beginEditing]; else [self endEditing]; }
 - (void)leftChanged:(UISwitch *)s { HPSettings.shared.leftHanded = s.on; [self clearTouchInput]; [self setNeedsLayout]; }
-- (void)captionChanged:(UISwitch *)s { HPSettings.shared.showCaptions = s.on; for (UIView *b in _buttons) [b setNeedsLayout]; }
+- (void)captionChanged:(UISwitch *)s { HPSettings.shared.showCaptions = s.on; [self setNeedsLayout]; }
 - (void)spacingChanged:(UISegmentedControl *)c { HPSettings.shared.ringSpacing = c.selectedSegmentIndex; [self setNeedsLayout]; }
 - (void)confirmReset
 {

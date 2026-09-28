@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """Run the real overlay's timer/input handlers on a booted project Simulator.
 
-The test captures the host boundary, without loading game data or starting an app.
-Stop any candidate app before running. Does not boot or shut down devices.
+The test captures the host boundary, without loading game data, presenting a window,
+or sending input to a running app. Safe alongside a preview; does not boot or stop devices.
 """
 import argparse
 import datetime
 import hashlib
 import json
+import os
 import pathlib
 import subprocess
 
@@ -30,7 +31,9 @@ def main():
     build = subprocess.run(cmd, capture_output=True, text=True)
     (evidence / 'build.txt').write_text(build.stdout + build.stderr)
     build.check_returncode()
-    result = subprocess.run(['xcrun', 'simctl', 'spawn', args.device, str(exe)], capture_output=True, text=True, timeout=30)
+    env = dict(os.environ, SIMCTL_CHILD_HALOPAD_OVERLAY_RENDER_DIR=str(evidence))
+    result = subprocess.run(['xcrun', 'simctl', 'spawn', args.device, str(exe)],
+                            env=env, capture_output=True, text=True, timeout=30)
     output = result.stdout + result.stderr
     (evidence / 'run.txt').write_text(output)
     inputs = sources + [ROOT / 'port/ios/HaloPadOverlay.h', ROOT / 'port/runtime/halopad_input.h']

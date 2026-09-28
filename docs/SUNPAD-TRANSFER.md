@@ -16,9 +16,8 @@ local SunPad path. The donor copy used for the work is private and ignored (`ref
 
 - The stick view: a circular base and thumb, +y up, reset on release.
 - The button behaviour: round, a light border, the pressed scale of 0.92.
-- The sizing model: fixed sizes on iPads at least 1000 points wide, and a scaled 800 x 380
-  reference elsewhere (stick 172 or 126, buttons 62, 76 and 104 or 46, 58 and 78). A global size
-  and opacity sit on top, and positions are clamped to the safe area.
+- The sizing/editor model: point-sized controls, global size and opacity, and safe-area
+  constraints. Current Halo-specific sizes and placement supersede the original donor layout.
 - Sparse, per-form-factor persistence of normalized centres and per-control sizes: an absent
   entry keeps the default. The keys are HaloPad's own (`HaloPad.tablet.v1.*`, `HaloPad.phone.v1.*`).
 - The layout editor (drag to move, tap to select, a size slider for the selected control, Done)
@@ -48,8 +47,9 @@ local SunPad path. The donor copy used for the work is private and ignored (`ref
   - fixed **MOVE** and **LOOK** sticks at the lower left and right; movement uses Halo's
     W/A/S/D bindings with hysteresis, while LOOK produces continuous mouse motion with a radial
     dead zone and a gentle response near centre, timed to the display refresh;
-  - **FIRE**, RELOAD, ZOOM and SWAP in a row above aiming; USE/MELEE and CROUCH/JUMP beside it;
-    THROW, grenade selection and LIGHT above movement; scores/pause remain at the top;
+  - **FIRE** centered above LOOK, with RELOAD and ZOOM alongside; USE/MELEE and SWAP/JUMP
+    beside aiming. CROUCH and LIGHT sit beside MOVE, with THROW and grenade selection above;
+    scores/pause remain at the top;
   - aim by swiping open space or dragging FIRE as well as with the LOOK stick;
   - target size and spacing are constrained together before placement, so enlarging controls
     does not squash them into overlapping circles at the screen edge. Default targets are
@@ -62,8 +62,12 @@ local SunPad path. The donor copy used for the work is private and ignored (`ref
 - **The controls show only in a game.** The shell reads Halo's current map (`0x643064`) four
   times a second; on its menu map ("ui") the controls hide and touches reach the game view,
   where a tap is a click.
-- The centre of the view stays open. Tablet thumb zones sit farther inward to give the
-  bottom-left motion tracker space; phone HUD clearance is checked separately in screenshots.
+- The centre of the view stays open. Both sticks have symmetric point-based edge offsets,
+  rather than moving farther inward as display width grows. Tablet thumb zones sit higher
+  along the sides to clear the bottom-left motion tracker; phones retain a lower grip.
+  Default target gaps never fall below eight points. Existing v3 custom positions are kept;
+  Reset Layout in Touch Control Settings restores these defaults. Stick captions now also
+  follow the Labels setting.
 - **The menu holds what Halo's own menus do not:**
   - Join Server by Address (and Recent Servers), through Halo's own console command
     `connect ADDRESS "PASSWORD"` (Halo runs with `-console`; typed keys go one every 50 ms so
@@ -88,6 +92,12 @@ local SunPad path. The donor copy used for the work is private and ignored (`ref
 
 ## Checks
 
+- Reach/spacing refinement: `G9/overlay-20260928T141747Z` passes 31 input/layout assertions
+  and 90 combinations, including eight-point target gaps, equal stick reach, fire alignment,
+  movement-side crouch and a conservative tablet radar keepout. Five native UIKit offscreen
+  PNGs are included. The full app builds; the live user preview was not replaced. This pass
+  does not establish physical ergonomics or new in-game acceptance.
+
 - Two-stick layout checks: `G9/overlay-20260928T114719Z` on iPad and
   `G9/overlay-20260928T114935Z` on iPhone, under `docs/artifacts/2026-09-28/`. Both pass 20 input/
   layout assertions, including 90 combinations of five landscape bounds, three sizes, three
@@ -101,8 +111,9 @@ local SunPad path. The donor copy used for the work is private and ignored (`ref
   movement speed: MOVE still emits Halo's keyboard bindings. The tablet sticks were subsequently
   moved inward to clear the motion tracker, and the final preview is recorded in JOURNAL.md.
 - `.venv/bin/python scripts/test-ios-overlay.py --device UDID` runs the real overlay timer and
-  control handlers on a booted Simulator, capturing their outgoing host events. Stop the game
-  candidate first. It checks uppercase/Enter ordering, interruption while Shift and a letter
+  control handlers in a separate process on a booted Simulator, capturing their outgoing host
+  events. It loads no game core, presents no window, and sends no input to the running preview.
+  It checks uppercase/Enter ordering, interruption while Shift and a letter
   are held, cancellation before delivery, ignored inactive input, no replay after resume,
   fresh typing, movement/fire release and discarded fractional look motion. This is an input
   boundary test, not proof of UIKit multi-touch routing or Halo observing every short press.
