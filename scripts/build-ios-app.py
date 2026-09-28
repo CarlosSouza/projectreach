@@ -48,9 +48,24 @@ def package(exe, out):
         'UISupportedInterfaceOrientations': ['UIInterfaceOrientationLandscapeLeft', 'UIInterfaceOrientationLandscapeRight'],
         'UISupportedInterfaceOrientations~ipad': ['UIInterfaceOrientationLandscapeLeft', 'UIInterfaceOrientationLandscapeRight'],
         'UIApplicationSceneManifest': {'UIApplicationSupportsMultipleScenes': False},
+        # the player's Halo folder is copied into Documents (Files app, Finder) or picked from a folder
+        'UIFileSharingEnabled': True, 'LSSupportsOpeningDocumentsInPlace': True,
     }
     with open(app / 'Info.plist', 'wb') as f:
         plistlib.dump(info, f)
+    # the app's own data: the translated image and modules, the reference machine's files, the
+    # registry seed and the input profile (the game files are the player's, imported on the device)
+    data = app / 'data'
+    (data / 'modules').mkdir(parents=True)
+    shutil.copy2(run_core.IMAGE, data / 'image.bin')
+    for m in sorted((run_core.IMAGE.parent / 'modules').iterdir()):
+        if (m / 'image.bin').is_file():
+            (data / 'modules' / m.name).mkdir()
+            shutil.copy2(m / 'image.bin', data / 'modules' / m.name / 'image.bin')
+    shutil.copytree(ROOT / 'ref' / 'inputs' / 'reference-machine', data / 'reference')
+    (data / 'config' / 'runtime').mkdir(parents=True)
+    shutil.copy2(ROOT / 'config' / 'runtime' / 'registry-machine.txt', data / 'config' / 'runtime' / 'registry-machine.txt')
+    shutil.copy2(ROOT / 'config' / 'profiles' / 'custom-en-1.0.10.0621.json', data / 'profile.json')
     subprocess.run(['codesign', '--force', '--sign', '-', '--timestamp=none', str(app)], check=True, capture_output=True)
     return app
 
@@ -61,6 +76,8 @@ def main():
     ap.add_argument('--device', default='E129A00F-D338-4FDC-8AE8-BB243E9BA61B', help='Simulator UDID ("HaloPad iPad Pro 13")')
     ap.add_argument('--launch', action='store_true')
     ap.add_argument('--wait', type=int, default=20, help='seconds to let the app run before the screenshot')
+    ap.add_argument('--device-data', action='store_true',
+                    help='launch without the Mac data paths: the app uses its bundle and Documents, as on a device (the import screen when no game folder is there)')
     ap.add_argument('--scene', type=pathlib.Path,
                     help='development only: a C file whose halopad_app_entry replaces the core start (evidence scenes in tests/)')
     a = ap.parse_args()
@@ -81,6 +98,9 @@ def main():
     # development settings from the Mac's environment: Halo's command line, the network policy,
     # an overlay part to open for the screenshot
     env.update({k: os.environ[k] for k in ('HALOPAD_ARGS', 'HALOPAD_NET', 'HALOPAD_OVERLAY_DEMO', 'HALOPAD_TRACE_NET', 'HALOPAD_TRACE_WINDOWS', 'HALOPAD_NO_OVERLAY', 'HALOPAD_TOUCH_SELFTEST', 'HALOPAD_TRACE_INPUT', 'HALOPAD_TRACE_WEAPON') if k in os.environ})
+    if a.device_data:
+        env = {k: v for k, v in env.items() if k not in ('HALOPAD_IMAGE', 'HALOPAD_MODULE_IMAGES', 'HALOPAD_REFERENCE_ROOT', 'HALOPAD_GAME_ROOT',
+                                                          'HALOPAD_STATE_ROOT', 'HALOPAD_REPO_ROOT', 'HALOPAD_REGISTRY')}
     child = {'SIMCTL_CHILD_' + k: str(v) for k, v in env.items()}
     dev = a.device
     subprocess.run(['xcrun', 'simctl', 'boot', dev], capture_output=True)          # already booted is fine

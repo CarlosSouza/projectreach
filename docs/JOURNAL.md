@@ -1094,3 +1094,9 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   has occurred loading a map file." and stays in the menus; custom maps belong in
   `HALOPAD_STATE_ROOT/install/maps/`; mod plugins (Chimera, HAC2, OpenSauce) cannot load because the
   module table is fixed and `dinput8.dll`/`strings.dll` are always HaloPad's own.
+
+- **Prepared-data import (G9):** the app bundles its own data (8.5 MB), keeps state in Application
+  Support, and takes the player's Halo Custom Edition folder in Documents (Files app, Finder, or
+  the import screen's folder picker), accepting it only with the locked 1.10 `haloce.exe` hash and
+  the stock files present. On the Simulator with `--device-data`: no folder shows the import
+  screen; the copied folder is accepted and Halo reaches its menu from device paths alone.

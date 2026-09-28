@@ -82,6 +82,162 @@ static NSString *current_map(void)
 - (UIReturnKeyType)returnKeyType { return UIReturnKeySend; }
 @end
 
+/* ---- the game's files on the device (G9: prepared-data import) ----
+   Without the Mac's HALOPAD_* paths (a device, or --device-data on the Simulator) the app uses its
+   bundle for its own data (the translated image and modules, the reference machine's files, the
+   registry seed, the input profile), Application Support for its state, and the player's own
+   Halo Custom Edition folder in Documents (the Files app, Finder, or the folder picker below),
+   accepted only when its haloce.exe is the locked 1.10 file (SHA-256 from profile.json) and the
+   stock files it needs are there. Nothing is downloaded and no key is involved. */
+#import <CommonCrypto/CommonDigest.h>
+#import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
+
+static NSString *documents_game_dir(void)
+{
+    NSURL *docs = [NSFileManager.defaultManager URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask].firstObject;
+    return [docs.path stringByAppendingPathComponent:@"Halo Custom Edition"];
+}
+
+static NSString *sha256_of_file(NSString *path)
+{
+    NSData *d = [NSData dataWithContentsOfFile:path options:NSDataReadingMappedIfSafe error:nil];
+    if (!d) return nil;
+    unsigned char h[CC_SHA256_DIGEST_LENGTH];
+    CC_SHA256(d.bytes, (CC_LONG)d.length, h);
+    NSMutableString *s = [NSMutableString string];
+    for (int i = 0; i < CC_SHA256_DIGEST_LENGTH; i++) [s appendFormat:@"%02x", h[i]];
+    return s;
+}
+
+/* a path under dir matched without regard to case (Windows names; the device's disk is case-sensitive) */
+static NSString *path_ci(NSString *dir, NSString *rel)
+{
+    NSString *p = dir;
+    for (NSString *part in [rel componentsSeparatedByString:@"/"]) {
+        NSString *hit = nil;
+        for (NSString *name in [NSFileManager.defaultManager contentsOfDirectoryAtPath:p error:nil] ?: @[])
+            if ([name caseInsensitiveCompare:part] == NSOrderedSame) { hit = name; break; }
+        if (!hit) return nil;
+        p = [p stringByAppendingPathComponent:hit];
+    }
+    return p;
+}
+
+/* nil when the folder is a usable Custom Edition 1.10 install; otherwise what is wrong with it */
+static NSString *game_dir_problem(NSString *dir)
+{
+    NSFileManager *fm = NSFileManager.defaultManager;
+    BOOL isDir = NO;
+    if (![fm fileExistsAtPath:dir isDirectory:&isDir] || !isDir) return @"No Halo Custom Edition folder yet.";
+    NSString *exe = path_ci(dir, @"haloce.exe");
+    if (!exe) return @"The folder has no haloce.exe.";
+    NSString *profile = [NSBundle.mainBundle.bundlePath stringByAppendingPathComponent:@"data/profile.json"];
+    NSDictionary *p = [NSJSONSerialization JSONObjectWithData:[NSData dataWithContentsOfFile:profile] ?: NSData.data options:0 error:nil];
+    NSString *want = p[@"accepted_sha256"], *got = sha256_of_file(exe);
+    if (!want) return @"The app's own profile.json is missing.";
+    if (![got isEqualToString:want]) return @"haloce.exe is not Halo Custom Edition 1.0.10 (its SHA-256 does not match the locked 1.10 file). Install the official 1.10 update first.";
+    for (NSString *f in @[@"strings.dll", @"keystone.dll", @"maps/ui.map", @"maps/bitmaps.map", @"maps/sounds.map", @"maps/loc.map", @"maps/bloodgulch.map"])
+        if (!path_ci(dir, f)) return [NSString stringWithFormat:@"The folder is missing %@.", f];
+    return nil;
+}
+
+/* the app's own paths, when the environment does not name the Mac's */
+static void resolve_device_paths(void)
+{
+    if (getenv("HALOPAD_IMAGE")) return;
+    NSString *data = [NSBundle.mainBundle.bundlePath stringByAppendingPathComponent:@"data"];
+    NSString *support = [NSFileManager.defaultManager URLsForDirectory:NSApplicationSupportDirectory inDomains:NSUserDomainMask].firstObject.path;
+    NSString *state = [support stringByAppendingPathComponent:@"HaloPad/state"];
+    [NSFileManager.defaultManager createDirectoryAtPath:state withIntermediateDirectories:YES attributes:nil error:nil];
+    setenv("HALOPAD_IMAGE", [data stringByAppendingPathComponent:@"image.bin"].UTF8String, 1);
+    setenv("HALOPAD_MODULE_IMAGES", [data stringByAppendingPathComponent:@"modules"].UTF8String, 1);
+    setenv("HALOPAD_REFERENCE_ROOT", [data stringByAppendingPathComponent:@"reference"].UTF8String, 1);
+    setenv("HALOPAD_REPO_ROOT", data.UTF8String, 1);                  /* config/runtime/registry-machine.txt lives under it */
+    setenv("HALOPAD_STATE_ROOT", state.UTF8String, 1);
+    setenv("HALOPAD_REGISTRY", [state stringByAppendingPathComponent:@"registry.txt"].UTF8String, 1);
+    if (!game_dir_problem(documents_game_dir())) setenv("HALOPAD_GAME_ROOT", documents_game_dir().UTF8String, 1);
+    fprintf(stderr, "HALOPAD APP: device paths; game folder %s\n", getenv("HALOPAD_GAME_ROOT") ? "accepted" : "not there yet");
+}
+
+/* The import screen: what to copy and where, a folder picker, and a re-check. */
+@interface HPImportViewController : UIViewController <UIDocumentPickerDelegate>
+@property(nonatomic, copy) void (^ready)(void);
+@property(nonatomic, strong) UILabel *status;
+@end
+
+@implementation HPImportViewController
+- (void)viewDidLoad
+{
+    [super viewDidLoad];
+    self.view.backgroundColor = UIColor.systemBackgroundColor;
+    UILabel *title = [UILabel new];
+    title.text = @"Your Halo Custom Edition files";
+    title.font = [UIFont boldSystemFontOfSize:24];
+    UILabel *text = [UILabel new];
+    text.numberOfLines = 0;
+    text.font = [UIFont systemFontOfSize:17];
+    text.text = @"HaloPad runs your own copy of Halo Custom Edition 1.10. Copy the game's folder (haloce.exe, strings.dll, keystone.dll and the maps folder with ui.map, bitmaps.map, sounds.map, loc.map and the multiplayer maps) into this app's folder in the Files app, named \"Halo Custom Edition\", or choose the folder below to copy it in.\n\nThe folder must hold the official 1.10 update (haloce.exe 1.0.10.0621). Custom maps go in its maps folder too.";
+    self.status = [UILabel new];
+    self.status.numberOfLines = 0;
+    self.status.font = [UIFont systemFontOfSize:15];
+    self.status.textColor = UIColor.secondaryLabelColor;
+    self.status.text = game_dir_problem(documents_game_dir());
+    UIButton *pick = [UIButton buttonWithType:UIButtonTypeSystem];
+    [pick setTitle:@"Choose Folder…" forState:UIControlStateNormal];
+    pick.titleLabel.font = [UIFont boldSystemFontOfSize:18];
+    [pick addTarget:self action:@selector(pick) forControlEvents:UIControlEventPrimaryActionTriggered];
+    UIButton *again = [UIButton buttonWithType:UIButtonTypeSystem];
+    [again setTitle:@"Check Again" forState:UIControlStateNormal];
+    again.titleLabel.font = [UIFont systemFontOfSize:18];
+    [again addTarget:self action:@selector(check) forControlEvents:UIControlEventPrimaryActionTriggered];
+    UIStackView *buttons = [[UIStackView alloc] initWithArrangedSubviews:@[again, pick]];
+    buttons.distribution = UIStackViewDistributionFillEqually;
+    UIStackView *stack = [[UIStackView alloc] initWithArrangedSubviews:@[title, text, self.status, buttons]];
+    stack.axis = UILayoutConstraintAxisVertical;
+    stack.spacing = 18;
+    stack.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.view addSubview:stack];
+    UILayoutGuide *g = self.view.safeAreaLayoutGuide;
+    [NSLayoutConstraint activateConstraints:@[
+        [stack.leadingAnchor constraintEqualToAnchor:g.leadingAnchor constant:32],
+        [stack.trailingAnchor constraintEqualToAnchor:g.trailingAnchor constant:-32],
+        [stack.topAnchor constraintEqualToAnchor:g.topAnchor constant:32],
+        [stack.widthAnchor constraintLessThanOrEqualToConstant:640],
+        [buttons.heightAnchor constraintEqualToConstant:48]]];
+    self.view.accessibilityIdentifier = @"HaloPadImport";
+}
+- (void)check
+{
+    NSString *problem = game_dir_problem(documents_game_dir());
+    self.status.text = problem ?: @"Halo Custom Edition 1.10 found. Starting…";
+    if (!problem) { setenv("HALOPAD_GAME_ROOT", documents_game_dir().UTF8String, 1); if (self.ready) self.ready(); }
+}
+- (void)pick
+{
+    UIDocumentPickerViewController *p = [[UIDocumentPickerViewController alloc] initForOpeningContentTypes:@[UTTypeFolder]];
+    p.delegate = self;
+    [self presentViewController:p animated:YES completion:nil];
+}
+- (void)documentPicker:(UIDocumentPickerViewController *)controller didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls
+{
+    NSURL *src = urls.firstObject;
+    if (!src) return;
+    self.status.text = @"Copying…";
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        BOOL scoped = [src startAccessingSecurityScopedResource];
+        NSError *e = nil;
+        NSString *dst = documents_game_dir();
+        [NSFileManager.defaultManager removeItemAtPath:dst error:nil];
+        BOOL ok = [NSFileManager.defaultManager copyItemAtPath:src.path toPath:dst error:&e];
+        if (scoped) [src stopAccessingSecurityScopedResource];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (!ok) self.status.text = [NSString stringWithFormat:@"The copy failed: %@", e.localizedDescription];
+            else [self check];
+        });
+    });
+}
+@end
+
 @interface HPGameViewController : UIViewController <HPOverlayDelegate>
 @end
 
@@ -261,6 +417,17 @@ static void touch_selftest(void)
     halopad_host_set_window_handler(on_window);
     if (!halopad_d3d9_present_hook) halopad_d3d9_present_hook = count_present;
     if (getenv("HALOPAD_TOUCH_SELFTEST")) after(5, ^{ touch_selftest(); });
+    if (getenv("HALOPAD_GAME_ROOT")) { [self startHalo]; return; }
+    /* no game folder yet: the import screen, then Halo */
+    HPImportViewController *imp = [HPImportViewController new];
+    imp.modalPresentationStyle = UIModalPresentationFormSheet;
+    imp.modalInPresentation = YES;
+    __weak HPImportViewController *wimp = imp;
+    imp.ready = ^{ [wimp dismissViewControllerAnimated:YES completion:^{ [self startHalo]; }]; };
+    [self presentViewController:imp animated:YES completion:nil];
+}
+- (void)startHalo
+{
     NSThread *t = [[NSThread alloc] initWithBlock:^{
         int code = halopad_app_entry();
         fprintf(stderr, "HALOPAD: Halo returned %d\n", code);
@@ -640,6 +807,7 @@ int halopad_host_open_url(const char *url)
 
 int main(int argc, char *argv[])
 {
+    resolve_device_paths();
     /* Halo's console (the menu's Join Server, Halo Console) needs its -console switch */
     const char *args = getenv("HALOPAD_ARGS");
     if (!args || !strstr(args, "-console")) {

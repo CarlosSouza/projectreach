@@ -424,6 +424,21 @@ something pressed in the same pump for the next pump; order is kept.
 4:3; the phone layout puts the stick, JUMP, FIRE, SWAP and the menu in the side bars, and the
 self-test passes there.
 
+**The game's files on the device (G9: prepared-data import).** Without the Mac's `HALOPAD_*`
+paths (a device, or `build-ios-app.py --device-data` on the Simulator) the app resolves its own:
+its bundle's `data/` holds the translated image (4.2 MB), the four module images, the reference
+machine's files, the registry seed and the input profile (8.5 MB in all); its state lives in
+Application Support; and the player's own Halo Custom Edition folder is expected in the app's
+Documents as "Halo Custom Edition", put there through the Files app or Finder
+(`UIFileSharingEnabled`) or copied in with the import screen's folder picker. The folder is accepted
+only when its `haloce.exe` has the locked 1.10 SHA-256 from `profile.json` and `strings.dll`,
+`Keystone.dll` and the stock `ui`, `bitmaps`, `sounds`, `loc` and `bloodgulch` maps are there (names
+matched without regard to case: the device's disk is case-sensitive, Windows names are not).
+Until then the import screen shows what is missing, with Check Again and Choose Folder. Checked
+on the iPad Simulator: no folder gives the screen; the 1.10 folder copied into Documents is
+accepted and Halo reaches its main menu from device paths alone. The shipping start (Halo's own
+entry point) still stops at the product-key check, as on a PC without the installer's key.
+
 **Still open here:** input latency on the Simulator (Halo's frames are uneven: a press can wait
 up to about 0.2 s for the next pump); physical devices.
 
