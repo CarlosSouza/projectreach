@@ -61,6 +61,7 @@ static const char *expect_map = "bloodgulch";     /* HALOPAD_TEST_MAP: the map t
    key) and types "connect <server>" and Enter, the keys and characters the iOS app's Join Server
    sends (port/ios/HaloPadOverlay.m) */
 static const char *via_console;
+static int via_browser;
 /* typed keys wait in a queue: each key goes down on one frame and up two frames later, so Halo's
    once-a-frame keyboard read sees it */
 static hp_input typed[512];
@@ -179,6 +180,11 @@ static void on_present(uint32_t device)
         type_text(line);
         printf("    frame 300: typed \"%s\" into Halo's console\n", line);
     }
+    /* HALOPAD_TEST_VIA=browser: Halo's own server list. Enter (Multiplayer), Enter (the new
+       profile's name), Enter (Join Game: Internet); the list is saved at frames 1500 and 2600 */
+    if (via_browser && (frames == 300 || frames == 420 || frames == 540 || frames == 1600)) { key_char(0x0D, 0x1c, 0, '\r'); }
+    if (via_browser && frames == 1500) { save_name = "browser-1.ppm"; save(device); save_name = "join.ppm"; }
+    if (via_browser && frames == 2600) { save_name = "browser-2.ppm"; save(device); save_name = "join.ppm"; }
     if (via_console && frames == 480) { save_name = "console-typing.ppm"; save(device); save_name = "join.ppm"; }
     if (via_console && frames == 1500) save(device);
     if (next_typed < ntyped && frames % 2 == 0) halopad_input_event(&typed[next_typed++]);
@@ -222,6 +228,7 @@ int main(void)
     char args[128];
     if (getenv("HALOPAD_TEST_VIA") && !strcmp(getenv("HALOPAD_TEST_VIA"), "console")) { via_console = server; QUIT_AFTER = 2100; }
     if (via_console) snprintf(args, sizeof args, "-console");     /* Halo's console needs its -console switch */
+    else if (getenv("HALOPAD_TEST_VIA") && !strcmp(getenv("HALOPAD_TEST_VIA"), "browser")) { via_browser = 1; QUIT_AFTER = 2700; args[0] = 0; }
     else snprintf(args, sizeof args, "-connect %s", server);
     setenv("HALOPAD_ARGS", args, 1);
     uint32_t one = 1;
@@ -277,6 +284,16 @@ int main(void)
     }
     uint32_t sdk = 0x1f;
     wr(0x6bd168, halopad_call_guest(rd(0x6e1534), 1, &sdk));     /* IDirect3D9 (0x544a2f) */
+    /* WinMain 0x544d16-0x544d51: GameSpy's set-up (0x5797e0), which registers Halo's query keys
+       (the Internet lobby's server list needs them); the key is read from WinMain's own code at 0x544d27 */
+    {
+        uint32_t keybuf = halopad_heap_alloc(8, 1);
+        for (uint32_t k = 0; k < 6; k++) ((uint8_t *)halopad_guest_ptr(keybuf))[k] = *(uint8_t *)halopad_guest_ptr(0x544d27 + 4 * k + 3);
+        uint32_t port = rd(0x6337f8), eax0 = cpu._eax, esi0 = cpu._esi, edi0 = cpu._edi;
+        cpu._eax = 0x610654; cpu._esi = keybuf; cpu._edi = 0;
+        halopad_call_guest_ex(0x5797e0, 1, &port, 0, 0);
+        cpu._eax = eax0; cpu._esi = esi0; cpu._edi = edi0;
+    }
 
     /* the game's systems: resource maps, graphics, input, sound (0x5442e0 loads the DirectX
        libraries itself) */
@@ -291,12 +308,15 @@ int main(void)
     halopad_call_guest_ex(0x4ca9c0, 0, NULL, 0, 0);
     printf("    %d frames presented; main returned\n", frames);
     check("main ran and returned when asked to quit", frames >= QUIT_AFTER, 1);
-    printf("    joined %s: the server's map loaded at frame %d\n", server, map_frame);
-    printf("    expected map \"%s\"; the map in memory is \"%s\"\n", expect_map, (const char *)halopad_guest_ptr(0x643064));
-    check("  the server's map loaded through the connection", map_frame > 0, 1);
-    check("  the server spawned the player's unit", unit_seen != 0, 1);
-    printf("    firing as a client: weapon type %d, rounds %u -> %u, battery %.2f -> %.2f, objects %u -> up to %u\n", (int16_t)fire_weapon_type, fire_rounds0, fire_rounds1, fire_battery0, fire_battery1, fire_objs0, fire_objs_most);
-    check("  the left button fires as a network client (rounds, battery or projectiles)", fire_rounds1 < fire_rounds0 || fire_battery1 < fire_battery0 - 0.02f || fire_objs_most > fire_objs0, 1);
+    if (!via_browser) {
+        printf("    joined %s: the server's map loaded at frame %d\n", server, map_frame);
+        printf("    expected map \"%s\"; the map in memory is \"%s\"\n", expect_map, (const char *)halopad_guest_ptr(0x643064));
+        check("  the server's map loaded through the connection", map_frame > 0, 1);
+        check("  the server spawned the player's unit", unit_seen != 0, 1);
+        printf("    firing as a client: weapon type %d, rounds %u -> %u, battery %.2f -> %.2f, objects %u -> up to %u\n", (int16_t)fire_weapon_type, fire_rounds0, fire_rounds1, fire_battery0, fire_battery1, fire_objs0, fire_objs_most);
+        check("  the left button fires as a network client (rounds, battery or projectiles)", fire_rounds1 < fire_rounds0 || fire_battery1 < fire_battery0 - 0.02f || fire_objs_most > fire_objs0, 1);
+    } else
+        printf("    Halo's Internet lobby: GET LIST pressed at frame 1600; the list is browser-2.ppm (the Winsock trace holds the master server's reply and each server's status)\n");
     check("  no dialog", (uint32_t)dialogs, 0);
     printf("%s: %d failure(s)\n", failures ? "FAIL" : "PASS", failures);
     return failures != 0;

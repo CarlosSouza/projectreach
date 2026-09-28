@@ -335,6 +335,15 @@ key value, the MD5 of the empty string from `0x5829e0`; nothing is made up.
 | POQclan CE17: Massacre Island (74.91.124.220:2302) | Death Island CTF, 5/16 | spawned; also from the iPad app (next section) |
 | 74.91.125.111:2302 | Sidewinder CTF, 16/16 | full: 2 packets, no join |
 
+**Halo's own server list.** Multiplayer > Join Game > Internet opens Halo's Internet lobby with the
+community's message of the day ("We made it! Welcome to the new world of Halo CE 1.0.10."), and
+GET LIST fills it from the master server: 171 servers and 78 players on 12 pages, with pings
+(AUSSIES MADNESS 1 to 5, POQclan, Country Club Chicago and others). The list needs WinMain's
+GameSpy set-up (`0x5797e0`, Halo's query keys); without it the browser thread read a NULL key name
+at `loc_5BBE18`. `tests/halo_connect_test.c` now does that set-up in every mode, and
+`HALOPAD_TEST_VIA=browser` (with `HALOPAD_NET=internet` and a fresh state) walks Multiplayer, the
+new profile's name and Internet, presses GET LIST and saves the lobby before and after.
+
 No server refused the key value. A server can check keys (SAPP's `sv_cdkeycheck`); a server that
 does, or that already holds a player with the same key hash, will refuse it, and only a
 legitimate key typed into Halo's installer changes that. Tests other than this script keep the

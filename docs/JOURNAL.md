@@ -1058,3 +1058,5 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   held 1 s in the test); the app scene reads `-cport` as WinMain does; the Mac join test now also
   fires as a network client (battery 0.89, a projectile).
 - **iPhone:** landscape, Halo letterboxed at 4:3, controls in the side bars.
+
+- **Halo's own Internet lobby** lists the public servers (171 servers, 78 players, with pings) once WinMain's GameSpy set-up has run; the join test does it in every mode and has a browser mode (HALOPAD_TEST_VIA=browser).
