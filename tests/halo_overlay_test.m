@@ -5,7 +5,7 @@
 #include <stdio.h>
 
 static hp_input events[512];
-static int count, failures;
+static int count, failures, cancellations;
 static BOOL held[256];
 static void check(const char *name, BOOL ok);
 
@@ -192,6 +192,7 @@ static void check_layouts(void)
 
 void halopad_host_post_input(const hp_input *e)
 {
+    if (e->kind == HPI_CANCEL_TOUCH) { cancellations++; return; }
     if (count >= 512) abort();
     events[count++] = *e;
     if (e->kind == HPI_KEY && e->side_vk < 256) held[e->side_vk] = e->down;
@@ -272,7 +273,10 @@ int main(void)
         [overlay driveMoveX:0 y:1];
         check("move fixture holds forward", held['W']);
         check("fire fixture finds the actual control", [overlay driveControl:@"fire" down:YES]);
+        int cancelsBefore = cancellations;
         [overlay clearTouchInput];
+        check("clearing touch input explicitly cancels unread virtual button edges", cancellations == cancelsBefore + 1);
+        check("virtual FIRE identifies its touch source", events[count - 2].flags & HPI_TOUCH);
         check("clearing touch input releases movement and fire",
               all_released() && count >= 4 && events[count - 2].kind == HPI_BUTTON &&
               !events[count - 2].down && events[count - 1].vk == 'W' && !events[count - 1].down);
@@ -296,6 +300,21 @@ int main(void)
         check("LOOK dead zone causes no drift", count == afterRelease);
         [overlay clearTouchInput];
         overlay.inGame = YES;
+        [overlay driveMoveX:0 y:1];
+        [overlay driveControl:@"fire" down:YES];
+        [overlay driveAimX:1 y:0];
+        UIButton *nativeMenu = [overlay valueForKey:@"menuButton"];
+        cancelsBefore = cancellations;
+        /* This headless harness has no UIApplication to dispatch sendActions. Check
+           the real registration and invoke that registered handler directly. */
+        NSArray<NSString *> *menuActions = [nativeMenu actionsForTarget:overlay forControlEvent:UIControlEventMenuActionTriggered];
+        check("three-dot menu registers input cancellation before presentation",
+              [menuActions containsObject:NSStringFromSelector(@selector(clearTouchInput))]);
+        for (NSString *action in menuActions) [overlay performSelector:NSSelectorFromString(action)];
+        int afterNativeMenu = count;
+        run_for(0.15);
+        check("three-dot menu opening releases holds and cancels unread mouse edges",
+              all_released() && cancellations == cancelsBefore + 1 && count == afterNativeMenu);
         [overlay setNeedsLayout]; [overlay layoutIfNeeded];
         [overlay driveMoveX:0 y:1];
         [overlay driveControl:@"fire" down:YES];

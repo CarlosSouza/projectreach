@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <TargetConditionals.h>
 #define PTROFS_64BIT 1
 #include "llasm_cpu.h"
 #include "../port/runtime/halopad_input.h"
@@ -46,6 +47,19 @@ static uint32_t api(const char *name, uint32_t n, const uint32_t *args) { return
 #define API(name, ...) api(name, sizeof((uint32_t[]){__VA_ARGS__}) / 4, (uint32_t[]){__VA_ARGS__})
 static void input(hp_input e) { halopad_input_event(&e); }
 static void key(uint32_t scan, int ext, int down) { input((hp_input){.kind = HPI_KEY, .vk = 'A', .scan = scan, .extended = ext, .down = down}); }
+void halopad_host_pump(void);
+static void queued_input(hp_input e)
+{
+#if TARGET_OS_IPHONE
+    halopad_host_post_input(&e);
+#else
+    input(e);
+#endif
+}
+
+static void touch_button(int button, int down)
+{ queued_input((hp_input){.kind = HPI_BUTTON, .flags = HPI_TOUCH, .button = button, .down = down}); }
+static void pump_many(void) { for (int i = 0; i < 8; i++) halopad_host_pump(); }
 
 enum { Release = 2, CreateDevice = 3, EnumDevices = 4,
        GetProperty = 5, SetProperty = 6, Acquire = 7, Unacquire = 8, GetDeviceState = 9, GetDeviceData = 10,
@@ -164,8 +178,87 @@ int main(void)
     check("mouse: GetDeviceState of the wrong size is invalid", M(m, GetDeviceState, 16, ms), 0x80070057);
     check("mouse: GetDeviceData unbuffered: DIERR_NOTBUFFERED", M(m, GetDeviceData, 20, od, n, 0), 0x80040207);
     check("mouse: Poll on an interrupt device: DI_NOEFFECT", M0(m, Poll), 1);
+
+    /* A real UIKit-style tap can reach two host pumps before Halo samples the
+       unbuffered mouse. Test the queue, not just a direct handler hold. */
+#if TARGET_OS_IPHONE
+    halopad_host_input_off = 0;
+#endif
+    touch_button(0, 1); touch_button(0, 0);
+    for (int i = 0; i < 8; i++) halopad_host_pump();
+    M(m, GetDeviceState, 20, ms);
+    check("touch tap survives eight pumps before mouse state read", ((uint8_t *)halopad_guest_ptr(ms))[12], 0x80);
+    M(m, GetDeviceState, 20, ms);
+    check("touch tap releases on the following state read", ((uint8_t *)halopad_guest_ptr(ms))[12], 0);
+    touch_button(0, 1); touch_button(0, 1); touch_button(0, 0);
+    touch_button(0, 1); touch_button(0, 0); pump_many();
+    M(m, GetDeviceState, 16, ms); M(m, GetDeviceState, 20, 0); M0(m, Poll);
+    M(k, GetDeviceState, 256, st);
+    int sequenceOK = 1;
+    for (int i = 0; i < 5; i++) {
+        M(m, GetDeviceState, 20, ms);
+        sequenceOK &= ((uint8_t *)halopad_guest_ptr(ms))[12] == (i < 4 && !(i & 1) ? 0x80 : 0);
+    }
+    check("two taps retain edges; duplicates, invalid reads, Poll and keyboard reads do not consume them", sequenceOK, 1);
+    touch_button(0, 1); pump_many();
+    M(m, GetDeviceState, 20, ms); M(m, GetDeviceState, 20, ms);
+    check("held touch stays down after pending edge is read", ((uint8_t *)halopad_guest_ptr(ms))[12], 0x80);
+    input((hp_input){.kind = HPI_BUTTON, .button = 0, .down = 1});
+    touch_button(0, 0); pump_many(); M(m, GetDeviceState, 20, ms);
+    check("touch release preserves physical mouse hold", ((uint8_t *)halopad_guest_ptr(ms))[12], 0x80);
+    check("USER32 also preserves physical hold", API("GetAsyncKeyState", 1) & 0x8000, 0x8000);
+    input((hp_input){.kind = HPI_BUTTON, .button = 0, .down = 0});
+    M(m, GetDeviceState, 20, ms);
+    check("last source release clears mouse", ((uint8_t *)halopad_guest_ptr(ms))[12], 0);
+    touch_button(0, 1); touch_button(0, 0); pump_many();
+    queued_input((hp_input){.kind = HPI_CANCEL_TOUCH}); pump_many();
+    M(m, GetDeviceState, 20, ms);
+    check("native menu cancellation discards already-pumped unread tap", ((uint8_t *)halopad_guest_ptr(ms))[12], 0);
+    touch_button(0, 1); touch_button(0, 0);
+    queued_input((hp_input){.kind = HPI_CANCEL_TOUCH}); pump_many();
+    M(m, GetDeviceState, 20, ms);
+    check("native menu cancellation discards tap still in host queue", ((uint8_t *)halopad_guest_ptr(ms))[12], 0);
+    touch_button(0, 1); pump_many(); M(m, GetDeviceState, 20, ms);
+    queued_input((hp_input){.kind = HPI_CANCEL_TOUCH}); pump_many(); M(m, GetDeviceState, 20, ms);
+    check("cancellation releases previously-read held touch", ((uint8_t *)halopad_guest_ptr(ms))[12], 0);
+    check("cancellation releases USER32 touch state", API("GetAsyncKeyState", 1) & 0x8000, 0);
+    input((hp_input){.kind = HPI_BUTTON, .button = 0, .down = 1});
+    touch_button(0, 1); pump_many();
+    queued_input((hp_input){.kind = HPI_CANCEL_TOUCH}); pump_many(); M(m, GetDeviceState, 20, ms);
+    check("cancellation leaves physical hold in DirectInput and USER32",
+          ((uint8_t *)halopad_guest_ptr(ms))[12] == 0x80 && (API("GetAsyncKeyState", 1) & 0x8000), 1);
+    input((hp_input){.kind = HPI_BUTTON, .button = 0, .down = 0});
+    queued_input((hp_input){.kind = HPI_CANCEL_TOUCH});
+    touch_button(0, 1); touch_button(0, 0); pump_many();
+    M(m, GetDeviceState, 20, ms);
+    check("new tap posted after cancellation is retained", ((uint8_t *)halopad_guest_ptr(ms))[12], 0x80);
+    M(m, GetDeviceState, 20, ms);
+    touch_button(0, 1); touch_button(0, 0); pump_many();
+    M0(m, Unacquire); M0(m, Acquire); M(m, GetDeviceState, 20, ms);
+    check("reacquire does not replay unread touch taps", ((uint8_t *)halopad_guest_ptr(ms))[12], 0);
+    touch_button(0, 1); touch_button(0, 0); pump_many();
+    input((hp_input){.kind = HPI_ACTIVATE, .down = 0});
+    input((hp_input){.kind = HPI_ACTIVATE, .down = 1});
+    check("focus cycle loses acquisition even with no intervening state read", M(m, GetDeviceState, 20, ms), 0x8007001e);
+    M0(m, Acquire); M(m, GetDeviceState, 20, ms);
+    check("foreground regain does not replay unread touch taps", ((uint8_t *)halopad_guest_ptr(ms))[12], 0);
+#if TARGET_OS_IPHONE
+    halopad_host_input_off = 1;
+#endif
     check("mouse: Unacquire", M0(m, Unacquire), 0);
 
+
+    /* Buffered clients consume the ordinary event stream, not a second replay. */
+    check("buffered mouse setup", M(m, SetProperty, 1, prop), 0);
+    M0(m, Acquire);
+    input((hp_input){.kind = HPI_BUTTON, .flags = HPI_TOUCH, .button = 0, .down = 1});
+    input((hp_input){.kind = HPI_CANCEL_TOUCH});
+    memcpy(halopad_guest_ptr(n), (uint32_t[]){32}, 4);
+    M(m, GetDeviceData, 20, od, n, 0);
+    check("buffered touch cancellation supplies down and release", rd(n) == 2 && rd(od) == 12 && rd(od + 4) == 0x80 && rd(od + 20) == 12 && rd(od + 24) == 0, 1);
+    M(m, GetDeviceState, 20, ms);
+    check("buffered mouse state does not replay consumed tap", ((uint8_t *)halopad_guest_ptr(ms))[12], 0);
+    M0(m, Unacquire);
 
     /* a game controller, set up by Halo's own code: 0x494840 builds its 80-object format at
        0x815400 (32 axes, 16 hats, 32 buttons, all optional) and enumerates game controllers with

@@ -1703,3 +1703,40 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   routing, package picker/recovery and all external full-goal acceptance rows remain open.
   No completion/blocked state update is warranted. Next input work should address the runtime
   edge-retention row and real multi-touch, not repeat this final-endpoint check without changes.
+
+
+### 2026-09-28 — retain quick touch-button edges until Halo reads them
+
+- Previous turn: **progress**, `3eefbd7` privately pushed. Read the full objective and G9/M27;
+  source locks and executable identity pass. Started clean with only preview PID 59280 live,
+  phone shut down, no Wine. The reference/patch bottles remain present. No new parked input.
+- Reproduced a quick virtual FIRE down/up disappearing after eight host pumps before Halo's
+  unbuffered DirectInput mouse read. The test failed exactly that assertion; saved red result,
+  binary hash and output under `G9/touch-mouse-edges`. Stopped only the existing preview before
+  the core harness. Backed up Application Support/preferences before reinstalling.
+- Tagged overlay mouse buttons, retained alternating edges until successful state reads, and
+  kept physical/touch button ownership independent in DirectInput and USER32. Duplicate events,
+  invalid reads, Poll and other-device reads do not consume pending edges. Buffered mouse uses
+  its ordinary event stream; bounded backlog drops whole pairs to preserve release parity.
+- Added explicit cancellation that purges queued virtual buttons before ordinary events and
+  clears already-delivered unread edges. Focus loss and reacquisition discard stale input.
+  Opening the three-dot menu was missing its clear-input binding: connected UIKit's documented
+  MenuActionTriggered event, which fires before presentation. Existing keyboard/Halo menu/editor/
+  lifecycle clear paths also cancel pending mouse edges.
+- Final DirectInput suite passes 80 assertions (`G3/core-arm64-apple-ios17.0-simulator-20260928T154845Z`),
+  USER32 74 (`...154751Z`), overlay 48 assertions plus 90 geometry combinations/five renders
+  (`G9/overlay-20260928T155429Z`). The headless overlay runner checks the real menu registration
+  and invokes its registered handler: it has no UIApplication to dispatch sendActions; an
+  initial attempt to use that dispatcher failed and is retained under `...155316Z`.
+- Intermediate installed PID 62372 reached Battle Creek via original menus from device data.
+  Actual UIKit FIRE taps of 1 ms and 0 ms produced shots (first battery 100→99; second muzzle
+  flash visible). A 0 ms THROW tap reduced grenades 2→1. Evidence and phase traces under
+  `G9/touch-mouse-edges`; no handler selftest used. Final build adds the native-menu binding
+  and opt-in clear-input trace; current preview PID 63397 (`G3/ios-app-20260928T155503Z`).
+- Final actual three-dot opening increased the clear-input trace count 1→2. Dismissal and
+  another short FIRE tap worked (battery 100→99). Leave PID 63397 in local gameplay, phone
+  shut down; no separate server/Wine. Full build signature and repo safety checks pass.
+- Full project scope remains active. This closes the reproduced virtual mouse-button edge
+  defect, not general short keyboard edges, simultaneous held multi-touch, physical ergonomics,
+  normal licensed startup/reference-client comparison, campaign or the other parked gates.
+  Continue with those acceptance rows; do not repeat successful tap checks without a change.

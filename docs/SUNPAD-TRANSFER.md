@@ -210,3 +210,25 @@ The adapter passes seven gesture-sequence tests and 72 cursor routes against the
 menu routine, converging within two correction frames (`G9/menu-touch-20260928T131724Z`).
 General very short gameplay-key edges, actual simultaneous multi-touch, the alternate guest
 OS-cursor path and physical-device ergonomics remain unverified.
+
+
+### Short FIRE/THROW taps across host pumps
+
+The overlay tags virtual mouse buttons separately from physical mouse input. A quick down/up
+previously disappeared if Halo pumped input twice before its unbuffered mouse read. A failing
+DirectInput regression reproduces this with eight pumps (`G9/touch-mouse-edges/red-*`).
+The runtime now retains alternating virtual edges per button, advancing once per successful
+state read. Invalid reads, Poll and keyboard reads do not consume them. Duplicate presses are
+ignored; held state persists normally; physical mouse holds remain independent. Buffered mouse
+clients retain their normal event stream without an additional state replay. Pending edge counts
+are bounded to 1024 per button; overflow drops a complete pair to preserve final release parity.
+
+The three-dot button uses UIKit’s pre-presentation menu event to clear held input. Native UI
+takeover explicitly cancels unread virtual edges and queued touch-button events.
+Cancellation is delivered before normal queued events and preserves physical input. Focus loss
+and reacquisition clear the runtime backlog. This closes the reproduced virtual mouse case;
+it does not establish general short keyboard-edge behavior or simultaneous physical multi-touch.
+
+Verification: 80 DirectInput assertions (`G3/core-arm64-apple-ios17.0-simulator-20260928T154845Z`),
+74 USER32 assertions (`G3/core-arm64-apple-ios17.0-simulator-20260928T154751Z`), and 48 overlay
+assertions plus 90 layouts/five renders (`G9/overlay-20260928T155429Z`) pass on the iPad Simulator.

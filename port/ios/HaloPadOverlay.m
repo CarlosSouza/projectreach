@@ -55,7 +55,7 @@ static void post_mouse(int32_t dx, int32_t dy)
 }
 static void post_button(int b, int down)
 {
-    hp_input e = {.kind = HPI_BUTTON, .x = 400, .y = 300, .button = b, .down = down};
+    hp_input e = {.kind = HPI_BUTTON, .flags = HPI_TOUCH, .x = 400, .y = 300, .button = b, .down = down};
     halopad_host_post_input(&e);
 }
 
@@ -475,7 +475,10 @@ static const hp_control_def CONTROLS[] = {
 }
 - (void)clearTouchInput
 {
+    if (getenv("HALOPAD_TRACE_TOUCH")) fprintf(stderr, "HALOPAD TOUCH: clear input\n");
     for (HPControlButton *b in _buttons) [b release_];
+    hp_input cancel = {.kind = HPI_CANCEL_TOUCH};
+    halopad_host_post_input(&cancel);
     [_move reset];
     [_aim reset];
     [_lookDrag clear];
@@ -722,6 +725,7 @@ static const hp_control_def CONTROLS[] = {
     _menuButton.accessibilityLabel = @"Menu";
     _menuButton.accessibilityIdentifier = @"HaloPadMenu";
     _menuButton.showsMenuAsPrimaryAction = YES;
+    [_menuButton addTarget:self action:@selector(clearTouchInput) forControlEvents:UIControlEventMenuActionTriggered];
     [self addSubview:_menuButton];
     [self rebuildMenu];
 }

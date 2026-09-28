@@ -400,6 +400,7 @@ static int32_t cursor_x, cursor_y;                    /* screen */
 static int cursor_count;                              /* ShowCursor's display count */
 static uint32_t cursor_handle;
 static uint8_t async_keys[256], async_pressed[256], sync_keys[256], toggles[256];
+static uint8_t mouse_physical[3], mouse_touch[3];
 static uint32_t last_click_time, last_click_msg;
 static int32_t last_click_x, last_click_y;
 
@@ -517,6 +518,8 @@ static void app_activation(int on)
         app_activation_pending = 0;
         if (is_window(a)) send(a, WM_ACTIVATEAPP, 0, 0);
         memset(async_keys, 0, sizeof async_keys);
+        memset(mouse_physical, 0, sizeof mouse_physical);
+        memset(mouse_touch, 0, sizeof mouse_touch);
     } else if (is_window(last_active) && uget(last_active, H_WINDOW)->visible) {
         activate(last_active);
     } else {
@@ -1102,6 +1105,13 @@ void halopad_input_event(const hp_input *e)
     uint32_t target = capture ? capture : active;
     uobj *w = target ? uget(target, H_WINDOW) : NULL;
     switch (e->kind) {
+    case HPI_CANCEL_TOUCH:
+        for (int b = 0; b < 3; b++) if (mouse_touch[b]) {
+            hp_input release = {.kind = HPI_BUTTON, .flags = HPI_TOUCH, .button = b};
+            if (w) { int32_t ox, oy; window_screen_client(w, &ox, &oy); release.x = cursor_x - ox; release.y = cursor_y - oy; }
+            halopad_input_event(&release);
+        }
+        return;
     case HPI_ACTIVATE:
         system_event_serial++;
         app_activation(e->down);
@@ -1139,7 +1149,13 @@ void halopad_input_event(const hp_input *e)
             static const uint32_t vk_of[3] = {1, 2, 4};             /* VK_LBUTTON, VK_RBUTTON, VK_MBUTTON */
             static const uint32_t base[3] = {WM_LBUTTONDOWN, 0x0204, 0x0207};
             if (e->button < 0 || e->button > 2) return;
-            set_key(vk_of[e->button], e->down);
+            int b = e->button;
+            int before = mouse_physical[b] || mouse_touch[b];
+            if (e->flags & HPI_TOUCH) mouse_touch[b] = !!e->down;
+            else mouse_physical[b] = !!e->down;
+            int after = mouse_physical[b] || mouse_touch[b];
+            if (before == after) return;
+            set_key(vk_of[b], after);
             uint32_t msg = base[e->button] + (e->down ? 0 : 1);
             if (e->down) {
                 uint32_t now = GetTickCount_c();

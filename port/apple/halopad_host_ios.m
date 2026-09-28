@@ -31,6 +31,7 @@ void halopad_host_screen_size(int32_t *w, int32_t *h)
 #define QSIZE 1024u
 static hp_input queue_ev[QSIZE];
 static uint32_t q_head, q_tail;
+static int cancel_touch_pending;
 static pthread_mutex_t q_lock = PTHREAD_MUTEX_INITIALIZER;
 
 void halopad_host_post_input(const hp_input *e)
@@ -41,7 +42,17 @@ void halopad_host_post_input(const hp_input *e)
     pthread_mutex_lock(&q_lock);
     if (trace && e->kind == HPI_KEY && e->scan == 0x29)
         fprintf(stderr, "HALOPAD INPUT: %.3f posted console key %s (queue %u)\n", CFAbsoluteTimeGetCurrent(), e->down ? "down" : "up", q_tail - q_head);
-    if (q_tail - q_head < QSIZE) queue_ev[q_tail++ % QSIZE] = *e;   /* a full queue drops, as a stalled Windows queue would */
+    if (e->kind == HPI_CANCEL_TOUCH) {
+        /* Native UI takes ownership now. Discard queued virtual button edges and
+           deliver cancellation before ordinary events, even behind a key barrier. */
+        uint32_t write = q_head;
+        for (uint32_t read = q_head; read != q_tail; read++) {
+            hp_input queued = queue_ev[read % QSIZE];
+            if (queued.kind != HPI_BUTTON || !(queued.flags & HPI_TOUCH)) queue_ev[write++ % QSIZE] = queued;
+        }
+        q_tail = write;
+        cancel_touch_pending = 1;
+    } else if (q_tail - q_head < QSIZE) queue_ev[q_tail++ % QSIZE] = *e;   /* a full queue drops, as a stalled Windows queue would */
     pthread_mutex_unlock(&q_lock);
 }
 
@@ -51,7 +62,8 @@ void halopad_host_pump(void)
     if ([NSThread isMainThread]) [[NSRunLoop mainRunLoop] runMode:NSDefaultRunLoopMode beforeDate:[NSDate distantPast]];
     /* A press and its release in one pump would never be seen by a game that reads key and button
        state once a frame (Halo does: a long frame left a touch's FIRE visible for one tick). The
-       release of something pressed in this pump waits for the next one; order is kept. */
+       release of something pressed in this pump waits for the next one; order is kept.
+       Virtual mouse buttons instead retain edges until DirectInput reads them. */
     uint32_t pressed[32];
     int npressed = 0;
     static int trace = -1;
@@ -66,10 +78,13 @@ void halopad_host_pump(void)
     for (;;) {
         hp_input e;
         pthread_mutex_lock(&q_lock);
-        int have = q_head != q_tail;
-        if (have) {
+        int have = cancel_touch_pending || q_head != q_tail;
+        if (cancel_touch_pending) {
+            e = (hp_input){.kind = HPI_CANCEL_TOUCH};
+            cancel_touch_pending = 0;
+        } else if (have) {
             e = queue_ev[q_head % QSIZE];
-            uint32_t id = e.kind == HPI_KEY ? 0x10000u | (e.scan & 0xFF) | (e.extended ? 0x100u : 0) : e.kind == HPI_BUTTON ? 0x20000u | (uint32_t)e.button : 0;
+            uint32_t id = e.kind == HPI_KEY ? 0x10000u | (e.scan & 0xFF) | (e.extended ? 0x100u : 0) : e.kind == HPI_BUTTON && !(e.flags & HPI_TOUCH) ? 0x20000u | (uint32_t)e.button : 0;
             int held_back = 0;
             if (id && !e.down) for (int i = 0; i < npressed; i++) held_back |= pressed[i] == id;
             if (held_back) have = 0;

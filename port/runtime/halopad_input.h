@@ -5,7 +5,8 @@
 #define HALOPAD_INPUT_H
 #include <stdint.h>
 
-enum { HPI_KEY, HPI_MOUSEMOVE, HPI_BUTTON, HPI_WHEEL, HPI_ACTIVATE, HPI_CLOSE };
+enum { HPI_KEY, HPI_MOUSEMOVE, HPI_BUTTON, HPI_WHEEL, HPI_ACTIVATE, HPI_CLOSE, HPI_CANCEL_TOUCH };
+enum { HPI_TOUCH = 1u };                 /* virtual button edges must reach a state reader */
 
 typedef struct {
     int kind;
@@ -17,6 +18,7 @@ typedef struct {
     int32_t dx, dy;                      /* mouse moves: relative counts (DirectInput) */
     int button;                          /* 0 left, 1 right, 2 middle */
     int32_t wheel;                       /* WHEEL_DELTA units (120 per notch) */
+    uint32_t flags;
 } hp_input;
 
 void halopad_input_event(const hp_input *e);

@@ -68,7 +68,8 @@ typedef struct {
     event buf[MAXBUF];
     uint8_t keys[256];
     int32_t dx, dy, dz;
-    uint8_t buttons[8];
+    uint8_t buttons[8], touch_raw[8], touch_read[8];
+    uint32_t touch_edges[8]; /* alternating edges, consumed by successful unbuffered reads */
     /* game controllers */
     uint32_t pad_id;
     hp_gamepad snap;                    /* the state at the last Poll or Acquire */
@@ -178,10 +179,18 @@ uint32_t hpcom_IDirectInputDevice8A_QueryInterface_c(uint32_t g, uint32_t iid, u
 uint32_t hpcom_IDirectInputDevice8A_AddRef_c(uint32_t g) { D(g); return halopad_com_addref(g); }
 uint32_t hpcom_IDirectInputDevice8A_Release_c(uint32_t g) { D(g); return halopad_com_release(g); }
 
+static void clear_touch(device *d)
+{
+    memset(d->touch_raw, 0, sizeof d->touch_raw);
+    memset(d->touch_read, 0, sizeof d->touch_read);
+    memset(d->touch_edges, 0, sizeof d->touch_edges);
+}
+
 static void set_acquired(device *d, int on)
 {
     if (d->acquired == on) return;
     d->acquired = on;
+    clear_touch(d);
     if (d->kind == MOUSE && (d->coop & 1)) halopad_host_mouse_capture(on);
     if (on) { memset(d->keys, 0, sizeof d->keys); memset(d->buttons, 0, sizeof d->buttons); d->dx = d->dy = d->dz = 0; }
 }
@@ -314,7 +323,13 @@ uint32_t hpcom_IDirectInputDevice8A_GetDeviceState_c(uint32_t g, uint32_t size, 
     if (d->kind == KEYBOARD) { memcpy(G(data), d->keys, 256); return DI_OK; }
     if (d->kind == GAMEPAD) { pad_state(d, data); return DI_OK; }
     wr32(data, (uint32_t)d->dx); wr32(data + 4, (uint32_t)d->dy); wr32(data + 8, (uint32_t)d->dz);
-    memcpy((uint8_t *)G(data) + 12, d->buttons, size - 12);
+    for (uint32_t b = 0; b < size - 12; b++) {
+        if (!d->bufsize && d->touch_edges[b]) {
+            d->touch_edges[b]--;
+            d->touch_read[b] ^= 0x80;
+        }
+        ((uint8_t *)G(data))[12 + b] = d->buttons[b] | (d->bufsize ? d->touch_raw[b] : d->touch_read[b]);
+    }
     d->dx = d->dy = d->dz = 0;                                      /* relative: counts since the last read */
     return DI_OK;
 }
@@ -608,6 +623,16 @@ void halopad_dinput_event(const hp_input *e)
     for (int i = 0; i < 8; i++) {
         device *d = devices[i];
         if (!d || d->kind == GAMEPAD) continue;
+        if (e->kind == HPI_CANCEL_TOUCH) {
+            for (uint32_t b = 0; b < 8; b++)
+                if (d->touch_raw[b] && !d->buttons[b]) record(d, 12u + b, 0);
+            clear_touch(d);
+            continue;
+        }
+        if (e->kind == HPI_ACTIVATE && !e->down && (d->coop & 4)) {
+            if (d->acquired) { set_acquired(d, 0); d->lost = 1; }
+            continue;
+        }
         if (!d->acquired) { if (trace && e->kind == HPI_BUTTON) fprintf(stderr, "HALOPAD INPUT:   device %d (kind %d) not acquired\n", i, d->kind); continue; }
         if ((d->coop & 4) && GetForegroundWindow_c() != d->hwnd) { if (trace && e->kind == HPI_BUTTON) fprintf(stderr, "HALOPAD INPUT:   device %d (kind %d) not foreground\n", i, d->kind); continue; }
         if (trace && e->kind == HPI_BUTTON && d->kind == MOUSE) fprintf(stderr, "HALOPAD INPUT:   mouse %d: button %d was %02x\n", i, e->button, d->buttons[e->button & 7]);
@@ -625,7 +650,19 @@ void halopad_dinput_event(const hp_input *e)
                 d->dz += e->wheel; record(d, 8, (uint32_t)e->wheel);
             } else if (e->kind == HPI_BUTTON && e->button >= 0 && e->button < 8) {
                 uint8_t v = e->down ? 0x80 : 0;
-                if (d->buttons[e->button] != v) { d->buttons[e->button] = v; record(d, 12u + (uint32_t)e->button, v); }
+                uint32_t b = (uint32_t)e->button;
+                uint8_t before = d->buttons[b] | d->touch_raw[b];
+                if (e->flags & HPI_TOUCH) {
+                    if (d->touch_raw[b] == v) continue;
+                    d->touch_raw[b] = v;
+                    if (!d->bufsize) {
+                        /* Bound backlog; dropping a complete pair preserves parity and release. */
+                        if (d->touch_edges[b] >= MAXBUF) d->touch_edges[b] -= 2;
+                        d->touch_edges[b]++;
+                    }
+                } else d->buttons[b] = v;
+                uint8_t after = d->buttons[b] | d->touch_raw[b];
+                if (before != after) record(d, 12u + b, after);
             }
         }
     }
