@@ -116,6 +116,8 @@ typedef NS_ENUM(NSInteger, HPControlKind) { HPKey, HPMouseButton };
 
 @interface HPStickView : UIView
 @property(nonatomic, copy) void (^valueChanged)(float x, float y);
+@property(nonatomic) BOOL editing;
+@property(nonatomic, strong) UILabel *caption;
 - (void)reset;
 - (void)track:(UITouch *)t;
 @end
@@ -135,6 +137,12 @@ typedef NS_ENUM(NSInteger, HPControlKind) { HPKey, HPMouseButton };
         _thumb.backgroundColor = [UIColor colorWithWhite:1 alpha:0.55];
         _thumb.userInteractionEnabled = NO;
         [self addSubview:_thumb];
+        _caption = [UILabel new];
+        _caption.textAlignment = NSTextAlignmentCenter;
+        _caption.textColor = [UIColor colorWithWhite:1 alpha:0.65];
+        _caption.font = [UIFont systemFontOfSize:10 weight:UIFontWeightSemibold];
+        _caption.userInteractionEnabled = NO;
+        [self addSubview:_caption];
     }
     return self;
 }
@@ -145,6 +153,7 @@ typedef NS_ENUM(NSInteger, HPControlKind) { HPKey, HPMouseButton };
     self.layer.cornerRadius = side / 2;
     _thumb.bounds = CGRectMake(0, 0, t, t);
     _thumb.layer.cornerRadius = t / 2;
+    _caption.frame = CGRectMake(0, side - 23, side, 14);
     [self place];
 }
 - (void)place
@@ -163,8 +172,8 @@ typedef NS_ENUM(NSInteger, HPControlKind) { HPKey, HPMouseButton };
     [self place];
     if (self.valueChanged) self.valueChanged(_x, _y);
 }
-- (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event { [self track:touches.anyObject]; }
-- (void)touchesMoved:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event { [self track:touches.anyObject]; }
+- (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event { if (!self.editing) [self track:touches.anyObject]; }
+- (void)touchesMoved:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event { if (!self.editing) [self track:touches.anyObject]; }
 - (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event { [self reset]; }
 - (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event { [self reset]; }
 @end
@@ -254,47 +263,40 @@ typedef NS_ENUM(NSInteger, HPControlKind) { HPKey, HPMouseButton };
 - (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event { [self press:0]; }
 @end
 
-/* Halo's PC controls (its default bindings) as touch controls. Placement: RING buttons sit on a
-   circle around FIRE at an angle (degrees, 0 = right, counter-clockwise); EDGE buttons at a
-   normalized centre in the safe area (tablet, phone). Sizes: 0 utility, 1 ring, 2 fire. */
-enum { RING, EDGE, CENTRE };
+/* Halo's PC bindings. Layout gives the sticks their own space and places actions in
+   rows above/beside them. Size 0 is a utility, 1 an action, 2 the fire target. */
 typedef struct {
     const char *ident, *caption, *symbol;
     HPControlKind kind;
     uint32_t vk, side, scan, button;
-    int looks, size, place;
-    CGFloat angle, tx, ty, px, py;
+    int looks, size;
 } hp_control_def;
 
 static const hp_control_def CONTROLS[] = {
-    {"fire",     "",       "scope",                    HPMouseButton, 0, 0, 0, 0,    1, 2, CENTRE, 0, 0, 0, 0, 0},
-    {"action",   "USE",    "hand.tap.fill",            HPKey, 'E', 0, 0x12, 0,       0, 1, RING, 5},
-    {"switch",   "SWAP",   "arrow.left.arrow.right",   HPKey, 0x09, 0, 0x0f, 0,      0, 1, RING, 45},
-    {"zoom",     "ZOOM",   "plus.magnifyingglass",     HPKey, 'Z', 0, 0x2c, 0,       0, 1, RING, 85},
-    {"grenade",  "THROW",  "flame.fill",               HPMouseButton, 0, 0, 0, 1,    1, 1, RING, 125},
-    {"melee",    "MELEE",  "hand.raised.fill",         HPKey, 'F', 0, 0x21, 0,       0, 1, RING, 165},
-    {"reload",   "RELOAD", "arrow.clockwise",          HPKey, 'R', 0, 0x13, 0,       0, 1, RING, 205},
-    {"crouch",   "CROUCH", "arrow.down.to.line",       HPKey, 0x11, 0xA2, 0x1d, 0,   0, 1, RING, 245},
-    {"jump",     "JUMP",   "arrow.up",                 HPKey, 0x20, 0, 0x39, 0,      0, 1, RING, 290},
-    {"flash",    "LIGHT",  "flashlight.on.fill",       HPKey, 'Q', 0, 0x10, 0,       0, 0, EDGE, 0, 0.045, 0.40, 0.05, 0.36},
-    {"nadetype", "NADE",   "arrow.triangle.2.circlepath", HPKey, 'G', 0, 0x22, 0,    0, 0, EDGE, 0, 0.045, 0.52, 0.05, 0.54},
-    /* top centre: Halo's HUD holds the top corners (ammo, shields) */
-    {"scores",   "",       "list.number",              HPKey, 0x70, 0, 0x3b, 0,      0, 0, EDGE, 0, 0.465, 0.055, 0.455, 0.07},
-    {"menu",     "",       "pause.fill",               HPKey, 0x1B, 0, 0x01, 0,      0, 0, EDGE, 0, 0.535, 0.055, 0.545, 0.07},
+    {"fire",     "FIRE",   "scope",                    HPMouseButton, 0, 0, 0, 0,    1, 2},
+    {"action",   "USE",    "hand.tap.fill",            HPKey, 'E', 0, 0x12, 0,       0, 1},
+    {"switch",   "SWAP",   "arrow.left.arrow.right",   HPKey, 0x09, 0, 0x0f, 0,      0, 1},
+    {"zoom",     "ZOOM",   "plus.magnifyingglass",     HPKey, 'Z', 0, 0x2c, 0,       0, 1},
+    {"grenade",  "THROW",  "flame.fill",               HPMouseButton, 0, 0, 0, 1,    1, 1},
+    {"melee",    "MELEE",  "hand.raised.fill",         HPKey, 'F', 0, 0x21, 0,       0, 1},
+    {"reload",   "RELOAD", "arrow.clockwise",          HPKey, 'R', 0, 0x13, 0,       0, 1},
+    {"crouch",   "CROUCH", "arrow.down.to.line",       HPKey, 0x11, 0xA2, 0x1d, 0,   0, 1},
+    {"jump",     "JUMP",   "arrow.up",                 HPKey, 0x20, 0, 0x39, 0,      0, 1},
+    {"flash",    "LIGHT",  "flashlight.on.fill",       HPKey, 'Q', 0, 0x10, 0,       0, 0},
+    {"nadetype", "NADE",   "arrow.triangle.2.circlepath", HPKey, 'G', 0, 0x22, 0,    0, 0},
+    {"scores",   "",       "list.number",              HPKey, 0x70, 0, 0x3b, 0,      0, 0},
+    {"menu",     "",       "pause.fill",               HPKey, 0x1B, 0, 0x01, 0,      0, 0},
 };
 #define NCONTROLS (int)(sizeof CONTROLS / sizeof CONTROLS[0])
-
-static CGRect at(CGRect safe, CGFloat x, CGFloat y, CGFloat w, CGFloat h)
-{
-    return CGRectMake(CGRectGetMinX(safe) + x * safe.size.width - w / 2, CGRectGetMinY(safe) + y * safe.size.height - h / 2, w, h);
-}
 
 @interface HPOverlay () <UIGestureRecognizerDelegate>
 @end
 
 @implementation HPOverlay {
     UIButton *_menuButton;
-    HPStickView *_move;
+    HPStickView *_move, *_aim;
+    CADisplayLink *_aimClock;
+    float _aimX, _aimY;
     NSMutableArray<HPControlButton *> *_buttons;
     NSMutableArray<UIGestureRecognizer *> *_editGestures;
     UILabel *_fps;
@@ -308,8 +310,6 @@ static CGRect at(CGRect safe, CGFloat x, CGFloat y, CGFloat w, CGFloat h)
     int _wasd[4];                                   /* W A S D held */
     double _lookRestX, _lookRestY;
     NSMutableSet<UITouch *> *_lookTouches;
-    UITouch *_moveTouch;                            /* the finger on the floating stick */
-    CGPoint _moveRest;                              /* where the stick waits */
 }
 
 - (instancetype)initWithFrame:(CGRect)frame
@@ -350,7 +350,14 @@ static CGRect at(CGRect safe, CGFloat x, CGFloat y, CGFloat w, CGFloat h)
     _move.valueChanged = ^(float x, float y) { [weak moveX:x y:y]; };
     [self addSubview:_move];
     [self addEditGestures:_move];
-    _move.userInteractionEnabled = NO;              /* the overlay moves it under the thumb (floating stick) */
+    _move.caption.text = @"MOVE";
+    _aim = [HPStickView new];
+    _aim.accessibilityIdentifier = @"aim";
+    _aim.accessibilityLabel = @"Look";
+    _aim.caption.text = @"LOOK";
+    _aim.valueChanged = ^(float x, float y) { [weak aimX:x y:y]; };
+    [self addSubview:_aim];
+    [self addEditGestures:_aim];
     for (int i = 0; i < NCONTROLS; i++) {
         const hp_control_def *d = &CONTROLS[i];
         HPControlButton *b = [HPControlButton new];
@@ -391,8 +398,7 @@ static CGRect at(CGRect safe, CGFloat x, CGFloat y, CGFloat w, CGFloat h)
 {
     for (HPControlButton *b in _buttons) [b release_];
     [_move reset];
-    _moveTouch = nil;
-    if (!_editing && _moveRest.x) _move.center = _moveRest;
+    [_aim reset];
     [_lookTouches removeAllObjects];
     _lookRestX = _lookRestY = 0;
 }
@@ -406,7 +412,31 @@ static CGRect at(CGRect safe, CGFloat x, CGFloat y, CGFloat w, CGFloat h)
 - (void)driveMoveX:(float)x y:(float)y { if (_move.valueChanged) _move.valueChanged(x, y); }
 - (void)driveLookX:(CGFloat)dx y:(CGFloat)dy { [self lookX:dx y:dy]; }
 
-/* touches on the open screen in a game look around; in Halo's menus they reach the game view */
+/* The fixed sticks own their touches independently. Swiping open screen or dragging
+   FIRE can still aim, so the right thumb can shoot and turn without leaving FIRE. */
+- (void)aimX:(float)x y:(float)y
+{
+    if (_editing) return;
+    _aimX = x; _aimY = y;
+    if (hypotf(x, y) <= 0.12f) {
+        [_aimClock invalidate]; _aimClock = nil;
+    } else if (!_aimClock) {
+        _aimClock = [CADisplayLink displayLinkWithTarget:self selector:@selector(aimTick:)];
+        [_aimClock addToRunLoop:NSRunLoop.mainRunLoop forMode:NSRunLoopCommonModes];
+    }
+}
+- (void)aimTick:(CADisplayLink *)clock
+{
+    float magnitude = hypotf(_aimX, _aimY);
+    if (magnitude <= 0.12f) return;
+    /* Radial dead zone, gentle near-centre aim, speed independent of refresh rate. */
+    double response = pow(fmin(1, (magnitude - 0.12) / 0.88), 1.5);
+    double dt = fmin(0.05, fmax(0, clock.targetTimestamp - clock.timestamp));
+    double speed = 250 * response * dt / magnitude;
+    [self lookX:_aimX * speed y:-_aimY * speed];
+}
+- (void)driveAimX:(float)x y:(float)y { if (_aim.valueChanged) _aim.valueChanged(x, y); }
+
 - (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event
 {
     UIView *hit = [super hitTest:point withEvent:event];
@@ -415,55 +445,21 @@ static CGRect at(CGRect safe, CGFloat x, CGFloat y, CGFloat w, CGFloat h)
     if (hit != self) return hit;
     return self.inGame && !self.controlsHidden && !_editing ? self : nil;
 }
-/* The floating stick: a finger landing in the lower left (left 40%, below the top 30%) brings the
-   stick under it; lifting returns it to its resting place. Everywhere else on the open screen, a
-   finger looks around. */
-- (BOOL)inMoveZone:(CGPoint)p
-{
-    CGRect safe = self.safe;
-    BOOL left = p.x < CGRectGetMinX(safe) + safe.size.width * 0.40, right = p.x > CGRectGetMaxX(safe) - safe.size.width * 0.40;
-    return (HPSettings.shared.leftHanded ? right : left) && p.y > CGRectGetMinY(safe) + safe.size.height * 0.30;
-}
 - (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
 {
     if (!_panel.hidden) return;
-    for (UITouch *t in touches) {
-        CGPoint p = [t locationInView:self];
-        if (!_moveTouch && [self inMoveZone:p]) {
-            _moveTouch = t;
-            CGRect safe = self.safe;
-            CGFloat r = _move.bounds.size.width / 2;
-            _move.center = CGPointMake(fmin(fmax(p.x, CGRectGetMinX(safe) + r), CGRectGetMaxX(safe) - r),
-                                       fmin(fmax(p.y, CGRectGetMinY(safe) + r), CGRectGetMaxY(safe) - r));
-            _move.alpha = 1;
-            [_move track:t];
-        } else {
-            [_lookTouches addObject:t];
-        }
-    }
+    [_lookTouches unionSet:touches];
 }
 - (void)touchesMoved:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
 {
     for (UITouch *t in touches) {
-        if (t == _moveTouch) { [_move track:t]; continue; }
         if (![_lookTouches containsObject:t]) continue;
         CGPoint a = [t locationInView:self], b = [t previousLocationInView:self];
         [self lookX:a.x - b.x y:a.y - b.y];
     }
 }
-- (void)liftTouches:(NSSet<UITouch *> *)touches
-{
-    for (UITouch *t in touches) {
-        if (t == _moveTouch) {
-            _moveTouch = nil;
-            [_move reset];
-            [UIView animateWithDuration:0.15 animations:^{ self->_move.center = self->_moveRest; self->_move.alpha = HPSettings.shared.controlOpacity * 0.6; }];
-        }
-    }
-    [_lookTouches minusSet:touches];
-}
-- (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event { [self liftTouches:touches]; }
-- (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event { [self liftTouches:touches]; }
+- (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event { [_lookTouches minusSet:touches]; }
+- (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event { [_lookTouches minusSet:touches]; }
 
 - (BOOL)controlsHidden { return HPSettings.shared.hideTouchControls || _controllerHidden; }
 - (void)setInGame:(BOOL)inGame
@@ -491,11 +487,11 @@ static CGRect at(CGRect safe, CGFloat x, CGFloat y, CGFloat w, CGFloat h)
     _fps.text = [NSString stringWithFormat:@"%d FPS", fps];
 }
 
-/* ---- layout (SunPad's sizing: fixed sizes on iPads at least 1000 points wide, else scaled
-   from an 800 x 380 reference; sparse per-form-factor positions and sizes) ---- */
+/* ---- layout: point-sized targets constrained together to the safe area, with
+   separate saved phone/tablet positions and sizes ---- */
 
 - (BOOL)phone { return self.traitCollection.userInterfaceIdiom == UIUserInterfaceIdiomPhone; }
-- (NSString *)key:(NSString *)what { return [NSString stringWithFormat:@"HaloPad.%@.v2.%@", self.phone ? @"phone" : @"tablet", what]; }
+- (NSString *)key:(NSString *)what { return [NSString stringWithFormat:@"HaloPad.%@.v3.%@", self.phone ? @"phone" : @"tablet", what]; }
 - (CGRect)safe { return UIEdgeInsetsInsetRect(self.bounds, self.safeAreaInsets); }
 
 - (void)place:(UIView *)v frame:(CGRect)f
@@ -522,39 +518,48 @@ static CGRect at(CGRect safe, CGFloat x, CGFloat y, CGFloat w, CGFloat h)
     [super layoutSubviews];
     CGRect safe = self.safe;
     BOOL pad = !self.phone && safe.size.width >= 1000;
-    CGFloat base = pad ? 1 : fmin(1, fmin(safe.size.width / 800, safe.size.height / 380));
-    CGFloat user = HPSettings.shared.controlSize;
-    CGFloat k = (pad ? 1 : base) * user;
-    CGFloat stick = (pad ? 164 : 124) * k;
-    CGFloat sizes[3] = {(pad ? 48 : 38) * k, (pad ? 66 : 52) * k, (pad ? 128 : 94) * k};
-    BOOL phone = self.phone;
+    /* Bound the whole arrangement before placing individual controls. Clamping each
+       circle against an edge was what collapsed the old ring at larger sizes. */
+    CGFloat k = fmin((pad ? 1.18 : 1) * HPSettings.shared.controlSize,
+                     fmin(safe.size.width / 760, (safe.size.height - 68) / 260));
+    k = fmax(0.65, k);
+    CGFloat stick = fmax(100, 128 * k), action = fmax(44, 52 * k);
+    CGFloat utility = fmax(44, 44 * k), fire = fmax(60, 72 * k);
+    CGFloat gaps[] = {10, 16, 24};
+    CGFloat gap = gaps[HPSettings.shared.ringSpacing] * k;
+    CGFloat inset = fmax(16, 24 * k);
+    CGFloat edge = fmax(inset, safe.size.width * (self.phone ? 0.17 : 0.20) - stick / 2);
+    CGFloat left = CGRectGetMinX(safe) + edge;
+    CGFloat right = CGRectGetMaxX(safe) - edge;
+    CGFloat bottom = CGRectGetMaxY(safe) - inset;
+    CGFloat rowY = bottom - stick - gap - fire / 2;
+    CGFloat nearX = right - stick - gap - action / 2;
+    CGFloat farX = nearX - action - gap;
+    CGFloat lowY = bottom - action / 2, midY = lowY - action - gap;
+    CGFloat fireX = right - fire / 2;
+    CGFloat reloadX = fireX - fire / 2 - gap - action / 2;
+    CGFloat zoomX = reloadX - action - gap, swapX = zoomX - action - gap;
     BOOL mirror = HPSettings.shared.leftHanded;
-    CGFloat spacing[3] = {0.82, 1.0, 1.22};
-    CGFloat sp = spacing[HPSettings.shared.ringSpacing];
-    /* the stick's resting place: clear of Halo's motion tracker in the bottom-left corner (mirrored, the
-       ring moves right of the tracker instead) */
-    CGFloat sx = phone ? 0.20 : 0.19;
-    [self place:_move frame:at(safe, mirror ? 1 - sx : sx, phone ? 0.72 : 0.73, stick, stick)];
-    if (!_moveTouch) { _moveRest = _move.center; if (!_editing) _move.alpha = HPSettings.shared.controlOpacity * 0.6; }
-    /* FIRE low on the right, the ring around it */
-    CGFloat fireD = sizes[2], ringD = sizes[1], R = (fireD / 2 + ringD / 2 + (pad ? 22 : 12) * k) * sp;
-    CGPoint fire = CGPointMake(CGRectGetMaxX(safe) - R - ringD / 2 - (pad ? 18 : 10), CGRectGetMaxY(safe) - R * 0.94 - ringD / 2 - (pad ? 18 : 10));
-    if (mirror) fire.x = CGRectGetMinX(safe) + (CGRectGetMaxX(safe) - fire.x) + safe.size.width * 0.11;   /* right of Halo's motion tracker */
+    CGFloat (^mx)(CGFloat) = ^CGFloat(CGFloat x) { return mirror ? CGRectGetMinX(safe) + CGRectGetMaxX(safe) - x : x; };
+    [self place:_move frame:CGRectMake(mx(left + stick / 2) - stick / 2, bottom - stick, stick, stick)];
+    [self place:_aim frame:CGRectMake(mx(right - stick / 2) - stick / 2, bottom - stick, stick, stick)];
+    CGPoint points[NCONTROLS] = {
+        {fireX, rowY}, {farX, midY}, {swapX, rowY}, {zoomX, rowY},
+        {left + fire / 2, rowY}, {nearX, midY}, {reloadX, rowY},
+        {farX, lowY}, {nearX, lowY},
+        {left + fire + gap + utility / 2 + utility + gap, rowY},
+        {left + fire + gap + utility / 2, rowY},
+        {CGRectGetMidX(safe) - utility / 2 - 6, CGRectGetMinY(safe) + utility / 2 + 12},
+        {CGRectGetMidX(safe) + utility / 2 + 6, CGRectGetMinY(safe) + utility / 2 + 12},
+    };
     for (int i = 0; i < NCONTROLS; i++) {
-        const hp_control_def *d = &CONTROLS[i];
-        CGFloat dia = sizes[d->size];
-        CGPoint c;
-        if (d->place == CENTRE) c = fire;
-        else if (d->place == RING) { CGFloat a = (mirror ? 180 - d->angle : d->angle) * M_PI / 180; c = CGPointMake(fire.x + R * cos(a), fire.y - R * sin(a)); }
-        else {
-            CGFloat nx = phone ? d->px : d->tx, ny = phone ? d->py : d->ty;
-            if (mirror && nx < 0.3) nx = 1 - nx;                    /* the edge utilities swap sides; the top pair stays */
-            c = CGPointMake(CGRectGetMinX(safe) + nx * safe.size.width, CGRectGetMinY(safe) + ny * safe.size.height);
-        }
+        CGFloat dia = CONTROLS[i].size == 2 ? fire : CONTROLS[i].size == 1 ? action : utility;
+        CGPoint c = points[i];
+        if (i < NCONTROLS - 2) c.x = mx(c.x);
         [self place:_buttons[i] frame:CGRectMake(c.x - dia / 2, c.y - dia / 2, dia, dia)];
-        [_buttons[i] setNeedsLayout];                     /* captions on or off */
+        [_buttons[i] setNeedsLayout];
     }
-    CGFloat side = 40, inset = 12;
+    CGFloat side = 44; inset = 12;
     _menuButton.frame = CGRectMake(CGRectGetMaxX(safe) - side - inset, CGRectGetMinY(safe) + inset, side, side);
     _fps.frame = CGRectMake(CGRectGetMaxX(safe) - side - inset - 86, CGRectGetMinY(safe) + inset + 8, 76, 24);
     _fps.layer.cornerRadius = 6; _fps.layer.masksToBounds = YES;
@@ -573,12 +578,12 @@ static CGRect at(CGRect safe, CGFloat x, CGFloat y, CGFloat w, CGFloat h)
     BOOL show = _editing || (self.inGame && !self.controlsHidden);
     CGFloat alpha = HPSettings.shared.controlOpacity;
     NSMutableArray<UIView *> *all = [NSMutableArray arrayWithArray:_buttons];
-    [all addObject:_move];
+    [all addObjectsFromArray:@[_move, _aim]];
     for (UIView *v in all) {
         v.hidden = !show;
         BOOL picked = _editing && v == _selected;
-        /* the resting stick is fainter than the buttons until a thumb brings it up */
-        v.alpha = v == _move && !_editing && !_moveTouch ? alpha * 0.6 : alpha;
+        v.alpha = [v isKindOfClass:HPStickView.class] && !_editing ? alpha * 0.75 : alpha;
+        if ([v isKindOfClass:HPStickView.class]) ((HPStickView *)v).editing = _editing;
         v.layer.borderWidth = picked ? 3 : 1.5;
         v.layer.borderColor = (picked ? UIColor.systemYellowColor : [UIColor colorWithWhite:1 alpha:0.32]).CGColor;
         if ([v isKindOfClass:HPControlButton.class]) ((HPControlButton *)v).editing = _editing;
@@ -594,7 +599,7 @@ static CGRect at(CGRect safe, CGFloat x, CGFloat y, CGFloat w, CGFloat h)
     [_menuButton setImage:dots forState:UIControlStateNormal];
     _menuButton.tintColor = UIColor.whiteColor;
     _menuButton.backgroundColor = [UIColor colorWithWhite:0.06 alpha:0.72];
-    _menuButton.layer.cornerRadius = 20;
+    _menuButton.layer.cornerRadius = 22;
     _menuButton.layer.borderWidth = 1;
     _menuButton.layer.borderColor = [UIColor colorWithWhite:1 alpha:0.3].CGColor;
     _menuButton.layer.masksToBounds = YES;
@@ -930,7 +935,6 @@ static CGRect at(CGRect safe, CGFloat x, CGFloat y, CGFloat w, CGFloat h)
     _selected = nil;
     _selectedSize.enabled = NO;
     for (UIGestureRecognizer *g in _editGestures) g.enabled = YES;
-    _move.userInteractionEnabled = YES;             /* its resting place can be dragged */
     [self updateAppearance];
 }
 - (void)endEditing
@@ -939,7 +943,6 @@ static CGRect at(CGRect safe, CGFloat x, CGFloat y, CGFloat w, CGFloat h)
     _editorBar.hidden = YES;
     _editSwitch.on = NO;
     for (UIGestureRecognizer *g in _editGestures) g.enabled = NO;
-    _move.userInteractionEnabled = NO;
     _selected = nil;
     [self setNeedsLayout];
     [self clearTouchInput];

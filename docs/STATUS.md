@@ -27,6 +27,8 @@ Operating loop: [HaloPad-GOAL-LOOP-PHASE2.md](HaloPad-GOAL-LOOP-PHASE2.md) (repl
 - **G1b step 1 PASS (reference dedicated server):** `scripts/reference-server.sh` runs the original `haloceded.exe` 1.0.10.0621 in the project bottle `halopad-reference` (CrossOver 26.3), private and bound to 127.0.0.1, on Blood Gulch Slayer. It answers status queries (`mapname bloodgulch`, `gametype Slayer`, `gamemode openplaying`), and its log records the game starting. Evidence `docs/artifacts/2026-09-27/G1b/server-20260927T121035Z/`. The reference client row is parked on the license.
 - **Reference environment:** CrossOver chosen for the system-level baseline (G1b). The Parallels "Windows 11" VM is an invalid registration with no files and is not used.
 
+- **Touch layout iteration:** two fixed MOVE/LOOK sticks replace the floating-stick/FIRE-ring arrangement. A dedicated fire target and rows of actions have consistent gaps; layout size is constrained as a group. Both hands and phone/tablet settings remain editable. Boundary tests pass 90 safe-area/size/spacing/handedness combinations, and five handler-driven Halo gameplay checks pass on both Simulators. Actual simultaneous multi-touch and physical-device ergonomics remain open. See [SUNPAD-TRANSFER.md](SUNPAD-TRANSFER.md).
+
 ## Parked, waiting on Chris
 
 | Item | Parks | Status |
@@ -37,7 +39,7 @@ Operating loop: [HaloPad-GOAL-LOOP-PHASE2.md](HaloPad-GOAL-LOOP-PHASE2.md) (repl
 | Second legitimately provisioned player | G5 original-client comparison (a real Halo PC client in the same game) | HaloPad's client already joins the reference server; needed for the two-player match |
 | Retail `halo.exe` 1.10 + campaign data | G7 | A boxed copy would cover it |
 
-Rights: private-engineering-authorized; publication-not-authorized. Chris authorized GitHub pushes; `codex/halopad-phase2` is tracked on the private origin and was pushed through `bc38545` before the queued-text follow-up. Public release remains unauthorized. Process/preview state is recorded in the latest journal entry rather than assumed here.
+Rights: private-engineering-authorized; publication-not-authorized. Chris authorized GitHub pushes; `codex/halopad-phase2` is tracked and pushed to the private origin under that authorization. Public release remains unauthorized. Process/preview state is recorded in the latest journal entry rather than assumed here.
 
 Known-good commands:
 

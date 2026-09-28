@@ -1244,3 +1244,39 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
 - Next: trace native-menu console key delivery through the host queue and Halo's input reads;
   short-press visibility and actual touch routing remain open, alongside the full original
   campaign/interoperability/device scope. No gate was narrowed to these passing checks.
+
+### 2026-09-28 — two-stick controls and consistent action spacing
+
+- Chris explicitly asked for continued touch iteration: two sticks and better spacing. The
+  preceding queued-text fix was committed/pushed as `be14ac0`; this iteration keeps that fix.
+- Replaced the floating MOVE/FIRE-ring layout with fixed MOVE and LOOK targets. Each view owns
+  its touch; open-space swipe aim and drag-to-aim on FIRE remain. LOOK's displacement produces
+  continuous mouse counts through a display-timed callback, with a radial dead zone and a
+  gentler centre response. Release, settings, controller hiding and scene interruption reset it.
+  MOVE retains the game's W/A/S/D input mapping; this is not a claim of analog movement speed.
+- Dedicated FIRE and rows of SWAP/ZOOM/RELOAD, USE/MELEE and CROUCH/JUMP sit above/beside LOOK;
+  THROW/NADE/LIGHT sit above MOVE. Scale is bounded for the complete arrangement, then target
+  positions use explicit gaps. Default targets are at least 44 points; the native menu is 44.
+  Tablet stick centres move inward to clear the motion tracker. Left-handed mode mirrors the
+  groups. Layout keys moved to v3, preserving the user's old v2 settings rather than reusing
+  incompatible ring coordinates. Manual custom layouts can still overlap by user choice.
+- Extended actual-overlay boundary tests: five landscape sizes, three control sizes, three
+  spacing choices and both hands, with phone/tablet safe-area insets. 90 combinations all pass
+  rectangle separation, bounds, minimum size and independent stick hit targets. Added held LOOK
+  motion, release and dead-zone checks. Final iPad boundary run `G9/overlay-20260928T114719Z`
+  and iPhone `G9/overlay-20260928T114935Z` pass all 20 assertions. The final phone boundary run
+  includes the cosmetic native-menu corner-radius change.
+- Halo iPad `G3/ios-app-20260928T114531Z`: move 4.42 units, swipe 39.7°, fire 60→44 rounds,
+  jump 0.11→0.76, held LOOK 17.1° in 0.5 seconds; all five checks pass. iPhone
+  `G3/ios-app-20260928T114750Z` also passes all five (LOOK 18.7°), then returns to 29–30 fps.
+  Inspected both layouts in the actual Simulator in landscape. An attempted pointer drag on
+  the first iPad preview was not conclusive evidence of touch routing; no multi-touch pass is
+  claimed. The self-test and view hit tests have their narrower scopes above.
+- Phone was stopped/shut down before final iPad rebuild. Next outstanding UI work includes
+  actual multi-touch ergonomics, console/short-key delivery, and safe data import. Broader
+  campaign, interoperability, normal licensed startup and physical-device gates remain intact.
+- Final iPad source preview `G3/ios-app-20260928T115013Z` passes all five gameplay checks again:
+  move 4.42 units, swipe 39.7°, fire 60→45 rounds, jump 0.11→0.76, LOOK 29.3°. Left running in
+  local Blood Gulch as PID 25733 on HaloPad iPad Pro 13, visible in landscape; iPhone is shut
+  down. `landscape-layout.png` retained. Final visual inspection shows distinct sticks, spaced
+  actions and the tablet motion tracker clear of the MOVE target. Safety/whitespace checks pass.

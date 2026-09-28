@@ -32,9 +32,9 @@ typedef NS_ENUM(NSInteger, HPAspectMode) { HPAspectOriginal = 0, HPAspectFill = 
 @property(nonatomic) BOOL hideTouchControls;
 @property(nonatomic) BOOL showFPS;
 @property(nonatomic) HPAspectMode aspect;
-@property(nonatomic) BOOL leftHanded;               /* the stick on the right, FIRE and its ring on the left */
+@property(nonatomic) BOOL leftHanded;               /* swap movement and aiming/action sides */
 @property(nonatomic) BOOL showCaptions;             /* the small captions under the icons */
-@property(nonatomic) NSInteger ringSpacing;         /* 0 compact, 1 normal, 2 spread: the ring around FIRE */
+@property(nonatomic) NSInteger ringSpacing;         /* 0 compact, 1 normal, 2 spread: gaps between action targets */
 @property(nonatomic, copy) NSArray<NSString *> *recentServers;
 @end
 
@@ -57,6 +57,7 @@ typedef NS_ENUM(NSInteger, HPAspectMode) { HPAspectOriginal = 0, HPAspectFill = 
    their touches use. */
 - (BOOL)driveControl:(NSString *)identifier down:(BOOL)down;
 - (void)driveMoveX:(float)x y:(float)y;
+- (void)driveAimX:(float)x y:(float)y;
 - (void)driveLookX:(CGFloat)dx y:(CGFloat)dy;
 @end
 

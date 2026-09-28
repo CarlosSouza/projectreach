@@ -43,27 +43,27 @@ local SunPad path. The donor copy used for the work is private and ignored (`ref
   - FIRE is the left button and GRENADE the right, and both also look while the finger moves;
   - JUMP (Space), CROUCH (left Ctrl), MELEE (F), RELOAD (R), USE (E), SWAP (Tab), ZOOM (Z),
     NADE (G), LIGHT (Q), SCORES (F1) and MENU (Escape).
-- **The look (2026-09-28 redesign).** SunPad's coloured, text-labelled buttons read poorly over Halo's
-  HUD, so the controls became a mobile shooter's layout:
-  - a **floating stick**: a finger landing in the lower left (left 40%, below the top 30%) brings
-    the stick under it, and lifting returns it to a faint resting place clear of Halo's motion
-    tracker;
-  - **FIRE** large and low on the right (a muted red glass disc, 128 points on iPad, 94 on phone),
-    with **USE, SWAP, ZOOM, THROW, MELEE, RELOAD, CROUCH and JUMP on a ring around it** (every
-    40 degrees), all in reach of the right thumb;
-  - every control the same dark translucent glass circle with an SF Symbol and a small caption;
-    held controls brighten; LIGHT and NADE small on the left edge; scores and pause small at the
-    top centre;
-  - saved layouts moved to `HaloPad.<device>.v2.*`, so positions saved for the old layout do not
-    land on the new one.
-  - options a mobile shooter has: **Left-handed** (the stick on the right, FIRE and its ring on
-    the left, right of Halo's motion tracker), **Spacing** of the ring (compact, normal, spread)
-    and **Button Labels** on or off; icons and captions carry a soft shadow for bright scenes.
+- **Two-stick layout (2026-09-28 follow-up).** The crowded FIRE ring is replaced by two
+  clearly labeled thumb zones and separate action targets:
+  - fixed **MOVE** and **LOOK** sticks at the lower left and right; movement uses Halo's
+    W/A/S/D bindings with hysteresis, while LOOK produces continuous mouse motion with a radial
+    dead zone and a gentle response near centre, timed to the display refresh;
+  - **FIRE**, RELOAD, ZOOM and SWAP in a row above aiming; USE/MELEE and CROUCH/JUMP beside it;
+    THROW, grenade selection and LIGHT above movement; scores/pause remain at the top;
+  - aim by swiping open space or dragging FIRE as well as with the LOOK stick;
+  - target size and spacing are constrained together before placement, so enlarging controls
+    does not squash them into overlapping circles at the screen edge. Default targets are
+    at least 44 points and stay within the safe area. Custom editor positions may still overlap;
+  - the left-handed option mirrors the movement and aiming/action groups. Compact/Normal/Spread
+    now controls gaps between targets. Labels, opacity, sensitivity, editing and per-device
+    sizes remain available through the three-dot menu;
+  - positions/sizes use `HaloPad.<device>.v3.*`; the old ring layout is retained under its old
+    keys rather than imposed on the new sticks. Reset applies to the current layout version.
 - **The controls show only in a game.** The shell reads Halo's current map (`0x643064`) four
   times a second; on its menu map ("ui") the controls hide and touches reach the game view,
   where a tap is a click.
-- Default positions keep clear of Halo's HUD: its ammo and shield displays in the top corners
-  and its motion tracker in the bottom-left corner.
+- The centre of the view stays open. Tablet thumb zones sit farther inward to give the
+  bottom-left motion tracker space; phone HUD clearance is checked separately in screenshots.
 - **The menu holds what Halo's own menus do not:**
   - Join Server by Address (and Recent Servers), through Halo's own console command
     `connect ADDRESS "PASSWORD"` (Halo runs with `-console`; typed keys go one every 50 ms so
@@ -88,6 +88,18 @@ local SunPad path. The donor copy used for the work is private and ignored (`ref
 
 ## Checks
 
+- Two-stick layout checks: `G9/overlay-20260928T114719Z` on iPad and
+  `G9/overlay-20260928T114935Z` on iPhone, under `docs/artifacts/2026-09-28/`. Both pass 20 input/
+  layout assertions, including 90 combinations of five landscape bounds, three sizes, three
+  spacings and both hands, with simulated safe-area insets. All default target rectangles remain
+  separate, at least 44 points, and within those insets; both stick centres hit their own views.
+  Held LOOK generates repeated motion; clearing it stops motion; its dead zone does not drift.
+- Actual Halo gameplay: iPad `G3/ios-app-20260928T114531Z` and iPhone
+  `G3/ios-app-20260928T114750Z` pass move, swipe aim, fire, jump and held LOOK checks. LOOK turns
+  17.1° and 18.7° respectively over a half-second handler-driven hold. Simulator screenshots were
+  inspected in landscape. This does not establish simultaneous physical multi-touch or analog
+  movement speed: MOVE still emits Halo's keyboard bindings. The tablet sticks were subsequently
+  moved inward to clear the motion tracker, and the final preview is recorded in JOURNAL.md.
 - `.venv/bin/python scripts/test-ios-overlay.py --device UDID` runs the real overlay timer and
   control handlers on a booted Simulator, capturing their outgoing host events. Stop the game
   candidate first. It checks uppercase/Enter ordering, interruption while Shift and a letter

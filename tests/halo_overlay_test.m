@@ -7,6 +7,53 @@
 static hp_input events[512];
 static int count, failures;
 static BOOL held[256];
+static void check(const char *name, BOOL ok);
+
+@interface HPTestOverlay : HPOverlay
+@property(nonatomic) BOOL simulatedPhone;
+@property(nonatomic) UIEdgeInsets simulatedInsets;
+@end
+@implementation HPTestOverlay
+- (BOOL)phone { return self.simulatedPhone; }
+- (UIEdgeInsets)safeAreaInsets { return self.simulatedInsets; }
+@end
+
+static void check_layouts(void)
+{
+    HPSettings *settings = HPSettings.shared;
+    CGFloat savedSize = settings.controlSize;
+    BOOL savedHand = settings.leftHanded;
+    NSInteger savedSpacing = settings.ringSpacing;
+    CGSize screens[] = {{667, 375}, {760, 354}, {844, 390}, {1024, 768}, {1376, 1032}};
+    CGFloat sizes[] = {0.7, 1, 1.35};
+    int cases = 0, bad = 0;
+    for (int form = 0; form < 5; form++) for (int hand = 0; hand < 2; hand++)
+    for (int size = 0; size < 3; size++) for (int gap = 0; gap < 3; gap++) {
+        settings.controlSize = sizes[size]; settings.leftHanded = hand; settings.ringSpacing = gap;
+        HPTestOverlay *view = [[HPTestOverlay alloc] initWithFrame:(CGRect){CGPointZero, screens[form]}];
+        view.simulatedPhone = form < 3;
+        view.simulatedInsets = form < 3 ? UIEdgeInsetsMake(0, 44, 21, 44) : UIEdgeInsetsMake(0, 0, 20, 0);
+        view.inGame = YES;
+        [view setNeedsLayout]; [view layoutIfNeeded];
+        NSMutableArray<UIView *> *controls = [NSMutableArray array];
+        for (UIView *v in view.subviews)
+            if (v.accessibilityIdentifier && !v.hidden) [controls addObject:v];
+        BOOL valid = controls.count == 16; /* 13 actions, two sticks, native menu */
+        for (UIView *v in controls) {
+            valid &= CGRectContainsRect(UIEdgeInsetsInsetRect(view.bounds, view.safeAreaInsets), v.frame) && v.bounds.size.width >= 44 && v.bounds.size.height >= 44;
+            for (UIView *other in controls) if (v != other)
+                valid &= !CGRectIntersectsRect(v.frame, other.frame);
+            if ([v.accessibilityIdentifier isEqualToString:@"move"] || [v.accessibilityIdentifier isEqualToString:@"aim"])
+                valid &= [view hitTest:v.center withEvent:nil] == v;
+        }
+        cases++;
+        if (!valid) { bad++; fprintf(stderr, "layout failed: %.0fx%.0f hand %d size %.2f gap %d controls %lu\n",
+                                    screens[form].width, screens[form].height, hand, sizes[size], gap, (unsigned long)controls.count); }
+    }
+    settings.controlSize = savedSize; settings.leftHanded = savedHand; settings.ringSpacing = savedSpacing;
+    fprintf(stderr, "LAYOUT: %d combinations, %d failures\n", cases, bad);
+    check("phone/tablet defaults have separate targets, safe bounds and two reachable sticks", bad == 0);
+}
 
 void halopad_host_post_input(const hp_input *e)
 {
@@ -100,6 +147,20 @@ int main(void)
         [overlay clearTouchInput];
         [overlay driveLookX:0.7 / scale y:0];
         check("canceled look fractions do not spill into the next drag", count == 0);
+
+        [overlay driveAimX:1 y:0];
+        run_for(0.15);
+        check("held LOOK stick produces continued rightward mouse motion",
+              count > 1 && events[0].kind == HPI_MOUSEMOVE && events[0].dx > 0 && events[0].dy == 0);
+        [overlay clearTouchInput];
+        int afterRelease = count;
+        run_for(0.15);
+        check("clearing the LOOK stick stops its continuous motion", count == afterRelease);
+        [overlay driveAimX:0.05 y:0.05];
+        run_for(0.15);
+        check("LOOK dead zone causes no drift", count == afterRelease);
+        [overlay clearTouchInput];
+        check_layouts();
 
         fprintf(stderr, "OVERLAY INPUT: %s (%d failures)\n", failures ? "FAIL" : "PASS", failures);
         return failures ? 1 : 0;

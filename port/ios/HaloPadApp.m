@@ -362,7 +362,18 @@ static void touch_selftest(void)
                 for (int k = 1; k <= 30; k++) after(0.6 + 0.06 * k, ^{ uint32_t uu = g_unit(); if (uu && gf(uu + 0x64) > zmax) zmax = gf(uu + 0x64); });
                 after(2.8, ^{
                     selftest_check("JUMP lifts the player", zmax > z0 + 0.2f, [NSString stringWithFormat:@"height %.2f -> up to %.2f", z0, zmax]);
-                    fprintf(stderr, "HALOPAD SELFTEST: %s: %d failure(s)\n", selftest_failures ? "FAIL" : "PASS", selftest_failures);
+                    uint32_t u5 = g_unit();
+                    float aim0 = atan2f(gf(u5 + 0x240), gf(u5 + 0x23c));
+                    [overlay driveAimX:1 y:0];
+                    after(0.5, ^{
+                        [overlay driveAimX:0 y:0];
+                        uint32_t u6 = g_unit();
+                        float angle = fabsf(atan2f(gf(u6 + 0x240), gf(u6 + 0x23c)) - aim0) * 57.29578f;
+                        if (angle > 180) angle = 360 - angle;
+                        selftest_check("the LOOK stick turns while held", angle > 5,
+                                       [NSString stringWithFormat:@"turned %.1f degrees", angle]);
+                        fprintf(stderr, "HALOPAD SELFTEST: %s: %d failure(s)\n", selftest_failures ? "FAIL" : "PASS", selftest_failures);
+                    });
                 });
             });
         });
