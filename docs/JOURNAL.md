@@ -2278,3 +2278,44 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
 - Next bounded experiment: original controller-action binding edits with held MOVE,
   verifying ownership revocation and save/reload without overwriting player bindings.
   Preserve current preview and profile backup before replacing it. Full goal active.
+
+## 2026-09-28 — retain device assignments after player binding edits
+
+- Previous goal turn: progress (dc32a17). Current turn: progress. Full objective
+  read; clean starting tree, five source pins and locked executable hash verified.
+  Only project iPad preview PID 1492 active; no reference Wine/server processes.
+  Both project bottles present; parked external inputs unchanged. Goal stays active.
+- Ownership review reproduced five failures: edited axes were retained, but cleanup
+  deactivated a touch device HaloPad had originally activated. This disabled the
+  player binding and could move the device to another slot on the next frame.
+- Cleanup now deactivates only if the assignment is empty after removing installed
+  axes. Player axis/button/hat/menu bindings keep the reciprocal active assignment.
+  The manager drops ownership and leaves that bound assignment unavailable for its
+  own movement mapping. All 35 policy assertions pass with ASan/UBSan.
+- Added tests/halo_touch_edit_scene.c as a separate development-only experiment.
+  It uses original script activation/deactivation and binding setter calls, plus
+  the host touch source and original polling; no guest input-table/player writes.
+  It releases an empty assignment to exercise activated-here ownership, holds MOVE,
+  binds X+ to forward through the original setter, verifies revocation, preserved
+  assignment/player binding, removed temporary axes and neutral input, removes the
+  test binding, verifies neutral recovery and restores the original association.
+- Backed up Library and stopped preview 1492 before rebuilding. First candidate
+  3052 aborted on the held-axis assertion: its hold preceded UIKit's asynchronous
+  readiness cancellation. Preserved the failed log; confirmed process exited and
+  saves unchanged. Driver now waits ten frames before starting that hold.
+  Final experiment PID 3285 passes all 16 assertions in a private original-server
+  Blood Gulch match. Original server join corroborated; profiles byte-identical.
+- Stopped exact candidate 3285 and reference runner 2928; no Wine/server processes
+  remain. Rebuilt the usual analog scene, excluding the edit experiment. Final
+  iPad preview PID 3574, New002 Battle Creek Slayer, started via original menus.
+  Five gameplay and seven analog/cancel assertions pass. Both profile hashes still
+  match backup; UDP status confirms beavercreek, one player, openplaying. One iPad
+  remains active, phone off, one-shot drivers finished.
+- Evidence: G9/touch-player-binding (red/green policy output, failed and accepted
+  integration logs, exact source/binary hashes, saved-state backup, redacted server
+  session and final preview identity/screenshot). No visual geometry change, so
+  previous layout verification was not repeated. Normal startup, actual menu
+  binding edits/save/reload and physical-controller/two-thumb acceptance stay open.
+- Next bounded experiment: perform an original controller-action edit through
+  Halo's menu on a backed-up test profile, then save/reload and verify only the
+  intended setting persists. Restore a usable preview after that test.

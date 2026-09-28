@@ -21,7 +21,7 @@ class TouchBindingPolicy(unittest.TestCase):
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
             result = subprocess.run([str(exe)], capture_output=True, text=True, timeout=10)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            self.assertIn('31 assertions, 0 failures', result.stdout)
+            self.assertIn('35 assertions, 0 failures', result.stdout)
 
 
 if __name__ == '__main__':

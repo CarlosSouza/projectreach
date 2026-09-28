@@ -90,7 +90,12 @@ static int release_owned(void)
                 cleared &= bind_axis(owned_slot, i, 0x7fff);
         /* Keep ownership if rollback fails, so an orphaned mapping cannot become
            a supposedly free slot. Retry only after configuration/phase changes. */
-        if (cleared && activated_here) command("input_deactivate_joy", owned_device, -1);
+        if (cleared && activated_here) {
+            /* A player binding makes this assignment theirs, even if we first
+               activated it. Removing the device would disable that binding. */
+            if (slot_empty(owned_slot, 0)) command("input_deactivate_joy", owned_device, -1);
+            else activated_here = 0;
+        }
         cleanup_pending = !cleared || (activated_here && associated());
         fprintf(stderr, "HALOPAD TOUCH BINDING: %s device %d slot %d\n",
                 cleanup_pending ? "cleanup pending" : "released", owned_device, owned_slot);

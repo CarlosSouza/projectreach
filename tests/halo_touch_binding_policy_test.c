@@ -78,7 +78,14 @@ int main(void)
     w16(0x6ab536 + 3 * 128, 31); /* Profile replaced one owned axis. */
     check("changed profile revokes the old finger before reconfiguration", !halopad_touch_binding_update(1));
     check("new profile binding is retained", r16(0x6ab536 + 3 * 128) == 31);
-    check("reserved old slot is avoided when rebuilding", halopad_touch_binding_update(1) && halopad_touch_binding_slot() == 2);
+    check("player edit retains the touch device association", rd(0x64dc24) == 1 && rd(0x64cc08) == 3);
+    check("player-owned touch assignment is not moved to a new slot", !halopad_touch_binding_update(1) && halopad_touch_binding_slot() == -1);
+    reset(); halopad_touch_binding_update(1); w16(0x6ab426 + 3 * 64, 7);
+    check("added player button survives cleanup with its device active", !halopad_touch_binding_update(0) && r16(0x6ab426 + 3 * 64) == 7 && rd(0x64dc24) == 1 && r16(0x6ab536 + 3 * 128) == 0x7fff);
+    reset(); halopad_touch_binding_update(1); w16(0x6ab736 + 3 * 256, 8);
+    check("added player hat survives cleanup with its device active", !halopad_touch_binding_update(0) && r16(0x6ab736 + 3 * 256) == 8 && rd(0x64dc24) == 1);
+    reset(); halopad_touch_binding_update(1); wr(0x6ab526 + 3 * 4, 5);
+    check("added player menu binding keeps its device active", !halopad_touch_binding_update(0) && rd(0x6ab526 + 3 * 4) == 5 && rd(0x64dc24) == 1);
     reset(); wr(0x6ab526 + 3 * 4, 5);
     check("menu/button binding reserves an otherwise empty slot", halopad_touch_binding_update(1) && halopad_touch_binding_slot() == 2);
     reset(); fail_binding = 3;

@@ -634,3 +634,25 @@ Evidence: `G9/iphone-touch-network` (app/source identity, native package import,
 78 matching stock records, app assertions, redacted original-server logs, screenshots).
 The iPad preview is restored using its independent saved profile. Physical multi-touch,
 controller-action edits, and phone abrupt-loss coverage remain separate open paths.
+
+## Preserve player-owned touch assignments — 2026-09-28
+
+A binding edit exposed an ownership defect in the analog development manager:
+cleanup retained an edited axis value but deactivated the device if HaloPad had
+originally activated it. That left the player binding with no active device.
+Cleanup now deactivates only an empty assignment after removing its own axes.
+An assignment containing player axis, button, hat or menu bindings stays active;
+touch readiness is revoked and the manager does not move that device elsewhere.
+
+Five failing regression assertions now pass in the 35-assertion ASan/UBSan policy
+suite. `tests/halo_touch_edit_scene.c` independently exercises original activation,
+binding setters and polling in a private-server iPad match: 16 checks pass, including
+held MOVE, player X+ edit, reciprocal association retention, temporary-axis removal,
+neutral input, and recovery after removing the test binding. It restores the prior
+association, uses no guest input-table writes, and never saves a profile. An initial
+test hold raced UIKit's readiness cancellation; the bounded driver now lets that
+transition settle before starting the hold. That failed experiment remains recorded.
+
+Evidence: `G9/touch-player-binding`. Saved profiles match the backup byte-for-byte.
+This is original-call integration evidence, not acceptance of actual menu binding
+edits/save/reload or physical controller input. Analog remains development-only.

@@ -57,6 +57,8 @@ Operating loop: [HaloPad-GOAL-LOOP-PHASE2.md](HaloPad-GOAL-LOOP-PHASE2.md) (repl
 
 - **iPhone touch and import acceptance:** the fresh iPhone 17 Pro Simulator imports the prepared package through Files, validates all 78 stock files and joins the original private server. Eight map-change/disconnect/reconnect checks pass with a fresh touch slot. The rebuilt app passes five gameplay and seven analog/cancel checks. Touch settings now lead the three-dot menu; keyboard/chat actions share a submenu, improving access on short landscape displays. Actual phone settings open/Done verified; drag/scroll ergonomics and physical two-thumb use remain open (`G9/iphone-touch-network`).
 
+- **Player binding ownership fix:** when a player adds a binding to a touch-device assignment HaloPad activated, cleanup now preserves the active device as well as the binding. Five reproduced regressions pass in the 35-assertion sanitizer suite; 16 original-call iPad checks verify held-input cancellation, edited assignment retention and neutral recovery. Saves remain unchanged (`G9/touch-player-binding`). Actual menu binding edits/save/reload and physical-controller acceptance remain open.
+
 ## Parked, waiting on Chris
 
 | Item | Parks | Status |
