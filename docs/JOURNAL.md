@@ -1773,3 +1773,37 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   instantaneous CUA drags as evidence of held sticks: the earlier trace disproved that premise.
   Actual multitouch/physical ergonomics, package-picker/recovery, licensed baseline, campaign,
   two-player acceptance and other full-goal requirements remain open; no terminal goal update.
+
+
+### 2026-09-28 — verify short keys in Halo's own buffered consumer
+
+- Previous turn: **progress**, `282556d` privately pushed. Reread the full objective, current
+  status and G9/M27 next experiment. Started clean; locked executable and five pinned sources
+  pass. Only preview PID 65091 and project iPad were live; phone shut down, no Wine, reference/
+  patch bottles present. No new parked input. Full project scope remains unchanged.
+- Disassembled original `0x493520`: Halo already handles a press/release in one keyboard update
+  by leaving pressed state at 1 and marking a deferred release; next update clears it. Added
+  direct calls to the translated consumer after eight host pumps, using the actual scan→key
+  table, for all eleven keyboard-backed overlay controls. Fixture keyboard pointer/enabled flag
+  are restored afterward. Runtime and guest code are unchanged; no artificial timed hold added.
+- Stopped PID 65091 before the core harness and backed up Support/preferences. All 135 DirectInput
+  assertions pass, including 55 new mapping/pressed/deferred-release/next-update/no-replay checks.
+  Evidence: `G9/short-key-consumer`, including binary/test hash and private consumer disassembly.
+- The old app JUMP selftest held 300 ms and allowed a second try, weakening its claim. It now
+  emits one immediate down/up in a single main-thread callback and checks height without retry.
+  Rebuilt and signature verified; device-data PID 66822 started Battle Creek via original menus.
+  All five checks pass: move 3.11 units, swipe 39.7 degrees, battery 1.00→0.89, immediate JUMP
+  -0.22→0.44, held LOOK 23.9 degrees (`G3/ios-app-20260928T161826Z`). Leave this preview running.
+- Reviewed the related acquisition boundary: runtime `set_acquired` clears immediate key state
+  but not its event buffer. Microsoft's Acquiring Devices documentation describes loss/reacquisition
+  but does not establish a buffer-flush guarantee. Do not silently redefine global DirectInput
+  semantics from that assumption. Next experiment should test unread virtual keyboard events
+  during native UI takeover/focus loss and source ownership, using the actual consumer; compare
+  reference behavior if changing generic acquisition semantics.
+  Reference: https://learn.microsoft.com/en-us/previous-versions/windows/desktop/ee415221(v=vs.85)
+- Known-good consumer command (stop the current preview first): `.venv/bin/python scripts/run-core.py
+  --work generated/srw/custom-en-1.0.10.0621/run-20260928T060918Z-85892 --target arm64-apple-ios17.0-simulator
+  --fresh-state --main tests/halo_dinput_test.c --run-prefix xcrun simctl spawn
+  E129A00F-D338-4FDC-8AE8-BB243E9BA61B`. Consumer delivery is verified; gameplay outcomes for each
+  remaining action, rapid repeated taps, actual simultaneous touch, physical ergonomics and all
+  broader import/lifecycle/online/campaign/license acceptance rows remain open. No terminal state.

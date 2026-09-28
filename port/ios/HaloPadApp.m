@@ -460,16 +460,16 @@ static void touch_selftest(void)
                 float battery1 = w2 ? gf(w2 + 0x134) : -1;
                 selftest_check("FIRE shoots", rounds1 < rounds0 || battery1 < battery0 - 0.02f || objs_most > objs0,
                                [NSString stringWithFormat:@"rounds %u -> %u, battery %.2f -> %.2f, objects %u -> up to %u", rounds0, rounds1, battery0, battery1, objs0, objs_most]);
-                /* 4. JUMP: the player rises (after a pause; a second try if the first press went unseen) */
+                /* 4. One immediate down/up JUMP, with no retry or minimum hold. */
                 __block float z0 = 0, zmax = -1e9f;
                 after(0.5, ^{ uint32_t u4 = g_unit(); z0 = zmax = u4 ? gf(u4 + 0x64) : 0; });
-                for (int tr = 0; tr < 2; tr++) {
-                    after(0.6 + 1.2 * tr, ^{ if (zmax <= z0 + 0.2f) [overlay driveControl:@"jump" down:YES]; });
-                    after(0.9 + 1.2 * tr, ^{ [overlay driveControl:@"jump" down:NO]; });
-                }
+                after(0.6, ^{
+                    [overlay driveControl:@"jump" down:YES];
+                    [overlay driveControl:@"jump" down:NO];
+                });
                 for (int k = 1; k <= 30; k++) after(0.6 + 0.06 * k, ^{ uint32_t uu = g_unit(); if (uu && gf(uu + 0x64) > zmax) zmax = gf(uu + 0x64); });
                 after(2.8, ^{
-                    selftest_check("JUMP lifts the player", zmax > z0 + 0.2f, [NSString stringWithFormat:@"height %.2f -> up to %.2f", z0, zmax]);
+                    selftest_check("one immediate JUMP tap lifts the player", zmax > z0 + 0.2f, [NSString stringWithFormat:@"height %.2f -> up to %.2f", z0, zmax]);
                     uint32_t u5 = g_unit();
                     float aim0 = atan2f(gf(u5 + 0x240), gf(u5 + 0x23c));
                     [overlay driveAimX:1 y:0];

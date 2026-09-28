@@ -247,3 +247,27 @@ and new ownership after reset. They use explicit test tokens and the real view c
 they do not synthesize OS input or establish hands-on simultaneous multi-touch acceptance.
 Four ownership cases failed before the fix (`G9/overlay-20260928T160258Z`). The final suite passes
 57 input/layout assertions, 90 geometry combinations and five renders (`G9/overlay-20260928T160454Z`).
+
+
+### Buffered keyboard taps reach Halo's consumer
+
+The translated keyboard update at `0x493520` already preserves down/up in one update: it sets
+Halo's key state to pressed and records a deferred release, which the next update clears.
+Do not copy the virtual mouse workaround into this buffered keyboard path or add timed holds.
+
+The DirectInput harness now connects its keyboard fixture to the original consumer and checks
+all eleven keyboard-backed controls (JUMP, RELOAD, USE, MELEE, SWAP, ZOOM, CROUCH, LIGHT, NADE
+selection, scoreboard and pause). Each down/up pair is pumped eight times before the consumer
+runs. Pressed state and deferred release appear once, clear on the next update and remain clear
+on a third. All 135 assertions pass on iPad Simulator (`G9/short-key-consumer`). Fixture globals
+are changed only inside the test process; the runtime/translated code is unchanged.
+
+The in-game handler selftest now requires one immediate JUMP press/release, removing the former
+300 ms hold and optional second attempt. This checks the first tap honestly. Consumer checks
+prove delivery, not the gameplay outcome of every action or simultaneous physical touch routing.
+Keyboard source ownership, interruption of unread buffered keys and multiple taps within a
+single consumer update remain separate acceptance work.
+
+The stricter JUMP check passes in the rebuilt device-data iPad app: height -0.22→0.44 after
+one immediate handler down/up, with all five gameplay checks green (`G3/ios-app-20260928T161826Z`).
+This remains a handler-driven game-state check, not an actual simultaneous-finger claim.

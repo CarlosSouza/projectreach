@@ -158,6 +158,42 @@ int main(void)
     input((hp_input){.kind = HPI_ACTIVATE, .down = 1});
     check("  Acquire once active again", M0(k, Acquire), 0);
 
+    /* Exercise Halo's translated keyboard consumer, not just DirectInput's queue.
+       0x493520 drains buffered events and defers a same-update release until the
+       next update. The table at 0x5fa358 maps DIK offsets to Halo key indices. */
+    uint32_t saved_keyboard = rd(0x64c730);
+    uint8_t saved_enabled = *(uint8_t *)halopad_guest_ptr(0x64c528);
+    memcpy(halopad_guest_ptr(0x64c730), &k, 4);
+    *(uint8_t *)halopad_guest_ptr(0x64c528) = 1;
+    const uint32_t quick_scans[] = {0x39, 0x13, 0x12, 0x21, 0x0f, 0x2c, 0x1d, 0x10, 0x22, 0x3b, 0x01};
+#if TARGET_OS_IPHONE
+    halopad_host_input_off = 0;
+#endif
+    for (uint32_t i = 0; i < sizeof quick_scans / sizeof *quick_scans; i++) {
+        uint32_t scan = quick_scans[i];
+        uint16_t index;
+        memcpy(&index, halopad_guest_ptr(0x5fa358 + scan * 2), 2);
+        check("overlay key has a valid Halo key index", index < 109, 1);
+        if (index >= 109) continue;
+        queued_input((hp_input){.kind = HPI_KEY, .vk = 'A', .scan = scan, .down = 1});
+        queued_input((hp_input){.kind = HPI_KEY, .vk = 'A', .scan = scan, .down = 0});
+        pump_many();
+        halopad_call_guest(0x493520, 0, NULL);
+        char label[128];
+        snprintf(label, sizeof label, "Halo preserves short key scan %02x after eight host pumps", scan);
+        check(label, *(uint8_t *)halopad_guest_ptr(0x64c550 + index), 1);
+        check("Halo records its deferred release", *(uint8_t *)halopad_guest_ptr(0x64c5bd + index), 1);
+        halopad_call_guest(0x493520, 0, NULL);
+        check("next Halo update releases the short key", *(uint8_t *)halopad_guest_ptr(0x64c550 + index), 0);
+        halopad_call_guest(0x493520, 0, NULL);
+        check("later Halo update does not replay it", *(uint8_t *)halopad_guest_ptr(0x64c550 + index), 0);
+    }
+#if TARGET_OS_IPHONE
+    halopad_host_input_off = 1;
+#endif
+    memcpy(halopad_guest_ptr(0x64c730), &saved_keyboard, 4);
+    *(uint8_t *)halopad_guest_ptr(0x64c528) = saved_enabled;
+
     /* mouse, as Halo sets it up */
     check("mouse: SetCooperativeLevel(EXCLUSIVE|FOREGROUND)", M(m, SetCooperativeLevel, hwnd, 5), 0);
     check("mouse: SetDataFormat(Halo's c_dfDIMouse2)", M(m, SetDataFormat, 0x5ec6f4), 0);
