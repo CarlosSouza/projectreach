@@ -8,6 +8,8 @@ static hp_input events[512];
 static int count, failures, cancellations;
 static BOOL held[256];
 static void check(const char *name, BOOL ok);
+static void run_for(double seconds);
+static BOOL all_released(void);
 
 @interface HPTestOverlay : HPOverlay
 @property(nonatomic) BOOL simulatedPhone;
@@ -82,6 +84,77 @@ static void check_drag_tracking(void)
 - (void)trackPoint:(CGPoint)p;
 - (void)reset;
 @end
+
+/* Handler-boundary tokens, not synthesized UIKit events or proof of OS routing. */
+@interface HPTestTouch : NSObject
+@property(nonatomic) CGPoint point;
+- (CGPoint)locationInView:(UIView *)view;
+@end
+@implementation HPTestTouch
+- (CGPoint)locationInView:(UIView *)view { return self.point; }
+- (UITouchType)type { return UITouchTypeDirect; }
+- (NSTimeInterval)timestamp { return 0; }
+@end
+static NSSet<UITouch *> *touch_set(HPTestTouch *touch) { return (id)[NSSet setWithObject:touch]; }
+
+static void check_stick_ownership(void)
+{
+    HPOverlay *overlay = [[HPOverlay alloc] initWithFrame:CGRectMake(0, 0, 1024, 768)];
+    overlay.inGame = YES;
+    [overlay layoutIfNeeded];
+    HPStickView *move = [overlay valueForKey:@"move"], *aim = [overlay valueForKey:@"aim"];
+    HPTestTouch *left = [HPTestTouch new], *right = [HPTestTouch new], *stray = [HPTestTouch new];
+    left.point = CGPointMake(CGRectGetMidX(move.bounds), 0);
+    right.point = CGPointMake(CGRectGetMaxX(aim.bounds), CGRectGetMidY(aim.bounds));
+    stray.point = CGPointZero;
+    count = 0;
+    [move touchesBegan:touch_set(left) withEvent:nil];
+    [aim touchesBegan:touch_set(right) withEvent:nil];
+    run_for(0.08);
+    check("independent MOVE and LOOK handlers can remain held together", held['W'] && count > 1);
+    [move touchesEnded:touch_set(left) withEvent:nil];
+    int afterMoveRelease = count;
+    run_for(0.08);
+    check("releasing MOVE keeps the other finger aiming", all_released() && count > afterMoveRelease);
+    [move touchesBegan:touch_set(left) withEvent:nil];
+    [aim touchesEnded:touch_set(right) withEvent:nil];
+    int afterAimRelease = count;
+    run_for(0.08);
+    check("releasing LOOK keeps movement held without further aim", held['W'] && count == afterAimRelease);
+    [aim touchesBegan:touch_set(right) withEvent:nil];
+    [overlay clearTouchInput];
+    int afterClear = count;
+    [move touchesMoved:touch_set(left) withEvent:nil];
+    [aim touchesMoved:touch_set(right) withEvent:nil];
+    run_for(0.08);
+    check("late stick moves after interruption cannot restore movement or aim", all_released() && count == afterClear);
+    [move touchesEnded:touch_set(left) withEvent:nil];
+    [aim touchesEnded:touch_set(right) withEvent:nil];
+    [overlay clearTouchInput];
+
+    [move touchesBegan:touch_set(left) withEvent:nil];
+    int afterBegin = count;
+    [move touchesBegan:touch_set(stray) withEvent:nil];
+    [move touchesMoved:touch_set(stray) withEvent:nil];
+    [move touchesEnded:touch_set(stray) withEvent:nil];
+    check("another touch cannot steal or release an owned stick", held['W'] && count == afterBegin);
+    [move touchesCancelled:touch_set(left) withEvent:nil];
+    check("owner cancellation releases movement", all_released());
+    afterClear = count;
+    [move touchesMoved:touch_set(left) withEvent:nil];
+    check("cancelled owner cannot restart movement with a late move", all_released() && count == afterClear);
+    [overlay clearTouchInput];
+
+    [move touchesBegan:touch_set(left) withEvent:nil];
+    [move reset];
+    [move touchesBegan:touch_set(right) withEvent:nil];
+    afterBegin = count;
+    [move touchesEnded:touch_set(left) withEvent:nil];
+    check("old owner ending cannot release a newly started touch", count == afterBegin);
+    [move touchesEnded:touch_set(right) withEvent:nil];
+    check("new owner ends normally", all_released());
+    [overlay clearTouchInput];
+}
 
 static void check_stick_tracking(void)
 {
@@ -379,6 +452,7 @@ int main(void)
         check("main menu hides the in-game Back target", back.hidden);
         check_drag_tracking();
         check_stick_tracking();
+        check_stick_ownership();
         check_layouts();
 
         fprintf(stderr, "OVERLAY INPUT: %s (%d failures)\n", failures ? "FAIL" : "PASS", failures);

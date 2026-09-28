@@ -173,6 +173,7 @@ typedef NS_ENUM(NSInteger, HPControlKind) { HPKey, HPMouseButton };
 
 @implementation HPStickView {
     UIView *_thumb;
+    UITouch *_activeTouch;
     float _x, _y;
 }
 - (instancetype)initWithFrame:(CGRect)frame
@@ -212,7 +213,7 @@ typedef NS_ENUM(NSInteger, HPControlKind) { HPKey, HPMouseButton };
     CGFloat half = self.bounds.size.width / 2, travel = half - _thumb.bounds.size.width / 2 - 3;
     _thumb.center = CGPointMake(half + _x * travel, half - _y * travel);
 }
-- (void)reset { _x = _y = 0; [self place]; if (self.valueChanged) self.valueChanged(0, 0); }
+- (void)reset { _activeTouch = nil; _x = _y = 0; [self place]; if (self.valueChanged) self.valueChanged(0, 0); }
 - (void)track:(UITouch *)t
 {
     [self trackPoint:[t locationInView:self]];
@@ -229,10 +230,30 @@ typedef NS_ENUM(NSInteger, HPControlKind) { HPKey, HPMouseButton };
     [self place];
     if (self.valueChanged) self.valueChanged(_x, _y);
 }
-- (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event { trace_touches(self, touches, "began"); if (!self.editing) [self track:touches.anyObject]; }
-- (void)touchesMoved:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event { trace_touches(self, touches, "moved"); if (!self.editing) [self track:touches.anyObject]; }
-- (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event { trace_touches(self, touches, "ended"); [self reset]; }
-- (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event { trace_touches(self, touches, "cancelled"); [self reset]; }
+- (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
+{
+    trace_touches(self, touches, "began");
+    if (self.editing || _activeTouch) return;
+    _activeTouch = touches.anyObject;
+    if (_activeTouch) [self track:_activeTouch];
+}
+- (void)touchesMoved:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
+{
+    trace_touches(self, touches, "moved");
+    /* A menu/lifecycle reset revokes ownership. Late callbacks from that finger
+       must not restart movement or disturb a new finger's hold. */
+    if (!self.editing && _activeTouch && [touches containsObject:_activeTouch]) [self track:_activeTouch];
+}
+- (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
+{
+    trace_touches(self, touches, "ended");
+    if (_activeTouch && [touches containsObject:_activeTouch]) [self reset];
+}
+- (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
+{
+    trace_touches(self, touches, "cancelled");
+    if (_activeTouch && [touches containsObject:_activeTouch]) [self reset];
+}
 @end
 
 /* A Halo control: a key or a mouse button, held while touched; a translucent glass circle with an

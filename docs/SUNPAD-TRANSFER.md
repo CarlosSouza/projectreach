@@ -232,3 +232,18 @@ it does not establish general short keyboard-edge behavior or simultaneous physi
 Verification: 80 DirectInput assertions (`G3/core-arm64-apple-ios17.0-simulator-20260928T154845Z`),
 74 USER32 assertions (`G3/core-arm64-apple-ios17.0-simulator-20260928T154751Z`), and 48 overlay
 assertions plus 90 layouts/five renders (`G9/overlay-20260928T155429Z`) pass on the iPad Simulator.
+
+
+### Stick ownership across interruption
+
+Each stick now retains the touch that began its hold. Only that touch may update or end it.
+Reset clears ownership before releasing input, so late moves after a native menu/lifecycle
+interruption cannot restart movement or the LOOK timer. A previous touch ending also cannot
+release a newly started hold. Normal UIKit single-touch-per-control behavior stays in place.
+
+Nine new handler-boundary checks exercise independent MOVE/LOOK holds, releasing either while
+the other remains active, reset followed by late moves, unrelated touch events, cancellation,
+and new ownership after reset. They use explicit test tokens and the real view callbacks;
+they do not synthesize OS input or establish hands-on simultaneous multi-touch acceptance.
+Four ownership cases failed before the fix (`G9/overlay-20260928T160258Z`). The final suite passes
+57 input/layout assertions, 90 geometry combinations and five renders (`G9/overlay-20260928T160454Z`).

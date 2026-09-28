@@ -1740,3 +1740,36 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   defect, not general short keyboard edges, simultaneous held multi-touch, physical ergonomics,
   normal licensed startup/reference-client comparison, campaign or the other parked gates.
   Continue with those acceptance rows; do not repeat successful tap checks without a change.
+
+
+### 2026-09-28 — revoke stick ownership on interruption
+
+- Previous turn: **progress**, `1eb7876` privately pushed. Reread the goal attachment and
+  relevant G9/M27 requirements. Started clean; pinned sources and locked executable hash
+  pass. Existing preview PID 63397 was live, only project iPad booted, no Wine; reference/
+  patch bottles present. No newly supplied parked input. Full scope remains active.
+- Inspected the remaining multi-touch/cancellation boundary. Stick callbacks accepted any
+  moved/ended touch and reset only axis values. A late move after native UI cleared input
+  could therefore restart W or the continuous LOOK timer. An old touch ending could also
+  clear a newer hold.
+- Added handler-boundary touch tokens (explicitly not synthesized UIKit/OS routing). The
+  first run reproduced four failures (`G9/overlay-20260928T160258Z`). Each stick now keeps
+  the touch that began its hold; move/end/cancel must match. Reset revokes ownership before
+  sending zero input. No artificial holds or changes to movement speed.
+- Final `G9/overlay-20260928T160454Z`: 57 input/layout assertions, 90 geometry combinations,
+  five native renders pass. Nine new assertions cover independent simultaneous handler holds,
+  release of either while the other remains held, late moves after interruption, alien touch
+  events, owner cancellation and an old touch ending after a new begin. Physical simultaneous
+  finger input is still unverified; do not promote these handler tests to that acceptance.
+- Built and verified the app signature, stopped only PID 63397, backed up Support/preferences,
+  installed and launched PID 65091 from device paths with the controlled-LAN handler selftest.
+  Original menus → Create LAN → Battle Creek → Slayer → Start Game. Five game-state checks
+  pass: move 4.26 units, swipe 39.7 degrees, battery 1.00→0.89, jump -0.47→0.18, LOOK 24.7 degrees.
+  `G9/stick-ownership` holds binary/source identities, logs, backups and preview screenshot.
+- Leave PID 65091 in local gameplay; phone remains shut down and no separate reference service
+  was started. Known-good boundary command: `.venv/bin/python scripts/test-ios-overlay.py
+  --device E129A00F-D338-4FDC-8AE8-BB243E9BA61B`. Next input experiment: measure short gameplay-key
+  taps (JUMP/reload) at the buffered keyboard consumer and actual game behavior. Do not rerun
+  instantaneous CUA drags as evidence of held sticks: the earlier trace disproved that premise.
+  Actual multitouch/physical ergonomics, package-picker/recovery, licensed baseline, campaign,
+  two-player acceptance and other full-goal requirements remain open; no terminal goal update.
