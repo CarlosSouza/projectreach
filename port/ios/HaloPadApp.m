@@ -21,6 +21,8 @@
 
 #include "../runtime/halopad_input.h"
 #import "HaloPadOverlay.h"
+#include "halopad_menu_touch.h"
+#include <pthread.h>
 
 int halopad_core_run(void);
 /* what the core thread runs: Halo from its entry point, unless a development scene replaces it
@@ -36,6 +38,15 @@ extern void (*halopad_d3d9_present_hook)(uint32_t device);
 /* frames Halo presents (the FPS counter) */
 static atomic_int presented;
 static HPOverlay *overlay;
+static hp_menu_touch menu_touch;
+static pthread_mutex_t menu_touch_lock = PTHREAD_MUTEX_INITIALIZER;
+static uint32_t menu_touch_root;
+static void cancel_menu_touch(void)
+{
+    pthread_mutex_lock(&menu_touch_lock);
+    menu_touch.cancel = 1;
+    pthread_mutex_unlock(&menu_touch_lock);
+}
 /* Read the locked CE 1.10 UI state on Halo's presenting thread. The root widget
    exists in pause/child menus even while an online match continues to simulate. */
 static void update_overlay_game_state(void)
@@ -44,6 +55,22 @@ static void update_overlay_game_state(void)
     const char *map = halopad_guest_ptr(0x643064);
     uint32_t root;
     memcpy(&root, halopad_guest_ptr(0x6b401c), sizeof root);
+    /* CE UI cursor coordinates are 640x480 regardless of render resolution. Halo's
+       original input update applies acceleration and moves its own software cursor. */
+    int32_t cursor[2]; float sensitivity[2];
+    memcpy(cursor, halopad_guest_ptr(0x6b400c), sizeof cursor);
+    memcpy(sensitivity, halopad_guest_ptr(0x629c64), sizeof sensitivity);
+    hp_input event;
+    pthread_mutex_lock(&menu_touch_lock);
+    menu_touch_root = root;
+    int emit = hp_menu_step(&menu_touch, root, cursor[0], cursor[1], sensitivity[0], sensitivity[1], &event);
+    pthread_mutex_unlock(&menu_touch_lock);
+    if (emit) {
+        if (getenv("HALOPAD_TRACE_INPUT"))
+            fprintf(stderr, "HALOPAD MENU TOUCH: cursor %d,%d event %d delta %d,%d down %d\n",
+                    cursor[0], cursor[1], event.kind, event.dx, event.dy, event.down);
+        halopad_input_event(&event);
+    }
     BOOL inGame = map[0] && strcmp(map, "ui");
     BOOL menuVisible = root != 0;
     static int previous = -1;
@@ -277,6 +304,8 @@ static void resolve_device_paths(void)
 @end
 
 @interface HPGameViewController : UIViewController <HPOverlayDelegate>
+@property(nonatomic) BOOL trackingMenuTouch;
+@property(nonatomic) unsigned menuTouchToken;
 @end
 
 static HPGameViewController *game_vc;
@@ -612,15 +641,46 @@ static void touch_selftest(void)
     in.button = (t.type == UITouchTypeIndirectPointer && (ev.buttonMask & UIEventButtonMaskSecondary)) ? 1 : 0;
     halopad_host_post_input(&in);
 }
+/* A direct finger touch in Halo's menus positions the game cursor before clicking.
+   Keep the gesture's ownership through its end even if the menu changes underneath it. */
+- (void)menuTouch:(UITouch *)touch begin:(BOOL)begin ended:(BOOL)ended
+{
+    int32_t x, y; double scale;
+    if (![self client:[touch locationInView:self.view] x:&x y:&y scale:&scale]) return;
+    uint32_t w, h;
+    halopad_host_window_size(input_window, &w, &h);
+    if (!w || !h) return;
+    int mx = (int)lround(x * 640.0 / w), my = (int)lround(y * 480.0 / h);
+    pthread_mutex_lock(&menu_touch_lock);
+    if (begin) self.menuTouchToken = hp_menu_begin(&menu_touch, menu_touch_root, mx, my, x, y);
+    else hp_menu_update(&menu_touch, self.menuTouchToken, mx, my, x, y, ended);
+    pthread_mutex_unlock(&menu_touch_lock);
+}
 - (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
 {
     UITouch *t = touches.anyObject;
+    self.trackingMenuTouch = overlay.haloMenuVisible && t.type == UITouchTypeDirect;
+    if (self.trackingMenuTouch) { [self menuTouch:t begin:YES ended:NO]; return; }
     [self pointer:t event:event kind:HPI_MOUSEMOVE down:0];
     [self pointer:t event:event kind:HPI_BUTTON down:1];
 }
-- (void)touchesMoved:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event { [self pointer:touches.anyObject event:event kind:HPI_MOUSEMOVE down:0]; }
-- (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event { [self pointer:touches.anyObject event:event kind:HPI_BUTTON down:0]; }
-- (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event { [self pointer:touches.anyObject event:event kind:HPI_BUTTON down:0]; }
+- (void)touchesMoved:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
+{
+    if (self.trackingMenuTouch) { [self menuTouch:touches.anyObject begin:NO ended:NO]; return; }
+    [self pointer:touches.anyObject event:event kind:HPI_MOUSEMOVE down:0];
+}
+- (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
+{
+    if (self.trackingMenuTouch) {
+        [self menuTouch:touches.anyObject begin:NO ended:YES]; self.trackingMenuTouch = NO; return;
+    }
+    [self pointer:touches.anyObject event:event kind:HPI_BUTTON down:0];
+}
+- (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
+{
+    if (self.trackingMenuTouch) { cancel_menu_touch(); self.trackingMenuTouch = NO; return; }
+    [self pointer:touches.anyObject event:event kind:HPI_BUTTON down:0];
+}
 - (void)hover:(UIHoverGestureRecognizer *)g
 {
     hp_input in = {.kind = HPI_MOUSEMOVE};
@@ -891,6 +951,7 @@ int halopad_host_open_url(const char *url)
 {
     if (getenv("HALOPAD_TRACE_LIFECYCLE")) fprintf(stderr, "HALOPAD LIFECYCLE: %.3f scene inactive, frames %d\n", CFAbsoluteTimeGetCurrent(), atomic_load(&presented));
     [overlay clearTouchInput];
+    cancel_menu_touch();
     [HPOverlay setTextInputActive:NO];
     hp_input e = {.kind = HPI_ACTIVATE, .down = 0}; halopad_host_post_input(&e);
 }

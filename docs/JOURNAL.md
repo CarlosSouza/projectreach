@@ -1397,3 +1397,43 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   physical ergonomics, and safe prepared-data import. The hardware keyboard was connected
   for this menu route and was disconnected again before leaving the touch preview. This increment
   closes overlay menu ownership, not complete menu navigation or G9/full-goal acceptance.
+
+
+### 2026-09-28 — direct finger selection in Halo menus
+
+- Previous iteration: **progress**, committed/pushed as `975bd7a` (menu ownership and release).
+  Goal remains active. Re-read the objective; verified the locked executable hash and pinned
+  sources, clean starting branch, bottles and sole project preview. Parked inputs unchanged.
+- Hypothesis: absolute USER32 coordinates do not move Halo's accelerated software menu cursor.
+  Inspected locked CE routine `0x49a220`: cursor at `0x6b400c/0x6b4010`, sensitivities at
+  `0x629c64/0x629c68`, acceleration d*(1+abs(d)*sensitivity*.05), clamped to 640×480.
+  The original input conversion negates raw Y before the UI routine negates it again.
+- Added a menu-only adapter: convert direct touches through the displayed viewport, invert
+  acceleration, send ordinary relative mouse events on Halo's presenting thread, observe the
+  resulting cursor before pressing, then release on a later frame. No guest writes, function
+  injection, changed Halo instructions or replacement menus. Read-only snapshots and UIKit
+  requests share a mutex. The alternate `0x6b4009` OS-cursor path is not enabled or claimed.
+- Preserve original press coordinates during fast drags, queue up to eight rapid gestures,
+  leave a released frame between them, and cancel/release on root changes or scene interruption.
+  An unresponsive cursor cancels after eight unchanged correction attempts rather than clicking
+  later. Gameplay look/sensitivity behavior is unchanged.
+- `G9/menu-touch-20260928T131724Z`: seven gesture-sequence scenarios pass; 72 routes through
+  the original x86 cursor routine converge within two corrections across four sensitivities,
+  three starting positions and six targets. Oracle fixture writes are test-only. The first
+  harness run failed while recording a relative source path after its computations; fixed
+  path resolution and reran successfully. Final report records image/source hashes.
+- Preliminary iPad `G3/ios-app-20260928T130906Z` verified direct Settings/audio-arrow taps.
+  Preliminary phone `...131637Z` was stopped before testing the revised fast-drag implementation.
+  Final phone `...131954Z` verifies a sidebar touch leaves the cursor/menu unchanged, direct
+  Settings → Audio Setup, and small volume arrows 10→9→10. Screenshot retained. Phone stopped
+  and shut down before final iPad; candidates were never run concurrently.
+- Final iPad `G3/ios-app-20260928T132504Z`: built and launched revised sources, rotated to
+  landscape, then navigated Multiplayer → Create Game LAN → Battle Creek → Slayer → Start
+  Game using actual Simulator touches alone. Pause touch hides sticks/actions; direct Game
+  Options, original Back and original Resume Game all work. Screenshots `touch-child-menu.png`
+  and `final-preview.png` plus cursor/button traces retained. No hardware-keyboard navigation.
+- Leave PID 38291 running in local Battle Creek on the sole booted project iPad. iPhone is shut
+  down. This closes these tested direct-menu routes, not all G9: general short gameplay-input
+  edges, true simultaneous multi-touch, physical ergonomics and alternate pointer modes remain.
+  Next unblocked work includes safe prepared-data import and further input/lifecycle checks.
+  Original licensed startup, campaign, two-player and device gates remain intact.

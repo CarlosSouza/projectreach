@@ -153,6 +153,20 @@ or stop an online game's simulation.
 
 Verified in a menu-started local Battle Creek match on iPad (`G3/ios-app-20260928T125447Z`),
 including a nested Game Options menu and touch Back/resume. The boundary suite passes 30
-assertions and 90 layout combinations. Direct touch positioning of Halo's original menu cursor
-and very short input edges remain open; use the connected hardware keyboard for menu navigation
-in Simulator for now. Disconnect it again when previewing the software keyboard.
+assertions and 90 layout combinations. Direct finger taps now position Halo's own cursor before sending a click. The menu adapter
+converts the touch through the displayed viewport into Halo's 640×480 UI coordinates, then
+supplies ordinary relative mouse input with correction against the observed cursor. It does
+not write guest state or replace Halo's menus. Short taps keep separate press/release frames;
+menu changes and interruptions discard pending gestures and release a held button.
+
+Verified on the final iPhone build (`G3/ios-app-20260928T131954Z`): sidebars ignore touches,
+Settings → Audio Setup opens directly, and small master-volume arrows change 10→9→10.
+Final iPad (`G3/ios-app-20260928T132504Z`) completes Multiplayer → Create Game LAN →
+Battle Creek → Slayer → Start Game entirely by touch, then Pause → Game Options → original
+Back → original Resume Game. Controls hide in menus and reappear in gameplay. These routes
+no longer require the Simulator hardware keyboard.
+
+The adapter passes seven gesture-sequence tests and 72 cursor routes against the original x86
+menu routine, converging within two correction frames (`G9/menu-touch-20260928T131724Z`).
+General very short gameplay-key edges, actual simultaneous multi-touch, the alternate guest
+OS-cursor path and physical-device ergonomics remain unverified.
