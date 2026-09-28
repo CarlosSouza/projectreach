@@ -48,6 +48,8 @@ typedef NS_ENUM(NSInteger, HPAspectMode) { HPAspectOriginal = 0, HPAspectFill = 
 @property(nonatomic) BOOL softwareKeyboardVisible;
 /* Enabled only after the core has configured the independent touch controller. */
 @property(nonatomic) BOOL analogMoveReady;
+/* Snapshot supplied by Halo's thread; presentation only, never a replacement binding. */
+@property(nonatomic) uint32_t availableActions;
 /* Frames Halo presented in the last second, for the FPS counter; -1 hides it. */
 - (void)setFramesPerSecond:(int)fps;
 /* Types text into Halo as a player would on a keyboard ("\n" is Enter). */

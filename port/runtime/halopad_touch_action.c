@@ -40,6 +40,14 @@ static int resolve(uint32_t action, hp_input *out)
        Never fall back to a key that might now trigger another action. */
     return 0;
 }
+uint32_t halopad_touch_action_mask(void)
+{
+    uint32_t mask = 0;
+    hp_input mapped;
+    for (unsigned i = 0; i < ACTION_COUNT; i++)
+        if (resolve(i, &mapped)) mask |= 1u << i;
+    return mask;
+}
 static int same_control(const hp_input *a, const hp_input *b)
 {
     return a->kind == b->kind && (a->kind == HPI_KEY ?

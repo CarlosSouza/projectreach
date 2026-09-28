@@ -561,6 +561,8 @@ int main(void)
         check("original setter accepts independent movement binding", halopad_call_guest_ex(0x48e360, 0, NULL, binding, 0) & 0xff, 1);
         cpu._ebx = saved_ebx;
     }
+    check("availability sees keyboard forward but not controller-only directions",
+          halopad_touch_action_mask() & (15u << 19), 1u << 19);
     memcpy(halopad_guest_ptr(0x6abb38), &(float){1}, 4);
     memcpy(halopad_guest_ptr(0x6abb3c), &(float){1}, 4);
     memcpy(halopad_guest_ptr(0x6abb58), &(float){1}, 4);
@@ -621,6 +623,7 @@ int main(void)
     input((hp_input){.kind = HPI_ACTION, .flags = HPI_TOUCH, .action = 0});
     M(k, GetDeviceState, 256, st);
     check("remapped held action releases its down-time key", !((uint8_t *)halopad_guest_ptr(st))[0x24] && !((uint8_t *)halopad_guest_ptr(st))[0x39], 1);
+    check("availability follows restored keyboard JUMP", halopad_touch_action_mask() & 1, 1);
     input((hp_input){.kind = HPI_ACTION, .flags = HPI_TOUCH, .action = 0, .down = 1});
     M(k, GetDeviceState, 256, st);
     check("next touch uses the new Space binding", ((uint8_t *)halopad_guest_ptr(st))[0x39], 128);
@@ -634,6 +637,7 @@ int main(void)
     halopad_call_guest_ex(0x48e360, 0, NULL, action_descriptor, 0);
     input((hp_input){.kind = HPI_ACTION, .flags = HPI_TOUCH, .action = 0, .down = 1});
     M(k, GetDeviceState, 256, st);
+    check("availability clears unbound JUMP", halopad_touch_action_mask() & 1, 0);
     check("unbound action does not fall back to an unrelated default", !((uint8_t *)halopad_guest_ptr(st))[0x39], 1);
     input((hp_input){.kind = HPI_ACTION, .flags = HPI_TOUCH, .action = 0});
     memcpy(halopad_guest_ptr(action_descriptor), (uint16_t[]){2, 0, 0, 2, 0, 0}, 12);
@@ -642,6 +646,7 @@ int main(void)
     queued_input((hp_input){.kind = HPI_ACTION, .flags = HPI_TOUCH, .action = 7, .down = 1});
     queued_input((hp_input){.kind = HPI_ACTION, .flags = HPI_TOUCH, .action = 7}); pump_many();
     M(m, GetDeviceState, 20, ms);
+    check("availability sees remapped mouse FIRE", !!(halopad_touch_action_mask() & (1u << 7)), 1);
     check("remapped FIRE tap survives host pumps", ((uint8_t *)halopad_guest_ptr(ms))[14] == 128 && !((uint8_t *)halopad_guest_ptr(ms))[12], 1);
     M(m, GetDeviceState, 20, ms);
     check("remapped FIRE tap releases on the next read", ((uint8_t *)halopad_guest_ptr(ms))[14], 0);
@@ -761,6 +766,7 @@ int main(void)
         memcpy(halopad_guest_ptr(action_descriptor), (uint16_t[]){2, 0, 1, 2, direction, 0}, 12);
         cpu._ebx = 19;
         check("original setter accepts wheel-only forward action", halopad_call_guest_ex(0x48e360, 0, NULL, action_descriptor, 0) & 255, 1);
+        check("availability sees wheel-only forward", !!(halopad_touch_action_mask() & (1u << 19)), 1);
         input((hp_input){.kind = HPI_WHEEL, .wheel = delta});
         halopad_call_guest(0x493520, 0, NULL); halopad_call_guest(0x48f850, 0, NULL);
         uint32_t physical_wheel = rd(0x6ad4b8);

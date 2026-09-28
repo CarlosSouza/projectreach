@@ -94,14 +94,18 @@ static void update_overlay_game_state(void)
     static int previous = -1;
     BOOL analogMove = halopad_app_touch_move_ready();
     int state = inGame | (menuVisible << 1) | (analogMove << 2);
-    if (state == previous) return;
+    static uint32_t previousActions = UINT32_MAX;
+    uint32_t availableActions = inGame ? halopad_touch_action_mask() : (1u << 29) - 1;
+    if (state == previous && availableActions == previousActions) return;
     previous = state;
+    previousActions = availableActions;
     if (getenv("HALOPAD_TRACE_INPUT"))
         fprintf(stderr, "HALOPAD MENU: in game %d menu visible %d\n", inGame, menuVisible);
     dispatch_async(dispatch_get_main_queue(), ^{
         overlay.haloMenuVisible = menuVisible;
         overlay.inGame = inGame;
         overlay.analogMoveReady = analogMove;
+        overlay.availableActions = availableActions;
     });
 }
 void *halopad_d3d9_device_target(uint32_t g);

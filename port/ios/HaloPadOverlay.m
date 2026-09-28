@@ -274,6 +274,8 @@ static void trace_touches(UIView *view, NSSet<UITouch *> *touches, const char *p
 @interface HPControlButton : UIView
 @property(nonatomic) int action; /* original CE action, -1 for Escape/Back */
 @property(nonatomic) BOOL looks, held, primary;
+@property(nonatomic) BOOL bindingAvailable;
+@property(nonatomic, copy) void (^bindingHelp)(void);
 @property(nonatomic, strong) UILabel *label;
 @property(nonatomic, strong) UIImageView *icon;
 @property(nonatomic, copy) void (^lookBy)(CGFloat dx, CGFloat dy);
@@ -285,11 +287,15 @@ static void trace_touches(UIView *view, NSSet<UITouch *> *touches, const char *p
 
 @implementation HPControlButton {
     HPLookDrag *_drag;
+    UIImageView *_bindingBadge;
 }
 - (instancetype)initWithFrame:(CGRect)frame
 {
     if ((self = [super initWithFrame:frame])) {
         self.multipleTouchEnabled = NO;
+        self.isAccessibilityElement = YES;
+        self.accessibilityTraits = UIAccessibilityTraitButton;
+        _bindingAvailable = YES;
         self.clipsToBounds = YES;
         self.layer.borderWidth = 1.5;
         _drag = [HPLookDrag new];
@@ -309,11 +315,24 @@ static void trace_touches(UIView *view, NSSet<UITouch *> *touches, const char *p
         _label.adjustsFontSizeToFitWidth = YES;
         _label.minimumScaleFactor = 0.6;
         [self addSubview:_label];
+        _bindingBadge = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@"exclamationmark.circle.fill"]];
+        _bindingBadge.tintColor = UIColor.systemYellowColor;
+        _bindingBadge.backgroundColor = UIColor.blackColor;
+        _bindingBadge.layer.cornerRadius = 7;
+        _bindingBadge.hidden = YES;
+        [self addSubview:_bindingBadge];
         [self paint];
     }
     return self;
 }
 - (void)setSymbol:(NSString *)name { _icon.image = [UIImage systemImageNamed:name]; [self setNeedsLayout]; }
+- (void)setBindingAvailable:(BOOL)available
+{
+    _bindingAvailable = available;
+    _bindingBadge.hidden = available;
+    self.accessibilityValue = available ? nil : @"Needs a keyboard or mouse binding";
+    self.accessibilityHint = available ? nil : @"Pause, Change Settings, Controls Setup";
+}
 - (void)setPrimary:(BOOL)primary { _primary = primary; [self paint]; }
 /* Quiet at rest; the larger FIRE target uses Halo's cool HUD palette. */
 - (void)paint
@@ -332,6 +351,7 @@ static void trace_touches(UIView *view, NSSet<UITouch *> *touches, const char *p
     CGFloat iconSide = d * (caption ? 0.40 : 0.50);
     _icon.frame = CGRectMake((self.bounds.size.width - iconSide) / 2, self.bounds.size.height / 2 - iconSide / 2 - (caption ? d * 0.08 : 0), iconSide, iconSide);
     _icon.preferredSymbolConfiguration = [UIImageSymbolConfiguration configurationWithPointSize:iconSide * 0.8 weight:UIImageSymbolWeightSemibold];
+    _bindingBadge.frame = CGRectMake(d * 0.68 - 7, d * 0.22 - 7, 14, 14);
     _label.hidden = !caption;
     _label.font = [UIFont systemFontOfSize:fmax(10, d * 0.15) weight:UIFontWeightSemibold];
     _label.frame = CGRectMake(d * 0.12, CGRectGetMaxY(_icon.frame) + d * 0.02, self.bounds.size.width - d * 0.24, d * 0.2);
@@ -340,6 +360,9 @@ static void trace_touches(UIView *view, NSSet<UITouch *> *touches, const char *p
 {
     if (down == self.held) return;
     self.held = down;
+    if (down && !self.bindingAvailable && self.bindingHelp) self.bindingHelp();
+    /* Still deliver both edges: this snapshot may lag a remap, and release
+       must reach the runtime's press-time owner even if availability changed. */
     if (self.action >= 0) post_action((uint32_t)self.action, down);
     else post_key(0x1b, 0, 0x01, 0, down, 0);
     self.transform = down ? CGAffineTransformMakeScale(0.92, 0.92) : CGAffineTransformIdentity;
@@ -406,7 +429,8 @@ static const hp_control_def CONTROLS[] = {
     float _aimX, _aimY;
     NSMutableArray<HPControlButton *> *_buttons;
     NSMutableArray<UIGestureRecognizer *> *_editGestures;
-    UILabel *_fps;
+    UILabel *_fps, *_bindingHint;
+    NSUInteger _bindingHintGeneration;
     UIView *_panel, *_editorBar;
     UISlider *_opacity, *_size, *_look, *_selectedSize;
     UISwitch *_hideSwitch, *_editSwitch, *_leftSwitch, *_captionSwitch;
@@ -423,6 +447,7 @@ static const hp_control_def CONTROLS[] = {
 {
     if ((self = [super initWithFrame:frame])) {
         self.multipleTouchEnabled = YES;
+        _availableActions = (1u << 29) - 1;
         _lookDrag = [HPLookDrag new];
         __weak HPOverlay *weak = self;
         _lookDrag.delta = ^(CGFloat dx, CGFloat dy) { [weak lookX:dx y:dy]; };
@@ -438,6 +463,17 @@ static const hp_control_def CONTROLS[] = {
         _fps.hidden = YES;
         _fps.userInteractionEnabled = NO;
         [self addSubview:_fps];
+        _bindingHint = [UILabel new];
+        _bindingHint.font = [UIFont systemFontOfSize:14 weight:UIFontWeightSemibold];
+        _bindingHint.textColor = UIColor.whiteColor;
+        _bindingHint.backgroundColor = [UIColor colorWithWhite:0.04 alpha:0.92];
+        _bindingHint.numberOfLines = 0;
+        _bindingHint.textAlignment = NSTextAlignmentCenter;
+        _bindingHint.layer.cornerRadius = 10;
+        _bindingHint.clipsToBounds = YES;
+        _bindingHint.userInteractionEnabled = NO;
+        _bindingHint.hidden = YES;
+        [self addSubview:_bindingHint];
         for (NSString *n in @[GCControllerDidConnectNotification, GCControllerDidDisconnectNotification])
             [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(refreshControllerVisibility) name:n object:nil];
         [self refreshControllerVisibility];
@@ -477,11 +513,43 @@ static const hp_control_def CONTROLS[] = {
         b.accessibilityIdentifier = @(d->ident);
         b.accessibilityLabel = strlen(d->caption) ? @(d->caption).capitalizedString :
             (strcmp(d->ident, "menu") == 0 ? @"Pause" : @"Scoreboard");
+        NSString *name = b.accessibilityLabel;
+        b.bindingHelp = ^{ [weak showBindingHelp:name]; };
         b.lookBy = ^(CGFloat dx, CGFloat dy) { [weak lookX:dx y:dy]; };
         [_buttons addObject:b];
         [self addSubview:b];
         [self addEditGestures:b];
     }
+}
+
+- (void)showBindingHelp:(NSString *)name
+{
+    _bindingHint.text = [NSString stringWithFormat:@"%@ needs a keyboard or mouse binding.\nPause → Change Settings → Controls Setup", name];
+    _bindingHint.hidden = NO;
+    [self setNeedsLayout];
+    NSUInteger generation = ++_bindingHintGeneration;
+    UIAccessibilityPostNotification(UIAccessibilityAnnouncementNotification, _bindingHint.text);
+    __weak HPOverlay *weak = self;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+        HPOverlay *strong = weak;
+        if (strong && strong->_bindingHintGeneration == generation) strong->_bindingHint.hidden = YES;
+    });
+}
+- (void)setAvailableActions:(uint32_t)mask
+{
+    if (_availableActions == mask) return;
+    _availableActions = mask;
+    _bindingHint.hidden = YES; ++_bindingHintGeneration;
+    for (HPControlButton *b in _buttons)
+        b.bindingAvailable = b.action < 0 || (mask & (1u << b.action));
+    [self updateMoveBindingHint];
+}
+- (void)updateMoveBindingHint
+{
+    uint32_t movement = 15u << 19;
+    BOOL available = self.analogMoveReady || (self.availableActions & movement) == movement;
+    _move.caption.text = available ? @"MOVE" : @"MOVE !";
+    _move.accessibilityValue = available ? nil : @"One or more directions need a keyboard or mouse binding";
 }
 
 /* Digital fallback follows the player's movement bindings, with hysteresis. */
@@ -497,7 +565,14 @@ static const hp_control_def CONTROLS[] = {
     float v[4] = {y, -x, -y, x};
     for (int i = 0; i < 4; i++) {
         int want = _wasd[i] ? v[i] > 0.25f : v[i] > 0.38f;
-        if (want != _wasd[i]) { _wasd[i] = want; post_action(actions[i], want); }
+        if (want != _wasd[i]) {
+            _wasd[i] = want;
+            if (want && !(self.availableActions & (1u << actions[i]))) {
+                static NSString * const names[] = {@"Forward", @"Left", @"Backward", @"Right"};
+                [self showBindingHelp:names[i]];
+            }
+            post_action(actions[i], want);
+        }
     }
 }
 - (void)setAnalogMoveReady:(BOOL)ready
@@ -505,6 +580,7 @@ static const hp_control_def CONTROLS[] = {
     if (_analogMoveReady == ready) return;
     [self clearTouchInput]; /* release the old source before switching ownership */
     _analogMoveReady = ready;
+    [self updateMoveBindingHint];
 }
 /* looking: points dragged as mouse counts (DirectInput), fractions kept */
 - (void)lookX:(CGFloat)dx y:(CGFloat)dy
@@ -518,6 +594,7 @@ static const hp_control_def CONTROLS[] = {
 - (void)clearTouchInput
 {
     if (getenv("HALOPAD_TRACE_TOUCH")) fprintf(stderr, "HALOPAD TOUCH: clear input\n");
+    _bindingHint.hidden = YES; ++_bindingHintGeneration;
     for (HPControlButton *b in _buttons) [b release_];
     [_move reset];
     [_aim reset];
@@ -718,6 +795,10 @@ static const hp_control_def CONTROLS[] = {
     CGFloat side = 44; inset = 12;
     _menuButton.frame = CGRectMake(CGRectGetMaxX(safe) - side - inset, CGRectGetMinY(safe) + inset, side, side);
     _fps.frame = CGRectMake(CGRectGetMaxX(safe) - side - inset - 86, CGRectGetMinY(safe) + inset + 8, 76, 24);
+    CGFloat hintWidth = fmin(440, safe.size.width - 32);
+    CGSize hintSize = [_bindingHint sizeThatFits:CGSizeMake(hintWidth - 24, CGFLOAT_MAX)];
+    _bindingHint.frame = CGRectMake(CGRectGetMidX(safe) - hintWidth / 2,
+                                   CGRectGetMinY(safe) + 72, hintWidth, fmax(64, hintSize.height + 20));
     _fps.layer.cornerRadius = 6; _fps.layer.masksToBounds = YES;
     CGFloat pw = fmin(360, safe.size.width - 32), ph = fmin(560, fmax(0, safe.size.height - 72));
     _panel.frame = CGRectMake(CGRectGetMaxX(safe) - pw - 12, CGRectGetMinY(safe) + 60, pw, ph);

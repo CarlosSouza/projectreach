@@ -69,6 +69,8 @@ Operating loop: [HaloPad-GOAL-LOOP-PHASE2.md](HaloPad-GOAL-LOOP-PHASE2.md) (repl
 
 - **Wheel-bound touch actions:** resolves original mouse-wheel bindings after keyboard/mouse buttons, with one notch per press and no release/hold repeat. Source-aware cancellation preserves physical scrolling in DirectInput and USER32. iPad suites pass 248/86 assertions; an original-setter wheel-only JUMP gameplay fixture passes all five gameplay and seven analog/cancel checks. Both saves remain byte-exact. Evidence `G9/touch-wheel`; controller-only/unbound feedback and physical ergonomics remain open. Latest preview details are in the journal.
 
+- **Missing touch bindings now have recovery feedback:** a read-only Halo-thread snapshot marks unavailable action buttons and digital MOVE directions. Tapping them shows the exact original-menu path; remapping clears the warning without restarting and releases retain runtime ownership. Original-menu JUMP clear/save/relaunch/Space restore is verified, with both saves restored byte-exact. DirectInput passes 254 assertions; UIKit passes 94 checks, 90 layouts and ten renders (`G9/touch-binding-feedback`). Controller-only actions still require a keyboard/mouse alternative; direct controller synthesis and physical ergonomics remain open.
+
 ## Parked, waiting on Chris
 
 | Item | Parks | Status |

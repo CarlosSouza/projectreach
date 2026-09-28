@@ -2468,3 +2468,52 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
 - Remaining touch compatibility work: controller-only/unbound action feedback
   and usable mapping path. Physical fingers/controller capture and ergonomics,
   normal startup, original-client comparison and other phase-2 gates stay open.
+
+## 2026-09-28 — visible recovery for unavailable touch bindings
+
+- Previous goal turn: progress (26b5f11, wheel action/cancellation support).
+  Current turn: progress. Full objective read; clean tree, five source pins,
+  locked executable hash verified. One iPad PID 13346, phone off, two project
+  bottles, no Wine; devicectl reports no devices. Parked inputs unchanged.
+- Added read-only availability mask using the runtime action resolver, sampled
+  only on Halo's thread and dispatched as a value to UIKit when changed.
+  No guest binding/state writes. Buttons show a small warning badge and accessible
+  explanation for missing keyboard/mouse alternatives. Actual tap shows a
+  five-second hint: Pause → Change Settings → Controls Setup. Digital MOVE names
+  its unavailable direction; independent analog MOVE requires no keyboard bind.
+- Availability is presentation only. Both edges still reach runtime ownership,
+  including release after a remap during a hold. Restoring a binding removes
+  stale feedback; menu/focus cancellation clears the hint. Hint passes touches
+  through and fits phone/tablet safe areas; established two-stick spacing stays.
+- DirectInput G3/core-arm64-apple-ios17.0-simulator-20260928T215205Z passes 254
+  assertions (six new mask assertions: keyboard, mouse, two wheel directions,
+  unbound JUMP and controller-only movement). UIKit final overlay-20260928T215658Z
+  passes 94 checks, 90 layouts and ten renders; inspected phone/tablet warning
+  appearance. Initial compile caught an overly broad edit plus ARC weak-pointer
+  dereference; corrected before successful tests/builds. No runtime red defect
+  claimed from that compile failure.
+- Initial ignored original-setter fixture PID 14865 unbound Space in memory,
+  proving live badge/hint display. The original menu reads its own saved profile,
+  so this alone could not prove player recovery. Captured original binding
+  instructions (Backspace = clear); used software keyboard in original Controls
+  Setup → Actions → JUMP to clear Space and save New002. Only bytes 452/453 and
+  final CRC differ; New001 unchanged. Temporary fixture source retained only in
+  ignored evidence, then discarded in favor of regular analog build.
+- Relaunched regular scene PID 15240 with saved unbound profile: badge and actual
+  tap hint appear; original menu visibly retains ??? for both JUMP slots.
+  Assigned Space using software keyboard, saved, resumed: badge/accessibility
+  warning disappears in same process and a new tap produces no stale hint.
+  Both profile files return byte-for-byte to backups through the original UI.
+- Relaunched same regular binary PID 15463 with one-shot gameplay drivers.
+  Original-menu New002 Battle Creek: all five gameplay and seven analog/cancel
+  checks pass, immediate JUMP -0.22 → 0.44. Drivers have finished. Preview remains
+  playable, touch device 1/slot 1, LAN policy, UDP one player/openplaying. Binary
+  SHA-256 482e85bedd6feb3c79377a61d2b571b0c238d28490bb7c71b929686f0b74f914.
+  Evidence G9/touch-binding-feedback includes logs, save diffs, original-menu and
+  live screenshots, source/binary hashes and final container/process metadata.
+- Recovery feedback is closed for keyboard/mouse-unavailable actions. Direct
+  touch synthesis for controller-only bindings is still unimplemented; a player
+  can use the verified original-menu route to add an alternative. Physical
+  controller capture, simultaneous fingers and ergonomics remain open. Full
+  phase-2 objective remains active; normal startup/original baseline and physical
+  architecture acceptance are still parked, not satisfied by this touch work.

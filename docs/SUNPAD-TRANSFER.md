@@ -773,3 +773,39 @@ USER32 `G3/core-arm64-apple-ios17.0-simulator-20260928T213841Z`.
 Controller-only or wholly unbound actions still have no usable touch mapping or
 unavailable-action feedback. Physical two-thumb ergonomics remains unverified;
 this increment changes input compatibility, not the established stick spacing.
+
+## Missing-binding recovery — 2026-09-28
+
+An unavailable action now shows a small yellow exclamation badge. Tapping it
+briefly names the action and shows **Pause → Change Settings → Controls Setup**.
+Buttons expose the same information to accessibility; the hint announces itself,
+passes touches through and disappears after five seconds or input cancellation.
+Digital MOVE identifies a missing direction; the independent analog MOVE route
+has no keyboard-binding requirement. The two-stick layout is unchanged.
+
+Halo's thread calculates a read-only mask using the same resolver that dispatches
+touch actions, then sends a value snapshot to UIKit when it changes. UIKit never
+reads guest memory. The mask is presentation only: both touch edges still reach
+the runtime, so a remap during a hold cannot strand the press-time input. Restoring
+a usable binding clears the badge/hint immediately; no saved mapping is rewritten
+by the overlay. Keyboard, mouse-button and wheel alternatives count as available.
+Controller-only/unbound actions need an alternative assigned in Halo's own menu;
+direct controller synthesis remains unimplemented.
+
+Actual workflow: original Actions → JUMP capture says Backspace clears a binding.
+Used the software keyboard to clear Space, saved New002, then relaunched the
+regular analog scene. Only the Space entry and CRC changed. The missing binding
+persists in original Controls Setup and the overlay warns on an actual tap.
+Assigned Space through that same original menu; after save/resume the warning
+vanishes in the same process. Both profile files match their backups exactly.
+An earlier temporary in-memory fixture only established the initial UI display;
+it is retained under ignored evidence and was replaced for this stronger test.
+
+DirectInput passes 254 assertions, including available keyboard/mouse/wheel paths
+and unavailable controller-only directions. UIKit passes 94 checks covering
+remapping during a hold, warning recovery/cancellation, digital/analog MOVE,
+phone/tablet hint bounds, 90 layout combinations, and ten native renders. The
+final regular build also receives gameplay acceptance recorded in the journal.
+Evidence: `G9/touch-binding-feedback`, `G9/overlay-20260928T215658Z`,
+`G3/core-arm64-apple-ios17.0-simulator-20260928T215205Z`.
+Actual simultaneous fingers, physical controller capture and ergonomics remain open.

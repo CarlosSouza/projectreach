@@ -24,6 +24,8 @@ typedef struct {
 } hp_input;
 
 int halopad_touch_action_event(const hp_input *e); /* runtime dispatcher; Halo thread only */
+/* Read-only snapshot of resolvable actions; Halo thread only. Bit = CE action index. */
+uint32_t halopad_touch_action_mask(void);
 void halopad_input_event(const hp_input *e);
 void halopad_dinput_event(const hp_input *e);       /* halopad_dinput.c, fed by halopad_input_event */
 /* A Mac virtual key code (kVK_*) as a Windows key; 0 if there is no equivalent. */

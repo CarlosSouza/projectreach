@@ -246,6 +246,26 @@ static void check_layouts(void)
             NSString *path = [@(renderPath) stringByAppendingPathComponent:[NSString stringWithFormat:@"layout-%.0fx%.0f.png", screens[form].width, screens[form].height]];
             check("native overlay preview written", [UIImagePNGRepresentation(image) writeToFile:path atomically:YES]);
         }
+        if (hand == 0 && size == 1 && gap == 1) {
+            view.availableActions &= ~1u;
+            [view driveControl:@"jump" down:YES]; [view driveControl:@"jump" down:NO];
+            [view layoutIfNeeded];
+            UILabel *hint = [view valueForKey:@"bindingHint"];
+            check("binding hint stays inside the safe area and allows touch through",
+                  CGRectContainsRect(UIEdgeInsetsInsetRect(view.bounds, view.safeAreaInsets), hint.frame) &&
+                  !hint.userInteractionEnabled);
+            if (renderPath) {
+                UIGraphicsImageRendererFormat *format = [UIGraphicsImageRendererFormat defaultFormat]; format.scale = 1;
+                UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:view.bounds.size format:format];
+                UIImage *image = [renderer imageWithActions:^(UIGraphicsImageRendererContext *context) {
+                    [[UIColor colorWithRed:0.12 green:0.18 blue:0.21 alpha:1] setFill]; UIRectFill(view.bounds);
+                    [view.layer renderInContext:context.CGContext];
+                }];
+                NSString *path = [@(renderPath) stringByAppendingPathComponent:[NSString stringWithFormat:@"binding-%.0fx%.0f.png", screens[form].width, screens[form].height]];
+                check("unavailable binding preview written", [UIImagePNGRepresentation(image) writeToFile:path atomically:YES]);
+            }
+            view.availableActions |= 1;
+        }
         NSMutableArray<UIView *> *controls = [NSMutableArray array];
         for (UIView *v in view.subviews)
             if (v.accessibilityIdentifier && !v.hidden) [controls addObject:v];
@@ -510,6 +530,44 @@ int main(void)
         overlay.haloMenuVisible = YES;
         overlay.inGame = NO;
         check("main menu hides the in-game Back target", back.hidden);
+        /* Availability is presentation only; the runtime owns press-time releases. */
+        overlay.inGame = YES;
+        overlay.haloMenuVisible = NO;
+        UIView *jumpButton = nil;
+        for (UIView *v in overlay.subviews)
+            if ([v.accessibilityIdentifier isEqualToString:@"jump"]) jumpButton = v;
+        UILabel *hint = [overlay valueForKey:@"bindingHint"];
+        count = 0;
+        [overlay driveControl:@"jump" down:YES];
+        overlay.availableActions &= ~1u;
+        [overlay driveControl:@"jump" down:NO];
+        check("availability changing during a hold preserves release delivery",
+              count == 2 && events[0].action == 0 && events[0].down && !events[1].down && all_released());
+        check("unavailable button exposes binding recovery to accessibility",
+              [jumpButton.accessibilityValue containsString:@"binding"] &&
+              [jumpButton.accessibilityHint containsString:@"Controls Setup"]);
+        [overlay driveControl:@"jump" down:YES];
+        check("unavailable press names the action and the original settings route",
+              !hint.hidden && [hint.text containsString:@"Jump needs"] && [hint.text containsString:@"Pause → Change Settings → Controls Setup"]);
+        [overlay driveControl:@"jump" down:NO];
+        overlay.availableActions |= 1;
+        check("binding recovery removes stale warning without relaunch",
+              hint.hidden && jumpButton.accessibilityValue == nil);
+        [overlay driveControl:@"jump" down:YES];
+        [overlay driveControl:@"jump" down:NO];
+        check("recovered binding no longer displays a warning", hint.hidden);
+        overlay.availableActions &= ~(1u << 19);
+        [overlay driveMoveX:0 y:1];
+        check("digital MOVE reports its unavailable direction",
+              !hint.hidden && [hint.text containsString:@"Forward needs"]);
+        [overlay clearTouchInput];
+        check("native menu or focus cancellation clears binding help", hint.hidden);
+        overlay.analogMoveReady = YES;
+        [overlay driveMoveX:0 y:1];
+        check("independent analog MOVE needs no keyboard mapping warning", hint.hidden);
+        [overlay clearTouchInput];
+        overlay.analogMoveReady = NO;
+        overlay.availableActions = (1u << 29) - 1;
         check_drag_tracking();
         check_stick_tracking();
         check_stick_ownership();
