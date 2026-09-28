@@ -47,6 +47,11 @@ typedef NS_ENUM(NSInteger, HPAspectMode) { HPAspectOriginal = 0, HPAspectFill = 
 + (void)tapKey:(uint32_t)vk scan:(uint32_t)scan;
 - (void)refreshControllerVisibility;
 - (void)clearTouchInput;
+/* Development self-test (HALOPAD_TOUCH_SELFTEST): drive the controls through the same handlers
+   their touches use. */
+- (BOOL)driveControl:(NSString *)identifier down:(BOOL)down;
+- (void)driveMoveX:(float)x y:(float)y;
+- (void)driveLookX:(CGFloat)dx y:(CGFloat)dy;
 @end
 
 NS_ASSUME_NONNULL_END

@@ -80,7 +80,7 @@ def main():
            'HALOPAD_STATE_ROOT': STATE, 'HALOPAD_REPO_ROOT': ROOT, 'HALOPAD_REGISTRY': STATE / 'registry.txt'}
     # development settings from the Mac's environment: Halo's command line, the network policy,
     # an overlay part to open for the screenshot
-    env.update({k: os.environ[k] for k in ('HALOPAD_ARGS', 'HALOPAD_NET', 'HALOPAD_OVERLAY_DEMO', 'HALOPAD_TRACE_NET', 'HALOPAD_TRACE_WINDOWS', 'HALOPAD_NO_OVERLAY') if k in os.environ})
+    env.update({k: os.environ[k] for k in ('HALOPAD_ARGS', 'HALOPAD_NET', 'HALOPAD_OVERLAY_DEMO', 'HALOPAD_TRACE_NET', 'HALOPAD_TRACE_WINDOWS', 'HALOPAD_NO_OVERLAY', 'HALOPAD_TOUCH_SELFTEST', 'HALOPAD_TRACE_INPUT', 'HALOPAD_TRACE_WEAPON') if k in os.environ})
     child = {'SIMCTL_CHILD_' + k: str(v) for k, v in env.items()}
     dev = a.device
     subprocess.run(['xcrun', 'simctl', 'boot', dev], capture_output=True)          # already booted is fine

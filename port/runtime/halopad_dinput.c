@@ -600,10 +600,15 @@ static void record(device *d, uint32_t ofs, uint32_t data)
 
 void halopad_dinput_event(const hp_input *e)
 {
+    static int trace = -1;
+    if (trace < 0) trace = getenv("HALOPAD_TRACE_INPUT") != NULL;
+    if (trace && e->kind == HPI_BUTTON) fprintf(stderr, "HALOPAD INPUT: button %d %s\n", e->button, e->down ? "down" : "up");
     for (int i = 0; i < 8; i++) {
         device *d = devices[i];
-        if (!d || !d->acquired || d->kind == GAMEPAD) continue;
-        if ((d->coop & 4) && GetForegroundWindow_c() != d->hwnd) continue;
+        if (!d || d->kind == GAMEPAD) continue;
+        if (!d->acquired) { if (trace && e->kind == HPI_BUTTON) fprintf(stderr, "HALOPAD INPUT:   device %d (kind %d) not acquired\n", i, d->kind); continue; }
+        if ((d->coop & 4) && GetForegroundWindow_c() != d->hwnd) { if (trace && e->kind == HPI_BUTTON) fprintf(stderr, "HALOPAD INPUT:   device %d (kind %d) not foreground\n", i, d->kind); continue; }
+        if (trace && e->kind == HPI_BUTTON && d->kind == MOUSE) fprintf(stderr, "HALOPAD INPUT:   mouse %d: button %d was %02x\n", i, e->button, d->buttons[e->button & 7]);
         if (d->kind == KEYBOARD && e->kind == HPI_KEY) {
             uint32_t dik = (e->scan & 0x7F) | (e->extended ? 0x80u : 0);
             uint8_t v = e->down ? 0x80 : 0;

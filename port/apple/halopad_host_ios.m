@@ -35,6 +35,9 @@ static pthread_mutex_t q_lock = PTHREAD_MUTEX_INITIALIZER;
 
 void halopad_host_post_input(const hp_input *e)
 {
+    static int trace = -1;
+    if (trace < 0) trace = getenv("HALOPAD_TRACE_INPUT") != NULL;
+    if (trace && e->kind == HPI_BUTTON) fprintf(stderr, "HALOPAD INPUT: %.3f posted button %d %s (queue %u)\n", CFAbsoluteTimeGetCurrent(), e->button, e->down ? "down" : "up", q_tail - q_head);
     pthread_mutex_lock(&q_lock);
     if (q_tail - q_head < QSIZE) queue_ev[q_tail++ % QSIZE] = *e;   /* a full queue drops, as a stalled Windows queue would */
     pthread_mutex_unlock(&q_lock);
@@ -44,13 +47,38 @@ void halopad_host_pump(void)
 {
     /* the thread that pumps is Halo's: the app's game thread, or the main thread of a test binary */
     if ([NSThread isMainThread]) [[NSRunLoop mainRunLoop] runMode:NSDefaultRunLoopMode beforeDate:[NSDate distantPast]];
+    /* A press and its release in one pump would never be seen by a game that reads key and button
+       state once a frame (Halo does: a long frame left a touch's FIRE visible for one tick). The
+       release of something pressed in this pump waits for the next one; order is kept. */
+    uint32_t pressed[32];
+    int npressed = 0;
+    static int trace = -1;
+    if (trace < 0) trace = getenv("HALOPAD_TRACE_INPUT") != NULL;
+    if (trace) {
+        pthread_mutex_lock(&q_lock);
+        int waiting = 0;
+        for (uint32_t i = q_head; i != q_tail; i++) waiting |= queue_ev[i % QSIZE].kind == HPI_BUTTON;
+        pthread_mutex_unlock(&q_lock);
+        if (waiting) fprintf(stderr, "HALOPAD INPUT: %.3f pump with a button waiting (%u events)\n", CFAbsoluteTimeGetCurrent(), q_tail - q_head);
+    }
     for (;;) {
         hp_input e;
         pthread_mutex_lock(&q_lock);
         int have = q_head != q_tail;
-        if (have) e = queue_ev[q_head++ % QSIZE];
+        if (have) {
+            e = queue_ev[q_head % QSIZE];
+            uint32_t id = e.kind == HPI_KEY ? 0x10000u | (e.scan & 0xFF) | (e.extended ? 0x100u : 0) : e.kind == HPI_BUTTON ? 0x20000u | (uint32_t)e.button : 0;
+            int held_back = 0;
+            if (id && !e.down) for (int i = 0; i < npressed; i++) held_back |= pressed[i] == id;
+            if (held_back) have = 0;
+            else {
+                q_head++;
+                if (id && e.down && npressed < 32) pressed[npressed++] = id;
+            }
+        }
         pthread_mutex_unlock(&q_lock);
         if (!have) return;
+        if (e.kind == HPI_BUTTON && getenv("HALOPAD_TRACE_INPUT")) fprintf(stderr, "HALOPAD INPUT: %.3f pumped button %d %s\n", CFAbsoluteTimeGetCurrent(), e.button, e.down ? "down" : "up");
         if (!halopad_host_input_off) halopad_input_event(&e);
     }
 }

@@ -109,6 +109,23 @@ static uint32_t player_unit(void)
     uint32_t e = rd(ot + 0x34) + (h & 0xffff) * 12;
     return u16(e) == h >> 16 ? rd(e + 8) : 0;
 }
+static uint32_t object_of(uint32_t h)
+{
+    uint32_t ot = rd(0x7fb710);
+    if (!ot || h == 0xffffffff || (h & 0xffff) >= u16(ot + 0x20)) return 0;
+    uint32_t e = rd(ot + 0x34) + (h & 0xffff) * 12;
+    return u16(e) == h >> 16 ? rd(e + 8) : 0;
+}
+static uint32_t weapon_of(uint32_t unit) { return object_of(rd(unit + 0x118)); }
+static uint32_t live_objects(void)
+{
+    uint32_t ot = rd(0x7fb710), n = 0;
+    if (!ot) return 0;
+    for (uint32_t i = 0; i < u16(ot + 0x20); i++) n += u16(rd(ot + 0x34) + i * 12) != 0;
+    return n;
+}
+static uint32_t fire_rounds0 = 0xffff, fire_rounds1 = 0xffff, fire_objs0, fire_objs_most, fire_weapon_type = 0xffff;
+static float fire_battery0 = -1, fire_battery1 = -1;              /* weapon +0x134: a plasma weapon's battery, 1.0 when full */
 static const char *save_name = "join.ppm";
 static void save(uint32_t device)
 {
@@ -134,6 +151,27 @@ static void on_present(uint32_t device)
     uint32_t u = player_unit();
     if (u && map_frame) unit_seen = u;
     if (frames == 900) save(device);
+    /* fire as a network client: the left button for 20 frames at frame 800; the magazine (weapon
+       +0x2b8) or projectile objects show the shot */
+    {
+        uint32_t uu = player_unit();
+        if (frames == 790 && uu) { uint32_t w = weapon_of(uu); fire_rounds0 = w ? u16(w + 0x2b8) : 0xffff; fire_objs0 = fire_objs_most = live_objects(); fire_weapon_type = w ? u16(w + 0xb4) : 0xffff; if (w) memcpy(&fire_battery0, halopad_guest_ptr(w + 0x134), 4); }
+        if (frames == 800) { hp_input e = {0}; e.kind = HPI_BUTTON; e.x = 400; e.y = 300; e.button = 0; e.down = 1; halopad_input_event(&e); }
+        if (frames == 820) { hp_input e = {0}; e.kind = HPI_BUTTON; e.x = 400; e.y = 300; e.button = 0; e.down = 0; halopad_input_event(&e); }
+        if (frames > 800 && frames < 880) { uint32_t n = live_objects(); if (n > fire_objs_most) fire_objs_most = n; }
+        /* development (HALOPAD_TRACE_WEAPON): the weapon object's words that change while firing */
+        static uint32_t before[0x100];
+        if (getenv("HALOPAD_TRACE_WEAPON") && uu && weapon_of(uu)) {
+            uint32_t w = weapon_of(uu);
+            if (frames == 795) memcpy(before, halopad_guest_ptr(w), sizeof before);
+            if (frames == 812 || frames == 830 || frames == 870) {
+                printf("    weapon words changed at frame %d:", frames);
+                for (int k = 0; k < 0x100; k++) { uint32_t v = rd(w + 4 * k); if (v != before[k]) { float f; memcpy(&f, &v, 4); printf(" +%03x %08x->%08x(%.3g)", 4 * k, before[k], v, f); } }
+                printf("\n");
+            }
+        }
+        if (frames == 880 && uu) { uint32_t w = weapon_of(uu); fire_rounds1 = w ? u16(w + 0x2b8) : 0xffff; if (w) memcpy(&fire_battery1, halopad_guest_ptr(w + 0x134), 4); }
+    }
     if (via_console && frames == 300) {
         key_char(0xC0, 0x29, 0, 0);                              /* Halo's console */
         char line[160];
@@ -257,6 +295,8 @@ int main(void)
     printf("    expected map \"%s\"; the map in memory is \"%s\"\n", expect_map, (const char *)halopad_guest_ptr(0x643064));
     check("  the server's map loaded through the connection", map_frame > 0, 1);
     check("  the server spawned the player's unit", unit_seen != 0, 1);
+    printf("    firing as a client: weapon type %d, rounds %u -> %u, battery %.2f -> %.2f, objects %u -> up to %u\n", (int16_t)fire_weapon_type, fire_rounds0, fire_rounds1, fire_battery0, fire_battery1, fire_objs0, fire_objs_most);
+    check("  the left button fires as a network client (rounds, battery or projectiles)", fire_rounds1 < fire_rounds0 || fire_battery1 < fire_battery0 - 0.02f || fire_objs_most > fire_objs0, 1);
     check("  no dialog", (uint32_t)dialogs, 0);
     printf("%s: %d failure(s)\n", failures ? "FAIL" : "PASS", failures);
     return failures != 0;

@@ -109,6 +109,110 @@ static void on_window(void *w)
     dispatch_async(dispatch_get_main_queue(), ^{ [game_vc applyDisplay]; });
 }
 
+/* ---- development: the touch controls' self-test (HALOPAD_TOUCH_SELFTEST) ----
+   In a game, drive the overlay's controls through the handlers their touches use and check the
+   result in Halo's game state (players 0x815920, objects 0x7fb710; see tests/halo_play_test.c):
+   the move stick moves the player, dragging turns the look vector, FIRE shoots (rounds or
+   projectiles), JUMP lifts the player. Run against the private reference server. */
+static uint32_t g32(uint32_t a) { uint32_t v; memcpy(&v, halopad_guest_ptr(a), 4); return v; }
+static uint16_t g16(uint32_t a) { uint16_t v; memcpy(&v, halopad_guest_ptr(a), 2); return v; }
+static float gf(uint32_t a) { float v; memcpy(&v, halopad_guest_ptr(a), 4); return v; }
+static uint32_t g_object(uint32_t h)
+{
+    uint32_t ot = g32(0x7fb710);
+    if (!ot || h == 0xffffffff || (h & 0xffff) >= g16(ot + 0x20)) return 0;
+    uint32_t e = g32(ot + 0x34) + (h & 0xffff) * 12;
+    return g16(e) == h >> 16 ? g32(e + 8) : 0;
+}
+static uint32_t g_unit(void)
+{
+    if (!halopad_guest_base) return 0;
+    uint32_t pt = g32(0x815920);
+    return pt ? g_object(g32(g32(pt + 0x34) + 0x34)) : 0;
+}
+static uint32_t g_live_objects(void)
+{
+    uint32_t ot = g32(0x7fb710), n = 0;
+    if (!ot) return 0;
+    for (uint32_t i = 0; i < g16(ot + 0x20); i++) n += g16(g32(ot + 0x34) + i * 12) != 0;
+    return n;
+}
+static int selftest_failures;
+static void selftest_check(const char *what, int ok, NSString *detail)
+{
+    fprintf(stderr, "HALOPAD SELFTEST: %-58s %s (%s)\n", what, ok ? "PASS" : "FAIL", detail.UTF8String);
+    selftest_failures += !ok;
+}
+static void after(double s, dispatch_block_t b) { dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(s * NSEC_PER_SEC)), dispatch_get_main_queue(), b); }
+
+static void touch_selftest(void)
+{
+    uint32_t u = g_unit();
+    if (!overlay.inGame || !u) { after(1, ^{ touch_selftest(); }); return; }
+    static int started;
+    if (!started++) { fprintf(stderr, "HALOPAD SELFTEST: in a game on \"%s\"; the player's unit is there\n", current_map().UTF8String); after(6, ^{ touch_selftest(); }); return; }
+    /* 1. the move stick: forward for 2 s */
+    float x0 = gf(u + 0x5c), y0 = gf(u + 0x60);
+    [overlay driveMoveX:0 y:1];
+    after(2, ^{
+        [overlay driveMoveX:0 y:0];
+        uint32_t u1 = g_unit();
+        float d = u1 ? hypotf(gf(u1 + 0x5c) - x0, gf(u1 + 0x60) - y0) : 0;
+        selftest_check("the move stick walks the player", d > 1.0f, [NSString stringWithFormat:@"moved %.2f units", d]);
+        /* 2. looking: a 120-point drag to the right */
+        float yaw0 = atan2f(gf(u1 + 0x240), gf(u1 + 0x23c));
+        for (int i = 0; i < 12; i++) [overlay driveLookX:10 y:0];
+        after(0.6, ^{
+            uint32_t u2 = g_unit();
+            float dyaw = fabsf(atan2f(gf(u2 + 0x240), gf(u2 + 0x23c)) - yaw0) * 57.29578f;
+            if (dyaw > 180) dyaw = 360 - dyaw;
+            selftest_check("dragging turns the view", dyaw > 5.0f, [NSString stringWithFormat:@"turned %.1f degrees", dyaw]);
+            /* 3. FIRE: the magazine goes down or projectiles appear */
+            uint32_t w = g_object(g32(u2 + 0x118));
+            uint16_t rounds0 = w ? g16(w + 0x2b8) : 0;
+            float battery0 = w ? gf(w + 0x134) : -1;              /* weapon +0x134: a plasma weapon's battery */
+            fprintf(stderr, "HALOPAD SELFTEST: weapon handle %08x object %08x type %d rounds %u; slots %08x %08x\n", g32(u2 + 0x118), w,
+                    w ? (int16_t)g16(w + 0xb4) : -9, rounds0, g32(u2 + 0x2f8), g32(u2 + 0x2fc));
+            uint32_t objs0 = g_live_objects();
+            __block uint32_t objs_most = objs0;
+            /* held 1 s: an automatic weapon fires, a plasma pistol charges fully and fires its overcharged
+               shot on release (a release before full charge fired nothing); sampled for 3 s */
+            static uint32_t before[0x100];
+            if (w) memcpy(before, halopad_guest_ptr(w), sizeof before);
+            if (getenv("HALOPAD_TRACE_WEAPON"))
+                for (int k = 0; k < 4; k++) after(0.25 + 0.5 * k, ^{
+                    uint32_t ww = g_object(g32(g_unit() + 0x118));
+                    if (!ww) return;
+                    fprintf(stderr, "HALOPAD SELFTEST: weapon words changed at %.2f s:", 0.25 + 0.5 * k);
+                    for (int q = 0; q < 0xb0; q++) { uint32_t v = g32(ww + 4 * q); if (v != before[q]) fprintf(stderr, " +%03x %08x->%08x", 4 * q, before[q], v); }
+                    fprintf(stderr, "\n");
+                });
+            [overlay driveControl:@"fire" down:YES];
+            after(1.0, ^{ [overlay driveControl:@"fire" down:NO]; });
+            for (int k = 1; k <= 30; k++) after(0.1 * k, ^{ uint32_t n = g_live_objects(); if (n > objs_most) objs_most = n; });
+            after(3.05, ^{
+                uint32_t w2 = g_object(g32(g_unit() + 0x118));
+                uint16_t rounds1 = w2 ? g16(w2 + 0x2b8) : 0;
+                float battery1 = w2 ? gf(w2 + 0x134) : -1;
+                selftest_check("FIRE shoots", rounds1 < rounds0 || battery1 < battery0 - 0.02f || objs_most > objs0,
+                               [NSString stringWithFormat:@"rounds %u -> %u, battery %.2f -> %.2f, objects %u -> up to %u", rounds0, rounds1, battery0, battery1, objs0, objs_most]);
+                /* 4. JUMP: the player rises (after a pause; a second try if the first press went unseen) */
+                __block float z0 = 0, zmax = -1e9f;
+                after(0.5, ^{ uint32_t u4 = g_unit(); z0 = zmax = u4 ? gf(u4 + 0x64) : 0; });
+                for (int tr = 0; tr < 2; tr++) {
+                    after(0.6 + 1.2 * tr, ^{ if (zmax <= z0 + 0.2f) [overlay driveControl:@"jump" down:YES]; });
+                    after(0.9 + 1.2 * tr, ^{ [overlay driveControl:@"jump" down:NO]; });
+                }
+                for (int k = 1; k <= 30; k++) after(0.6 + 0.06 * k, ^{ uint32_t uu = g_unit(); if (uu && gf(uu + 0x64) > zmax) zmax = gf(uu + 0x64); });
+                after(2.8, ^{
+                    selftest_check("JUMP lifts the player", zmax > z0 + 0.2f, [NSString stringWithFormat:@"height %.2f -> up to %.2f", z0, zmax]);
+                    fprintf(stderr, "HALOPAD SELFTEST: %s: %d failure(s)\n", selftest_failures ? "FAIL" : "PASS", selftest_failures);
+                });
+            });
+        });
+    });
+}
+
 @implementation HPGameViewController
 - (void)loadView
 {
@@ -156,6 +260,7 @@ static void on_window(void *w)
     [self applyDisplay];
     halopad_host_set_window_handler(on_window);
     if (!halopad_d3d9_present_hook) halopad_d3d9_present_hook = count_present;
+    if (getenv("HALOPAD_TOUCH_SELFTEST")) after(5, ^{ touch_selftest(); });
     NSThread *t = [[NSThread alloc] initWithBlock:^{
         int code = halopad_app_entry();
         fprintf(stderr, "HALOPAD: Halo returned %d\n", code);

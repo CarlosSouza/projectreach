@@ -75,6 +75,10 @@ int halopad_app_entry(void)
         fprintf(stderr, "HALOPAD SCENE: command line \"%s\"\n", tail);
     }
     uint32_t user32 = LoadLibraryA_c(str("user32.dll"));
+    {   /* WinMain's -cport (0x544c93): the client's port, with the flag that a port was given */
+        const char *cp = strstr(getenv("HALOPAD_ARGS"), "-cport ");
+        if (cp) { wr(0x6337fc, (uint32_t)atoi(cp + 7)); *(uint8_t *)halopad_guest_ptr(0x6b7360) = 1; }
+    }
     wr(0x6bde88, LoadLibraryA_c(str("strings.dll")));
     wr(0x6e1480, 0x400000);
     wr(0x6e148c, 1);

@@ -388,8 +388,35 @@ iPad Simulator it joined POQclan's Ice Fields and Massacre Island games with the
 playback session (mixing with other audio) at launch, and the output unit now starts on the
 Simulator.
 
-**Still open here:** the touch controls are checked by screenshot only (no unattended touch test
-yet); iPhone layouts are unchecked.
+**The touch controls, checked unattended** (`HALOPAD_TOUCH_SELFTEST=1` with the app scene, joined to
+the private reference server: `HALOPAD_ARGS='-connect 127.0.0.1:2310 -cport 2305'`; the scene reads
+`-cport` as WinMain does, since the server holds 2302-2303). In the game, the app drives the
+overlay's controls through the handlers their touches use and checks Halo's game state:
+
+- the move stick walks the player (3.2 to 4.8 units in 2 s);
+- a 120-point drag turns the view (39.7 degrees);
+- FIRE, held 1 s, shoots: the magazine (weapon `+0x2b8`) goes down, a plasma weapon's battery
+  (weapon `+0x134`, found by comparing the weapon object before and after a shot on the Mac)
+  drops by 0.11 for an overcharged shot, or a projectile appears;
+- JUMP lifts the player (0.6 to 0.8 units).
+
+It passed three runs in a row on the iPad Pro 13 Simulator and one on the iPhone 17 Pro
+Simulator. It does not synthesize UIKit touches: the path from a finger to those handlers is
+checked by screenshots.
+
+**Presses that a long frame used to hide.** The host queues input from the main thread, and
+Halo's thread takes all of it at each pump (every message check and every Present). A frame
+that ran long (a gap of 0.13 s was measured on the Simulator) let a press and its release arrive
+in one pump, and Halo, which reads key and button state once a frame, saw only the release; a
+held FIRE could reach Halo shortened to about one tick. The pump now leaves the release of
+something pressed in the same pump for the next pump; order is kept.
+
+**iPhone.** On the iPhone 17 Pro Simulator the app runs in landscape with Halo letterboxed at
+4:3; the phone layout puts the stick, JUMP, FIRE, SWAP and the menu in the side bars, and the
+self-test passes there.
+
+**Still open here:** input latency on the Simulator (Halo's frames are uneven: a press can wait
+up to about 0.2 s for the next pump); physical devices.
 
 ## Rasterizer initialization (Halo's graphics start-up)
 

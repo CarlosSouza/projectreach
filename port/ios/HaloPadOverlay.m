@@ -167,6 +167,7 @@ typedef NS_ENUM(NSInteger, HPControlKind) { HPKey, HPMouseButton };
 @property(nonatomic, copy) void (^lookBy)(CGFloat dx, CGFloat dy);
 @property(nonatomic) BOOL editing;
 - (void)release_;
+- (void)press:(int)down;
 @end
 
 @implementation HPControlButton
@@ -347,6 +348,15 @@ static CGRect at(CGRect safe, CGFloat x, CGFloat y, CGFloat w, CGFloat h)
     [_move reset];
     [_lookTouches removeAllObjects];
 }
+
+- (BOOL)driveControl:(NSString *)identifier down:(BOOL)down
+{
+    for (HPControlButton *b in _buttons)
+        if ([b.accessibilityIdentifier isEqualToString:identifier]) { [b press:down]; return YES; }
+    return NO;
+}
+- (void)driveMoveX:(float)x y:(float)y { if (_move.valueChanged) _move.valueChanged(x, y); }
+- (void)driveLookX:(CGFloat)dx y:(CGFloat)dy { [self lookX:dx y:dy]; }
 
 /* touches on the open screen in a game look around; in Halo's menus they reach the game view */
 - (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event

@@ -1044,3 +1044,17 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
 - macOS: all 25 suites, the join, the host and lifecycle tests pass. iPad Simulator: the full
   run passed everything except the host test, which failed both tries with the earlier
   fixed-time throws; the final version passed 1 of 2 runs there.
+
+## 2026-09-28 — The touch controls, tested in a game; iPhone
+
+- **Self-test** (`HALOPAD_TOUCH_SELFTEST=1`): in a game on the private reference server, the app
+  drives the overlay's stick, look drag, FIRE and JUMP through their touch handlers and checks
+  Halo's state: the player moves (3.2 to 4.8 units), turns (39.7 degrees), shoots (a plasma
+  pistol's battery, weapon `+0x134`, 1.00 to 0.89) and rises (0.6 to 0.8). Three passes in a row on
+  the iPad Simulator, one on the iPhone 17 Pro Simulator.
+- **Lost presses:** a long frame delivered a press and its release in one pump, and Halo saw only
+  the release. The iOS pump now holds such a release for the next pump.
+- **Findings on the way:** a plasma pistol released before full charge fires nothing (FIRE is
+  held 1 s in the test); the app scene reads `-cport` as WinMain does; the Mac join test now also
+  fires as a network client (battery 0.89, a projectile).
+- **iPhone:** landscape, Halo letterboxed at 4:3, controls in the side bars.
