@@ -1280,3 +1280,29 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   local Blood Gulch as PID 25733 on HaloPad iPad Pro 13, visible in landscape; iPhone is shut
   down. `landscape-layout.png` retained. Final visual inspection shows distinct sticks, spaced
   actions and the tablet motion tracker clear of the MOVE target. Safety/whitespace checks pass.
+
+### 2026-09-28 — protect the game touch surface from the keyboard proxy
+
+- Previous two-stick work was committed and pushed as `0bc2335`. Continued investigation
+  traced the console key through the UIKit queue, host pump and DirectInput buffered read.
+  `G3/ios-app-20260928T115440Z` shows both down/up delivered and the pink `halo(` prompt
+  visible at the bottom of the game. This does not establish general short-press reliability.
+- Found `viewDidLayoutSubviews` assigning full-screen bounds to every root sublayer, including
+  the UIView-backed invisible keyboard proxy. Restrict the resize to guest CAMetalLayers and
+  explicitly make the proxy reject touch hit tests. Overlay and keyboard view geometry now
+  stay with UIKit. No guest input timing behavior changes in this increment.
+- Added opt-in console-key tracing and `HALOPAD_OVERLAY_DEMO=console` / `console-keyboard`
+  reproductions. Tracing logs only the console scan code, not entered text.
+- A keyboard-layout-guide viewport experiment was removed before commit: Simulator reported
+  first-responder focus and exposed keyboard accessibility elements, but screenshots did not
+  show the software keyboard and the guide did not shrink. Evidence in
+  `G3/ios-app-20260928T115935Z` and `G3/ios-app-20260928T120412Z` is diagnostic, not a pass.
+  A Simulator keyboard-toggle attempt was followed by a black game surface with Halo waiting
+  in MsgWaitForMultipleObjects; Home then foreground restored the same process and image.
+  Keyboard visibility/occlusion and that transition remain open for a focused reproduction.
+- Final build `G3/ios-app-20260928T120722Z` passes all five handler-driven gameplay checks:
+  move 4.42 units, swipe 39.7°, fire 60→44 rounds, jump 0.11→0.76, held LOOK 25.4°.
+  The render layer remains 1376×1032 and the keyboard proxy remains 0×0 in the layout trace.
+  Inspected the final two-stick layout in the running Simulator; no physical multi-touch pass
+  is claimed. iPad preview left running as PID 28415; iPhone remains shut down. The full goal
+  stays active with its parked rows unchanged.

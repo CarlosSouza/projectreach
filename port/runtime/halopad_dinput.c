@@ -329,6 +329,8 @@ uint32_t hpcom_IDirectInputDevice8A_GetDeviceData_c(uint32_t g, uint32_t objsize
     uint32_t want = rd32(inout), n = want < d->count ? want : d->count;
     for (uint32_t i = 0; out && i < n; i++) {
         const event *e = &d->buf[(d->head + i) % MAXBUF];
+        if (d->kind == KEYBOARD && e->ofs == 0x29 && getenv("HALOPAD_TRACE_INPUT"))
+            fprintf(stderr, "HALOPAD INPUT: console key read by DirectInput: %s (flags %u)\n", e->data ? "down" : "up", flags);
         uint32_t o = out + i * objsize;
         wr32(o, e->ofs); wr32(o + 4, e->data); wr32(o + 8, e->time); wr32(o + 12, e->seq);
         if (objsize == 20) wr32(o + 16, 0);                         /* uAppData */

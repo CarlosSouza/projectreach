@@ -73,6 +73,7 @@ static NSString *current_map(void)
 @end
 @implementation HPKeyboardProxy
 - (BOOL)canBecomeFirstResponder { return YES; }
+- (BOOL)pointInside:(CGPoint)point withEvent:(UIEvent *)event { return NO; }
 - (BOOL)hasText { return YES; }
 - (void)insertText:(NSString *)text { [HPOverlay typeText:text]; }
 - (void)deleteBackward { [HPOverlay typeText:@"\b"]; }
@@ -451,7 +452,10 @@ static void touch_selftest(void)
 - (void)viewDidLayoutSubviews
 {
     [super viewDidLayoutSubviews];
-    for (CALayer *l in self.view.layer.sublayers) l.frame = self.view.layer.bounds;
+    /* Only guest render layers belong to this layout pass. UIView-backed layers (including
+       the invisible keyboard proxy) must retain the frames assigned by UIKit. */
+    for (CALayer *l in self.view.layer.sublayers)
+        if ([l isKindOfClass:CAMetalLayer.class]) l.frame = self.view.layer.bounds;
     [self.view bringSubviewToFront:overlay];
 }
 /* ---- the overlay's requests ---- */

@@ -116,3 +116,12 @@ local SunPad path. The donor copy used for the work is private and ignored (`ref
   in the app. With `HALOPAD_ARGS='-connect ADDR:PORT'` it joins that server; the screenshot shows
   the game and the controls. `HALOPAD_OVERLAY_DEMO=settings|layout` opens the settings panel or the
   layout editor for an unattended screenshot.
+
+### Keyboard and touch routing follow-up
+
+The app's layout pass now resizes only guest CAMetalLayers. It previously also resized the
+invisible keyboard proxy's UIView layer to the entire screen. That proxy now rejects hit tests
+explicitly. Console down/up reaches Halo's DirectInput read (`G3/ios-app-20260928T115440Z`),
+and its small bottom-left prompt is visible. General short-tap reliability is not closed by
+this trace. Software-keyboard presentation and keeping console/chat text visible above it
+remain open; the unverified keyboard-aware viewport experiment was removed.

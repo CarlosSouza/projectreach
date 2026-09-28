@@ -39,6 +39,8 @@ void halopad_host_post_input(const hp_input *e)
     if (trace < 0) trace = getenv("HALOPAD_TRACE_INPUT") != NULL;
     if (trace && e->kind == HPI_BUTTON) fprintf(stderr, "HALOPAD INPUT: %.3f posted button %d %s (queue %u)\n", CFAbsoluteTimeGetCurrent(), e->button, e->down ? "down" : "up", q_tail - q_head);
     pthread_mutex_lock(&q_lock);
+    if (trace && e->kind == HPI_KEY && e->scan == 0x29)
+        fprintf(stderr, "HALOPAD INPUT: %.3f posted console key %s (queue %u)\n", CFAbsoluteTimeGetCurrent(), e->down ? "down" : "up", q_tail - q_head);
     if (q_tail - q_head < QSIZE) queue_ev[q_tail++ % QSIZE] = *e;   /* a full queue drops, as a stalled Windows queue would */
     pthread_mutex_unlock(&q_lock);
 }
@@ -78,6 +80,8 @@ void halopad_host_pump(void)
         }
         pthread_mutex_unlock(&q_lock);
         if (!have) return;
+        if (trace && e.kind == HPI_KEY && e.scan == 0x29)
+            fprintf(stderr, "HALOPAD INPUT: %.3f pumped console key %s\n", CFAbsoluteTimeGetCurrent(), e.down ? "down" : "up");
         if (e.kind == HPI_BUTTON && getenv("HALOPAD_TRACE_INPUT")) fprintf(stderr, "HALOPAD INPUT: %.3f pumped button %d %s\n", CFAbsoluteTimeGetCurrent(), e.button, e.down ? "down" : "up");
         if (!halopad_host_input_off) {
             if (e.kind == HPI_ACTIVATE && getenv("HALOPAD_TRACE_LIFECYCLE"))

@@ -998,6 +998,13 @@ static const hp_control_def CONTROLS[] = {
         fprintf(stderr, "HALOPAD OVERLAY: demo \"%s\" open\n", demo);
     });
     /* join:ADDRESS: the menu's Join Server, once Halo's menu is up */
+    if (!strcmp(demo, "console") || !strcmp(demo, "console-keyboard")) {
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 20 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+            fprintf(stderr, "HALOPAD OVERLAY: demo opens console through the menu's key handler\n");
+            [HPOverlay tapKey:0xC0 scan:0x29];
+            if (!strcmp(demo, "console-keyboard")) [self.delegate overlayRequestsKeyboard:self];
+        });
+    }
     if (!strncmp(demo, "join:", 5)) {
         NSString *addr = @(demo + 5);
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 20 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
