@@ -120,6 +120,7 @@ typedef NS_ENUM(NSInteger, HPControlKind) { HPKey, HPMouseButton };
 @property(nonatomic, strong) UILabel *caption;
 - (void)reset;
 - (void)track:(UITouch *)t;
+- (void)trackPoint:(CGPoint)p;
 @end
 
 @implementation HPStickView {
@@ -166,8 +167,14 @@ typedef NS_ENUM(NSInteger, HPControlKind) { HPKey, HPMouseButton };
 - (void)reset { _x = _y = 0; [self place]; if (self.valueChanged) self.valueChanged(0, 0); }
 - (void)track:(UITouch *)t
 {
-    CGPoint p = [t locationInView:self];
-    CGFloat r = fmax(1, fmin(self.bounds.size.width, self.bounds.size.height) / 2);
+    [self trackPoint:[t locationInView:self]];
+}
+- (void)trackPoint:(CGPoint)p
+{
+    /* Match input travel to the visible thumb, so it stays under the finger until
+       reaching the rim. Normalizing by the entire base radius made it lag behind. */
+    CGFloat side = fmin(self.bounds.size.width, self.bounds.size.height);
+    CGFloat r = fmax(1, side * (1 - 0.42) / 2 - 3);
     CGFloat dx = (p.x - CGRectGetMidX(self.bounds)) / r, dy = (p.y - CGRectGetMidY(self.bounds)) / r, l = hypot(dx, dy);
     if (l > 1) { dx /= l; dy /= l; }
     _x = (float)dx; _y = (float)-dy;                    /* +y up, as SunPad */
@@ -285,8 +292,8 @@ static const hp_control_def CONTROLS[] = {
     {"reload",   "RELOAD", "arrow.clockwise",          HPKey, 'R', 0, 0x13, 0,       0, 1},
     {"crouch",   "CROUCH", "arrow.down.to.line",       HPKey, 0x11, 0xA2, 0x1d, 0,   0, 1},
     {"jump",     "JUMP",   "arrow.up",                 HPKey, 0x20, 0, 0x39, 0,      0, 1},
-    {"flash",    "LIGHT",  "flashlight.on.fill",       HPKey, 'Q', 0, 0x10, 0,       0, 0},
-    {"nadetype", "NADE",   "arrow.triangle.2.circlepath", HPKey, 'G', 0, 0x22, 0,    0, 0},
+    {"flash",    "LIGHT",  "flashlight.on.fill",       HPKey, 'Q', 0, 0x10, 0,       0, 1},
+    {"nadetype", "NADE",   "arrow.triangle.2.circlepath", HPKey, 'G', 0, 0x22, 0,    0, 1},
     {"scores",   "",       "list.number",              HPKey, 0x70, 0, 0x3b, 0,      0, 0},
     {"menu",     "",       "pause.fill",               HPKey, 0x1B, 0, 0x01, 0,      0, 0},
 };
@@ -553,21 +560,22 @@ static const hp_control_def CONTROLS[] = {
     /* Tablet thumbs rest along the sides, above the bottom-left motion tracker.
        A phone's shorter display needs the lower grip instead. */
     CGFloat bottom = CGRectGetMaxY(safe) - (self.phone ? fmax(20, 32 * k) : fmax(160, 128 * k));
-    CGFloat rowY = bottom - stick - gap - fire / 2;
+    /* A single square grid for the action columns. Centre its lower two rows on
+       the sticks; leave a full gap between FIRE and LOOK even at minimum sizes. */
+    CGFloat pitch = fmax(action + gap, (stick + fire + 2 * gap) / 3);
+    CGFloat lowY = bottom - stick / 2 + pitch / 2;
+    CGFloat midY = lowY - pitch, rowY = midY - pitch;
     CGFloat nearX = right - stick - gap - action / 2;
-    CGFloat farX = nearX - action - gap;
-    CGFloat lowY = bottom - action / 2, midY = lowY - action - gap;
+    CGFloat farX = nearX - pitch;
     CGFloat fireX = right - stick / 2;
-    CGFloat reloadX = fireX - fire / 2 - gap - action / 2;
-    CGFloat zoomX = reloadX - action - gap;
     CGFloat leftInnerX = left + stick + gap + action / 2;
     BOOL mirror = HPSettings.shared.leftHanded;
     CGFloat (^mx)(CGFloat) = ^CGFloat(CGFloat x) { return mirror ? CGRectGetMinX(safe) + CGRectGetMaxX(safe) - x : x; };
     [self place:_move frame:CGRectMake(mx(left + stick / 2) - stick / 2, bottom - stick, stick, stick)];
     [self place:_aim frame:CGRectMake(mx(right - stick / 2) - stick / 2, bottom - stick, stick, stick)];
     CGPoint points[NCONTROLS] = {
-        {fireX, rowY}, {farX, midY}, {farX, lowY}, {zoomX, rowY},
-        {left + stick / 2, rowY}, {nearX, midY}, {reloadX, rowY},
+        {fireX, rowY}, {farX, midY}, {farX, lowY}, {farX, rowY},
+        {left + stick / 2, rowY}, {nearX, midY}, {nearX, rowY},
         {leftInnerX, lowY}, {nearX, lowY},
         {leftInnerX, midY},
         {leftInnerX, rowY},

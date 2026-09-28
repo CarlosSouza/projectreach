@@ -18,6 +18,35 @@ static void check(const char *name, BOOL ok);
 - (UIEdgeInsets)safeAreaInsets { return self.simulatedInsets; }
 @end
 
+/* Exercise the real stick geometry without fabricating UIKit touch objects. */
+@interface HPStickView : UIView
+@property(nonatomic, copy) void (^valueChanged)(float x, float y);
+- (void)trackPoint:(CGPoint)p;
+- (void)reset;
+@end
+
+static void check_stick_tracking(void)
+{
+    HPStickView *stick = [[HPStickView alloc] initWithFrame:CGRectMake(0, 0, 128, 128)];
+    [stick layoutIfNeeded];
+    __block float x = 0, y = 0;
+    stick.valueChanged = ^(float a, float b) { x = a; y = b; };
+    UIView *thumb = stick.subviews.firstObject;
+    [stick trackPoint:CGPointMake(76, 54)];
+    check("stick thumb follows the finger inside its travel",
+          fabs(thumb.center.x - 76) < 0.01 && fabs(thumb.center.y - 54) < 0.01 && x > 0 && y > 0);
+    CGFloat travel = 64 - thumb.bounds.size.width / 2 - 3;
+    [stick trackPoint:CGPointMake(64 + travel, 64)];
+    check("visible stick rim reaches full input without dragging past the thumb",
+          fabs(x - 1) < 0.001 && fabs(y) < 0.001);
+    [stick trackPoint:CGPointMake(200, -100)];
+    check("drag outside the stick clamps radially and preserves direction",
+          fabs(hypot(x, y) - 1) < 0.001 && x > 0 && y > 0 &&
+          fabs(hypot(thumb.center.x - 64, thumb.center.y - 64) - travel) < 0.01);
+    [stick reset];
+    check("stick release returns input and thumb to centre", x == 0 && y == 0 && CGPointEqualToPoint(thumb.center, CGPointMake(64, 64)));
+}
+
 static void check_layouts(void)
 {
     HPSettings *settings = HPSettings.shared;
@@ -26,7 +55,7 @@ static void check_layouts(void)
     NSInteger savedSpacing = settings.ringSpacing;
     CGSize screens[] = {{667, 375}, {760, 354}, {844, 390}, {1024, 768}, {1376, 1032}};
     CGFloat sizes[] = {0.7, 1, 1.35};
-    int cases = 0, bad = 0, badReach = 0;
+    int cases = 0, bad = 0, badReach = 0, badGrid = 0;
     for (int form = 0; form < 5; form++) for (int hand = 0; hand < 2; hand++)
     for (int size = 0; size < 3; size++) for (int gap = 0; gap < 3; gap++) {
         settings.controlSize = sizes[size]; settings.leftHanded = hand; settings.ringSpacing = gap;
@@ -69,6 +98,18 @@ static void check_layouts(void)
                 valid &= [view hitTest:v.center withEvent:nil] == v;
         }
         CGRect safe = UIEdgeInsetsInsetRect(view.bounds, view.safeAreaInsets);
+        NSMutableDictionary<NSString *, UIView *> *byID = [NSMutableDictionary dictionary];
+        for (UIView *v in controls) byID[v.accessibilityIdentifier] = v;
+        UIView *reload = byID[@"reload"], *melee = byID[@"melee"], *jump = byID[@"jump"];
+        UIView *zoom = byID[@"zoom"], *use = byID[@"action"], *swap = byID[@"switch"];
+        CGFloat pitch = jump.center.y - melee.center.y;
+        BOOL grid = fabs(reload.center.x - melee.center.x) < 0.01 && fabs(melee.center.x - jump.center.x) < 0.01 &&
+            fabs(zoom.center.x - use.center.x) < 0.01 && fabs(use.center.x - swap.center.x) < 0.01 &&
+            fabs(zoom.center.y - reload.center.y) < 0.01 && fabs(use.center.y - melee.center.y) < 0.01 &&
+            fabs(swap.center.y - jump.center.y) < 0.01 && fabs(melee.center.y - reload.center.y - pitch) < 0.01 &&
+            fabs(fabs(use.center.x - melee.center.x) - pitch) < 0.01 &&
+            fabs((jump.center.y + melee.center.y) / 2 - aim.center.y) < 0.01;
+        if (!grid) badGrid++;
         BOOL reachable = move && aim && fire && crouch && fabs(move.center.y - aim.center.y) < 0.01 &&
             fabs(move.center.x + aim.center.x - CGRectGetMinX(safe) - CGRectGetMaxX(safe)) < 0.01 &&
             MIN(move.center.x, aim.center.x) - CGRectGetMinX(safe) <= 160 &&
@@ -88,6 +129,7 @@ static void check_layouts(void)
     fprintf(stderr, "LAYOUT: %d combinations, %d failures\n", cases, bad);
     check("phone/tablet defaults have separate targets, safe bounds and two reachable sticks", bad == 0);
     check("sticks have equal reach, aligned fire, movement-side crouch and tablet radar clearance", badReach == 0);
+    check("action columns retain equal spacing and align around the aiming thumb", badGrid == 0);
 }
 
 void halopad_host_post_input(const hp_input *e)
@@ -258,6 +300,7 @@ int main(void)
         overlay.haloMenuVisible = YES;
         overlay.inGame = NO;
         check("main menu hides the in-game Back target", back.hidden);
+        check_stick_tracking();
         check_layouts();
 
         fprintf(stderr, "OVERLAY INPUT: %s (%d failures)\n", failures ? "FAIL" : "PASS", failures);

@@ -92,6 +92,20 @@ local SunPad path. The donor copy used for the work is private and ignored (`ref
 
 ## Checks
 
+- **Aligned action grid and stick travel (2026-09-28):** the six actions beside LOOK now
+  share two columns with equal horizontal/vertical pitch. Their lower two rows centre on
+  the stick; FIRE remains above it with a full gap. LIGHT and NADE use the same target size
+  as the other secondary actions. The stick thumb follows the finger up to its visual rim,
+  where input reaches full deflection; dragging farther clamps radially. Saved v3 layouts
+  remain intact. `G9/overlay-20260928T150807Z` passes 36 input/layout assertions, all 90
+  layout combinations and five native renders. Four new checks exercise actual stick geometry.
+- Installed this build on the iPad and reached Battle Creek through the original menus.
+  `G9/touch-preview-20260928T150830Z` passes all five handler-driven gameplay checks
+  (move, swipe look, fire, jump, held LOOK). Actual touch Pause/Resume works and controls
+  hide/restore. CUA drag attempts did not establish clear movement/aim acceptance; actual
+  drag routing, simultaneous touches and physical comfort remain open. This is not a claim
+  of full touch acceptance. The current Simulator now shows the revised layout.
+
 - Reach/spacing refinement: `G9/overlay-20260928T141747Z` passes 31 input/layout assertions
   and 90 combinations, including eight-point target gaps, equal stick reach, fire alignment,
   movement-side crouch and a conservative tablet radar keepout. Five native UIKit offscreen

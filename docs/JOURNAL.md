@@ -1629,3 +1629,39 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   preview. Next: exercise the new startup and folder/package selection on a safely handed-off
   Simulator session, then restore/remove/crash recovery. G9/M29 and the full goal remain active;
   all campaign, normal licensed startup, reference-player, actual-touch and device gates remain.
+
+### 2026-09-28 — touch spacing, thumb tracking and updated Simulator preview
+
+- Previous increment `6af262b`: progress. User explicitly asks to continue improving two-stick
+  spacing and to push recent changes. Started clean; pinned sources and locked executable
+  hash pass, no Wine, only project iPad booted. External full-goal gates remain parked.
+- Latest Simulator inspection found the old preview at Multiplayer. Updated it under the
+  user's continuing preview/testing authorization, after backing up Application Support and
+  preferences and hashing all 210 Documents files. Evidence: `G9/touch-preview-20260928T150830Z`.
+  Old PID 41176 was explicitly stopped; current development-scene PID is 56763.
+- Replaced independently positioned top actions with a consistent two-column square grid
+  beside LOOK. Lower two rows centre on the stick. FIRE retains its own larger target above
+  LOOK; the pitch reserves its full gap at minimum sizes. LIGHT/NADE now match other secondary
+  target sizes. Existing v3 custom layouts remain untouched.
+- Fixed stick tracking: input previously normalized to the base radius but the visible thumb
+  travelled less than that. The thumb now follows the finger until its rim, which is full
+  deflection; out-of-bounds drags clamp radially and release returns to centre. MOVE still
+  uses the original digital keyboard bindings, not analog movement speed.
+- `G9/overlay-20260928T150807Z`: 36 input/layout assertions, 90 geometry combinations and
+  five native renders pass. Added actual stick travel/radial/reset checks and shared grid
+  alignment across all layouts. Full app build and codesign verification pass.
+- Installing the new build exercised the pending startup validator. It correctly rejected
+  extra files in the legacy install. Through the actual Files picker, selected that same
+  Halo Custom Edition folder, retained its complete backup, then Check Again reached Halo
+  with the existing New001 profile. `migration.json` proves all 78 installed files match
+  signed stock, all 105 old install files match the retained backup and the separate import
+  source is unchanged. No license decision was made on the user's behalf.
+- Original menus → Multiplayer → Create LAN → Battle Creek → Slayer → Start Game. All five
+  handler-driven gameplay checks pass: move 2.37 units, swipe look 39.7 degrees, weapon battery
+  1.00→0.89, jump -0.22→0.44, held LOOK 23.9 degrees. Actual touch Pause/Resume also works.
+  CUA drag attempts did not produce clear visual evidence of move/aim, so actual drag routing
+  remains unverified; do not equate handler tests with simultaneous physical multi-touch.
+- Leave the updated iPad gameplay preview open for the user. Phone remains shut down; no
+  separate server/Wine process started. Prepared-package picker, phone migration, recovery,
+  short input edges, real multitouch and physical device acceptance remain required. Full
+  project scope (online, campaign, licensed startup/reference comparisons) is unchanged.
