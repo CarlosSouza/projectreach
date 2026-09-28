@@ -1,0 +1,4 @@
+sv_mapcycle_add bloodgulch slayer
+sv_mapcycle_add beavercreek slayer
+sv_timelimit 1
+sv_mapcycle_begin

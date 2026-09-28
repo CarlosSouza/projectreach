@@ -1060,3 +1060,19 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
 - **iPhone:** landscape, Halo letterboxed at 4:3, controls in the side bars.
 
 - **Halo's own Internet lobby** lists the public servers (171 servers, 78 players, with pings) once WinMain's GameSpy set-up has run; the join test does it in every mode and has a browser mode (HALOPAD_TEST_VIA=browser).
+
+## 2026-09-28 — Map changes, reconnects, passwords, timeouts; the touch controls redesigned; a preview command
+
+- **Network situations** (`scripts/network-scenarios.sh`, private reference server): the server's map
+  cycle moves the game from Blood Gulch to Battle Creek and the client follows and spawns on both;
+  `disconnect` then `connect` rejoins; a wrong password shows Halo's "Your password was rejected by
+  the server."; the right one joins; a dead address shows "Unable to join game.". Fixes: the test
+  closes Halo's console after typing (an open console takes the keys and buttons), fires 250
+  frames after the spawn and holds the button 45 frames. `reference-server.sh` takes extra server
+  commands from `HALOPAD_SERVER_INIT`. The map-change and reconnect runs once timed out under load
+  (Halo idling in its message wait); run alone they pass in about 90 seconds.
+- **Touch controls redesigned** after Chris found them ugly: a floating stick, FIRE large on the
+  right with eight actions on a ring around it, glass circles with SF Symbols and small captions,
+  utilities small at the edges ([SUNPAD-TRANSFER.md](SUNPAD-TRANSFER.md)). The self-test passes on it.
+- **Preview:** `scripts/ios-preview.sh [--iphone] [--connect ADDR:PORT]` builds the app, opens the
+  Simulator and leaves HaloPad running at Halo's main menu (or in a server's game).

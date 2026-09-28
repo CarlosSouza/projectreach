@@ -427,6 +427,26 @@ self-test passes there.
 **Still open here:** input latency on the Simulator (Halo's frames are uneven: a press can wait
 up to about 0.2 s for the next pump); physical devices.
 
+## Map changes, reconnecting, passwords and timeouts (G5: M13, M15)
+
+`scripts/network-scenarios.sh` runs HaloPad's Halo against the private reference server in the
+situations a player meets. The server takes extra start-up commands from `HALOPAD_SERVER_INIT`
+(`tests/server/mapcycle.txt`, `tests/server/password.txt`), and `tests/halo_connect_test.c` records
+every map Halo loads and each load where the player spawns.
+
+| case | what happens | result |
+| --- | --- | --- |
+| map change | the server's map cycle, with a 1-minute time limit, moves the game from Blood Gulch to Battle Creek | the client follows: maps `ui, bloodgulch, beavercreek`, the player spawns on both |
+| reconnect | `disconnect` in Halo's console, then `connect ADDR ""` | maps `ui, bloodgulch, ui, bloodgulch`, spawned twice |
+| wrong password | the server has `sv_password`; the client connects without it | Halo stays in its menus and shows "Your password was rejected by the server." |
+| right password | `connect ADDR "halopad"` | joined and spawned |
+| timeout | nothing listens at the address | Halo shows "Unable to join game." |
+| full (public) | AUSSIES MADNESS 1 at 16/16 | Halo shows "The server is full." (the iPad app, above) |
+
+Each join also fires as a network client: the left button held 45 frames, 250 frames after the
+spawn (a plasma pistol fires only once fully charged; its battery, weapon `+0x134`, drops from
+1.00 to 0.89). Refusals save Halo's message as `refused.ppm`.
+
 ## Rasterizer initialization (Halo's graphics start-up)
 
 `0x51a240` (reached from `WinMain` through `0x5442e0` and `0x515610`) is Halo's whole graphics start-up. In order:

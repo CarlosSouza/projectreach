@@ -7,7 +7,7 @@
 # console is captured, and everything this script started is stopped at the end.
 # The client (haloce.exe), which shows the first-run license, is not run here.
 #
-# Usage: scripts/reference-server.sh [--seconds N] [--port P]
+# Usage: [HALOPAD_SERVER_INIT=FILE] scripts/reference-server.sh [--seconds N] [--port P]
 # Evidence: docs/artifacts/<date>/G1b/server-<stamp>/
 set -euo pipefail
 
@@ -49,8 +49,12 @@ sv_name "HaloPad reference"
 sv_public 0
 sv_maxplayers 16
 sv_log_enabled 1
-sv_map bloodgulch slayer
 EOF
+# HALOPAD_SERVER_INIT: a file of server commands (password, map cycle, time limit) in place of
+# the default "sv_map bloodgulch slayer"
+if [[ -n "${HALOPAD_SERVER_INIT:-}" ]]; then cat "$HALOPAD_SERVER_INIT" >> "$GAME/halopad-init.txt"
+else echo 'sv_map bloodgulch slayer' >> "$GAME/halopad-init.txt"; fi
+cp "$GAME/halopad-init.txt" "$EVID/init.txt"
 printf 'crossover %s\nbottle %s\nhaloceded.exe sha256 %s\nport %s\n' \
   "$(defaults read /Applications/CrossOver.app/Contents/Info.plist CFBundleShortVersionString)" "$BOTTLE" "$GOT" "$PORT" > "$EVID/environment.txt"
 

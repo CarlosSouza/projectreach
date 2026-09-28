@@ -62,6 +62,15 @@ static const char *expect_map = "bloodgulch";     /* HALOPAD_TEST_MAP: the map t
    sends (port/ios/HaloPadOverlay.m) */
 static const char *via_console;
 static int via_browser;
+/* every map Halo loads, in order, and each load where the player spawned */
+static char maps_seen[512], last_map[32];
+static int spawned_loads, spawn_marked, last_spawn_frame;
+/* HALOPAD_TEST_VIA=mapchange: stay through the server's map cycle (the next map is
+   HALOPAD_TEST_MAP2); =reconnect: "disconnect" at frame 1000, "connect" again at 1700 (Halo's
+   console); HALOPAD_TEST_PASSWORD: connect through the console with that password;
+   HALOPAD_TEST_EXPECT=refused: the join must fail, and Halo's message is saved as refused.ppm */
+static int mode_mapchange, mode_reconnect, expect_refused;
+static const char *console_password = "", *next_map;
 /* typed keys wait in a queue: each key goes down on one frame and up two frames later, so Halo's
    once-a-frame keyboard read sees it */
 static hp_input typed[512];
@@ -151,33 +160,58 @@ static void on_present(uint32_t device)
     if (!map_frame && !strcasecmp((const char *)halopad_guest_ptr(0x643064), expect_map)) map_frame = frames;
     uint32_t u = player_unit();
     if (u && map_frame) unit_seen = u;
+    {
+        const char *m = (const char *)halopad_guest_ptr(0x643064);
+        if (strcmp(m, last_map) && strlen(maps_seen) + strlen(m) + 2 < sizeof maps_seen) {
+            snprintf(last_map, sizeof last_map, "%s", m);
+            strcat(maps_seen, m); strcat(maps_seen, ",");
+            spawn_marked = 0;
+            printf("    frame %d: map \"%s\"\n", frames, m);
+        }
+        if (u && m[0] && strcmp(m, "ui") && !spawn_marked) {
+            spawn_marked = 1; spawned_loads++; last_spawn_frame = frames;
+            printf("    frame %d: the player spawned on \"%s\"\n", frames, m);
+        }
+    }
+    if (mode_reconnect && frames == 1000) { key_char(0xC0, 0x29, 0, 0); type_text("disconnect\n"); key_char(0xC0, 0x29, 0, 0); }
+    if (mode_reconnect && frames == 1700) {
+        char line[160];
+        snprintf(line, sizeof line, "connect %s \"\"\n", getenv("HALOPAD_TEST_SERVER") ? getenv("HALOPAD_TEST_SERVER") : "127.0.0.1:2310");
+        key_char(0xC0, 0x29, 0, 0); type_text(line); key_char(0xC0, 0x29, 0, 0);
+    }
+    if (mode_mapchange && spawned_loads >= 2 && frames == last_spawn_frame + 300) QUIT_AFTER = frames;
+    if (expect_refused && frames == QUIT_AFTER - 5) { save_name = "refused.ppm"; save(device); save_name = "join.ppm"; }
     if (frames == 900) save(device);
-    /* fire as a network client: the left button for 20 frames at frame 800; the magazine (weapon
+    /* fire as a network client: the left button for 45 frames (about a second: a plasma pistol fires only once fully charged), 250 frames after the first spawn (F); the magazine (weapon
        +0x2b8) or projectile objects show the shot */
     {
+        static int first_spawn;
+        if (!first_spawn && spawned_loads) first_spawn = last_spawn_frame;
+        int F = first_spawn ? first_spawn + 250 : -100000;
         uint32_t uu = player_unit();
-        if (frames == 790 && uu) { uint32_t w = weapon_of(uu); fire_rounds0 = w ? u16(w + 0x2b8) : 0xffff; fire_objs0 = fire_objs_most = live_objects(); fire_weapon_type = w ? u16(w + 0xb4) : 0xffff; if (w) memcpy(&fire_battery0, halopad_guest_ptr(w + 0x134), 4); }
-        if (frames == 800) { hp_input e = {0}; e.kind = HPI_BUTTON; e.x = 400; e.y = 300; e.button = 0; e.down = 1; halopad_input_event(&e); }
-        if (frames == 820) { hp_input e = {0}; e.kind = HPI_BUTTON; e.x = 400; e.y = 300; e.button = 0; e.down = 0; halopad_input_event(&e); }
-        if (frames > 800 && frames < 880) { uint32_t n = live_objects(); if (n > fire_objs_most) fire_objs_most = n; }
+        if (frames == F - 10 && uu) { uint32_t w = weapon_of(uu); fire_rounds0 = w ? u16(w + 0x2b8) : 0xffff; fire_objs0 = fire_objs_most = live_objects(); fire_weapon_type = w ? u16(w + 0xb4) : 0xffff; if (w) memcpy(&fire_battery0, halopad_guest_ptr(w + 0x134), 4); }
+        if (frames == F) { hp_input e = {0}; e.kind = HPI_BUTTON; e.x = 400; e.y = 300; e.button = 0; e.down = 1; halopad_input_event(&e); }
+        if (frames == F + 45) { hp_input e = {0}; e.kind = HPI_BUTTON; e.x = 400; e.y = 300; e.button = 0; e.down = 0; halopad_input_event(&e); }
+        if (frames > F && frames < F + 120) { uint32_t n = live_objects(); if (n > fire_objs_most) fire_objs_most = n; }
         /* development (HALOPAD_TRACE_WEAPON): the weapon object's words that change while firing */
         static uint32_t before[0x100];
         if (getenv("HALOPAD_TRACE_WEAPON") && uu && weapon_of(uu)) {
             uint32_t w = weapon_of(uu);
-            if (frames == 795) memcpy(before, halopad_guest_ptr(w), sizeof before);
-            if (frames == 812 || frames == 830 || frames == 870) {
+            if (frames == F - 5) memcpy(before, halopad_guest_ptr(w), sizeof before);
+            if (frames == F + 12 || frames == F + 30 || frames == F + 70) {
                 printf("    weapon words changed at frame %d:", frames);
                 for (int k = 0; k < 0x100; k++) { uint32_t v = rd(w + 4 * k); if (v != before[k]) { float f; memcpy(&f, &v, 4); printf(" +%03x %08x->%08x(%.3g)", 4 * k, before[k], v, f); } }
                 printf("\n");
             }
         }
-        if (frames == 880 && uu) { uint32_t w = weapon_of(uu); fire_rounds1 = w ? u16(w + 0x2b8) : 0xffff; if (w) memcpy(&fire_battery1, halopad_guest_ptr(w + 0x134), 4); }
+        if (frames == F + 120 && uu) { uint32_t w = weapon_of(uu); fire_rounds1 = w ? u16(w + 0x2b8) : 0xffff; if (w) memcpy(&fire_battery1, halopad_guest_ptr(w + 0x134), 4); }
     }
     if (via_console && frames == 300) {
         key_char(0xC0, 0x29, 0, 0);                              /* Halo's console */
         char line[160];
-        snprintf(line, sizeof line, "connect %s \"\"\n", via_console);     /* Halo's connect: address and password */
+        snprintf(line, sizeof line, "connect %s \"%s\"\n", via_console, console_password);     /* Halo's connect: address and password */
         type_text(line);
+        key_char(0xC0, 0x29, 0, 0);                              /* and close it: an open console takes the keys and buttons */
         printf("    frame 300: typed \"%s\" into Halo's console\n", line);
     }
     /* HALOPAD_TEST_VIA=browser: Halo's own server list. Enter (Multiplayer), Enter (the new
@@ -227,8 +261,14 @@ int main(void)
     if (getenv("HALOPAD_TEST_MAP")) expect_map = getenv("HALOPAD_TEST_MAP");
     char args[128];
     if (getenv("HALOPAD_TEST_VIA") && !strcmp(getenv("HALOPAD_TEST_VIA"), "console")) { via_console = server; QUIT_AFTER = 2100; }
+    if (getenv("HALOPAD_TEST_PASSWORD")) { via_console = server; console_password = getenv("HALOPAD_TEST_PASSWORD"); QUIT_AFTER = 2100; }
+    const char *via = getenv("HALOPAD_TEST_VIA") ? getenv("HALOPAD_TEST_VIA") : "";
+    if (!strcmp(via, "mapchange")) { mode_mapchange = 1; QUIT_AFTER = 12000; next_map = getenv("HALOPAD_TEST_MAP2") ? getenv("HALOPAD_TEST_MAP2") : "beavercreek"; }
+    if (!strcmp(via, "reconnect")) { mode_reconnect = 1; QUIT_AFTER = 2800; }
+    if (getenv("HALOPAD_TEST_EXPECT") && !strcmp(getenv("HALOPAD_TEST_EXPECT"), "refused")) { expect_refused = 1; QUIT_AFTER = 2400; }
     if (via_console) snprintf(args, sizeof args, "-console");     /* Halo's console needs its -console switch */
     else if (getenv("HALOPAD_TEST_VIA") && !strcmp(getenv("HALOPAD_TEST_VIA"), "browser")) { via_browser = 1; QUIT_AFTER = 2700; args[0] = 0; }
+    else if (mode_reconnect) snprintf(args, sizeof args, "-connect %s -console", server);
     else snprintf(args, sizeof args, "-connect %s", server);
     setenv("HALOPAD_ARGS", args, 1);
     uint32_t one = 1;
@@ -308,13 +348,24 @@ int main(void)
     halopad_call_guest_ex(0x4ca9c0, 0, NULL, 0, 0);
     printf("    %d frames presented; main returned\n", frames);
     check("main ran and returned when asked to quit", frames >= QUIT_AFTER, 1);
-    if (!via_browser) {
+    printf("    maps in order: %s; spawned on %d of them\n", maps_seen, spawned_loads);
+    if (expect_refused) {
+        check("  the join is refused: Halo stays in its menus and no game loads", spawned_loads == 0 && !strcmp(last_map, "ui"), 1);
+    } else if (!via_browser) {
         printf("    joined %s: the server's map loaded at frame %d\n", server, map_frame);
         printf("    expected map \"%s\"; the map in memory is \"%s\"\n", expect_map, (const char *)halopad_guest_ptr(0x643064));
         check("  the server's map loaded through the connection", map_frame > 0, 1);
         check("  the server spawned the player's unit", unit_seen != 0, 1);
         printf("    firing as a client: weapon type %d, rounds %u -> %u, battery %.2f -> %.2f, objects %u -> up to %u\n", (int16_t)fire_weapon_type, fire_rounds0, fire_rounds1, fire_battery0, fire_battery1, fire_objs0, fire_objs_most);
         check("  the left button fires as a network client (rounds, battery or projectiles)", fire_rounds1 < fire_rounds0 || fire_battery1 < fire_battery0 - 0.02f || fire_objs_most > fire_objs0, 1);
+        if (mode_mapchange) {
+            const char *a = strstr(maps_seen, expect_map), *b = a ? strstr(a + strlen(expect_map), next_map) : NULL;
+            check("  the server's map cycle moves the game to the next map, and the player spawns there", b && spawned_loads >= 2, 1);
+        }
+        if (mode_reconnect) {
+            const char *a = strstr(maps_seen, expect_map), *b = a ? strstr(a, ",ui,") : NULL, *c = b ? strstr(b, expect_map) : NULL;
+            check("  disconnect returns to the menus, and connect joins again and spawns", c && spawned_loads >= 2, 1);
+        }
     } else
         printf("    Halo's Internet lobby: GET LIST pressed at frame 1600; the list is browser-2.ppm (the Winsock trace holds the master server's reply and each server's status)\n");
     check("  no dialog", (uint32_t)dialogs, 0);

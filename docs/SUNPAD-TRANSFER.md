@@ -14,9 +14,8 @@ local SunPad path. The donor copy used for the work is private and ignored (`ref
 
 ## Kept
 
-- The stick view: a circular base and thumb, +y up, reset on release, and its dark colours.
-- The button look: round, a 2-point light border, bold labels, the pressed scale of 0.92, and the
-  colour set (green, red, purple, light grey, dark grey, yellow).
+- The stick view: a circular base and thumb, +y up, reset on release.
+- The button behaviour: round, a light border, the pressed scale of 0.92.
 - The sizing model: fixed sizes on iPads at least 1000 points wide, and a scaled 800 x 380
   reference elsewhere (stick 172 or 126, buttons 62, 76 and 104 or 46, 58 and 78). A global size
   and opacity sit on top, and positions are clamped to the safe area.
@@ -40,6 +39,19 @@ local SunPad path. The donor copy used for the work is private and ignored (`ref
   - FIRE is the left button and GRENADE the right, and both also look while the finger moves;
   - JUMP (Space), CROUCH (left Ctrl), MELEE (F), RELOAD (R), USE (E), SWAP (Tab), ZOOM (Z),
     NADE (G), LIGHT (Q), SCORES (F1) and MENU (Escape).
+- **The look (2026-09-28 redesign).** SunPad's coloured, text-labelled buttons read poorly over Halo's
+  HUD, so the controls became a mobile shooter's layout:
+  - a **floating stick**: a finger landing in the lower left (left 40%, below the top 30%) brings
+    the stick under it, and lifting returns it to a faint resting place clear of Halo's motion
+    tracker;
+  - **FIRE** large and low on the right (a muted red glass disc, 128 points on iPad, 94 on phone),
+    with **USE, SWAP, ZOOM, THROW, MELEE, RELOAD, CROUCH and JUMP on a ring around it** (every
+    40 degrees), all in reach of the right thumb;
+  - every control the same dark translucent glass circle with an SF Symbol and a small caption;
+    held controls brighten; LIGHT and NADE small on the left edge; scores and pause small at the
+    top centre;
+  - saved layouts moved to `HaloPad.<device>.v2.*`, so positions saved for the old layout do not
+    land on the new one.
 - **The controls show only in a game.** The shell reads Halo's current map (`0x643064`) four
   times a second; on its menu map ("ui") the controls hide and touches reach the game view,
   where a tap is a click.
