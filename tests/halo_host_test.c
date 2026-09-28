@@ -271,7 +271,10 @@ static void on_present(uint32_t device)
     if (t == 100) button(0, 0);
     /* melee */
     if (t == 180) keyx('F', 0x21, 0, 1);
-    if (t > 180 && t < 230 && u && rd(u + 0x2ac)) melee_seen = 1;
+    /* Player melee timer: original 0x55d226 starts it, 0x55d263 decrements it.
+       +0x2ac is an animation frame adjacent to a usually-ffff index; testing
+       that whole word falsely passed even while idle. +0x289 is AI melee. */
+    if (t > 180 && t < 230 && u && *(uint8_t *)halopad_guest_ptr(u + 0x505)) melee_seen = 1;
     if (t == 186) shot(device, 3);
     if (t == 192) keyx('F', 0x21, 0, 0);
     /* look down, then frag grenades at the player's feet until it dies */
@@ -444,7 +447,7 @@ int main(void)
     check("  walking over a loose weapon picks it up (it joins the unit's weapons, +0x2f8)", pickup && picked, 1);
     printf("    live objects %u before firing, up to %u while firing\n", objects_before, objects_most);
     check("  the trigger fires (projectiles appear)", objects_most > objects_before, 1);
-    check("  F melees (unit +0x2ac set during the swing)", melee_seen, 1);
+    check("  F melees (player melee timer +0x505)", melee_seen, 1);
     printf("    looking down: k = %.2f; frag grenades %u -> %u; lowest health %.2f, shields %.2f\n", look_down, frags0, frags1, health_min, shield_min);
     check("  the mouse looks down", look_down < -0.5f, 1);
     check("  the right button throws a frag grenade (one fewer)", frags0 != 0xff && frags1 + 1 == frags0, 1);

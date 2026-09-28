@@ -191,7 +191,7 @@ Halo then hosts the game itself: the Slayer rules screen, "Welcome New001", the 
 **Checks, each in Halo's game state:**
 
 - **Fire:** the trigger adds a projectile object.
-- **Melee:** F swings, and unit `+0x2ac` is set during the swing.
+- **Melee:** the earlier whole-word `+0x2ac` assertion was a false positive: it includes an adjacent animation index that is nonzero while idle. The corrected assertion reads the player melee timer byte at `+0x505` (original `0x55d226` starts it and `0x55d263` decrements it). The AI melee state at `+0x289` is a separate path and does not validate player swings. Current revalidation is recorded in G4-REVIEW and the journal.
 - **Look down:** the mouse turns the look vector's k below −0.5.
 - **Grenades:** the right button throws a frag. Unit `+0x31e`, the frag count, goes from 2 to 1.
 - **Damage:** two frags at the player's feet take the shields to 0 and the health down.

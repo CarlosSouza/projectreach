@@ -1841,3 +1841,47 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   weapon swap) against game state and distinguish unsupported rapid-repeat behavior from original
   behavior before changing it. Actual simultaneous fingers, physical ergonomics and broader
   lifecycle/import/online/campaign/license acceptance remain open. No terminal goal state.
+
+
+### 2026-09-28 — verify touch action outcomes and correct the melee oracle
+
+- Previous turn: **progress**, `559447d` privately pushed. Read the goal attachment, status and
+  parked rows; start clean, locked executable hash and five pinned sources verified. Full
+  project scope remains active; no license, campaign, second-player or device gate changed.
+- Added opt-in `HALOPAD_ACTION_SELFTEST=1` to the iOS app/runner: immediate MELEE tap, bounded
+  MOVE/LOOK approach to an offered magazine weapon, USE hold, SWAP tap, FIRE hold and RELOAD
+  tap. It only uses overlay handlers and reads gameplay state. It does not write guest state.
+  It takes precedence over the existing movement selftest. Interrupted or exhausted routes
+  report failure; missing/equipped weapon and actual USE ownership are checked.
+- Corrected the old host-test false-positive melee predicate: the whole word at `+0x2ac`
+  includes an animation index that is nonzero at idle. Initial diagnostics wrongly watched
+  the AI melee path (`+0x289`, animations 0x1e/0x1f, routine 0x56d120). The reference repo's
+  player-melee branch in `bipeds.c`, checked against original PC instructions, identifies
+  timer byte `+0x505`: set at 0x55d226, decremented at 0x55d263. Both checks now use it.
+  No product input or translated gameplay change was needed. Corrected G4/RUNTIME claims.
+- Evidence `G9/touch-actions` retains every diagnostic: initial/final-stderr runs pass
+  pickup/SWAP/FIRE/RELOAD but use invalid melee predicates; trace/held runs also exhaust
+  their pickup route. `player-stderr.txt` proves the corrected immediate swing 0→25→0,
+  but its label had a C-string formatting bug and its pickup route exhausted. Fixed the label.
+  Debugger attached only to the wrong AI routine; it hit zero times, then detached/quit.
+  That result is not evidence of a player-melee defect. A resulting session timeout was
+  dismissed and a fresh local game created.
+- Stopped app PID 73064 before the core harness. Full iPad `halo_host_test` passes, 19
+  checks/zero failures (`G3/core-arm64-apple-ios17.0-simulator-20260928T171348Z`): corrected
+  melee, projectiles, grenade damage/death/respawn, pickup and three audio assertions.
+  3,823 frames and 130.5 seconds of sound; the original-client comparison stays open.
+- Final signed app installed/started as PID 73862 on project iPad
+  E129A00F-D338-4FDC-8AE8-BB243E9BA61B, using device data and controlled LAN mode.
+  Original touch menus create Battle Creek Slayer. All five action checks pass together
+  (`accepted-stderr.txt`): MELEE 0→25→0, USE holds while taking e29a002b, SWAP changes
+  equipped handle, magazine FIRE 60→51, RELOAD 51→60. Binary identity retained privately.
+  Actual UI swipe changes view and native three-dot menu opens/dismisses. Earlier blocked
+  routes remain evidence that the pickup navigator is not robust for every random spawn.
+- Leave PID 73862 in local gameplay; the timer finished and inputs cleared. Preview: open
+  Simulator's **HaloPad iPad Pro 13**, app **HaloPad**. Touch sizing/spacing and Reset Layout
+  are under **… → Touch Control Settings…**. Phone stays shut down; no reference process
+  started. Stop this exact preview before the next game-core test.
+- Next meaningful input work: actual simultaneous finger routing and physical ergonomics,
+  rapid repeats relative to original consumer behavior, and movement-stick proportionality
+  (MOVE currently maps to digital WASD). Broader lifecycle/import/online/campaign/license
+  acceptance remains open. No terminal goal state.

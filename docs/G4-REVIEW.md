@@ -28,7 +28,7 @@ original premature exit. G4 still requires G1b's original-client comparison, par
 | Collision | `halo_vehicle_test`: the Warthog stops against the canyon wall and tips the driver out, Halo's own behaviour; `halo_host_test`: the pickup route is blocked by geometry and strafes around it | met |
 | Weapons | `halo_play_test`: the assault rifle's magazine empties by 5+ while firing; `halo_host_test`: projectiles appear; plasma pistol overcharge (battery 1.00 → 0.89) as a network client | met |
 | Grenades | `halo_host_test`: right button throws (frag count down by one), damage to shields and health | met |
-| Melee | `halo_host_test`: F swings (unit `+0x2ac` during the swing) | met |
+| Melee | Earlier `+0x2ac` assertion was a false positive. Corrected host check reads player melee timer `+0x505`; full iPad host suite passes (`20260928T171348Z`). Immediate overlay tap also starts and finishes the timer (0→25→0). | revalidated on iPad |
 | Pickups | `halo_host_test`: walks to a loose weapon, holds E when Halo offers it, the weapon joins the unit's weapons | met |
 | Vehicle | `halo_vehicle_test`: Halo offers the driver seat, E enters, W drives about 10 units, E exits | met |
 | Death and respawn | `halo_host_test`: death by own grenades, Slayer respawns a new unit | met |

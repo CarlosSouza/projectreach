@@ -379,6 +379,7 @@ static void on_window(void *w)
    the move stick moves the player, dragging turns the look vector, FIRE shoots (rounds or
    projectiles), JUMP lifts the player. Run against the private reference server. */
 static uint32_t g32(uint32_t a) { uint32_t v; memcpy(&v, halopad_guest_ptr(a), 4); return v; }
+static uint8_t g8(uint32_t a) { return *(uint8_t *)halopad_guest_ptr(a); }
 static uint16_t g16(uint32_t a) { uint16_t v; memcpy(&v, halopad_guest_ptr(a), 2); return v; }
 static float gf(uint32_t a) { float v; memcpy(&v, halopad_guest_ptr(a), 4); return v; }
 static uint32_t g_object(uint32_t h)
@@ -408,6 +409,128 @@ static void selftest_check(const char *what, int ok, NSString *detail)
     selftest_failures += !ok;
 }
 static void after(double s, dispatch_block_t b) { dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(s * NSEC_PER_SEC)), dispatch_get_main_queue(), b); }
+
+/* Opt-in action acceptance, through overlay handlers only. Reads the same object
+   fields as halo_host_test; never writes guest state or supplies weapons/ammo. */
+static void action_selftest(void)
+{
+    if (!overlay.inGame || !g_unit()) { after(1, ^{ action_selftest(); }); return; }
+    after(6, ^{
+        __block int phase = 0, ticks = 0, idleMelee = 0, meleePeak = 0, failures0 = selftest_failures;
+        __block uint32_t target = 0, priorWeapon = 0, ammoWeapon = 0;
+        __block uint16_t roundsBefore = 0, roundsFired = 0;
+        __block BOOL used = NO;
+        __block float bestDistance = 1e9f;
+        __block int progressTick = 0, attempts = 0;
+        NSMutableSet<NSNumber *> *skipped = [NSMutableSet set];
+        fprintf(stderr, "HALOPAD ACTIONS: begin on %s\n", current_map().UTF8String);
+        [NSTimer scheduledTimerWithTimeInterval:0.05 repeats:YES block:^(NSTimer *timer) {
+            uint32_t u = g_unit();
+            if (!overlay.inGame || overlay.haloMenuVisible || !u) {
+                [overlay clearTouchInput]; [timer invalidate];
+                selftest_check("action run remains in live gameplay", 0, @"interrupted or player lost");
+                return;
+            }
+            ticks++;
+            if (phase == 0) {
+                idleMelee = g8(u + 0x505);
+                [overlay driveControl:@"melee" down:YES];
+                [overlay driveControl:@"melee" down:NO];
+                phase = 1; ticks = 0;
+            } else if (phase == 1) {
+                /* Player melee: original 0x55d226 starts the biped timer;
+                   0x55d263 decrements it. +0x289 belongs to the AI melee path. */
+                int v = g8(u + 0x505);
+                if (v > meleePeak) meleePeak = v;
+                if (ticks < 30) return;
+                selftest_check("one MELEE tap starts and finishes a swing", idleMelee == 0 && meleePeak != 0 && g8(u + 0x505) == 0,
+                               [NSString stringWithFormat:@"idle %d, player melee ticks %d, final %d", idleMelee, meleePeak, g8(u + 0x505)]);
+                phase = 2; ticks = 0;
+            } else if (phase == 2) {
+                /* Find a loose magazine-fed weapon on the player's level. A bounded
+                   blocked route tries another candidate instead of teleporting. */
+                uint32_t p = g32(g32(0x815920) + 0x34);
+                if (target) for (int slot = 0; slot < 4; slot++) if (g32(u + 0x2f8 + 4 * slot) == target) {
+                    [overlay driveMoveX:0 y:0]; [overlay driveControl:@"action" down:NO];
+                    selftest_check("touch USE picks up a second weapon", used && g_object(g32(u + 0x2fc)) != 0,
+                                   [NSString stringWithFormat:@"target %08x, USE held %d, slots %08x/%08x", target, used, g32(u + 0x2f8), g32(u + 0x2fc)]);
+                    ammoWeapon = target; phase = 3; ticks = 0; return;
+                }
+                if (ticks > 1200 || attempts >= 8) {
+                    [overlay clearTouchInput]; [timer invalidate];
+                    selftest_check("action fixture obtains a magazine-fed weapon", 0, @"route exhausted; switch/reload unverified");
+                    fprintf(stderr, "HALOPAD ACTIONS: FAIL (fixture incomplete)\n"); return;
+                }
+                uint32_t o = g_object(target);
+                if (target && (!o || ticks - progressTick > 100)) {
+                    [skipped addObject:@(target)]; target = 0; attempts++;
+                    [overlay driveMoveX:0 y:0]; [overlay driveControl:@"action" down:NO];
+                }
+                if (!target) {
+                    uint32_t ot = g32(0x7fb710), held = g_object(g32(u + 0x118));
+                    float best = 25;
+                    for (uint32_t i = 0; i < g16(ot + 0x20); i++) {
+                        uint32_t e = g32(ot + 0x34) + i * 12, h = (uint32_t)g16(e) << 16 | i;
+                        if (!g16(e) || [skipped containsObject:@(h)]) continue;
+                        uint32_t item = g_object(h);
+                        if (!item || (int16_t)g16(item + 0xb4) != 2 || g32(item + 0xcc) != 0xffffffff ||
+                            !g16(item + 0x2b8) || (held && g32(item) == g32(held))) continue;
+                        float d = hypotf(gf(item + 0x5c) - gf(u + 0x5c), gf(item + 0x60) - gf(u + 0x60));
+                        if (fabsf(gf(item + 0x64) - gf(u + 0x64)) < 1 && d < best) { best = d; target = h; }
+                    }
+                    progressTick = ticks; bestDistance = 1e9f; used = NO;
+                    if (!target) return;
+                    fprintf(stderr, "HALOPAD ACTIONS: approach %08x, %.2f units away\n", target, best);
+                    o = g_object(target);
+                }
+                float distance = hypotf(gf(o + 0x5c) - gf(u + 0x5c), gf(o + 0x60) - gf(u + 0x60));
+                if (distance < bestDistance - 0.3f) { bestDistance = distance; progressTick = ticks; }
+                float yaw = atan2f(gf(u + 0x240), gf(u + 0x23c));
+                float bearing = atan2f(gf(o + 0x60) - gf(u + 0x60), gf(o + 0x5c) - gf(u + 0x5c));
+                float err = remainderf((bearing - yaw) * 57.29578f, 360);
+                float dx = fmaxf(-60, fminf(60, -err * 6));
+                [overlay driveLookX:dx / (2.2f * HPSettings.shared.lookSensitivity) y:0];
+                BOOL offered = g32(p + 0x24) == target;
+                [overlay driveMoveX:0 y:(!offered && fabsf(err) < 20 ? 1 : 0)];
+                [overlay driveControl:@"action" down:offered]; used |= offered;
+            } else if (phase == 3 && ticks >= 30) {
+                priorWeapon = g32(u + 0x118);
+                [overlay driveControl:@"switch" down:YES]; [overlay driveControl:@"switch" down:NO];
+                phase = 4; ticks = 0;
+            } else if (phase == 4 && ticks >= 30) {
+                uint32_t current = g32(u + 0x118);
+                selftest_check("one SWAP tap changes the equipped weapon", current != priorWeapon && g_object(current),
+                               [NSString stringWithFormat:@"%08x -> %08x", priorWeapon, current]);
+                if (current != ammoWeapon) { [overlay driveControl:@"switch" down:YES]; [overlay driveControl:@"switch" down:NO]; }
+                phase = 5; ticks = 0;
+            } else if (phase == 5 && ticks >= 30) {
+                uint32_t w = g_object(g32(u + 0x118));
+                if (!w || g32(u + 0x118) != ammoWeapon || !g16(w + 0x2b8)) {
+                    [overlay clearTouchInput]; [timer invalidate];
+                    selftest_check("reload fixture equips the picked-up weapon", 0, @"no loaded magazine"); return;
+                }
+                roundsBefore = g16(w + 0x2b8);
+                [overlay driveControl:@"fire" down:YES]; phase = 6; ticks = 0;
+            } else if (phase == 6) {
+                if (ticks == 12) [overlay driveControl:@"fire" down:NO];
+                if (ticks < 35) return;
+                uint32_t w = g_object(ammoWeapon);
+                roundsFired = w ? g16(w + 0x2b8) : 0;
+                selftest_check("touch FIRE spends magazine rounds", w && g32(u + 0x118) == ammoWeapon && roundsFired < roundsBefore,
+                               [NSString stringWithFormat:@"%u -> %u", roundsBefore, roundsFired]);
+                [overlay driveControl:@"reload" down:YES]; [overlay driveControl:@"reload" down:NO];
+                phase = 7; ticks = 0;
+            } else if (phase == 7 && ticks >= 90) {
+                uint32_t w = g_object(ammoWeapon);
+                uint16_t rounds = w ? g16(w + 0x2b8) : 0;
+                selftest_check("one RELOAD tap refills the magazine", w && g32(u + 0x118) == ammoWeapon && rounds > roundsFired,
+                               [NSString stringWithFormat:@"%u -> %u", roundsFired, rounds]);
+                [overlay clearTouchInput]; [timer invalidate];
+                fprintf(stderr, "HALOPAD ACTIONS: %s (%d failures)\n", selftest_failures == failures0 ? "PASS" : "FAIL", selftest_failures - failures0);
+            }
+        }];
+    });
+}
 
 static void touch_selftest(void)
 {
@@ -568,7 +691,8 @@ static void touch_selftest(void)
     [self applyDisplay];
     halopad_host_set_window_handler(on_window);
     if (!halopad_d3d9_present_hook) halopad_d3d9_present_hook = count_present;
-    if (getenv("HALOPAD_TOUCH_SELFTEST")) after(5, ^{ touch_selftest(); });
+    if (getenv("HALOPAD_ACTION_SELFTEST")) after(5, ^{ action_selftest(); });
+    else if (getenv("HALOPAD_TOUCH_SELFTEST")) after(5, ^{ touch_selftest(); });
     if (getenv("HALOPAD_GAME_ROOT")) { [self startHalo]; return; }
     /* no game folder yet: the import screen, then Halo */
     HPImportViewController *imp = [HPImportViewController new];

@@ -297,3 +297,34 @@ acceptance remain open.
 The rebuilt device-data preview (`G3/ios-app-20260928T163515Z`) passes all five handler/game-state
 checks: movement 3.16 units, swipe 39.7 degrees, battery 1.00→0.89, immediate jump -1.36→-0.70,
 and held LOOK 25.7 degrees. Actual UI taps also open/dismiss the native menu and Pause/Resume.
+
+
+### Check action outcomes in Halo, including player melee
+
+`HALOPAD_ACTION_SELFTEST=1` runs an opt-in handler-driven action sequence after entering a
+local match. It presses and releases MELEE immediately, approaches a loose magazine-fed
+weapon using MOVE/LOOK, holds USE when offered, taps SWAP, fires, then taps RELOAD. It reads
+Halo's inventory, equipped weapon, magazine and player-melee timer; it never creates pickups
+or writes gameplay state. It takes precedence over the movement selftest so two drivers do
+not compete. The pickup route is bounded and can fail on geometry after a random spawn;
+that reports an incomplete fixture, not a passing action sequence.
+
+The old host-suite melee assertion read a whole word at `unit+0x2ac`, including an adjacent
+animation index that is already nonzero at idle. That was a false positive. An intermediate
+diagnostic also watched the wrong path: `+0x289` and animations 0x1e/0x1f describe unit/AI
+melee. The reference repo's `bipeds.c` separates player melee; the locked PC
+executable starts its timer byte at `+0x505` in `0x55d226`, applies damage at the attack tick,
+and decrements it in `0x55d263`. Both acceptance checks now use the player timer.
+
+Initial action runs verified pickup, SWAP, magazine FIRE (20→15) and RELOAD (15→20); the
+corrected player-timer run verified an immediate MELEE tap (0→25→0), but could not complete
+its pickup route. Logs, including wrong-predicate failures, remain in `G9/touch-actions`.
+These are handler/game-state outcomes, not proof of actual simultaneous-finger routing or
+physical comfort. They do not establish melee damage against another player.
+
+The final build completes all five checks in one run (`accepted-stderr.txt`, PID 73862):
+MELEE 0→25→0, USE places the offered weapon in the second inventory slot, SWAP changes the
+equipped handle, FIRE consumes 60→51 rounds, and RELOAD restores 51→60. The full iPad host
+suite also passes with the corrected melee assertion (`G3/core-arm64-apple-ios17.0-simulator-20260928T171348Z`).
+Final actual UI checks: swipe changes the view; the native three-dot menu opens and dismisses.
+The previous route failures remain relevant to harness reliability.
