@@ -1437,3 +1437,49 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   edges, true simultaneous multi-touch, physical ergonomics and alternate pointer modes remain.
   Next unblocked work includes safe prepared-data import and further input/lifecycle checks.
   Original licensed startup, campaign, two-player and device gates remain intact.
+
+
+### 2026-09-28 — preserve installations during folder import
+
+- Previous iteration: **progress**, committed/pushed as `06bfec0` (direct finger menu selection).
+  Read the objective and inherited loop/PRD; starting tree clean. Locked executable hash and
+  pinned sources verified; halopad-patch/reference bottles present, no Wine process. The sole
+  candidate was iPad PID 38291; parked inputs unchanged. Chose M29's unblocked import safety.
+- Hypothesis: the picker removes its destination before copying, so a failed copy loses the
+  previous install and selecting the destination itself deletes the source. Confirmed in code.
+  Extracted shared Foundation validation/import service; source/stage checks reject wrong
+  executable identity, missing/empty/non-regular required files, links/special files and
+  ambiguous case-normalized names. Hashing streams instead of mapping the whole file.
+- Stage beside destination, validate again, atomically rename/exchange and retain the old tree.
+  Same-folder imports validate only; overlapping trees are rejected. Failed copy/validation/
+  publication removes only staging. Even failed backup naming keeps the old tree and returns
+  its actual path. No changes to guest code, keys or module loading. Actual UI coordinates
+  source reading/destination writing with NSFileCoordinator and holds scoped access throughout.
+- Added disposable inert-fixture tests exercising real filesystem transactions. Injected
+  partial-copy, staged-corruption, publication and backup-rename failures prove preservation.
+  Final macOS `G9/import-20260928T134206Z` and iPad `...134207Z` pass all 12 scenario groups;
+  phone `...133717Z` passes before a missing-folder wording-only adjustment. No data fixtures
+  committed. Updated the import panel to scroll within safe-area bounds and removed conflicting
+  width constraints; re-entry controls disable while importing.
+- Stopped iPad before phone tests, then shut phone down and returned to iPad. Backed up device
+  Application Support state under `G9/import-ui-20260928T133826Z/state-before`; renamed the
+  existing game folder to a retained Import Test Source before the UI test. First app build
+  caught an accidentally broad edit assigning an import property in the license controller;
+  removed that unrelated assignment and rebuilt successfully. The license UI is unchanged.
+- Actual app `G3/ios-app-20260928T133918Z`: Files picker → On My iPad → HaloPad → retained source
+  → Open. The copy succeeds and the development scene reaches Halo's menu from device paths.
+  Screenshot retained; no layout-conflict diagnostic. Independent whole-tree comparison finds
+  all 105 copied files byte-identical to source. First comparison helper used a hashlib method
+  absent from system Python; reran with a streaming helper successfully. Neither source nor
+  previous state was discarded. Current data container is resolved again after app installs.
+- This is folder-import safety progress, not M29 completion. The PRD's `.halopad.zip` prepared
+  package/manifest workflow remains required, along with full content validation, management,
+  crash recovery, provider/device tests and phone UI inspection. See IMPORT.md for evidence and
+  limits. These requirements are not replaced by the direct-folder route. Goal stays active.
+- Final build/relaunch `G3/ios-app-20260928T134505Z` reports device game folder accepted, starts
+  Halo's menu, and runs at 29–30 fps. Created the local New001 profile with the software keyboard
+  and reached Multiplayer by touch. CUA then reported user interaction; stopped driving the UI
+  and left PID 41176 available to Chris. Only the project iPad is booted, phone shut down.
+- Final review also latches successful Check Again before dismissing the sheet, preventing a
+  second tap from scheduling another start. Compiled this final UI guard without installing or
+  restarting Chris's live preview; its rapid-tap behavior is not separately exercised in Simulator.

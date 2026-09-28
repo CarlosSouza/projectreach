@@ -432,7 +432,7 @@ something pressed in the same pump for the next pump; order is kept.
 4:3; the phone layout puts the stick, JUMP, FIRE, SWAP and the menu in the side bars, and the
 self-test passes there.
 
-**The game's files on the device (G9: prepared-data import).** Without the Mac's `HALOPAD_*`
+**The game's files on the device (G9: installation-folder import).** Without the Mac's `HALOPAD_*`
 paths (a device, or `build-ios-app.py --device-data` on the Simulator) the app resolves its own:
 its bundle's `data/` holds the translated image (4.2 MB), the four module images, the reference
 machine's files, the registry seed and the input profile (8.5 MB in all); its state lives in
@@ -446,6 +446,13 @@ Until then the import screen shows what is missing, with Check Again and Choose 
 on the iPad Simulator: no folder gives the screen; the 1.10 folder copied into Documents is
 accepted and Halo reaches its main menu from device paths alone. The shipping start (Halo's own
 entry point) still stops at the product-key check, as on a PC without the installer's key.
+
+The folder picker now stages and validates before atomic publication, retains the previous folder
+on replacement, and rejects symlinks/special files and overlapping source/destination trees.
+Same-folder selection is validation only. Failure preservation tests pass on macOS and both
+Simulators, and actual iPad Files-picker import reaches the main menu with 105 copied files
+matching the source. See [IMPORT.md](IMPORT.md). The PRD's prepared `.halopad.zip` workflow and
+remaining M29 management/recovery tests are still required; the folder importer does not replace them.
 
 **Frame times on the Simulator, and the input lag they caused.** `HALOPAD_TRACE_FRAMES` reports,
 every 10 s, the frames presented, the longest gap between presents, gaps over 100 ms, and the

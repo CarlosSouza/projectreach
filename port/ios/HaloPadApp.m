@@ -154,7 +154,7 @@ static NSString *current_map(void)
    Halo Custom Edition folder in Documents (the Files app, Finder, or the folder picker below),
    accepted only when its haloce.exe is the locked 1.10 file (SHA-256 from profile.json) and the
    stock files it needs are there. Nothing is downloaded and no key is involved. */
-#import <CommonCrypto/CommonDigest.h>
+#import "HaloPadImport.h"
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 
 static NSString *documents_game_dir(void)
@@ -163,47 +163,16 @@ static NSString *documents_game_dir(void)
     return [docs.path stringByAppendingPathComponent:@"Halo Custom Edition"];
 }
 
-static NSString *sha256_of_file(NSString *path)
+static NSString *game_profile_hash(void)
 {
-    NSData *d = [NSData dataWithContentsOfFile:path options:NSDataReadingMappedIfSafe error:nil];
-    if (!d) return nil;
-    unsigned char h[CC_SHA256_DIGEST_LENGTH];
-    CC_SHA256(d.bytes, (CC_LONG)d.length, h);
-    NSMutableString *s = [NSMutableString string];
-    for (int i = 0; i < CC_SHA256_DIGEST_LENGTH; i++) [s appendFormat:@"%02x", h[i]];
-    return s;
+    NSString *path = [NSBundle.mainBundle.bundlePath stringByAppendingPathComponent:@"data/profile.json"];
+    NSDictionary *profile = [NSJSONSerialization JSONObjectWithData:[NSData dataWithContentsOfFile:path] ?: NSData.data options:0 error:nil];
+    return profile[@"accepted_sha256"];
 }
 
-/* a path under dir matched without regard to case (Windows names; the device's disk is case-sensitive) */
-static NSString *path_ci(NSString *dir, NSString *rel)
+static NSString *game_dir_problem(NSString *directory)
 {
-    NSString *p = dir;
-    for (NSString *part in [rel componentsSeparatedByString:@"/"]) {
-        NSString *hit = nil;
-        for (NSString *name in [NSFileManager.defaultManager contentsOfDirectoryAtPath:p error:nil] ?: @[])
-            if ([name caseInsensitiveCompare:part] == NSOrderedSame) { hit = name; break; }
-        if (!hit) return nil;
-        p = [p stringByAppendingPathComponent:hit];
-    }
-    return p;
-}
-
-/* nil when the folder is a usable Custom Edition 1.10 install; otherwise what is wrong with it */
-static NSString *game_dir_problem(NSString *dir)
-{
-    NSFileManager *fm = NSFileManager.defaultManager;
-    BOOL isDir = NO;
-    if (![fm fileExistsAtPath:dir isDirectory:&isDir] || !isDir) return @"No Halo Custom Edition folder yet.";
-    NSString *exe = path_ci(dir, @"haloce.exe");
-    if (!exe) return @"The folder has no haloce.exe.";
-    NSString *profile = [NSBundle.mainBundle.bundlePath stringByAppendingPathComponent:@"data/profile.json"];
-    NSDictionary *p = [NSJSONSerialization JSONObjectWithData:[NSData dataWithContentsOfFile:profile] ?: NSData.data options:0 error:nil];
-    NSString *want = p[@"accepted_sha256"], *got = sha256_of_file(exe);
-    if (!want) return @"The app's own profile.json is missing.";
-    if (![got isEqualToString:want]) return @"haloce.exe is not Halo Custom Edition 1.0.10 (its SHA-256 does not match the locked 1.10 file). Install the official 1.10 update first.";
-    for (NSString *f in @[@"strings.dll", @"keystone.dll", @"maps/ui.map", @"maps/bitmaps.map", @"maps/sounds.map", @"maps/loc.map", @"maps/bloodgulch.map"])
-        if (!path_ci(dir, f)) return [NSString stringWithFormat:@"The folder is missing %@.", f];
-    return nil;
+    return HPGameDirectoryProblem(directory, game_profile_hash());
 }
 
 /* the app's own paths, when the environment does not name the Mac's */
@@ -228,6 +197,8 @@ static void resolve_device_paths(void)
 @interface HPImportViewController : UIViewController <UIDocumentPickerDelegate>
 @property(nonatomic, copy) void (^ready)(void);
 @property(nonatomic, strong) UILabel *status;
+@property(nonatomic, strong) UIStackView *importButtons;
+@property(nonatomic) BOOL importing;
 @end
 
 @implementation HPImportViewController
@@ -256,29 +227,50 @@ static void resolve_device_paths(void)
     again.titleLabel.font = [UIFont systemFontOfSize:18];
     [again addTarget:self action:@selector(check) forControlEvents:UIControlEventPrimaryActionTriggered];
     UIStackView *buttons = [[UIStackView alloc] initWithArrangedSubviews:@[again, pick]];
+    self.importButtons = buttons;
     buttons.distribution = UIStackViewDistributionFillEqually;
     UIStackView *stack = [[UIStackView alloc] initWithArrangedSubviews:@[title, text, self.status, buttons]];
     stack.axis = UILayoutConstraintAxisVertical;
     stack.spacing = 18;
     stack.translatesAutoresizingMaskIntoConstraints = NO;
-    [self.view addSubview:stack];
+    UIScrollView *scroll = [UIScrollView new];
+    scroll.translatesAutoresizingMaskIntoConstraints = NO;
+    scroll.alwaysBounceVertical = YES;
+    [self.view addSubview:scroll];
+    [scroll addSubview:stack];
     UILayoutGuide *g = self.view.safeAreaLayoutGuide;
+    NSLayoutConstraint *preferredWidth = [stack.widthAnchor constraintEqualToAnchor:scroll.frameLayoutGuide.widthAnchor constant:-48];
+    preferredWidth.priority = UILayoutPriorityDefaultHigh;
     [NSLayoutConstraint activateConstraints:@[
-        [stack.leadingAnchor constraintEqualToAnchor:g.leadingAnchor constant:32],
-        [stack.trailingAnchor constraintEqualToAnchor:g.trailingAnchor constant:-32],
-        [stack.topAnchor constraintEqualToAnchor:g.topAnchor constant:32],
-        [stack.widthAnchor constraintLessThanOrEqualToConstant:640],
+        [scroll.leadingAnchor constraintEqualToAnchor:g.leadingAnchor],
+        [scroll.trailingAnchor constraintEqualToAnchor:g.trailingAnchor],
+        [scroll.topAnchor constraintEqualToAnchor:g.topAnchor],
+        [scroll.bottomAnchor constraintEqualToAnchor:g.bottomAnchor],
+        [stack.centerXAnchor constraintEqualToAnchor:scroll.frameLayoutGuide.centerXAnchor],
+        [stack.leadingAnchor constraintGreaterThanOrEqualToAnchor:scroll.contentLayoutGuide.leadingAnchor constant:24],
+        [stack.trailingAnchor constraintLessThanOrEqualToAnchor:scroll.contentLayoutGuide.trailingAnchor constant:-24],
+        [stack.topAnchor constraintEqualToAnchor:scroll.contentLayoutGuide.topAnchor constant:24],
+        [stack.bottomAnchor constraintEqualToAnchor:scroll.contentLayoutGuide.bottomAnchor constant:-24],
+        [scroll.contentLayoutGuide.widthAnchor constraintEqualToAnchor:scroll.frameLayoutGuide.widthAnchor],
+        preferredWidth, [stack.widthAnchor constraintLessThanOrEqualToConstant:640],
         [buttons.heightAnchor constraintEqualToConstant:48]]];
     self.view.accessibilityIdentifier = @"HaloPadImport";
 }
 - (void)check
 {
+    if (self.importing) return;
     NSString *problem = game_dir_problem(documents_game_dir());
     self.status.text = problem ?: @"Halo Custom Edition 1.10 found. Starting…";
-    if (!problem) { setenv("HALOPAD_GAME_ROOT", documents_game_dir().UTF8String, 1); if (self.ready) self.ready(); }
+    if (!problem) {
+        self.importing = YES; /* Ignore another tap while the sheet is dismissing. */
+        self.importButtons.userInteractionEnabled = NO;
+        setenv("HALOPAD_GAME_ROOT", documents_game_dir().UTF8String, 1);
+        if (self.ready) self.ready();
+    }
 }
 - (void)pick
 {
+    if (self.importing) return;
     UIDocumentPickerViewController *p = [[UIDocumentPickerViewController alloc] initForOpeningContentTypes:@[UTTypeFolder]];
     p.delegate = self;
     [self presentViewController:p animated:YES completion:nil];
@@ -286,18 +278,34 @@ static void resolve_device_paths(void)
 - (void)documentPicker:(UIDocumentPickerViewController *)controller didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls
 {
     NSURL *src = urls.firstObject;
-    if (!src) return;
-    self.status.text = @"Copying…";
+    if (!src || self.importing) return;
+    self.importing = YES;
+    self.importButtons.userInteractionEnabled = NO;
+    self.importButtons.alpha = .5;
+    self.status.text = @"Checking and copying your game files…";
+    NSString *hash = game_profile_hash();
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
         BOOL scoped = [src startAccessingSecurityScopedResource];
-        NSError *e = nil;
-        NSString *dst = documents_game_dir();
-        [NSFileManager.defaultManager removeItemAtPath:dst error:nil];
-        BOOL ok = [NSFileManager.defaultManager copyItemAtPath:src.path toPath:dst error:&e];
+        NSFileCoordinator *coordinator = [[NSFileCoordinator alloc] initWithFilePresenter:nil];
+        NSError *coordinationError = nil;
+        __block NSError *importError = nil;
+        __block NSURL *backup = nil;
+        __block BOOL ok = NO;
+        [coordinator coordinateReadingItemAtURL:src options:NSFileCoordinatorReadingWithoutChanges
+                              writingItemAtURL:[NSURL fileURLWithPath:documents_game_dir()]
+                                       options:NSFileCoordinatorWritingForReplacing
+                                         error:&coordinationError byAccessor:^(NSURL *readURL, NSURL *writeURL) {
+            ok = HPImportGameDirectory(readURL, writeURL, hash, &backup, &importError);
+        }];
         if (scoped) [src stopAccessingSecurityScopedResource];
         dispatch_async(dispatch_get_main_queue(), ^{
-            if (!ok) self.status.text = [NSString stringWithFormat:@"The copy failed: %@", e.localizedDescription];
-            else [self check];
+            self.importing = NO;
+            self.importButtons.userInteractionEnabled = YES;
+            self.importButtons.alpha = 1;
+            if (!ok) self.status.text = (importError ?: coordinationError).localizedDescription ?: @"The folder could not be imported.";
+            else if (backup) {
+                self.status.text = [NSString stringWithFormat:@"Game files imported. Your previous folder is saved as %@. Tap Check Again to start.", backup.lastPathComponent];
+            } else [self check];
         });
     });
 }
