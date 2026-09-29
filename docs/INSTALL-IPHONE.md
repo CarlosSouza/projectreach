@@ -48,7 +48,7 @@ in Device Hub as a connected device.
      --work generated/srw/custom-en-1.0.10.0621/<accepted-run> \
      --identity <Apple-Development-certificate-SHA1> \
      --profile /private/path/HaloPad.mobileprovision \
-     --scene tests/halo_touch_move_scene.c
+     --scene tests/halo_app_scene.c
    ```
 
 5. Install the signed `HaloPad.app` and its matching `.halopad.zip` to the exact
@@ -70,10 +70,12 @@ in Device Hub as a connected device.
    matching package and wait for verification and import. Reach the Halo main
    menu before calling the install successful.
 
-The current iPhone 14 build is signed and installed. Its matching package
-imported through the physical Files picker and reached the main menu. A local
-LAN Battle Creek match, profile creation, and leave flow also worked. The iPad
-has not been physically connected or tested in this round.
+The current iPhone 14 development build is signed and installed. Its matching
+package imported through the physical Files picker and reached the main menu.
+A local LAN Battle Creek match, profile creation, and leave flow also worked.
+The physical iPad imported its matching package, ran local matches, and passed
+controller input after opening the app with the pad connected. A late-connect
+fix has passed Simulator tests but is not yet installed on the iPad.
 
 ## First iPad test
 

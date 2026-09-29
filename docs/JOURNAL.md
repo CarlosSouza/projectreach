@@ -2999,3 +2999,53 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   independently reproducible build from the player's verified Custom Edition
   installation, including a public input verifier, dependency bootstrap and
   ignored output audit. The existing signed development build is not that path.
+
+## 2026-09-29 — full-entry diagnosis, restored play, and late-controller slot
+
+- A newly signed iPad candidate accidentally omitted `--scene tests/halo_app_scene.c`.
+  It therefore ran Halo's full original entry point. Its first launch trapped
+  on `d3d9.dll!DisableD3DSpy`; added a narrow no-op export because there is no
+  D3D spy layer in HaloPad. The next full-entry launch reached Halo's original
+  **Your product key is invalid** fatal dialog. The iPad's registry readback,
+  compared with its pre-install backup, had no `DigitalProductID` in either
+  version. The in-place install preserved the container; the earlier playable
+  handoff app was confirmed by its binary strings to use the development scene.
+  No product key or derived value was written into the repository or logs.
+- Rebuilt and installed the development-scene app in place with the same bundle
+  ID. It reached the main menu with existing profile `New001`, then created a
+  local LAN Battle Creek Slayer match. The revised icon appeared on the iPad
+  Home Screen. The user continued local play; no public game was joined.
+- With `HALOPAD_TRACE_FRAMES=1`, the physical iPad recorded a 456 ms present
+  gap and two >100 ms gaps in one 10-second interval around a local map change;
+  27 shader libraries and 24 pipelines were created, their aggregate reported
+  time under 0.01 s. Most subsequent intervals presented about 30 FPS with no
+  >100 ms gap. This confirms an intermittent stall, not its CPU/I/O cause or
+  a performance fix. Evidence is private under `G11/ipad-frame-trace-playable-fix.log`.
+- The same build was launched while the Xbox controller was absent, so Halo's
+  one-time DirectInput enumeration could not register it later. Added a stable,
+  neutral physical controller slot on iOS. Its device persists while a pad is
+  absent and reports the first connected controller when one arrives or is
+  replaced, without calling Halo's unsafe enumeration callback. The iPad
+  Simulator DirectInput harness passed with zero failures, including late
+  connect, replacement, and disconnect. Physical install and resolution-reset
+  acceptance remain open while Chris is playing the current iPad build.
+- Signed, offline development-scene candidates with this stable-slot change are
+  preserved under ignored `generated/device-candidates/ipad-20260929-stable-controller/`
+  and `generated/device-candidates/iphone14-20260929-stable-controller/`.
+  `codesign --verify --deep --strict` passed. Neither was installed: Chris was
+  actively playing on the iPad and using the iPhone. The installed iPad build
+  remains the earlier development scene, which needs the controller connected
+  before app launch. The iOS Simulator DirectInput suite passed (zero failures)
+  at `G3/core-arm64-apple-ios17.0-simulator-20260929T124619Z`. A Mac-target
+  attempt failed to link an unrelated existing `halopad_host_post_input` symbol;
+  it is not an iOS test failure.
+- Chris supplied a private 25-character Halo PC product key in chat for a
+  legitimate full-entry test. It was not echoed into a command, stored in a
+  file, entered into software, or committed. No original Halo PC installer or
+  licensed Windows installation was found in the current inputs; the available
+  `ref/Halo CE/HaloCESetup.exe` is the Custom Edition repack and includes
+  `PidGen.dll`, but its installation/key path was not run. The old CrossOver
+  binary path in `scripts/prepare-patched-client.sh` is unavailable on this
+  Mac; only Wine Stable at `/opt/homebrew/bin/wine` was found. Next work should
+  keep key material outside source and public logs, establish an original
+  installer-produced `DigitalProductID`, and only then retest full startup.

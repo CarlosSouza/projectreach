@@ -114,7 +114,9 @@ int main(void)
     M(di, CreateDevice, gkbd, pk, 0);
     uint32_t k = rd(pk), m = rd(pm);
     halopad_gamepad_test_count = 0;                                 /* no controllers yet */
+#if !TARGET_OS_IPHONE
     check("EnumDevices(GAMECTRL, ATTACHEDONLY) with no controllers: DI_OK", M(di, EnumDevices, 4, 0x494b30, 0, 1), 0);
+#endif
 
     /* keyboard, as Halo sets it up */
     check("keyboard: SetCooperativeLevel(EXCLUSIVE|NONEXCLUSIVE) is invalid", M(k, SetCooperativeLevel, hwnd, 3 | 4), 0x80070057);
@@ -441,10 +443,17 @@ int main(void)
     halopad_gamepad_test[0] = (hp_gamepad){.id = 7, .lx = 1.0f, .ly = 1.0f, .rx = -0.05f, .ry = 0, .lt = 1.0f, .rt = 0,
                                            .buttons = 1u | 1u << 7, .dpad = 2};   /* stick right and up, A and Start, d-pad right */
     memcpy(halopad_guest_ptr(0x64c52c), &di, 4);                   /* Halo's IDirectInput8 */
+#if TARGET_OS_IPHONE
+    halopad_gamepad_test_count = 0; /* enumerate before the physical pad arrives */
+#endif
     check("Halo's game controller set-up (0x494840) returns TRUE", halopad_call_guest(0x494840, 0, NULL) & 0xFF, 1);
     check("  physical controller and distinct touch controller counted", rd(0x64c774), 2);
     uint32_t pad = rd(0x64c778);
     check("  its device (0x64c778)", pad != 0, 1);
+#if TARGET_OS_IPHONE
+    check("neutral physical slot leaves touch visible", halopad_dinput_has_live_gamepad(), 0);
+    halopad_gamepad_test_count = 1; /* now attach the controller */
+#endif
     check("registered physical controller permits touch auto-hide", halopad_dinput_has_live_gamepad(), 1);
     {
         const char *want = "Controller (XBOX 360 For Windows)";
@@ -834,11 +843,21 @@ int main(void)
     check("unplugged controller restores touch auto-show", halopad_dinput_has_live_gamepad(), 0);
     halopad_gamepad_test[0] = (hp_gamepad){.id = 8, .dpad = -1};
     halopad_gamepad_test_count = 1;
+#if TARGET_OS_IPHONE
+    check("replacement controller reuses the registered physical slot", halopad_dinput_has_live_gamepad(), 1);
+    check("replacement controller polls", M0(pad, Poll), 0);
+#else
     check("late unregistered controller leaves touch visible", halopad_dinput_has_live_gamepad(), 0);
+#endif
     halopad_gamepad_test_count = 0;
+#if TARGET_OS_IPHONE
+    check("disconnected physical slot stays acquired and neutral", M0(pad, Poll), 0);
+    check("neutral slot can still return state", M(pad, GetDeviceState, 224, js), 0);
+#else
     check("gamepad unplugged: Poll gives DIERR_INPUTLOST", M0(pad, Poll), 0x8007001E);
     check("  then GetDeviceState: DIERR_NOTACQUIRED", M(pad, GetDeviceState, 224, js), 0x8007000C);
     check("  and Acquire: DIERR_UNPLUGGED", M0(pad, Acquire), 0x80040209);
+#endif
     check("Release the gamepad", M0(pad, Release), 0);
     check("Release the mouse", M0(m, Release), 0);
     check("Release the keyboard", M0(k, Release), 0);

@@ -28,6 +28,7 @@
 #include "halopad_win32.h"
 #include <math.h>
 #include "halopad_input.h"
+#include <TargetConditionals.h>
 
 uint32_t halopad_com_new(const char *iface, uint32_t size, void *state, void (*destroy)(void *));
 uint32_t halopad_com_addref(uint32_t g);
@@ -423,10 +424,18 @@ int halopad_gamepad_test_count = -1;
 static int pads(hp_gamepad *out, int max)
 {
     int n;
+#if TARGET_OS_IPHONE
+    /* Halo enumerates DirectInput controllers only at startup. Keep one neutral
+       physical slot so connecting or replacing a controller later needs no
+       unsafe call back into Halo's one-shot enumeration routine. */
+    n = max > 0 ? 1 : 0;
+    if (n) out[0] = (hp_gamepad){.id = HP_PHYSICAL_SLOT_ID, .dpad = -1};
+#else
     if (halopad_gamepad_test_count >= 0) {
         n = halopad_gamepad_test_count < max ? halopad_gamepad_test_count : max;
         memcpy(out, halopad_gamepad_test, sizeof *out * (size_t)n);
     } else n = halopad_host_gamepads(out, max);
+#endif
     if (touch_move_enabled && n < max) out[n++] = touch_move;
     return n;
 }
@@ -435,6 +444,16 @@ static int pads(hp_gamepad *out, int max)
    attached after Halo's startup enumeration does not, even though UIKit sees it. */
 int halopad_dinput_has_live_gamepad(void)
 {
+#if TARGET_OS_IPHONE
+    hp_gamepad physical[1];
+    if (halopad_gamepad_test_count >= 0) {
+        if (!halopad_gamepad_test_count) return 0;
+    } else if (!halopad_host_gamepads(physical, 1)) return 0;
+    for (int j = 0; j < 8; j++)
+        if (devices[j] && devices[j]->kind == GAMEPAD && devices[j]->pad_id == HP_PHYSICAL_SLOT_ID)
+            return 1;
+    return 0;
+#else
     hp_gamepad all[8];
     int n = pads(all, 8);
     for (int i = 0; i < n; i++) {
@@ -444,9 +463,23 @@ int halopad_dinput_has_live_gamepad(void)
                 return 1;
     }
     return 0;
+#endif
 }
 static int pad_now(uint32_t id, hp_gamepad *out)
 {
+#if TARGET_OS_IPHONE
+    if (id == HP_PHYSICAL_SLOT_ID) {
+        hp_gamepad physical[1];
+        int n;
+        if (halopad_gamepad_test_count >= 0) {
+            n = halopad_gamepad_test_count > 0;
+            if (n) physical[0] = halopad_gamepad_test[0];
+        } else n = halopad_host_gamepads(physical, 1);
+        *out = n ? physical[0] : (hp_gamepad){.dpad = -1};
+        out->id = HP_PHYSICAL_SLOT_ID;
+        return 1;
+    }
+#endif
     hp_gamepad all[8];
     int n = pads(all, 8);
     for (int i = 0; i < n; i++) if (all[i].id == id) { *out = all[i]; return 1; }

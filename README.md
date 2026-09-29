@@ -56,6 +56,10 @@ community servers found through Halo's in-game lobby, alongside PC players.
 
 ## Current status
 
+The physical gameplay builds use a development scene to enter Halo's menu. Full
+original startup still needs the product ID written by an original Halo PC
+installer; that private provisioning path is being tested.
+
 | Area | Where it stands |
 | --- | --- |
 | **iPad** | Physical iPad Pro 12.9" (6th gen) imports its game package and plays local Slayer matches. An Xbox controller works when connected before launch. Asset-load pauses and gameplay jitter are being worked on |
@@ -83,6 +87,10 @@ game's own **Multiplayer** menus to host or join.
 - **Resolution:** Halo renders at 800 × 600 by default in its original 4:3 shape. Halo's 1280 × 720 mode
   gives a true widescreen view, or use **Fill** to stretch 4:3
 
+A stable controller slot for late connection has passed Simulator tests and awaits
+physical installation. The currently installed iPad build still needs an app restart
+after connecting a controller.
+
 ## Build and install
 
 You need:
@@ -101,6 +109,8 @@ A one-command personal build through [PadForge](https://github.com/chrissotraidi
 PadForge runs HaloPad's own builder against your verified game files on your Mac; game files,
 translated code and signing material never leave it. HaloPad's [draft manifest](padforge.json) marks
 iOS as planned.
+
+The revised [HaloPad icon](assets/HaloPadIcon.svg) appeared on the physical iPad Home Screen.
 
 **An app you build contains code translated from your game: it is yours alone. Never share or upload it.**
 

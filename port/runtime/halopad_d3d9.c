@@ -276,3 +276,6 @@ uint32_t hpcom_IDirect3D9_CreateDevice_c(uint32_t g, uint32_t adapter, uint32_t 
 /* DebugSetMute: the retail d3d9.dll's debug-output switch, which D3DX looks up at run time. The
    retail runtime prints nothing, so there is nothing to mute (a stdcall function with no arguments). */
 uint32_t DebugSetMute_c(void) { return 0; }
+
+/* Retail rendering has no D3D spy layer to disable. */
+uint32_t DisableD3DSpy_c(void) { return 0; }

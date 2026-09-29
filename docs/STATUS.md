@@ -6,6 +6,24 @@ Operating loop: [HaloPad-GOAL-LOOP-PHASE3.md](HaloPad-GOAL-LOOP-PHASE3.md). Earl
 
 ## Latest physical-device result
 
+The current physical gameplay builds use `tests/halo_app_scene.c`, which enters
+Halo's menu after setup for development testing. A diagnostic build using the
+original entry point reached Halo's **Your product key is invalid** dialog.
+Readback of the iPad registry before and after that in-place install confirmed
+it had no installer-created `DigitalProductID`; the install did not erase one.
+The playable development build was restored in place and reached a local match
+with the existing `New001` profile. Its revised icon appeared on the Home
+Screen. The full-startup product ID must be provisioned from a legitimate
+original Halo PC installation and verified privately before release.
+
+The physical iPad's 10-second frame trace recorded one 456 ms gap while the
+local map changed; 27 shader libraries and 24 pipelines were created in that
+interval, with reported creation time below the log's 0.01 s precision. Most
+steady intervals were about 30 FPS with no >100 ms gap, but the trace does not
+yet locate the work inside the stall. An iOS stable physical controller slot
+now passes DirectInput Simulator tests for late connect, replacement and
+disconnect. It awaits installation and physical resolution-reset testing.
+
 Chris's physical iPad Pro 12.9-inch (6th generation, iPadOS 27.0) is connected.
 Its exact development profile passed App ID, certificate, UDID and memory-entitlement
 checks. The signed app was installed in place, imported the matching package, and

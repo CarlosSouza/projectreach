@@ -16,3 +16,9 @@ proc hpimp_DebugSetMute public
         Call_Asm_Stack0 DebugSetMute_c
         Call_Asm_Return 0
 endp
+
+func DisableD3DSpy_c
+proc hpimp_DisableD3DSpy public
+        Call_Asm_Stack0 DisableD3DSpy_c
+        Call_Asm_Return 0
+endp

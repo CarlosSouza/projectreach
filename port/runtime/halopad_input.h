@@ -45,5 +45,6 @@ int halopad_host_gamepads(hp_gamepad *out, int max);
 /* Virtual MOVE device. Enable before Halo enumerates input; call only on Halo's thread.
    Touch values reach it through the host queue, never directly from UIKit. */
 #define HP_TOUCH_MOVE_ID 0x10000000u
+#define HP_PHYSICAL_SLOT_ID 0x20000000u /* iOS: stable first-controller slot across reconnects */
 void halopad_touch_move_enable(int enabled);
 #endif

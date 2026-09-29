@@ -20,6 +20,8 @@ kernel32.dll!InterlockedCompareExchange
 kernel32.dll!InterlockedExchangeAdd
 # D3DX (statically linked in Keystone.dll) mutes the debug runtime
 d3d9.dll!DebugSetMute
+# Halo's D3D initialization also asks for this optional debug-runtime hook.
+d3d9.dll!DisableD3DSpy
 # USER32's dialog manager (halopad_user32.c, part 3): DefDlgProcA, and the built-in Button and
 # Static classes' window procedures, which need guest addresses because applications subclass
 # controls and call the previous procedure (GetProcAddress does not return the HaloPad* names)
