@@ -3141,3 +3141,41 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   separate rights decision: the app bundle contains Halo's translated
   executable and DLL images, and the development scene starts without Halo's
   product-key check.
+
+## 2026-09-29 — public-build pass: install script, controller keys, diagnostics
+
+- The repository is now public (Chris's decision). Reviewed the public builder
+  path. `scripts/install-device.sh` built with the experimental
+  `tests/halo_touch_move_scene.c` (which adds a second, virtual DirectInput
+  controller that competes for player slots) while the install guide and every
+  physical build use `tests/halo_app_scene.c`; the script now uses the tested
+  scene. Under macOS's stock bash 3.2 the script's source-build path also
+  stopped with "WORKARG[@]: unbound variable" whenever `--work` was omitted
+  (reproduced with `set -u` and an empty array); it now uses the 3.2-safe
+  expansion. `scripts/doctor.sh` passes on this Mac.
+- Halo's joystick loop (x86 0x493760–0x493838) polls only devices assigned to
+  a player, skips polling while 0x6b4768 is set, and calls Acquire only after
+  DIERR_NOTACQUIRED or DIERR_INPUTLOST; any other error reads neutral.
+  HaloPad's Poll returns those two codes after a focus loss, so ordinary
+  deactivation should recover. The log now records Poll result changes, the
+  0x6b4768 pause flag, and a one-minute health line in games (FPS, controller
+  readiness, menu, device count).
+- Controller menu keys held when a controller disconnects or the app goes
+  inactive are now released. A held arrow key in Halo's keyboard state
+  swallowed the next press of that direction, one candidate for "D-pad down
+  does nothing in the menu".
+- Report a Problem's text share now attaches the log file; the GitHub issue
+  body and issue template ask for it. README updated for late controller
+  connection (Simulator-tested), controller menu/text keys, the crash fix,
+  warm-up advice for recording, the diagnostic log and current known issues.
+- Tests: DirectInput suite 0 failures
+  (`G3/core-arm64-apple-ios17.0-simulator-20260929T145307Z`), overlay 0
+  failures (`G9/overlay-20260929T145358Z`), menu touch with 72 cursor routes
+  (`G9/menu-touch-20260929T145404Z`). The iPad log showed no play since the
+  23:35 launch, so the signed `ipad-20260929-diagnostics-2` build (UUID
+  971874D9) was installed in place with the 23:33 backup still current; the
+  `Kahris` save remained, and the app relaunched to Halo's menu. The iPhone
+  candidate is signed but not installed.
+- Note for the public history: the Sept 28 journal commit 373cc86 still
+  contains the first five characters of the supplied product key; the current
+  tree is redacted. Removing it from history needs an explicit rewrite decision.

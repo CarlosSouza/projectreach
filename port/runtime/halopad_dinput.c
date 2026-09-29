@@ -82,6 +82,7 @@ typedef struct {
     uint32_t hat_fill[16], nhat_fill;   /* hat entries of the format no object matched */
     int unplugged;
     int refused_logged;                 /* diagnostic log: one line per refused-acquire streak */
+    uint32_t last_poll;                 /* diagnostic log: the last Poll result Halo saw */
 } device;
 
 static device *devices[8];
@@ -373,14 +374,26 @@ uint32_t hpcom_IDirectInputDevice8A_Unacquire_c(uint32_t g)
     return DI_OK;
 }
 
-uint32_t hpcom_IDirectInputDevice8A_Poll_c(uint32_t g)
+static uint32_t poll(device *d)
 {
-    device *d = D(g);
     uint32_t r = check_acquired(d);
     if (r) return r;
     if (d->kind != GAMEPAD) return DI_NOEFFECT;                     /* keyboard and mouse are not polled devices */
     if (!pad_now(d->pad_id, &d->snap)) { set_acquired(d, 0); d->lost = 0; return DIERR_INPUTLOST; }   /* unplugged */
     return DI_OK;
+}
+uint32_t hpcom_IDirectInputDevice8A_Poll_c(uint32_t g)
+{
+    device *d = D(g);
+    uint32_t r = poll(d);
+    if (d->kind == GAMEPAD && r != d->last_poll) {
+        /* Halo re-acquires only after DIERR_NOTACQUIRED or DIERR_INPUTLOST (0x4937cf). */
+        HP_LOG("DirectInput: %s controller poll -> %s", d->pad_id == HP_TOUCH_MOVE_ID ? "touch-move" : "physical",
+               r == DI_OK ? "ok" : r == DIERR_INPUTLOST ? "input lost (Halo will acquire again)"
+               : r == DIERR_NOTACQUIRED ? "not acquired (Halo will acquire again)" : "error");
+        d->last_poll = r;
+    }
+    return r;
 }
 
 uint32_t hpcom_IDirectInputDevice8A_GetDeviceState_c(uint32_t g, uint32_t size, uint32_t data)

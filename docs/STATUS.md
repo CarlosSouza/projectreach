@@ -6,6 +6,15 @@ Operating loop: [HaloPad-GOAL-LOOP-PHASE3.md](HaloPad-GOAL-LOOP-PHASE3.md). Earl
 
 ## Latest physical-device result
 
+**Public-build pass (2026-09-29, midnight).** The repository is public.
+`scripts/install-device.sh` now builds the tested `tests/halo_app_scene.c` and
+no longer fails under macOS's stock bash when `--work` is omitted. The
+diagnostic log adds controller poll results, Halo's controller-poll pause flag
+and a one-minute health line. Held controller menu keys are released on
+disconnect or focus loss, and bug reports attach the log. The iPad runs this build
+(UUID 971874D9) at Halo's menu; hardware reproduction of the controller dropout
+with the new log is still needed.
+
 **Crash fix and diagnostics (2026-09-29, late).** Chris's iPad crashed repeatedly
 while playing. Both crash reports (22:59, 23:04, stable-controller build UUID
 987BE07F) were HaloPad's deliberate trap for a ninth texture/sampler

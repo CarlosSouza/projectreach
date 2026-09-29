@@ -12,8 +12,9 @@
 #       --app HaloPad.app --package Halo-CE.halopad.zip
 #
 # Options: --device ID (default: the only connected device), --work RUN_DIR.
-# Development builds use the menu scene (tests/halo_touch_move_scene.c) until Halo's normal
-# start-up can find the product ID its original installer writes.
+# Development builds use the menu scene (tests/halo_app_scene.c, the scene the physical iPad and
+# iPhone builds are tested with) until Halo's normal start-up can find the product ID its
+# original installer writes.
 set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 PY="$ROOT/.venv/bin/python"; [[ -x "$PY" ]] || PY=python3
@@ -60,7 +61,7 @@ else
   WORKARG=()
   [[ -n "$WORK" ]] && WORKARG=(--work "$WORK")
   "$PY" "$ROOT/scripts/build-ios-app.py" --iphoneos --identity "$IDENTITY" --profile "$PROFILE" \
-    --scene "$ROOT/tests/halo_touch_move_scene.c" "${WORKARG[@]}"
+    --scene "$ROOT/tests/halo_app_scene.c" ${WORKARG[@]+"${WORKARG[@]}"}
   APP=$(ls -td "$ROOT"/generated/srw/*/run-*/ios-app-arm64-apple-ios17.0/HaloPad.app | head -1)
 
   echo "==> Preparing your game package for this build"

@@ -109,6 +109,13 @@ void halopad_gamepad_defaults_update(int in_game)
     uint32_t count = read32(0x64c774);
     if (count > 8) return;
     if ((int)count != logged_count) { HP_LOG("Halo: %u controller device(s) enumerated", count); logged_count = (int)count; }
+    /* Halo skips its whole controller poll while this is set (0x49374a). */
+    static uint32_t logged_pause = UINT32_MAX;
+    uint32_t pause = read32(0x6b4768);
+    if (pause != logged_pause) {
+        if (logged_pause != UINT32_MAX || pause) HP_LOG("Halo: controller polling %s", pause ? "paused by the game" : "running");
+        logged_pause = pause;
+    }
     for (unsigned device = 0; device < count; device++) {
         uint32_t slot = read32(0x64c9c8 + device * 0x240);
         if (slot == logged_slot[device]) continue;

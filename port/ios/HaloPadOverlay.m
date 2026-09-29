@@ -1072,7 +1072,8 @@ static NSString * const HPRepositoryURL = @"https://github.com/chrissotraidis/pr
 }
 - (NSString *)reportBody:(NSString *)problem context:(NSString *)context
 {
-    return [NSString stringWithFormat:@"### What happened\n%@\n\n### What I was doing\n%@\n\n### Details\n```\n%@\n```\n",
+    return [NSString stringWithFormat:@"### What happened\n%@\n\n### What I was doing\n%@\n\n### Details\n```\n%@\n```\n\n"
+                                       "Please attach the diagnostic log: ⋯ › Help › Share Diagnostic Log… (no typed text, names, chat or addresses).\n",
             problem.length ? problem : @"(not given)", context.length ? context : @"(not given)", [self.delegate overlayDiagnostics:self]];
 }
 - (void)openIssue:(NSString *)problem context:(NSString *)context
@@ -1088,7 +1089,10 @@ static NSString * const HPRepositoryURL = @"https://github.com/chrissotraidis/pr
 - (void)shareReport:(NSString *)problem context:(NSString *)context
 {
     NSString *body = [@"HaloPad problem report\n\n" stringByAppendingString:[self reportBody:problem context:context]];
-    UIActivityViewController *share = [[UIActivityViewController alloc] initWithActivityItems:@[body] applicationActivities:nil];
+    NSMutableArray *items = [NSMutableArray arrayWithObject:body];
+    NSURL *log = [self.delegate respondsToSelector:@selector(overlayDiagnosticLog:)] ? [self.delegate overlayDiagnosticLog:self] : nil;
+    if (log) [items addObject:log];
+    UIActivityViewController *share = [[UIActivityViewController alloc] initWithActivityItems:items applicationActivities:nil];
     share.popoverPresentationController.sourceView = _menuButton;
     share.popoverPresentationController.sourceRect = _menuButton.bounds;
     [self.presenter presentViewController:share animated:YES completion:nil];

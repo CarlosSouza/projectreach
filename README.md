@@ -62,10 +62,10 @@ installer; that private provisioning path is being tested.
 
 | Area | Where it stands |
 | --- | --- |
-| **iPad** | Physical iPad Pro 12.9" (6th gen) imports its game package and plays local Slayer matches. An Xbox controller works when connected before launch. Asset-load pauses and gameplay jitter are being worked on |
+| **iPad** | Physical iPad Pro 12.9" (6th gen) imports its game package, plays local Slayer matches at about 30 FPS and has joined online games. A crash in busy scenes (a shader needing more than eight texture setups) is fixed. First-time loading of new effects still stutters |
 | **iPhone** | Physical iPhone 14 imports, creates a profile and plays a local LAN match, including 1280 × 720 widescreen. About 30 FPS in a static scene; loading and busy play are still slow |
 | **Multiplayer** | Halo's own LAN and Internet menus work. Development builds joined public Custom Edition servers from the Mac and iPad Simulator; online play on physical phones is still to be tested |
-| **Controls** | Movable, resizable touch overlay, look-speed settings, iOS keyboard for names and chat, and Xbox-style controllers |
+| **Controls** | Movable, resizable touch overlay, look-speed settings, iOS keyboard for names and chat, Xbox-style controllers (including connecting after launch) and iPad trackpad/mouse in menus |
 | **Custom maps** | Import `.map` files from the app menu. Client DLL mods (Chimera, OpenSauce, HAC2) do not load |
 | **Campaign** | Not yet. The retail campaign executable is a separate future target |
 | **Distribution** | Source only for now. Build your own with your own game files |
@@ -79,17 +79,19 @@ On first launch, choose your prepared `.halopad.zip` game package. Create a Halo
 game's own **Multiplayer** menus to host or join.
 
 - **⋯ menu:** touch settings, keyboard and chat, join a server by address, display options,
-  custom-map import, controller guide and **Report a Problem**
+  custom-map import, controller guide, **Report a Problem** and **Share Diagnostic Log**
 - **Touch:** move and resize the overlay; tune look speed under **Controls › Look Speed & Touch Settings**
-- **Controllers:** connect before opening HaloPad (connecting mid-session currently needs an app restart).
-  Halo's "Button 6" pickup prompt is **RB** on an Xbox controller
+- **Controllers:** connect before opening HaloPad for the most reliable result; connecting later is
+  supported (tested in the Simulator so far). In Halo's menus the D-pad or left stick
+  moves, **A** selects and **B** goes back; **Menu** pauses. While the on-screen keyboard is open
+  (chat, console, a profile name), **A** sends Enter and **B** cancels. Halo's "Button 6" pickup
+  prompt is **RB** on an Xbox controller
 - **Leaving a match:** **⋯ › Open Leave Game Menu…** opens Halo's pause menu; choose **Leave Game** there
 - **Resolution:** Halo renders at 800 × 600 by default in its original 4:3 shape. Halo's 1280 × 720 mode
   gives a true widescreen view, or use **Fill** to stretch 4:3
-
-A stable controller slot for late connection has passed Simulator tests and awaits
-physical installation. The currently installed iPad build still needs an app restart
-after connecting a controller.
+- **Smoother recording:** the first time a map, weapon or effect appears, its graphics are prepared and
+  play can hitch for up to about a second. Later appearances are much faster, so play a warm-up
+  match on the same map before recording
 
 ## Build and install
 
@@ -119,11 +121,16 @@ up its `Documents` and `Library` first if you ever need to change signing.
 
 ## Known issues
 
-- **Loading and frame pacing.** Asset loads can pause, and play can jitter on iPad and run slowly on iPhone.
-- **Late controller connection.** Connecting a controller after launch hides touch controls but does not
-  register input until you restart the app.
+- **Loading and frame pacing.** First-time graphics preparation causes hitches; play runs at about 30 FPS
+  on iPad and slower on iPhone.
+- **Controller dropouts.** Some players have seen a controller stop responding after reconnecting it or
+  switching from touch; in one report it came back after starting a new game. If it happens, please
+  share the diagnostic log (below).
+- **Video mode changes on iPad.** Changing Halo's resolution in its Video settings is tested on iPhone,
+  not yet on iPad. The default 800 × 600 is the safest choice.
 - **Touch ergonomics.** Two-thumb feel is still being tuned on real phones.
-- **Online on physical phones.** Joining servers from an iPhone or iPad has not had a full test on the current build.
+- **Online on physical phones.** Online games have been joined from a physical iPad; iPhone online play
+  has not had a full test.
 
 ## Getting help
 
@@ -131,6 +138,9 @@ up its `Documents` and `Library` first if you ever need to change signing.
 - **Bug reports:** use **⋯ › Report a Problem** or [open an issue](https://github.com/chrissotraidis/projectreach/issues/new/choose).
   Include your device, iOS version, build, map, what you tapped and whether a controller was connected.
   Please never attach game files, maps or app packages.
+- **Diagnostic log:** HaloPad keeps a small log of controller, display, stall and crash events in
+  **Files › On My iPad/iPhone › HaloPad › HaloPad Logs**, or share it from **⋯ › Help › Share Diagnostic
+  Log…**. It contains no typed text, names, chat or server addresses. Attach it to bug reports
 
 ## Frequently asked questions
 
@@ -162,8 +172,8 @@ and busy scenes are slow there for now.
 
 ### Do controllers work?
 
-Yes, iOS-supported controllers work when connected before HaloPad opens. **⋯ › Controller Guide** shows
-the mapping.
+Yes, iOS-supported controllers work. Connecting before HaloPad opens is the most tested path.
+**⋯ › Controller Guide** shows the mapping.
 
 ### Can I use mods and custom maps?
 

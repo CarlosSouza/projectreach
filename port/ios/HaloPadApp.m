@@ -42,36 +42,53 @@ static void controller_key(uint32_t vk, uint32_t scan, int extended, BOOL down)
     hp_input e = {.kind = HPI_KEY, .vk = vk, .side_vk = vk, .scan = scan, .extended = extended, .down = down};
     halopad_host_post_input(&e);
 }
+static struct { BOOL held; uint32_t scan; int extended; } controller_keys[256];
 static void controller_menu_key(uint32_t vk, uint32_t scan, int extended, BOOL down)
 {
-    static BOOL held[256];
     static const char *names[256] = {[0x0D] = "A (Enter)", [0x1B] = "B (Back)", [0x25] = "Left", [0x26] = "Up", [0x27] = "Right", [0x28] = "Down"};
     if (down && !controller_in_menus) {               /* gameplay: DirectInput owns it */
         halopad_log("Controller: %s pressed during play: sent to Halo's controller layout, not the menu", names[vk & 255] ?: "button");
         return;
     }
-    if (!down && !held[vk & 255]) return;             /* release only what we pressed */
-    held[vk & 255] = down;
+    if (!down && !controller_keys[vk & 255].held) return;   /* release only what we pressed */
+    controller_keys[vk & 255].held = down;
+    controller_keys[vk & 255].scan = scan;
+    controller_keys[vk & 255].extended = extended;
     if (down) halopad_log("Controller: %s -> menu key", names[vk & 255] ?: "button");
     controller_key(vk, scan, extended, down);
+}
+static int controller_stick_x, controller_stick_y;    /* -1, 0, 1: the menu key the stick holds */
+/* A controller that disconnects, or an app that loses focus, cannot send its
+   releases: a menu key left down in Halo would swallow the next press. */
+static void controller_release_menu_keys(const char *why)
+{
+    int released = 0;
+    for (int vk = 0; vk < 256; vk++)
+        if (controller_keys[vk].held) {
+            controller_keys[vk].held = NO;
+            controller_key((uint32_t)vk, controller_keys[vk].scan, controller_keys[vk].extended, NO);
+            released++;
+        }
+    controller_stick_x = controller_stick_y = 0;
+    if (released) halopad_log("Controller: released %d held menu key(s) (%s)", released, why);
 }
 /* The left stick navigates Halo's menus as the D-pad does (half tilt presses,
    a quarter releases). */
 static void controller_stick_menu(float x, float y)
 {
-    static int held_x, held_y;                        /* -1, 0, 1 */
+    int held_x = controller_stick_x, held_y = controller_stick_y;
     if (!controller_in_menus) x = y = 0;              /* play: the stick is Halo's, release any menu key */
     int nx = x > 0.5f ? 1 : x < -0.5f ? -1 : fabsf(x) < 0.25f ? 0 : held_x;
     int ny = y > 0.5f ? 1 : y < -0.5f ? -1 : fabsf(y) < 0.25f ? 0 : held_y;
     if (nx != held_x) {
         if (held_x) controller_menu_key(held_x > 0 ? 0x27 : 0x25, held_x > 0 ? 0x4D : 0x4B, 1, NO);
         if (nx) controller_menu_key(nx > 0 ? 0x27 : 0x25, nx > 0 ? 0x4D : 0x4B, 1, YES);
-        held_x = nx;
+        controller_stick_x = held_x = nx;
     }
     if (ny != held_y) {                                /* stick up is positive; Up arrow */
         if (held_y) controller_menu_key(held_y > 0 ? 0x26 : 0x28, held_y > 0 ? 0x48 : 0x50, 1, NO);
         if (ny) controller_menu_key(ny > 0 ? 0x26 : 0x28, ny > 0 ? 0x48 : 0x50, 1, YES);
-        held_y = ny;
+        controller_stick_y = held_y = ny;
     }
 }
 /* While HaloPad's text keyboard is open (chat, console, a name), A accepts the
@@ -107,6 +124,7 @@ static void watch_controllers(void)
     [NSNotificationCenter.defaultCenter addObserverForName:GCControllerDidDisconnectNotification object:nil queue:NSOperationQueue.mainQueue
                                                 usingBlock:^(NSNotification *n) {
         halopad_log("Controller: %s disconnected", ((GCController *)n.object).vendorName.UTF8String ?: "controller");
+        controller_release_menu_keys("controller disconnected");
     }];
 }
 /* what the core thread runs: Halo from its entry point, unless a development scene replaces it
@@ -186,6 +204,19 @@ static void update_overlay_game_state(void)
     BOOL analogMove = halopad_app_touch_move_ready();
     int state = inGame | (menuVisible << 1) | (analogMove << 2) | (controllerReady << 3);
     static int previous_logged_state = -1;
+    {   /* One health line a minute while in a game: frame rate and input readiness. */
+        static CFAbsoluteTime since;
+        static int frames_at;
+        CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
+        int frames = atomic_load(&presented);
+        if (!since || !inGame) { since = now; frames_at = frames; }
+        else if (now - since >= 60) {
+            halopad_log("Health: %.1f FPS over %.0f s, controller %s, Halo menu %s, %u controller device(s)",
+                        (frames - frames_at) / (now - since), now - since, controllerReady ? "live" : "not live",
+                        menuVisible ? "open" : "closed", *(uint32_t *)halopad_guest_ptr(0x64c774));
+            since = now; frames_at = frames;
+        }
+    }
     static uint32_t previousActions = UINT32_MAX;
     uint32_t availableActions = inGame ? halopad_touch_action_mask() : (1u << 29) - 1;
     if (state == previous && availableActions == previousActions) return;
@@ -1690,6 +1721,7 @@ int halopad_host_open_url(const char *url)
     test_scene_inactive_at = CFAbsoluteTimeGetCurrent();
     if (getenv("HALOPAD_TRACE_LIFECYCLE")) fprintf(stderr, "HALOPAD LIFECYCLE: %.3f scene inactive, frames %d\n", CFAbsoluteTimeGetCurrent(), atomic_load(&presented));
     halopad_log("App: inactive (a system overlay, the app switcher or the Home Screen took focus)");
+    controller_release_menu_keys("app inactive");
     [overlay clearTouchInput];
     cancel_menu_touch();
     [HPOverlay setTextInputActive:NO];

@@ -34,3 +34,12 @@ body:
     attributes:
       label: Where
       description: Map, game type, and server (name or address) if online.
+  - type: textarea
+    id: log
+    attributes:
+      label: Diagnostic log
+      description: |
+        In the app, **three-dot menu → Help → Share Diagnostic Log…** (or Files › HaloPad › HaloPad Logs).
+        Drag the file here or paste its lines. It holds controller, display, stall and crash events only.
+    validations:
+      required: false
