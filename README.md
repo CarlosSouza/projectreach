@@ -40,9 +40,15 @@ Change any of it in Halo's **Settings → Controls Setup**; your layout is saved
 
 ## Install
 
-See **[Installing on iPhone or iPad](docs/INSTALL-IPHONE.md)**. In short: build and sign
-`HaloPad.ipa` on a Mac, install it on the device, and import your own game files as a prepared
-package through the Files app.
+With an iPad or iPhone plugged into your Mac and a development signing profile:
+
+```sh
+scripts/install-device.sh --identity "Apple Development: Your Name (TEAMID)" \
+  --profile HaloPad.mobileprovision --game "/path/to/Halo Custom Edition"
+```
+
+Then open HaloPad and choose the package it copied over. Details, signing setup and a
+first-run checklist: **[Installing on iPhone or iPad](docs/INSTALL-IPHONE.md)**.
 
 ## Build from source
 

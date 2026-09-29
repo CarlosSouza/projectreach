@@ -25,46 +25,57 @@ reservation, which iOS allows only with Apple's
 2. Create a development provisioning profile for that App ID and your device, and download it.
 3. Find your signing identity: `security find-identity -v -p codesigning`.
 
-## 2. Build
+## 2. Build, install and add your game (one command)
+
+Connect the iPad or iPhone with a cable, unlock it and tap **Trust**. Then:
 
 ```sh
-.venv/bin/python scripts/build-ios-app.py --iphoneos \
+scripts/install-device.sh \
   --identity "Apple Development: Your Name (TEAMID)" \
-  --profile ~/Downloads/HaloPad_Development.mobileprovision
-```
-
-The first device build compiles the translated game for the device (a few minutes). It writes
-`generated/srw/<profile>/<run>/ios-app-arm64-apple-ios17.0/HaloPad.ipa`. The script warns if the
-profile lacks either entitlement. Without `--identity` it still builds, ad-hoc signed; that
-checks the build but cannot be installed.
-
-## 3. Install
-
-Connect and trust the device, then:
-
-```sh
-xcrun devicectl list devices
-xcrun devicectl device install app --device <DEVICE-ID> \
-  generated/srw/custom-en-1.0.10.0621/<run>/ios-app-arm64-apple-ios17.0/HaloPad.app
-```
-
-Xcode's *Devices and Simulators* window (drag in `HaloPad.ipa`) works too. The first launch
-may ask you to trust the developer in Settings → General → VPN & Device Management.
-
-## 4. Add your game files
-
-```sh
-.venv/bin/python scripts/prepare-game-data.py \
-  --app-data generated/srw/custom-en-1.0.10.0621/<run>/ios-app-arm64-apple-ios17.0/HaloPad.app/data \
+  --profile ~/Downloads/HaloPad_Development.mobileprovision \
   --game "/path/to/Halo Custom Edition"
 ```
 
-AirDrop the resulting `.halopad.zip` to the device (or copy it with Finder into HaloPad's
-files). Open HaloPad and choose **Choose Prepared Package…**. HaloPad checks every file against
-this exact build before installing. A package is tied to the build that verified it; rebuild the
-package after rebuilding the app.
+This builds HaloPad for the device (the first build compiles the translated game, a few
+minutes), signs it, prepares a `.halopad.zip` of your game files for exactly this build,
+installs the app and copies the package into HaloPad's Documents folder. It warns if the
+profile lacks either memory entitlement.
 
-## 5. Play
+## 3. First launch
+
+Open HaloPad. The first screen asks for your game files: tap **Choose Prepared Package…**
+and pick the `device-….halopad.zip` file. HaloPad verifies all 87 files, installs them and
+starts Halo at its main menu. (If Settings asks, trust the developer under General → VPN &
+Device Management first.) This was checked end to end on a freshly installed Simulator app.
+
+## 4. Doing it by hand
+
+```sh
+.venv/bin/python scripts/build-ios-app.py --iphoneos --identity "…" --profile … \
+  --scene tests/halo_touch_move_scene.c
+.venv/bin/python scripts/prepare-game-data.py \
+  --app-data generated/srw/<profile>/<run>/ios-app-arm64-apple-ios17.0/HaloPad.app/data \
+  --game "/path/to/Halo Custom Edition"
+xcrun devicectl device install app --device <ID> generated/srw/<profile>/<run>/ios-app-arm64-apple-ios17.0/HaloPad.app
+```
+
+Then AirDrop the package to the device or drop it into HaloPad in Finder's device window,
+and choose it on the first screen. A package matches only the build that prepared it;
+prepare a new one after rebuilding.
+
+## What to check on first hardware run
+
+1. HaloPad opens and the import finishes (memory reservation works on this device).
+2. The Halo main menu appears and responds to taps.
+3. Multiplayer → Create Game → LAN → any map → Start: touch controls move, look and fire.
+4. Connect a controller: touch controls hide, the stick walks, RT fires.
+5. Three-dot menu → Help → Report a Problem… files anything that goes wrong.
+
+If HaloPad closes immediately at launch, the provisioning profile most likely lacks
+*Extended Virtual Addressing*; Xcode → Devices → Open Console shows
+`HALOPAD: reserving guest address space` in that case.
+
+## Play
 
 - **Multiplayer → Join Game → Internet → Get List** lists public servers; **Direct IP** or the
   three-dot menu's **Join Server by Address…** joins a private one.
