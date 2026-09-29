@@ -15,24 +15,22 @@ not a general Windows emulator.
 
 ## Current status
 
-The source-built app is signed and installed on a physical **iPhone 14**. It imported its
-matching 87-file package, reached Halo's main menu, and the player joined a local LAN
-match. The player reports slow loading and gameplay. Touch look speed and screen coverage
-are being refined. Profile-name entry and the local-host leave path now pass a physical
-iPhone test. The Internet server list refreshes, but full phone online, controller,
-and sustained-performance
-acceptance is still in progress.
-
-An iPad Simulator reached a local match, and earlier iPad work joined public Custom
-Edition servers. A **physical iPad has not yet been tested in this round**. The iPhone
-result does not establish iPad performance or usability. See [current status](docs/STATUS.md)
+The source-built app is installed on a physical **iPhone 14** and **iPad Pro 12.9-inch
+(6th generation)**. Both imported their matching game package and reached local LAN
+play. Profile entry and the local-host leave path passed on the phone. On the iPad,
+an Xbox controller connected before app launch controls a local match, including
+movement and crouch. Connecting it after launch currently requires closing and
+reopening HaloPad. The player reports asset-load pauses and gameplay jitter on the
+iPad, and slow loading and play on iPhone. Sustained frame pacing, complete touch
+ergonomics, and private online play on these physical devices remain open. See
+[current status](docs/STATUS.md)
 and the [device-readiness loop](docs/HaloPad-GOAL-LOOP-PHASE3.md) for evidence and open gates.
 
 | Area | Current result |
 | --- | --- |
 | Game data | Own Custom Edition 1.10 files; package matched to the exact build |
 | iPhone | Physical iPhone 14 import, menu, and local LAN play observed; performance and controls need work |
-| iPad | Simulator gameplay observed; current physical-iPad test pending |
+| iPad | Physical local play and Xbox controller after app restart observed; frame pacing needs work |
 | Multiplayer | Native lobby/network path exists; current phone acceptance open |
 | Input | Touch and controller mappings exist; real phone touch is being tuned |
 | Distribution | Private engineering build; no public app or game-data download |
@@ -46,9 +44,12 @@ server address entry, display choices, custom-map import, and help. **Controls �
 Speed & Touch Settings** adjusts touch look; **Controller Guide** shows the mapping.
 The iOS keyboard has an **Enter / Accept** action for Halo dialogs.
 
-The touch overlay can be moved and resized. A supported game controller uses Halo's
-controller layout, and the overlay can hide while a controller is connected. Final feel,
-all menu paths, and controller connection changes still need physical-device checks.
+The touch overlay can be moved and resized. Connect a supported game controller
+before opening HaloPad; after connecting during play, close and reopen the app.
+The overlay can hide while a controller is connected. Halo's generic “Button 6”
+prompt for picking up a weapon means **RB** on an Xbox controller; the **Controller
+Guide** lists the full mapping. Final feel and controller connection changes still
+need physical-device checks.
 **Open Leave Game Menu…** opens Halo's original pause menu; select **Leave Game** there.
 
 Custom `.map` files can be added through **three-dot menu → Add Custom Maps…**. Windows
@@ -68,9 +69,16 @@ for signing, build, device install, package preparation, and first launch. An in
 update should preserve the same bundle ID and existing app data. Do not uninstall an
 existing app to update it.
 
+A self-service personal IPA build through
+[PadForge](https://github.com/chrissotraidis/padforge) is planned. PadForge runs
+each game's own builder against the player's verified game copy locally; game
+files, translated code, signing material, and personal outputs stay on their
+Mac. Project Reach does not yet declare a PadForge manifest or offer a supported
+one-command player build.
+
 The app icon is built from [HaloPadIcon.svg](assets/HaloPadIcon.svg) and the checked-in
-asset catalog. The signed iPhone build returns the intended icon from iOS; physical iPad
-Home Screen appearance remains to be checked.
+asset catalog. A revised original mark is in source; device appearance awaits the next
+signed build and install.
 
 ## Questions and limits
 

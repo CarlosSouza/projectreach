@@ -6,6 +6,21 @@ Operating loop: [HaloPad-GOAL-LOOP-PHASE3.md](HaloPad-GOAL-LOOP-PHASE3.md). Earl
 
 ## Latest physical-device result
 
+Chris's physical iPad Pro 12.9-inch (6th generation, iPadOS 27.0) is connected.
+Its exact development profile passed App ID, certificate, UDID and memory-entitlement
+checks. The signed app was installed in place, imported the matching package, and
+reached a local Battle Creek Slayer match. Its `Documents` and `Library` were read
+back to ignored `generated/device-backups/ipad-20260929-first-import/`. Direct
+touch/menu actions and Halo's pause/leave flow passed. Chris confirmed Xbox
+controller movement and crouch after closing and reopening HaloPad with the
+controller already connected. Late connection hides the touch overlay but does
+not register gameplay input in this build; the startup controller path works.
+Chris reports iPad asset-load pauses and gameplay jitter. A 20-second live Time
+Profiler trace is in ignored `docs/artifacts/2026-09-29/G11/`; it samples draw
+and graphics-state work but does not establish frame-gap timing or the cause of
+individual stalls. iPhone 14 sustained performance and a physical private-server
+match are still open.
+
 The signed source build is installed in place on Chris's connected iPhone 14;
 the imported 87-file package and existing app data were preserved. Mirrored
 primary pointer clicks navigate Halo's menus. A new `TouchQA` profile was
@@ -27,21 +42,20 @@ a wider scene. Accepting that prompt and pressing **OK** on **Edit Profile
 Settings** saved 1280 × 720: it survived an app relaunch. A local Battle Creek
 match, pause menu, and Leave Game worked at that mode with momentary overlay
 readings of 29–30 FPS. Sustained frame times and direct-finger mapping remain
-unverified. Original aspect preserves geometry; Fill stretches the image. No physical iPad is connected. Its
-development profile must include its actual UDID before installation. The
+unverified. Original aspect preserves geometry; Fill stretches the image. The
 public README is prepared as a truthful draft; no public IPA or rights clearance
 is claimed. No live public match is part of the current testing scope.
 
-## Current handoff on this Mac
+## Earlier handoff on this Mac
 
 - The supplied private kit in ignored `ref/handoff/HaloPad-iPad-test/` contains an arm64 iPhoneOS app and matching prepared game package. Package verification passed: 87 records total, 78 stock. The original app/package were not modified.
 - An ad-hoc converted **copy** under ignored `generated/simulator-probe/` launched on iPad Air 13-inch (M4) and iPhone 17 Pro Simulators, reached Halo's main menu, and the iPad started a locally hosted Battle Creek Slayer match through Halo's menus. FIRE reduced plasma-pistol charge 100→99. Touch controls were shown after disabling “Hide Touch Controls with a Controller” in this Simulator. This is a compatibility probe, not a source-built Simulator binary or hardware result. Native package suite: 16/16 passed, including a real-package import on the iPad Air Simulator.
 - The old three-dot **Leave Game** action did not exit an iPad Simulator local-host match. The revised **Open Leave Game Menu…** action opened Halo's pause menu and returned to the main menu after Halo's own **Leave Game** on physical iPhone 14. Two-thumb gameplay and controller use remain unaccepted. See the latest journal and `docs/artifacts/2026-09-29/G11/`.
-- Only Chris's physical iPhone 14 is connected; the iPad Pro entry is a paired record, not a present device, as Chris confirmed. The iPhone is wired, paired, booted, and has Developer Mode enabled (iOS 26.6.2). On Apple Developer team `VKDH2T9UTF`, the explicit App ID has Extended Virtual Addressing and Increased Memory Limit enabled. Xcode cached development profile `765efc99-dab7-49e0-b386-d847cc001315` (expires 2027-09-29); local decoding passed exact App ID, iPhone UDID, certificate, expiry, and both memory entitlements. The accepted 1.10 executable, four modules, stock files, and reference files were restored from the supplied private handoff package to ignored inputs, with exact profile/package hash checks. The SRW/VA pipeline and fresh source build produced a signed iPhoneOS app and IPA, core `a40934eac9383796ba5bd566d2d8bc2e28f6f54c4396208ae7d7fb738006ac00`. Its matching 87-file package verifies. Before in-place install, the existing HaloPad Documents and Library were backed up; the old package hash matches the handoff source. The source app was installed and its 173.4 MB package copied into Documents alongside the old one. Through the physical iPhone Files picker, that source-matched package imported and reached Halo's main menu; CoreDevice listed the game folder with 78 files. A `Test14` profile was created. The Join Server overlay accepted address text without clipping. Chris is now trying the installed build directly. Gameplay, real two-thumb/keyboard use, private online, and hardware frame/memory/thermal acceptance remain open. CrossOver and the original installer/patch provenance are unavailable here; this source build uses byte-verified handoff inputs and the development scene entry.
+- At the earlier iPhone-only handoff, the iPhone was wired, paired, booted, and had Developer Mode enabled (iOS 26.6.2). On Apple Developer team `VKDH2T9UTF`, the explicit App ID had Extended Virtual Addressing and Increased Memory Limit enabled. Cached development profile `765efc99-dab7-49e0-b386-d847cc001315` (expires 2027-09-29) passed exact App ID, iPhone UDID, certificate, expiry, and both memory entitlements. The accepted 1.10 executable, four modules, stock files, and reference files were restored from the supplied private handoff package to ignored inputs with hash checks. The SRW/VA pipeline and fresh source build produced a signed iPhoneOS app and IPA, core `a40934eac9383796ba5bd566d2d8bc2e28f6f54c4396208ae7d7fb738006ac00`. Its matching 87-file package verified. Before in-place install, existing HaloPad Documents and Library were backed up. The source app and package imported through the physical iPhone Files picker and reached Halo's main menu; CoreDevice listed the game folder with 78 files. CrossOver and original installer/patch provenance remain unavailable here.
 - A device-platform app was inadvertently installed over an existing iPad Pro M5 Simulator app while probing the kit. Its data container was not reset, but the previous app binary has not been restored; further testing moved to the fresh iPad Air Simulator. Do not use the iPad Pro installation as an accepted baseline.
-- **D5 icon:** an original HaloPad H/orbit icon has an editable SVG and checked-in 1024-pixel PNG. Xcode `actool` compiled it into the signed source-built iPhoneOS app with iPhone/iPad `CFBundleIcons` entries. CoreDevice returned the intended icon from the installed physical iPhone build; the physical iPad Home Screen remains to be checked.
+- **D5 icon:** the first H/orbit icon compiled into the installed signed app; CoreDevice returned it on iPhone. A new geometric beacon icon is now in the editable SVG and checked-in 1024-pixel PNG. It has not yet been installed or visually checked on either device.
 - **Pointer recheck passed:** iPhone Mirroring primary clicks now navigate Halo's rendered menus on the physical iPhone 14. Real-finger two-thumb play remains separate acceptance.
-- **D1 signing preflight:** `device_profile.py` requires the exact App ID, a matching installed signing certificate, an unexpired development profile, both memory entitlements, and the intended device UDID before installation. The new cached profile passed this gate and the handoff kit installed in place on the iPhone 14. Physical launch reached the import screen. No iPad is connected.
+- **D1 signing preflight:** `device_profile.py` requires the exact App ID, a matching installed signing certificate, an unexpired development profile, both memory entitlements, and the intended device UDID before installation. Separate cached profiles passed this gate for iPhone 14 and the connected iPad Pro.
 - **D2 iPhone Simulator progress:** on an uncontended iPhone 17 Simulator, the fresh app imported the matching package through the actual Files picker, reached the menu, and installed all 78 stock files byte-identically. “Join Server by Address” opens; its virtual keyboard accepts numeric input and Cancel dismisses both keyboard and form. The current handoff app's long alert text makes the form clip above the screen in landscape with the keyboard shown. Source now omits that explanatory text; overlay tests pass, but this layout fix awaits a source-built app for live recheck. The iPhone 17 Pro Simulator was concurrently controlled by a YomiBoy UI test runner, so its app switching is not evidence of a HaloPad crash.
 - **D2 phone profile progress:** from Halo's profile-name dialog on iPhone 17 Simulator, three-dot menu → Keyboard & Chat → Show Keyboard opened the iOS keyboard. A virtual letter replaced the selected default, virtual Return saved the new profile, and Hide Keyboard restored the full view. The guest text screen becomes small while typing; field taps alone did not summon the native keyboard. The same profile reached Multiplayer → Create Game → LAN → Battle Creek → Slayer → Server Setup; a local match has not yet been observed on this phone.
 

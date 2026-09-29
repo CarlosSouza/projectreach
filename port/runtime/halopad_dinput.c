@@ -430,6 +430,21 @@ static int pads(hp_gamepad *out, int max)
     if (touch_move_enabled && n < max) out[n++] = touch_move;
     return n;
 }
+
+/* Whether a connected physical pad has a DirectInput device in Halo. A pad
+   attached after Halo's startup enumeration does not, even though UIKit sees it. */
+int halopad_dinput_has_live_gamepad(void)
+{
+    hp_gamepad all[8];
+    int n = pads(all, 8);
+    for (int i = 0; i < n; i++) {
+        if (all[i].id == HP_TOUCH_MOVE_ID) continue;
+        for (int j = 0; j < 8; j++)
+            if (devices[j] && devices[j]->kind == GAMEPAD && devices[j]->pad_id == all[i].id)
+                return 1;
+    }
+    return 0;
+}
 static int pad_now(uint32_t id, hp_gamepad *out)
 {
     hp_gamepad all[8];

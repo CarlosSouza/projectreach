@@ -18,6 +18,7 @@ extern int halopad_host_input_off;
 extern hp_gamepad halopad_gamepad_test[4];
 extern int halopad_gamepad_test_count;
 int halopad_gamepad_defaults_apply(int slot);
+int halopad_dinput_has_live_gamepad(void);
 uint32_t halopad_guest_init(const char *image_path, uint32_t image_base);
 void halopad_thread_init(uint32_t stack_base, uint32_t stack_limit, uint32_t image_base);
 void halopad_vm_mark(uint32_t base, uint32_t size);
@@ -444,6 +445,7 @@ int main(void)
     check("  physical controller and distinct touch controller counted", rd(0x64c774), 2);
     uint32_t pad = rd(0x64c778);
     check("  its device (0x64c778)", pad != 0, 1);
+    check("registered physical controller permits touch auto-hide", halopad_dinput_has_live_gamepad(), 1);
     {
         const char *want = "Controller (XBOX 360 For Windows)";
         const uint16_t *name = halopad_guest_ptr(0x64c798);       /* Halo keeps it as UTF-16 (0x55ae60) */
@@ -829,6 +831,11 @@ int main(void)
     memcpy(halopad_guest_ptr(0x815900), &saved_source, 4);
     *(uint8_t *)halopad_guest_ptr(0x64c528) = saved_enabled;
     halopad_gamepad_test_count = 0;                                /* unplugged */
+    check("unplugged controller restores touch auto-show", halopad_dinput_has_live_gamepad(), 0);
+    halopad_gamepad_test[0] = (hp_gamepad){.id = 8, .dpad = -1};
+    halopad_gamepad_test_count = 1;
+    check("late unregistered controller leaves touch visible", halopad_dinput_has_live_gamepad(), 0);
+    halopad_gamepad_test_count = 0;
     check("gamepad unplugged: Poll gives DIERR_INPUTLOST", M0(pad, Poll), 0x8007001E);
     check("  then GetDeviceState: DIERR_NOTACQUIRED", M(pad, GetDeviceState, 224, js), 0x8007000C);
     check("  and Acquire: DIERR_UNPLUGGED", M0(pad, Acquire), 0x80040209);

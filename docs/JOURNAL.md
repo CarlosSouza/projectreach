@@ -2947,3 +2947,49 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   readings were 29–30 FPS; this is not a frame-time distribution or heat test.
   No public server was joined. Direct-finger aiming, two-thumb play, controller
   input, longer play and physical iPad acceptance remain open.
+
+## 2026-09-29 — physical iPad and controller diagnosis
+
+- Connected Chris's actual iPad Pro 12.9-inch (6th generation, iPadOS 27.0),
+  UDID `00008112-001D485114DBC01E`. Cached development profile
+  `774ca5c5-030a-4b41-ab5e-a31fc3d3594a` passed exact App ID, certificate,
+  device UDID, expiry, Extended Virtual Addressing and Increased Memory Limit.
+  Installed the signed source app in place, imported its matching package from
+  Files, reached Halo's main menu and created profile `New001`. The iPad had no
+  previous HaloPad container. Read back `Documents` and `Library` to ignored
+  `generated/device-backups/ipad-20260929-first-import/` (625 MB). No public
+  server was joined.
+- In a local LAN Battle Creek Slayer match, menu selection, move/look drags,
+  FIRE, JUMP, three-dot menu, Controller Guide, Look Speed settings and Halo's
+  original pause/Leave Game path worked. Remote pointer drags did not prove
+  simultaneous physical thumbs. Chris then connected an Xbox controller during
+  play. The overlay hid but gameplay input did not reach Halo, while Menu/Start
+  still worked. After fully closing and reopening HaloPad with the controller
+  connected, Chris confirmed movement, crouch and the original controller
+  layout work. The attached keyboard/trackpad are a separate input path and
+  did not prevent that startup controller path.
+- The cause is Halo's one-time DirectInput `EnumDevices` at startup. UIKit sees
+  a late controller and used to hide touch, but Halo has no guest joystick
+  device for it. An experiment invoking Halo's original enumeration callback
+  after startup crashed twice in the iPad Simulator DirectInput harness at an
+  indirect null guest transfer. That experiment was removed, not installed.
+  The new source candidate keeps touch visible unless a currently connected
+  physical pad has a registered DirectInput device; the Controller Guide says
+  to reconnect before launch and maps Halo's generic “Button 6” to Xbox RB.
+  DirectInput and overlay tests passed with zero failures; physical recheck of
+  that new candidate is pending.
+- Chris reports noticeable iPad jitter when joining and loading new assets.
+  A 20-second Time Profiler trace of the live physical match is in ignored
+  `docs/artifacts/2026-09-29/G11/ipad-live-controller-stutter.trace`. Thermal
+  state stayed Nominal; there were 2,197 sampled CPU stack leaves, including
+  610 stacks in `draw`, 156 in `halopad_metal_pipeline`, and 118 in
+  `halopad_metal_sampler`. The sample does not prove which individual frame
+  stalled. The next discriminating run enables `HALOPAD_TRACE_FRAMES` at launch
+  to record presents, >100 ms gaps, pipeline/library creation and DXT decoding
+  during the same local map-load path. Do not claim an iPad performance fix yet.
+- Replaced the first H/orbit icon with an original geometric beacon in
+  `assets/HaloPadIcon.svg` and its 1024-pixel asset-catalog PNG. The revised
+  source app signs; device icon appearance awaits the next install. README now
+  describes the physical iPad checkpoint, controller restart requirement and
+  planned PadForge personal-build path. Project Reach remains the repo name,
+  HaloPad the app name; public release and PadForge support are still gated.

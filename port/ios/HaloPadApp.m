@@ -27,6 +27,9 @@
 
 int halopad_core_run(void);
 void halopad_gamepad_defaults_update(int in_game);  /* Halo's thread: a connected controller gets Halo's Xbox layout */
+int halopad_dinput_has_live_gamepad(void);
+static atomic_int controller_gameplay_ready;
+int halopad_app_controller_ready(void) { return atomic_load(&controller_gameplay_ready); }
 
 /* A game controller also drives what Halo reads from the keyboard: Menu pauses
    (Escape) everywhere; in Halo's menus the D-pad moves, A selects and B goes
@@ -135,9 +138,11 @@ static void update_overlay_game_state(void)
     BOOL inGame = map[0] && strcmp(map, "ui");
     BOOL menuVisible = root != 0;
     halopad_gamepad_defaults_update(inGame);
+    BOOL controllerReady = halopad_dinput_has_live_gamepad();
+    atomic_store(&controller_gameplay_ready, controllerReady);
     static int previous = -1;
     BOOL analogMove = halopad_app_touch_move_ready();
-    int state = inGame | (menuVisible << 1) | (analogMove << 2);
+    int state = inGame | (menuVisible << 1) | (analogMove << 2) | (controllerReady << 3);
     static uint32_t previousActions = UINT32_MAX;
     uint32_t availableActions = inGame ? halopad_touch_action_mask() : (1u << 29) - 1;
     if (state == previous && availableActions == previousActions) return;
@@ -153,6 +158,7 @@ static void update_overlay_game_state(void)
         UIApplication.sharedApplication.idleTimerDisabled = inGame;
         overlay.analogMoveReady = analogMove;
         overlay.availableActions = availableActions;
+        [overlay refreshControllerVisibility];
     });
 }
 void *halopad_d3d9_device_target(uint32_t g);

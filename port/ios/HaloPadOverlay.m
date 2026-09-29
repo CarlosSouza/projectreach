@@ -734,9 +734,11 @@ static const hp_control_def CONTROLS[] = {
 
 - (void)refreshControllerVisibility
 {
+    extern int halopad_app_controller_ready(void);
     BOOL connected = NO;
 #if !TARGET_OS_SIMULATOR
-    for (GCController *c in GCController.controllers) if (c.extendedGamepad) connected = YES;   /* only real controllers, as SunPad */
+    if (halopad_app_controller_ready())
+        for (GCController *c in GCController.controllers) if (c.extendedGamepad) connected = YES;
 #endif
     _controllerHidden = connected && HPSettings.shared.hideWithController;
     if (connected) [self clearTouchInput];
@@ -1092,12 +1094,18 @@ static NSString * const HPRepositoryURL = @"https://github.com/chrissotraidis/pr
     title.textColor = UIColor.whiteColor;
     title.font = [UIFont systemFontOfSize:22 weight:UIFontWeightBold];
     [stack addArrangedSubview:title];
+    UILabel *setup = [UILabel new];
+    setup.text = @"Connect the controller before opening HaloPad. If you connect during play, close and reopen the app.";
+    setup.textColor = UIColor.lightGrayColor;
+    setup.font = [UIFont systemFontOfSize:14];
+    setup.numberOfLines = 0;
+    [stack addArrangedSubview:setup];
     NSArray<NSArray *> *sections = @[
         @[@"Movement & View", @[@"Left stick", @"Move"], @[@"Right stick", @"Look"],
           @[@"Left stick click", @"Crouch"], @[@"Right stick click", @"Zoom"]],
         @[@"Combat & Actions", @[@"RT", @"Fire"], @[@"LT", @"Throw grenade"],
           @[@"A", @"Jump"], @[@"B", @"Melee"], @[@"X", @"Reload"],
-          @[@"Y", @"Switch weapon"], @[@"RB", @"Use / pick up / enter vehicle"],
+          @[@"Y", @"Switch weapon"], @[@"RB (Button 6)", @"Use / pick up / enter vehicle"],
           @[@"LB", @"Switch grenade"], @[@"D-pad up", @"Flashlight"]],
         @[@"Menus", @[@"D-pad", @"Move selection"], @[@"A", @"Select"],
           @[@"B", @"Back"], @[@"View", @"Scoreboard"], @[@"Menu", @"Pause"]]
