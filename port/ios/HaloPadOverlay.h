@@ -20,6 +20,7 @@ NS_ASSUME_NONNULL_BEGIN
 /* Privacy-safe state for a problem report. */
 - (NSString *)overlayDiagnostics:(HPOverlay *)overlay;
 @optional
+- (NSURL *)overlayDiagnosticLog:(HPOverlay *)overlay;      /* the diagnostic log file, to share */
 /* Let the player pick custom .map files for the servers they join. */
 - (void)overlayRequestsCustomMaps:(HPOverlay *)overlay;
 /* Version, game data and file locations for About HaloPad. */

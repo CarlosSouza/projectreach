@@ -956,6 +956,7 @@ static NSString * const HPRepositoryURL = @"https://github.com/chrissotraidis/pr
 
     UIMenu *help = [UIMenu menuWithTitle:@"Help" image:icon(@"questionmark.circle") identifier:nil options:0 children:@[
         [UIAction actionWithTitle:@"Report a Problem…" image:icon(@"exclamationmark.bubble") identifier:nil handler:^(__kindof UIAction *a) { [weak report]; }],
+        [UIAction actionWithTitle:@"Share Diagnostic Log…" image:icon(@"doc.text") identifier:nil handler:^(__kindof UIAction *a) { [weak shareLog]; }],
         [UIAction actionWithTitle:@"HaloPad on GitHub" image:icon(@"safari") identifier:nil handler:^(__kindof UIAction *a) {
             [UIApplication.sharedApplication openURL:[NSURL URLWithString:HPRepositoryURL] options:@{} completionHandler:nil]; }],
         [UIAction actionWithTitle:@"About HaloPad" image:icon(@"info.circle") identifier:nil handler:^(__kindof UIAction *a) { [weak showAbout]; }]]];
@@ -971,6 +972,20 @@ static NSString * const HPRepositoryURL = @"https://github.com/chrissotraidis/pr
     [self.delegate overlayDisplayChanged:self];
     [self rebuildMenu];
     [self setNeedsLayout];
+}
+
+/* The diagnostic log (Documents/HaloPad Logs, also in Files): controller, state,
+   video and stall events only, for a bug report. */
+- (void)shareLog
+{
+    if (![self.delegate respondsToSelector:@selector(overlayDiagnosticLog:)]) return;
+    NSURL *log = [self.delegate overlayDiagnosticLog:self];
+    if (!log) return;
+    UIActivityViewController *share = [[UIActivityViewController alloc]
+        initWithActivityItems:@[log] applicationActivities:nil];
+    share.popoverPresentationController.sourceView = _menuButton;
+    share.popoverPresentationController.sourceRect = _menuButton.bounds;
+    [self.presenter presentViewController:share animated:YES completion:nil];
 }
 
 - (UIViewController *)presenter

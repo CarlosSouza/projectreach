@@ -26,6 +26,7 @@
 #define PTROFS_64BIT 1
 #include "llasm_cpu.h"
 #include "halopad_input.h"
+#include "halopad_log.h"
 
 extern _Thread_local _cpu *halopad_cpu;
 void *halopad_guest_ptr(uint32_t);
@@ -101,10 +102,37 @@ int halopad_gamepad_defaults_apply(int slot)
 void halopad_gamepad_defaults_update(int in_game)
 {
     static uint32_t done;                 /* devices handled this session */
-    if (!in_game || read32(0x64c774) > 8) return;
+    static uint32_t logged_slot[8] = {UINT32_MAX - 1, UINT32_MAX - 1, UINT32_MAX - 1, UINT32_MAX - 1,
+                                      UINT32_MAX - 1, UINT32_MAX - 1, UINT32_MAX - 1, UINT32_MAX - 1};
+    static uint32_t held_slot[8] = {UINT32_MAX, UINT32_MAX, UINT32_MAX, UINT32_MAX, UINT32_MAX, UINT32_MAX, UINT32_MAX, UINT32_MAX};
+    static int logged_count = -1;
+    uint32_t count = read32(0x64c774);
+    if (count > 8) return;
+    if ((int)count != logged_count) { HP_LOG("Halo: %u controller device(s) enumerated", count); logged_count = (int)count; }
+    for (unsigned device = 0; device < count; device++) {
+        uint32_t slot = read32(0x64c9c8 + device * 0x240);
+        if (slot == logged_slot[device]) continue;
+        logged_slot[device] = slot;
+        if (slot == UINT32_MAX) HP_LOG("Halo: %s controller device %u is not assigned to a player", is_physical(device) ? "physical" : "touch-move", device);
+        else HP_LOG("Halo: %s controller device %u assigned to player slot %u", is_physical(device) ? "physical" : "touch-move", device, slot);
+    }
+    if (!in_game) return;
     _cpu saved = *halopad_cpu;
     for (unsigned device = 0; device < read32(0x64c774); device++) {
-        if (!is_physical(device) || (done & 1u << device)) continue;
+        if (!is_physical(device)) continue;
+        uint32_t now = read32(0x64c9c8 + device * 0x240);
+        if (done & 1u << device) {
+            /* Once set up, a controller that Halo later unassigns returns to its
+               player slot if that slot has no controller of its own. */
+            if (now == UINT32_MAX && held_slot[device] < 4 && read32(0x64dc18 + held_slot[device] * 4) == UINT32_MAX) {
+                char text[48];
+                snprintf(text, sizeof text, "input_activate_joy %u %u", device, held_slot[device]);
+                command(text);
+                HP_LOG("HaloPad: reattached controller device %u to player slot %u", device, held_slot[device]);
+            }
+            if (now < 4) held_slot[device] = now;
+            continue;
+        }
         uint32_t slot = read32(0x64c9c8 + device * 0x240);
         if (slot == UINT32_MAX) {
             for (int s = 0; s < 4; s++)
@@ -120,6 +148,9 @@ void halopad_gamepad_defaults_update(int in_game)
         int n = slot < 4 ? halopad_gamepad_defaults_apply((int)slot) : 0;
         fprintf(stderr, "HALOPAD CONTROLLER: device %u slot %d: %s\n", device, (int)slot,
                 n ? "applied Halo's Xbox controller layout" : "kept the profile's bindings");
+        HP_LOG("HaloPad: controller device %u slot %d: %s", device, (int)slot,
+                    n ? "applied Halo's Xbox controller layout" : "kept the profile's bindings");
+        if (slot < 4) held_slot[device] = slot;
         done |= 1u << device;
     }
     *halopad_cpu = saved;

@@ -25,8 +25,8 @@ typedef struct res {
     uint8_t counted;                            /* a default-pool resource Reset waits for (halopad_d3d9_live_default) */                            /* default-pool texture: contents held here for upload, but not lockable */
     char *msl;                                  /* vertex shaders: translated source */
     uint8_t in_usage[16], in_index[16], in_used[16];   /* vertex shaders: dcl_<usage><index> v<n> */
-    struct { uint8_t key[33]; char *msl; } variant[8];  /* pixel shaders: source per sampler key */
-    uint32_t nvariant;
+    struct hp_ps_variant { uint8_t key[33]; char *msl; } *variant;  /* pixel shaders: source per sampler key */
+    uint32_t nvariant, cap_variant;
 } res;
 
 

@@ -519,7 +519,7 @@ def _main():
     # addresses as host pointers (string/rep helpers dereference raw 32-bit values).
     cmd = ['clang', '-target', target, '-O2', '-fno-fast-math', '-ffp-contract=off', '-w', '-DPTROFS_64BIT=1', '-std=c2x', '-I', str(SUPPORT),
            str(ROOT / 'tests/halo_slice_harness.c'), str(build / 'slice_table.c'), str(ROOT / 'port/runtime/halopad_slice_runtime.c'),
-           str(ROOT / 'port/runtime/halopad_kernel32.c'), *runtime_objs, '-Wno-override-module',
+           str(ROOT / 'port/runtime/halopad_kernel32.c'), str(ROOT / 'port/runtime/halopad_log.c'), *runtime_objs, '-Wno-override-module',
            *[str(p) for p in sorted(SUPPORT.glob('llasm_*.c'))], str(build / 'stubs.ll'), str(work / 'haloce.o'), '-o', str(exe)]
     link = subprocess.run(cmd, capture_output=True, text=True)
     (evid / 'link.log').write_text(' '.join(cmd) + '\n' + link.stdout + link.stderr)

@@ -11,6 +11,7 @@
 #include <stdint.h>
 #include "halopad_metal.h"
 #include "../runtime/halopad_input.h"
+#include "../runtime/halopad_log.h"
 
 typedef struct {
     struct hp_window *win;                   /* the host window it presents to */
@@ -229,6 +230,8 @@ void halopad_metal_target_gamma(void *p, const uint16_t ramp[768]) { halopad_hos
 /* HALOPAD_TRACE_FRAMES: shader and pipeline compilation in the current 10 s window */
 static int trace_libs, trace_pipes;
 static double trace_lib_s, trace_pipe_s;
+static int stall_libs;                              /* the always-on stall log: since the last present */
+static double stall_lib_s;
 int halopad_trace_decodes;                          /* DXT decodes on upload (halopad_d3d9_draw.c) */
 double halopad_trace_decode_s, halopad_trace_decode_px;
 double halopad_trace_now(void) { return CFAbsoluteTimeGetCurrent(); }
@@ -243,6 +246,14 @@ int halopad_metal_present(void *p)
     static double last, since, longest;
     static int frames, long_gaps;
     if (trace < 0) trace = getenv("HALOPAD_TRACE_FRAMES") != NULL;
+    {   /* Always: one log line per stall a player would notice, with compile work inside it. */
+        static double previous;
+        double now = CFAbsoluteTimeGetCurrent();
+        if (previous && now - previous > 0.3)
+            HP_LOG("Frame stall: %.0f ms; %d shaders compiled (%.0f ms)%s", (now - previous) * 1000, stall_libs, stall_lib_s * 1000,
+                   now - previous > 5 ? " (the app may have been in the background)" : "");
+        previous = now; stall_libs = 0; stall_lib_s = 0;
+    }
     if (trace) {
         double now = CFAbsoluteTimeGetCurrent();
         if (last) { double gap = now - last; frames++; if (gap > longest) longest = gap; if (gap > 0.1) long_gaps++; }
@@ -321,7 +332,9 @@ static id<MTLFunction> function(const char *src, NSString *name, char *err, uint
         NSError *e = nil;
         double t0 = CFAbsoluteTimeGetCurrent();
         lib = [gpu newLibraryWithSource:s options:nil error:&e];
-        trace_libs++; trace_lib_s += CFAbsoluteTimeGetCurrent() - t0;
+        double spent = CFAbsoluteTimeGetCurrent() - t0;
+        trace_libs++; trace_lib_s += spent;
+        stall_libs++; stall_lib_s += spent;
         if (!lib) { snprintf(err, errlen, "%s", e.localizedDescription.UTF8String); return nil; }
         libraries[s] = lib;
     }

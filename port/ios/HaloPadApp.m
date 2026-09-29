@@ -23,6 +23,7 @@
 #include "../runtime/halopad_input.h"
 #import "HaloPadOverlay.h"
 #include "halopad_menu_touch.h"
+#include "../runtime/halopad_log.h"
 #include <pthread.h>
 
 int halopad_core_run(void);
@@ -44,28 +45,69 @@ static void controller_key(uint32_t vk, uint32_t scan, int extended, BOOL down)
 static void controller_menu_key(uint32_t vk, uint32_t scan, int extended, BOOL down)
 {
     static BOOL held[256];
-    if (down && !controller_in_menus) return;         /* gameplay: DirectInput owns it */
+    static const char *names[256] = {[0x0D] = "A (Enter)", [0x1B] = "B (Back)", [0x25] = "Left", [0x26] = "Up", [0x27] = "Right", [0x28] = "Down"};
+    if (down && !controller_in_menus) {               /* gameplay: DirectInput owns it */
+        halopad_log("Controller: %s pressed during play: sent to Halo's controller layout, not the menu", names[vk & 255] ?: "button");
+        return;
+    }
     if (!down && !held[vk & 255]) return;             /* release only what we pressed */
     held[vk & 255] = down;
+    if (down) halopad_log("Controller: %s -> menu key", names[vk & 255] ?: "button");
     controller_key(vk, scan, extended, down);
 }
+/* The left stick navigates Halo's menus as the D-pad does (half tilt presses,
+   a quarter releases). */
+static void controller_stick_menu(float x, float y)
+{
+    static int held_x, held_y;                        /* -1, 0, 1 */
+    if (!controller_in_menus) x = y = 0;              /* play: the stick is Halo's, release any menu key */
+    int nx = x > 0.5f ? 1 : x < -0.5f ? -1 : fabsf(x) < 0.25f ? 0 : held_x;
+    int ny = y > 0.5f ? 1 : y < -0.5f ? -1 : fabsf(y) < 0.25f ? 0 : held_y;
+    if (nx != held_x) {
+        if (held_x) controller_menu_key(held_x > 0 ? 0x27 : 0x25, held_x > 0 ? 0x4D : 0x4B, 1, NO);
+        if (nx) controller_menu_key(nx > 0 ? 0x27 : 0x25, nx > 0 ? 0x4D : 0x4B, 1, YES);
+        held_x = nx;
+    }
+    if (ny != held_y) {                                /* stick up is positive; Up arrow */
+        if (held_y) controller_menu_key(held_y > 0 ? 0x26 : 0x28, held_y > 0 ? 0x48 : 0x50, 1, NO);
+        if (ny) controller_menu_key(ny > 0 ? 0x26 : 0x28, ny > 0 ? 0x48 : 0x50, 1, YES);
+        held_y = ny;
+    }
+}
+/* While HaloPad's text keyboard is open (chat, console, a name), A accepts the
+   text (Enter) and B cancels it (Escape), in a match as well as in menus: a
+   controller player cannot reach the keyboard bar's Enter / Accept. */
+static BOOL controller_text_key(BOOL accept, BOOL down);
 static void attach_controller(GCController *c)
 {
     GCExtendedGamepad *g = c.extendedGamepad;
     if (!g) return;
     g.buttonMenu.pressedChangedHandler = ^(GCControllerButtonInput *b, float v, BOOL down) { controller_key(0x1B, 0x01, 0, down); };
-    g.buttonA.pressedChangedHandler = ^(GCControllerButtonInput *b, float v, BOOL down) { controller_menu_key(0x0D, 0x1C, 0, down); };
-    g.buttonB.pressedChangedHandler = ^(GCControllerButtonInput *b, float v, BOOL down) { controller_menu_key(0x1B, 0x01, 0, down); };
+    g.buttonA.pressedChangedHandler = ^(GCControllerButtonInput *b, float v, BOOL down) {
+        if (!controller_text_key(YES, down)) controller_menu_key(0x0D, 0x1C, 0, down);
+    };
+    g.buttonB.pressedChangedHandler = ^(GCControllerButtonInput *b, float v, BOOL down) {
+        if (!controller_text_key(NO, down)) controller_menu_key(0x1B, 0x01, 0, down);
+    };
     g.dpad.up.pressedChangedHandler = ^(GCControllerButtonInput *b, float v, BOOL down) { controller_menu_key(0x26, 0x48, 1, down); };
     g.dpad.down.pressedChangedHandler = ^(GCControllerButtonInput *b, float v, BOOL down) { controller_menu_key(0x28, 0x50, 1, down); };
     g.dpad.left.pressedChangedHandler = ^(GCControllerButtonInput *b, float v, BOOL down) { controller_menu_key(0x25, 0x4B, 1, down); };
     g.dpad.right.pressedChangedHandler = ^(GCControllerButtonInput *b, float v, BOOL down) { controller_menu_key(0x27, 0x4D, 1, down); };
+    g.leftThumbstick.valueChangedHandler = ^(GCControllerDirectionPad *s, float x, float y) { controller_stick_menu(x, y); };
+    halopad_log("Controller: %s ready (%s)", c.vendorName.UTF8String ?: "controller", c.extendedGamepad ? "extended gamepad" : "no gamepad profile");
 }
 static void watch_controllers(void)
 {
     for (GCController *c in GCController.controllers) attach_controller(c);
     [NSNotificationCenter.defaultCenter addObserverForName:GCControllerDidConnectNotification object:nil queue:NSOperationQueue.mainQueue
-                                                usingBlock:^(NSNotification *n) { attach_controller(n.object); }];
+                                                usingBlock:^(NSNotification *n) {
+        halopad_log("Controller: %s connected", ((GCController *)n.object).vendorName.UTF8String ?: "controller");
+        attach_controller(n.object);
+    }];
+    [NSNotificationCenter.defaultCenter addObserverForName:GCControllerDidDisconnectNotification object:nil queue:NSOperationQueue.mainQueue
+                                                usingBlock:^(NSNotification *n) {
+        halopad_log("Controller: %s disconnected", ((GCController *)n.object).vendorName.UTF8String ?: "controller");
+    }];
 }
 /* what the core thread runs: Halo from its entry point, unless a development scene replaces it
    (scripts/build-ios-app.py --scene) */
@@ -143,6 +185,7 @@ static void update_overlay_game_state(void)
     static int previous = -1;
     BOOL analogMove = halopad_app_touch_move_ready();
     int state = inGame | (menuVisible << 1) | (analogMove << 2) | (controllerReady << 3);
+    static int previous_logged_state = -1;
     static uint32_t previousActions = UINT32_MAX;
     uint32_t availableActions = inGame ? halopad_touch_action_mask() : (1u << 29) - 1;
     if (state == previous && availableActions == previousActions) return;
@@ -150,6 +193,12 @@ static void update_overlay_game_state(void)
     previousActions = availableActions;
     if (getenv("HALOPAD_TRACE_INPUT"))
         fprintf(stderr, "HALOPAD MENU: in game %d menu visible %d\n", inGame, menuVisible);
+    if (previous_logged_state < 0 || (state & 11) != (previous_logged_state & 11)) {
+        halopad_log("State: %s, Halo menu %s, controller %s", inGame ? "in a game" : "front end",
+                    menuVisible ? "open (controller navigates it)" : "closed (controller plays)",
+                    controllerReady ? "live in Halo" : "not live in Halo");
+        previous_logged_state = state;
+    }
     dispatch_async(dispatch_get_main_queue(), ^{
         overlay.haloMenuVisible = menuVisible;
         overlay.inGame = inGame;
@@ -454,6 +503,14 @@ static HPGameViewController *game_vc;
 static UIView *game_view;
 static NSLayoutConstraint *keyboard_bottom, *full_bottom;
 static HPKeyboardProxy *keyboard;
+static BOOL controller_text_key(BOOL accept, BOOL down)
+{
+    if (!down || !keyboard.isFirstResponder) return NO;   /* releases still clear any held menu key */
+    if (accept) [HPOverlay typeText:@"\n"];
+    else [HPOverlay tapKey:0x1B scan:0x01];
+    [keyboard resignFirstResponder];                       /* queued keys still reach Halo in order */
+    return YES;
+}
 
 static void *input_window;                          /* the window touches and the pointer act on */
 
@@ -1135,6 +1192,11 @@ static void touch_selftest(void)
     BOOL accepted = [keyboard becomeFirstResponder];
     if (getenv("HALOPAD_TRACE_WINDOWS")) fprintf(stderr, "HALOPAD KEYBOARD: focus %d, scene %ld, frame %s\n", accepted, (long)self.view.window.windowScene.activationState, NSStringFromCGRect(keyboard.frame).UTF8String);
 }
+- (NSURL *)overlayDiagnosticLog:(HPOverlay *)o
+{
+    const char *path = halopad_log_path();
+    return path ? [NSURL fileURLWithPath:[NSString stringWithUTF8String:path]] : nil;
+}
 - (NSString *)overlayDiagnostics:(HPOverlay *)o
 {
     struct utsname u;
@@ -1341,6 +1403,16 @@ static NSString *custom_map_problem(NSURL *url, NSString **name)
     CGPoint p = [g locationInView:self.view];
     if (g.state == UIGestureRecognizerStateBegan) last = p;
     if (![self client:p x:&in.x y:&in.y scale:&s]) return;
+    if (overlay.haloMenuVisible) {                      /* Halo's cursor tracks the pointer exactly */
+        uint32_t w, h;
+        halopad_host_window_size(input_window, &w, &h);
+        last = p;
+        if (!w || !h || g.state != UIGestureRecognizerStateChanged && g.state != UIGestureRecognizerStateBegan) return;
+        pthread_mutex_lock(&menu_touch_lock);
+        hp_menu_hover(&menu_touch, menu_touch_root, (int)lround(in.x * 640.0 / w), (int)lround(in.y * 480.0 / h), in.x, in.y);
+        pthread_mutex_unlock(&menu_touch_lock);
+        return;
+    }
     in.dx = (int32_t)lround((p.x - last.x) * s); in.dy = (int32_t)lround((p.y - last.y) * s);
     last = p;
     halopad_host_post_input(&in);
@@ -1608,6 +1680,7 @@ int halopad_host_open_url(const char *url)
     if (test_scene_inactive_at) test_scene_inactive_duration = CFAbsoluteTimeGetCurrent() - test_scene_inactive_at;
     [HPOverlay setTextInputActive:YES];
     if (getenv("HALOPAD_TRACE_LIFECYCLE")) fprintf(stderr, "HALOPAD LIFECYCLE: %.3f scene active, frames %d\n", CFAbsoluteTimeGetCurrent(), atomic_load(&presented));
+    halopad_log("App: active (Halo's controller and keyboard devices may be acquired again)");
     hp_input e = {.kind = HPI_ACTIVATE, .down = 1}; halopad_host_post_input(&e);
 }
 - (void)sceneWillResignActive:(UIScene *)scene
@@ -1616,6 +1689,7 @@ int halopad_host_open_url(const char *url)
     test_scene_deactivations++;
     test_scene_inactive_at = CFAbsoluteTimeGetCurrent();
     if (getenv("HALOPAD_TRACE_LIFECYCLE")) fprintf(stderr, "HALOPAD LIFECYCLE: %.3f scene inactive, frames %d\n", CFAbsoluteTimeGetCurrent(), atomic_load(&presented));
+    halopad_log("App: inactive (a system overlay, the app switcher or the Home Screen took focus)");
     [overlay clearTouchInput];
     cancel_menu_touch();
     [HPOverlay setTextInputActive:NO];
@@ -1638,6 +1712,18 @@ int halopad_host_open_url(const char *url)
 int main(int argc, char *argv[])
 {
     resolve_device_paths();
+    @autoreleasepool {                                /* Documents/HaloPad Logs/HaloPad.log, readable in Files */
+        NSString *docs = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
+        NSString *dir = [docs stringByAppendingPathComponent:@"HaloPad Logs"];
+        [NSFileManager.defaultManager createDirectoryAtPath:dir withIntermediateDirectories:YES attributes:nil error:nil];
+        halopad_log_open([dir stringByAppendingPathComponent:@"HaloPad.log"].fileSystemRepresentation);
+        struct utsname u;
+        uname(&u);
+        halopad_log("---- HaloPad %s (build %s) on %s, %s %s ----",
+                    [[NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"?" UTF8String],
+                    [[NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleVersion"] ?: @"?" UTF8String], u.machine,
+                    UIDevice.currentDevice.systemName.UTF8String, UIDevice.currentDevice.systemVersion.UTF8String);
+    }
     /* Halo's console (the menu's Join Server, Halo Console) needs its -console switch */
     const char *args = getenv("HALOPAD_ARGS");
     if (!args || !strstr(args, "-console")) {

@@ -72,5 +72,26 @@ int main(void)
     }
     assert(!s.count);
     puts("PASS: unresponsive cursor cancels instead of clicking at the wrong location");
+
+    s = (hp_menu_touch){0};
+    hp_menu_hover(&s, 8, 100, 100, 125, 125);
+    hp_menu_hover(&s, 8, 300, 200, 375, 250);                /* coalesced: only the latest spot */
+    assert(s.count == 1);
+    assert(hp_menu_step(&s, 8, 0, 0, 1, 1, &e) && e.kind == HPI_MOUSEMOVE && e.dx > 0 && e.dy > 0);
+    assert(!hp_menu_step(&s, 8, 300, 200, 1, 1, &e) && !s.count);
+    assert(!hp_menu_step(&s, 8, 300, 200, 1, 1, &e));
+    puts("PASS: pointer hover moves Halo's cursor to the pointer without pressing");
+
+    hp_menu_hover(&s, 8, 100, 100, 125, 125);
+    t = hp_menu_begin(&s, 8, 320, 370, 400, 463);
+    hp_menu_update(&s, t, 320, 370, 400, 463, 1);
+    assert(s.count == 1);
+    assert(hp_menu_step(&s, 8, 320, 370, 1, 1, &e) && e.kind == HPI_BUTTON && e.down && e.x == 400);
+    assert(hp_menu_step(&s, 8, 320, 370, 1, 1, &e) && !e.down);
+    hp_menu_step(&s, 8, 320, 370, 1, 1, &e);
+    hp_menu_hover(&s, 0, 10, 10, 10, 10);
+    hp_menu_hover(&s, 8, -1, 10, -1, 10);
+    assert(!s.count);
+    puts("PASS: a click supersedes pending hover; hover outside a menu is ignored");
     return 0;
 }

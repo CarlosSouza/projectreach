@@ -28,6 +28,7 @@
 #include "halopad_win32.h"
 #include <math.h>
 #include "halopad_input.h"
+#include "halopad_log.h"
 #include <TargetConditionals.h>
 
 uint32_t halopad_com_new(const char *iface, uint32_t size, void *state, void (*destroy)(void *));
@@ -80,6 +81,7 @@ typedef struct {
     int32_t ofs[NOBJ];                  /* each object's offset in the data format, -1 unmatched */
     uint32_t hat_fill[16], nhat_fill;   /* hat entries of the format no object matched */
     int unplugged;
+    int refused_logged;                 /* diagnostic log: one line per refused-acquire streak */
 } device;
 
 static device *devices[8];
@@ -245,6 +247,12 @@ static void set_acquired(device *d, int on)
 {
     if (d->acquired == on) return;
     d->acquired = on;
+    if (d->kind == GAMEPAD) {
+        int index = -1;
+        for (int i = 0; i < 8; i++) if (devices[i] == d) index = i;
+        HP_LOG("DirectInput: %s controller (DirectInput object %d) %s", d->pad_id == HP_TOUCH_MOVE_ID ? "touch-move" : "physical",
+                    index, on ? "acquired by Halo" : "released (Halo must acquire it again)");
+    }
     if (!on && d->kind == GAMEPAD && d->pad_id == HP_TOUCH_MOVE_ID) reset_touch_move();
     if (!on) cancel_touch_keys(d);
     clear_touch(d);
@@ -345,7 +353,11 @@ uint32_t hpcom_IDirectInputDevice8A_Acquire_c(uint32_t g)
 {
     device *d = D(g);
     if (!d->formatted) return DIERR_INVALIDPARAM;
-    if ((d->coop & 4) && GetForegroundWindow_c() != d->hwnd) return DIERR_OTHERAPPHASPRIO;
+    if ((d->coop & 4) && GetForegroundWindow_c() != d->hwnd) {
+        if (d->kind == GAMEPAD && !d->refused_logged) { d->refused_logged = 1; HP_LOG("DirectInput: controller acquire refused: Halo's window is not in the foreground"); }
+        return DIERR_OTHERAPPHASPRIO;
+    }
+    d->refused_logged = 0;
     if (d->kind == GAMEPAD && !pad_now(d->pad_id, &d->snap)) { d->unplugged = 1; return DIERR_UNPLUGGED; }
     d->lost = 0;
     if (d->acquired) return DI_NOEFFECT;
@@ -475,6 +487,11 @@ static int pad_now(uint32_t id, hp_gamepad *out)
             n = halopad_gamepad_test_count > 0;
             if (n) physical[0] = halopad_gamepad_test[0];
         } else n = halopad_host_gamepads(physical, 1);
+        static int present = -1;
+        if (present != n) {
+            if (present >= 0 || n) HP_LOG("DirectInput: physical controller %s", n ? "present: Halo's controller slot reads it" : "absent: Halo's controller slot reads neutral");
+            present = n;
+        }
         *out = n ? physical[0] : (hp_gamepad){.dpad = -1};
         out->id = HP_PHYSICAL_SLOT_ID;
         return 1;

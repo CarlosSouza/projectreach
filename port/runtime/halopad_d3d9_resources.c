@@ -63,6 +63,7 @@ static void res_destroy(void *p)
     if (!r->borrowed) halopad_metal_release(r->native);
     halopad_metal_release(r->view);
     free(r->tokens);
+    free(r->variant);
     free(r);
 }
 

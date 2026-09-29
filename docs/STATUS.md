@@ -6,6 +6,35 @@ Operating loop: [HaloPad-GOAL-LOOP-PHASE3.md](HaloPad-GOAL-LOOP-PHASE3.md). Earl
 
 ## Latest physical-device result
 
+**Crash fix and diagnostics (2026-09-29, late).** Chris's iPad crashed repeatedly
+while playing. Both crash reports (22:59, 23:04, stable-controller build UUID
+987BE07F) were HaloPad's deliberate trap for a ninth texture/sampler
+configuration of one pixel shader; the renderer kept at most eight. Pixel
+shader variants now grow as Halo needs them. Every runtime trap now writes a
+`CRASH:` reason to a persistent diagnostic log, `Documents/HaloPad Logs/HaloPad.log`
+(Files app, or three-dot **Help → Share Diagnostic Log…**). It records only
+changes: controller connect/disconnect, DirectInput acquire/release, Halo's
+controller-to-player assignment, menu/game state, controller menu keys, video
+device creation/resets, app activation and frame stalls over 300 ms with the
+shader compiles inside them. No typed text, names, chat or addresses.
+Controller fixes in the same build: the left stick navigates Halo's menus, A/B
+accept/cancel the HaloPad text keyboard in a match (chat/console), and a
+controller Halo later unassigns returns to its player slot. A trackpad pointer
+over Halo's menus now moves Halo's own cursor to the same spot. Tests: menu
+state machine 9/9 plus 72 original-x86 cursor routes, DirectInput and D3D9
+Simulator suites 0 failures, overlay 0 failures, Python 59 OK (16 skipped).
+The signed build is installed in place on the iPad after a backup to ignored
+`generated/device-backups/ipad-20260929-pre-crash-fix/`; profile `Kahris`
+survived and the app reached Halo's menu. The matching iPhone build is signed
+but not installed. Gameplay acceptance of the crash fix, the controller
+reconnect/touch-switch bug and trackpad alignment on hardware is still open.
+Chris's live iPad trace showed steady ~30 FPS with first-use shader
+compilation stalls (up to 1.15 s of compiling and a 1,038 ms gap in one 10 s
+window). Earlier launches compiled the same match-entry shaders in under
+10 ms total, which indicates the system shader cache, so a warm-up match on
+the same map should reduce stutter in a recording; no code change for
+compile stalls yet.
+
 The current physical gameplay builds use `tests/halo_app_scene.c`, which enters
 Halo's menu after setup for development testing. A diagnostic build using the
 original entry point reached Halo's **Your product key is invalid** dialog.

@@ -3082,3 +3082,62 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   installer command exited 1 without useful output or a visible UI; no
   `DigitalProductID` was provisioned. The original Halo PC installer path is
   still the full-entry gate.
+
+## 2026-09-29 — iPad crash fix, diagnostic log and controller/pointer input
+
+- Chris reported repeated crashes on the physical iPad. The two newest
+  CoreDevice crash reports (`HaloPad-2026-09-29-225935.ips`, `-230425.ips`)
+  match the installed stable-controller binary by UUID (987BE07F). Both abort
+  on Halo's thread in `hp_unsupported` from `draw` / `DrawIndexedPrimitive`.
+  The string operand of `draw.cold.5` identifies the trap: "more than 8
+  sampler configurations for one pixel shader". Pixel-shader variants are now
+  a growable list freed with the shader resource.
+- Added `port/runtime/halopad_log.c`: an always-on, change-only diagnostic log
+  at `Documents/HaloPad Logs/HaloPad.log` (1 MB plus one rotated file), also on
+  stderr. Runtime traps log a `CRASH:` reason before aborting. Logged:
+  controller connect/disconnect, DirectInput acquire/release and refused
+  reacquire, physical pad presence, Halo's device-to-player assignment,
+  menu/game state, controller menu keys (and presses ignored during play),
+  Direct3D device creation and resets, app active/inactive, and frame stalls
+  over 300 ms with the shader compiles inside them. It does not record typed
+  text, profile names, chat or server addresses. Three-dot **Help → Share
+  Diagnostic Log…** shares the file. Runtime call sites use a guarded macro;
+  the slice harness links the logger directly.
+- Controller: the left stick navigates Halo's menus like the D-pad; while the
+  HaloPad text keyboard is open, A sends Enter and B sends Escape, then hide the
+  keyboard (a controller player could not reach the keyboard bar's Enter /
+  Accept during a match). Once set up, a physical controller that Halo leaves
+  unassigned is reattached to its previous player slot if that slot is free.
+  Gamepads are foreground-exclusive DirectInput devices, so any scene
+  deactivation releases them; the log now records whether Halo reacquires
+  them. That is the leading hypothesis for the "controller stops after
+  reconnecting or after touch" report; it is not proved.
+- Trackpad: hover over Halo's menus sent raw deltas through Halo's menu
+  acceleration, so Halo's cursor drifted from the iPadOS pointer. Hover now
+  uses the menu-touch state machine as a move-only gesture (latest spot only,
+  superseded by a click, never presses).
+- Tests: menu touch 9/9 plus 72 original-x86 cursor routes
+  (`G9/menu-touch-20260929T135217Z`); DirectInput and D3D9 iPad Air Simulator
+  suites 0 failures (`G3/core-arm64-apple-ios17.0-simulator-20260929T142722Z`
+  and `…T142736Z`, the latter logging a 640×480 → 800×600 reset); overlay 0
+  failures (`G9/overlay-20260929T143222Z`); Python 59 OK, 16 skipped. The VA
+  runtime IR was regenerated first because the `DisableD3DSpy` source was newer.
+- Backed up the iPad container to ignored
+  `generated/device-backups/ipad-20260929-pre-crash-fix/` (Documents 618 MB,
+  Library 28 MB), installed signed candidate
+  `generated/device-candidates/ipad-20260929-crash-fix/` (UUID A0D8AA4E) in
+  place, read back profile `Kahris` and its saves, and launched it to Halo's
+  menu with the log active. The matching iPhone candidate is signed and
+  verified but not installed.
+- Chris's traced session (ignored `G11/ipad-video-change-device.log`) after
+  replacing the controller battery: steady ~30 FPS; first-use shader compiles
+  in play cost 0.45–1.15 s per 10 s window, with gaps up to 1,038 ms. Two later
+  gaps of 12.4 s and 8.2 s are unexplained (possibly app switching). Device Hub
+  coordinate input failed in this session (screenshots and accessibility
+  worked), so the agent did not drive the iPad video-mode change.
+- Open: hardware confirmation of the crash fix, the controller
+  reconnect/touch-switch bug from the new log, trackpad alignment, iPad
+  video-mode change, and shader-compile stalls. Public release remains a
+  separate rights decision: the app bundle contains Halo's translated
+  executable and DLL images, and the development scene starts without Halo's
+  product-key check.

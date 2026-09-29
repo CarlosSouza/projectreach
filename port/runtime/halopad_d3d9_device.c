@@ -8,6 +8,7 @@
  * Every other method traps with its name (generated stubs). Unknown state numbers,
  * partial clears/presents, multisampling and pure devices stop with their values. */
 #include "halopad_win32.h"
+#include "halopad_log.h"
 #define PTROFS_64BIT 1
 #include "llasm_cpu.h"
 
@@ -152,6 +153,7 @@ uint32_t halopad_d3d9_create_device(uint32_t d3d, uint32_t adapter, uint32_t typ
     d->d3d = d3d; d->window = window; d->behavior = behavior; d->software_vp = !!(behavior & 0x20);
     default_states(d);
     d->target = halopad_metal_target_create(halopad_window_host(window, d->pp[0], d->pp[1]), d->pp[0], d->pp[1], d->pp[9] != 0);
+    HP_LOG("Direct3D: device created at %ux%u%s", d->pp[0], d->pp[1], d->pp[8] ? " (windowed)" : "");
     /* Without D3DCREATE_FPU_PRESERVE, Direct3D 9 sets the x87 unit to single precision and
        round-to-nearest for the calling thread. */
     if (!(behavior & 0x2) && halopad_cpu) halopad_cpu->_st_cw &= ~0x0F00u;
@@ -183,7 +185,8 @@ uint32_t hpcom_IDirect3DDevice9_Reset_c(uint32_t g, uint32_t pp)
     }
     uint32_t npp[14], window;
     uint32_t r = present_params("IDirect3DDevice9::Reset", pp, d->window, npp, &window);
-    if (r) return r;
+    if (r) { HP_LOG("Direct3D: video reset refused (0x%08x)", r); return r; }
+    HP_LOG("Direct3D: video reset %ux%u -> %ux%u%s", d->pp[0], d->pp[1], npp[0], npp[1], npp[8] ? " (windowed)" : "");
     for (int i = 0; i < 16; i++) { rebind(&d->texture[i], 0); rebind(&d->stream[i], 0); }
     rebind(&d->indices, 0); rebind(&d->decl, 0); rebind(&d->vs, 0); rebind(&d->ps, 0);
     halopad_d3d9_release_targets(d);

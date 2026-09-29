@@ -10,6 +10,7 @@
 typedef struct {
     int x, y, client_x, client_y, ended;
     int press_x, press_y, press_client_x, press_client_y;
+    int hover;          /* pointer hover: position the cursor, never press */
     unsigned token;
     uint32_t root;
 } hp_menu_gesture;
@@ -21,6 +22,8 @@ typedef struct {
 
 static unsigned hp_menu_begin(hp_menu_touch *s, uint32_t root, int x, int y, int cx, int cy)
 {
+    /* A click supersedes a pending hover (only ever the last queued gesture). */
+    if (s->count && s->gestures[(s->head + s->count - 1) % 8].hover && !--s->count) s->phase = s->stalled = 0;
     if (!root || x < 0 || y < 0 || x > 640 || y > 480 || s->count == 8) return 0;
     unsigned token = ++s->serial;
     if (!token) token = ++s->serial;
@@ -28,6 +31,23 @@ static unsigned hp_menu_begin(hp_menu_touch *s, uint32_t root, int x, int y, int
         .x=x, .y=y, .client_x=cx, .client_y=cy,
         .press_x=x, .press_y=y, .press_client_x=cx, .press_client_y=cy, .token=token, .root=root};
     return token;
+}
+/* An iPad pointer hovering over Halo's menus: Halo's own cursor follows it to the
+   same absolute spot (raw hover deltas pass through Halo's menu acceleration and
+   drift away from the system pointer). Only the latest hover position is kept. */
+static void hp_menu_hover(hp_menu_touch *s, uint32_t root, int x, int y, int cx, int cy)
+{
+    if (!root || x < 0 || y < 0 || x > 640 || y > 480) return;
+    hp_menu_gesture *last = s->count ? &s->gestures[(s->head + s->count - 1) % 8] : NULL;
+    if (last && last->hover && last->root == root) {
+        last->x = last->press_x = x; last->y = last->press_y = y;
+        last->client_x = last->press_client_x = cx; last->client_y = last->press_client_y = cy;
+        return;
+    }
+    if (s->count == 8) return;
+    s->gestures[(s->head + s->count++) % 8] = (hp_menu_gesture){
+        .x=x, .y=y, .client_x=cx, .client_y=cy,
+        .press_x=x, .press_y=y, .press_client_x=cx, .press_client_y=cy, .hover=1, .root=root};
 }
 static void hp_menu_update(hp_menu_touch *s, unsigned token, int x, int y, int cx, int cy, int ended)
 {
@@ -77,6 +97,7 @@ static int hp_menu_step(hp_menu_touch *s, uint32_t root, int x, int y,
         event->dx = hp_menu_delta(dx, sx); event->dy = hp_menu_delta(dy, sy);
         return 1;
     }
+    if (g->hover) { s->head = (s->head + 1) % 8; s->count--; s->stalled = 0; return 0; }
     if (!s->phase) { event->kind = HPI_BUTTON; event->down = 1; s->phase = 1; return 1; }
     if (g->ended) { event->kind = HPI_BUTTON; s->phase = 2; return 1; }
     return 0;

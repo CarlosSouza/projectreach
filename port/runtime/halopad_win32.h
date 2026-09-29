@@ -22,6 +22,8 @@ void halopad_trace_guest_stack(void);   /* halopad_guest.c: guest registers and 
 /* HALOPAD_TRACE_FAILURES=1: services report failures they return (diagnostics only) */
 static inline int hp_trace_failures(void) { static int v = -1; if (v < 0) v = getenv("HALOPAD_TRACE_FAILURES") != NULL; return v; }
 #define HP_TRACE_FAIL(fmt, ...) do { if (hp_trace_failures()) fprintf(stderr, "HALOPAD FAILURE: " fmt "\n", __VA_ARGS__); } while (0)
+/* The app's persistent log (halopad_log.c); weak so single-file harnesses link without it. */
+__attribute__((weak)) void halopad_log(const char *fmt, ...);
 __attribute__((noreturn, format(printf, 2, 3)))
 static inline void hp_unsupported(const char *service, const char *fmt, ...)
 {
@@ -31,6 +33,13 @@ static inline void hp_unsupported(const char *service, const char *fmt, ...)
     vfprintf(stderr, fmt, ap);
     __builtin_va_end(ap);
     fprintf(stderr, " is not supported by the runtime yet\n");
+    if (halopad_log) {
+        char what[256];
+        __builtin_va_start(ap, fmt);
+        vsnprintf(what, sizeof what, fmt, ap);
+        __builtin_va_end(ap);
+        halopad_log("CRASH: %s: %s is not supported by the runtime yet", service, what);
+    }
     halopad_trace_guest_stack();
     abort();
 }

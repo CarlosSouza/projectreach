@@ -16,6 +16,7 @@
  * (halopad_d3d9_ff.c). States outside this set stop with a message naming them. */
 #include "halopad_win32.h"
 #include "halopad_d3d9_internal.h"
+#include "halopad_log.h"
 int halopad_metal_supports_bc(void);
 #include "../apple/halopad_metal.h"
 int halopad_d3d9_tracing(void);
@@ -105,10 +106,19 @@ static const char *ps_source(res *ps, const hp_shader_key *key)
 {
     for (uint32_t i = 0; i < ps->nvariant; i++)
         if (!memcmp(ps->variant[i].key, key, sizeof *key)) return ps->variant[i].msl;
-    if (ps->nvariant == 8) hp_unsupported("draw", "more than 8 sampler configurations for one pixel shader");
     char err[256];
     char *msl = halopad_shader_to_msl(ps->tokens, ps->count, key, err, sizeof err);
     if (!msl) hp_unsupported("draw", "pixel shader: %s", err);
+    /* Halo reuses one pixel shader with many texture/sampler setups (heavier maps,
+       weapons and effects exceed eight); keep every configuration it asks for. */
+    if (ps->nvariant == ps->cap_variant) {
+        uint32_t cap = ps->cap_variant ? ps->cap_variant * 2 : 8;
+        struct hp_ps_variant *grown = realloc(ps->variant, cap * sizeof *grown);
+        if (!grown) hp_unsupported("draw", "out of memory for %u pixel shader configurations", cap);
+        ps->variant = grown;
+        ps->cap_variant = cap;
+        if (cap > 8) HP_LOG("Direct3D: a pixel shader now has %u sampler configurations", ps->nvariant + 1);
+    }
     memcpy(ps->variant[ps->nvariant].key, key, sizeof *key);
     ps->variant[ps->nvariant].msl = msl;
     return ps->variant[ps->nvariant++].msl;
