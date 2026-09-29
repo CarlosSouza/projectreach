@@ -17,7 +17,7 @@ Work the lowest useful unblocked item. Keep independent Simulator, signing, sour
 
 1. In Apple Developer, create/check the App ID `dev.halopad.HaloPad` on certificate team `VKDH2T9UTF`, enable Extended Virtual Addressing and Increased Memory Limit, and create a device development profile. Before use, decode the downloaded profile and check App ID, team, certificate, device UDID, expiry, and both entitlements. Never place keys or the profile in Git.
 2. While the iPad is absent, retain the verified kit and profile locally. Once it is connected and trusted, inspect the existing bundle/container, preserve `Documents` and `Library`, and install in place using `scripts/install-device.sh --app ... --package ...`. Read back app identity, installed package, and container state. Do not uninstall/reset to make installation work.
-3. On iPad, import through the actual Files picker and reach the main menu. Record the launch log, import result, crash/memory outcome, and screenshot. If the 4 GiB guest reservation fails, capture the exact OS denial before changing code. An iPhone 14 run follows the same preservation steps when that device is explicitly in scope.
+3. With the iPhone 14 now connected and explicitly in scope, install and import through its actual Files picker, then reach the main menu. Record the launch log, import result, crash/memory outcome, and screenshot. If the 4 GiB guest reservation fails, capture the exact OS denial before changing code. Repeat the same preservation and acceptance path on the iPad when it is physically present.
 
 **Pass:** signed bundle's entitlements and profile match; installed app launches, imports the matching package, and reaches the menu on the named physical device without losing prior data. A successful `devicectl install` alone is not a pass.
 
@@ -57,9 +57,9 @@ Rebuild from accepted original inputs, run targeted native/package/input tests, 
 ## Immediate next actions on this Mac
 
 1. Finish the Simulator phone/tablet walkthrough and save evidence without touching the original kit or an existing player's data.
-2. Prepare the cached development profile as soon as the Apple Developer account is signed in; the portal currently waits at Apple authentication. Verify the profile locally before any install.
+2. The explicit App ID, memory capabilities, and cached iPhone 14 development profile are ready and locally verified. The supplied handoff app and package are installed on the phone; finish Files import and physical UI acceptance before claiming D1.
 3. Fix the reproduced Leave Game issue in source, then verify it on a rebuilt matching app when the private 1.10 inputs are available. In parallel, prepare the original app icon source and build wiring.
-4. When the iPad arrives, preserve state and execute D1, D2, and D3. Collect baseline performance evidence; reserve the iPhone 14 conclusion for an actual iPhone 14 run.
+4. Once signing is ready, execute D1, D2, and D3 on the connected physical iPhone 14 and collect its performance baseline. Repeat on iPad when it arrives; a paired Device Hub record alone does not establish physical presence.
 
 ## Suggested `/goal` objective
 

@@ -2781,8 +2781,37 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
 - With that profile, touch navigation reached **Multiplayer → Create Game → LAN
   → Battle Creek → Slayer → Server Setup**. Start Game has not yet produced an
   observed phone match, so gameplay controls remain pending in this run.
-- `devicectl` and Device Hub now show Chris's physical iPad Pro as paired and
-  available. A read-only installed-app query failed before listing anything:
-  CoreDevice could not mount its developer disk image because the iPad was
-  locked. No app or device data was changed. Apple Developer remains at the
-  initial sign-in form; none of the five cached profiles is HaloPad's.
+- `devicectl` and Device Hub exposed an iPad Pro paired record, and a read-only
+  installed-app query failed when CoreDevice said that record's device was
+  locked. Chris clarified that **no physical iPad is connected**; the record
+  must not be treated as an attached test device. Only the iPhone 14 is
+  connected. Its read-only app inventory lists no `dev.halopad.HaloPad`, so
+  there is no existing HaloPad container to back up before its first install.
+  No device data was changed at that point. Apple Developer was at the initial
+  sign-in form; none of the previously cached profiles was HaloPad's.
+- The iPhone 14's CoreDevice details confirm a wired physical connection,
+  iOS 26.6.2, and Developer Mode enabled. The hardware setup and app-container
+  preservation gate were ready before installation.
+- Chris signed into Apple Developer team `VKDH2T9UTF`. Registered explicit
+  `dev.halopad.HaloPad` with Extended Virtual Addressing and Increased Memory
+  Limit, then generated development profile `HaloPad iPhone 14 Development EVA
+  Memory` for the connected iPhone. The portal's two devices were both named
+  “Chris’ iPad Pro”; device detail confirmed record `53A6ZZG335` is actually
+  UDID `00008110-001C2C641123A01E`, model iPhone 14. Corrected that portal
+  label to “Chris's iPhone 14”. Three local Mac development certificates are
+  in the profile; the AltStore certificate is excluded.
+- Brave blocked the portal download endpoint. A minimal ignored Xcode project
+  in `ref/profile-fetch/` requested this exact manual profile with
+  `-allowProvisioningUpdates`; Xcode fetched it into its standard profile
+  cache. UUID `765efc99-dab7-49e0-b386-d847cc001315`; expires 2027-09-29.
+  `scripts/device_profile.py` passed exact App ID, development, certificate
+  `0D9207CDF3FA18B08D7B4EA62C7879BEB958185F`, iPhone UDID, expiry, and
+  both kernel memory entitlements. The temporary Xcode probe built; it was
+  never installed.
+- `scripts/install-device.sh --app ... --package ... --device
+  00008110-001C2C641123A01E` signed a copy of the supplied handoff app,
+  installed `dev.halopad.HaloPad`, and copied the 173.4 MB package to its
+  Documents. The original kit was not modified. `devicectl` launched the
+  physical app. QuickTime wired capture showed the package import screen
+  behind an iOS headphones prompt. Import, menu, touch, online, and phone
+  performance acceptance remain open.
