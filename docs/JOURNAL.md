@@ -2993,3 +2993,9 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   describes the physical iPad checkpoint, controller restart requirement and
   planned PadForge personal-build path. Project Reach remains the repo name,
   HaloPad the app name; public release and PadForge support are still gated.
+- Added a draft `padforge.json` with iOS on Apple Silicon Mac explicitly
+  `planned`, no runnable backend, no advertised player target and no public
+  binary. PadForge's `check-manifest` accepts it. The next gate is an
+  independently reproducible build from the player's verified Custom Edition
+  installation, including a public input verifier, dependency bootstrap and
+  ignored output audit. The existing signed development build is not that path.

@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "id": "halopad",
+  "name": "HaloPad",
+  "game": "Halo: Custom Edition 1.10 (PC)",
+  "kind": "disc-translation",
+  "status": "draft-untested",
+  "inputs": [
+    {
+      "type": "pc-game-install",
+      "formats": [],
+      "when": "build",
+      "description": "Your own Halo Custom Edition 1.10 installation. A public input verifier and packaging format are still being defined."
+    }
+  ],
+  "targets": {
+    "ios": {
+      "hosts": {"macos-arm64": "planned"},
+      "output": "ipa",
+      "check": "ipa"
+    }
+  },
+  "requirements": {
+    "disk_gb": 25,
+    "tools": [
+      {"name": "python3", "version_args": ["--version"]},
+      {"name": "xcodebuild", "version_args": ["-version"]}
+    ]
+  },
+  "publication": {
+    "public_binaries": false,
+    "reason": "Personal builds contain translated game code and may contain the player's game files."
+  }
+}

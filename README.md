@@ -73,8 +73,8 @@ A self-service personal IPA build through
 [PadForge](https://github.com/chrissotraidis/padforge) is planned. PadForge runs
 each game's own builder against the player's verified game copy locally; game
 files, translated code, signing material, and personal outputs stay on their
-Mac. Project Reach does not yet declare a PadForge manifest or offer a supported
-one-command player build.
+Mac. Project Reach has a [draft manifest](padforge.json) that marks iOS as
+planned. It does not yet offer a supported one-command player build.
 
 The app icon is built from [HaloPadIcon.svg](assets/HaloPadIcon.svg) and the checked-in
 asset catalog. A revised original mark is in source; device appearance awaits the next
