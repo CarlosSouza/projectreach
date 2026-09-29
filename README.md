@@ -91,8 +91,9 @@ identity; [the install guide](docs/INSTALL-IPHONE.md) explains the device path.
 
 **Why does resolution say 800 × 600?** That is Halo's internal rendering resolution.
 The original 4:3 presentation keeps geometry correct on iPhone. The app's Fill option
-stretches it. Halo lists 1280 × 720, but applying that mode exits the current iPhone 14
-build to the Home Screen; it recovers on relaunch. True, undistorted widescreen is open.
+stretches it. Halo lists 1280 × 720. The latest iPhone 14 development build reaches
+Halo's widescreen confirmation dialog, but the mode has not stayed selected after
+the dialog. True, undistorted widescreen remains unverified.
 
 ## Project map
 

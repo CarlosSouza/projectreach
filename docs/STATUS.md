@@ -19,10 +19,13 @@ controller acceptance still need hands-on testing.
 At 800 × 600, a stationary Battle Creek scene displayed about 30 FPS. A 30-second
 Time Profiler trace had 9,791 CPU-sample ms, with `halopad_lookup` at 2,698 ms
 and thread-yield/Sleep at 2,234 ms. This is a static view, not a sustained
-gameplay or loading baseline. Selecting Halo's 1280 × 720 mode on this physical
-build exited to Home Screen even after a missing `SwitchToThread` import was
-implemented; the app relaunched at the main menu. Use Original 4:3 presentation
-for now; Fill stretches the image. No physical iPad is connected. Its
+gameplay or loading baseline. The first 1280 × 720 attempt exposed a stale
+generated VA runtime import, then unsupported Windows language-bar COM creation
+and an unissued D3D9 query. After rebuilding and fixing those calls, the latest
+physical iPhone build reached Halo's widescreen confirmation dialog and rendered
+a wider scene. The setting returned to 800 × 600 after the dialog; confirmation
+timing, persistence, pointer mapping, and sustained play remain unverified. Use
+Original 4:3 presentation for now; Fill stretches the image. No physical iPad is connected. Its
 development profile must include its actual UDID before installation. The
 public README is prepared as a truthful draft; no public IPA or rights clearance
 is claimed. No live public match is part of the current testing scope.

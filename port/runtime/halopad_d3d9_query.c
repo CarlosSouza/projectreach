@@ -94,7 +94,10 @@ uint32_t hpcom_IDirect3DQuery9_GetData_c(uint32_t g, uint32_t data, uint32_t siz
     query *q = Q(g);
     if (flags & ~1u) return D3DERR_INVALIDCALL;                     /* D3DGETDATA_FLUSH */
     if (q->state == Q_BUILDING) return D3DERR_INVALIDCALL;
-    if (q->state == Q_NEW) hp_unsupported("IDirect3DQuery9::GetData", "a query that was never issued");
+    /* During a video reset Halo polls an old/new occlusion slot before Issue.
+       Report an invalid query state without touching its sample count; Halo's
+       caller initializes that count to all-visible before polling. */
+    if (q->state == Q_NEW) return D3DERR_INVALIDCALL;
     if (data && size < 4) return D3DERR_INVALIDCALL;
     uint64_t n = q->state == Q_EMPTY ? 0 : halopad_metal_visibility_read(dev(q->device)->target, q->first, q->last, q->gen);
     q->gen = 0;                                                     /* read once submitted */

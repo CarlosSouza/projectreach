@@ -91,8 +91,9 @@ outside this test.
 
 The verified internal mode is 800 × 600 at 30 FPS. The app's Original aspect
 setting preserves 4:3 geometry with side bars on iPhone. Fill stretches the
-image and distorts it. Halo lists 1280 × 720, but applying that mode on the
-physical iPhone 14 currently exits the app; do not select it for normal play.
+image and distorts it. Halo lists 1280 × 720. The latest physical iPhone 14
+build reaches its widescreen confirmation dialog, but the mode has not stayed
+selected afterward; keep 800 × 600 for normal play.
 The iPhone player reported slow loading and gameplay. A static Battle Creek
 view showed about 30 FPS, but that does not establish sustained playability.
 Physical finger feel, controller behavior and the iPad result remain open.

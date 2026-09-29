@@ -27,6 +27,7 @@ uint32_t LocalFree_c(uint32_t a);
 #define E_NOINTERFACE 0x80004002u
 #define CO_E_NOTINITIALIZED 0x800401F0u
 #define CLASS_E_NOAGGREGATION 0x80040110u
+#define REGDB_E_CLASSNOTREG 0x80040154u
 
 /* The HaloPad audio output's device GUID (dsound GetDeviceID, DxDiag szGuidDeviceID). */
 const uint8_t halopad_audio_guid[16] = {0xA2, 0xC3, 0xF4, 0xB6, 0x1D, 0x9E, 0x57, 0x4F, 0x8A, 0x61, 0x48, 0x41, 0x4C, 0x4F, 0x50, 0x41};
@@ -289,6 +290,10 @@ uint32_t CoCreateInstance_c(uint32_t clsid, uint32_t outer, uint32_t ctx, uint32
     uint32_t hr;
     if (inproc_server(clsid, outer, iid, out, &hr)) return hr;
     if (outer) return CLASS_E_NOAGGREGATION;
+    /* Halo asks for Windows' Text Services Framework language bar while resetting
+       video mode. iOS has no registered TSF server; let Halo handle the normal
+       COM failure and keep the output pointer NULL. */
+    if (guid_is(clsid, "{EBB08C45-6C4A-4FDC-AE53-4EB8C4C7DB8E}")) return REGDB_E_CLASSNOTREG;
     if (halopad_urlmon_create(clsid, iid, out, &hr)) return hr;
     if (guid_is(clsid, "{A65B8071-3BFE-4213-9A5B-491DA4461CA7}")) {                    /* CLSID_DxDiagProvider */
         if (!guid_is(iid, "{9C6B4CB0-23F8-49CC-A3ED-45A55000A6D2}")) return E_NOINTERFACE;

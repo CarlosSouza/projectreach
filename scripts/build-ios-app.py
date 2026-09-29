@@ -152,6 +152,13 @@ def main():
     if a.iphoneos and a.profile:
         check_device_profile(a.profile, BUNDLE_ID, a.identity)
     work = (a.work or max(run_core.PROFILE.glob('run-*/va/haloce.va.ll'), key=lambda p: p.stat().st_mtime).parent.parent).resolve()
+    # The Apple link consumes generated VA runtime IR, not the llasm source directly.
+    # A stale VA run can silently link an old missing-import trap into a new app.
+    stale = [src.name for src in (ROOT / 'port' / 'llasm-runtime').glob('*.llasm')
+             if not (work / 'va' / f'{src.stem}.ll').exists()
+             or (work / 'va' / f'{src.stem}.ll').stat().st_mtime < src.stat().st_mtime]
+    if stale:
+        ap.error(f'VA runtime is stale ({", ".join(sorted(stale))}); rerun scripts/va-model.py --work {work} --llasm <built-llasm> before building')
     extra = [ROOT / 'port' / 'ios' / name for name in ('HaloPadOverlay.m', 'HaloPadImport.m', 'HaloPadPackage.m', 'HaloPadDataIdentity.m')] + ([a.scene.resolve()] if a.scene else [])
     target = DEVICE_TARGET if a.iphoneos else TARGET
     exe, _ = run_core.build(work, target, ROOT / 'port' / 'ios' / 'HaloPadApp.m', extra=extra)

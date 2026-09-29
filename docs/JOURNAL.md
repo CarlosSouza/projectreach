@@ -2902,3 +2902,35 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   iPad needs its own UDID in the development profile, container backup, in-place
   install of the matching app/package, and physical gameplay checks. Updated
   the public-facing README with the current limits. No public release was made.
+
+## 2026-09-29 — physical iPhone resolution reset diagnosis
+
+- The source `SwitchToThread` implementation was absent from the generated VA
+  runtime IR consumed by the earlier phone build. Regenerated the VA runtime
+  from `port/llasm-runtime/`, rebuilt and signed the app, and added a build
+  preflight that rejects missing or stale generated runtime IR. Disassembly of
+  the new device binary showed the actual `SwitchToThread_c` call.
+- The next physical 1280 × 720 attempt trapped on Windows Text Services
+  Framework's language-bar CLSID. Returning the ordinary COM
+  `REGDB_E_CLASSNOTREG` with a null output pointer let Halo continue. The next
+  attempt trapped on `IDirect3DQuery9::GetData` before `Issue`; returning
+  `D3DERR_INVALIDCALL` without altering Halo's initialized sample count let
+  the reset proceed. Added focused native regression cases. The iPad Simulator
+  OLE suite passed with zero failures; D3D9 passed 231 checks, zero failures.
+- After an in-place install on the physical iPhone 14, Halo displayed its
+  **Video settings changed** confirmation over a 16:9 game image at about
+  30 FPS. The mode subsequently read 800 × 600 again. The app relaunched to
+  the main menu without lost profile or imported game data. The confirmation
+  may have timed out, or pointer mapping/settings persistence may be wrong;
+  sustained widescreen play is not yet accepted. Keep 800 × 600 Original aspect
+  for normal use until the confirmation path is rechecked.
+- Backed up the existing phone container before each in-place install under
+  ignored `docs/artifacts/2026-09-29/G11/`, including
+  `iphone14-pre-query-fix-backup/`; the data container retained the `TouchQA`
+  profile and imported game. The latest signed app and its matching private
+  87-file package are local build artifacts. No public game was joined. The
+  physical iPad remains a paired but disconnected record, so its profile,
+  install, controller, gameplay, and video checks await connection.
+- The static Battle Creek Time Profiler trace identifies guest dispatch and
+  thread yielding as candidates, but there is still no measured cause for
+  map-loading stalls or a demonstrated sustained iPhone performance gain.

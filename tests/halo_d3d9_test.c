@@ -569,6 +569,9 @@ int main(void)
         check("query: CreateQuery(OCCLUSION, NULL) support check", method(device, CreateQuery, 2, (uint32_t[]){9, 0}), 0);
         check("query: CreateQuery(OCCLUSION)", method(device, CreateQuery, 2, (uint32_t[]){9, pq}), 0);
         uint32_t oq = rd(pq);
+        *(uint32_t *)halopad_guest_ptr(qd) = 0xFFFFFFFFu;
+        check("query: GetData before Issue is invalid", method(oq, QGetData, 3, (uint32_t[]){qd, 4, 1}), 0x8876086C);
+        check("  unissued query preserves conservative sample count", rd(qd), 0xFFFFFFFFu);
         check("  GetType 9, GetDataSize 4", method(oq, QGetType, 0, NULL) == 9 && method(oq, QGetDataSize, 0, NULL) == 4, 1);
         struct { float x, y, z, rhw; uint32_t c; } sq[4] = {
             {99.5f, 99.5f, 0.5f, 1, 0xFFFFFFFF}, {115.5f, 99.5f, 0.5f, 1, 0xFFFFFFFF}, {99.5f, 115.5f, 0.5f, 1, 0xFFFFFFFF}, {115.5f, 115.5f, 0.5f, 1, 0xFFFFFFFF}};

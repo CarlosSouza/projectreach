@@ -96,6 +96,10 @@ int main(void)
     check("CoCreateInstance before CoInitialize: CO_E_NOTINITIALIZED", C(ole, "CoCreateInstance", clsid, 0, 1, iid, pobj), 0x800401F0);
     check("CoInitialize(NULL)", C(ole, "CoInitialize", 0), 0);
     check("  again: S_FALSE", C(ole, "CoInitialize", 0), 1);
+    uint32_t langbar = guid("458cb0eb4a6cdc4fae534eb8c4c7db8e");
+    check("CoCreateInstance(TF_LangBarMgr): class not registered",
+          C(ole, "CoCreateInstance", langbar, 0, 1, iid, pobj), 0x80040154);
+    check("  failed COM creation clears output", rd(pobj), 0);
     check("CoCreateInstance(CLSID_DxDiagProvider, IID_IDxDiagProvider)", C(ole, "CoCreateInstance", clsid, 0, 1, iid, pobj), 0);
     uint32_t prov = rd(pobj);
     uint32_t params = halopad_heap_alloc(16, 1);
