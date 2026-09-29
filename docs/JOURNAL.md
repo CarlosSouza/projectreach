@@ -2712,3 +2712,7 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   inputs and reference-machine files are present. Home Screen appearance on iPhone
   and iPad therefore remains the D5 acceptance gate; no claim is made from the
   raw 1024-pixel preview alone.
+- Device recheck: `devicectl` now lists Chris's physical iPhone 14 as connected;
+  the iPad remains unavailable. Five cached Xcode profiles were decoded; none
+  covers `dev.halopad.HaloPad` or grants both memory entitlements. The Apple
+  Developer tab still shows its sign-in form. No device app was installed.
