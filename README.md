@@ -1,6 +1,6 @@
 # HaloPad
 
-<p align="center"><img src="assets/Assets.xcassets/AppIcon.appiconset/AppIcon.png" alt="HaloPad beacon icon" width="128"></p>
+<p align="center"><img src="assets/Assets.xcassets/AppIcon.appiconset/AppIcon.png" alt="HaloPad icon: a teal orbital arc around an amber star" width="128"></p>
 
 <p align="center">
   <strong>Halo: Custom Edition multiplayer, running natively on iPhone and iPad.</strong><br>
@@ -112,7 +112,8 @@ PadForge runs HaloPad's own builder against your verified game files on your Mac
 translated code and signing material never leave it. HaloPad's [draft manifest](padforge.json) marks
 iOS as planned.
 
-The revised [HaloPad icon](assets/HaloPadIcon.svg) appeared on the physical iPad Home Screen.
+The [HaloPad icon](assets/Assets.xcassets/AppIcon.appiconset/AppIcon.png) is an original orbital-arc design;
+the alternatives considered are in [assets/icon-concepts](assets/icon-concepts).
 
 **An app you build contains code translated from your game: it is yours alone. Never share or upload it.**
 

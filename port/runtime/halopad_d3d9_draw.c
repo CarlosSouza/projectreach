@@ -17,6 +17,7 @@
 #include "halopad_win32.h"
 #include "halopad_d3d9_internal.h"
 #include "halopad_log.h"
+#include <stdarg.h>
 int halopad_metal_supports_bc(void);
 #include "../apple/halopad_metal.h"
 int halopad_d3d9_tracing(void);
@@ -88,16 +89,38 @@ static char *make_ff_ps(const void *k, char *e, size_t n) { return halopad_ff_ps
 static device *dev(uint32_t g) { return halopad_com_state("IDirect3DDevice9", g); }
 static float f32(uint32_t u) { float f; memcpy(&f, &u, 4); return f; }
 
+/* Something Halo (or a custom map) asks for that Metal cannot do exactly. The
+   draw continues with the nearest supported behaviour, or is skipped, instead
+   of stopping the game; each distinct case is logged once. */
+__attribute__((format(printf, 1, 2)))
+static void degraded(const char *fmt, ...)
+{
+    char what[160];
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(what, sizeof what, fmt, ap);
+    va_end(ap);
+    static uint32_t seen[128];
+    static unsigned nseen;
+    uint32_t h = 2166136261u;
+    for (const char *c = what; *c; c++) h = (h ^ (uint8_t)*c) * 16777619u;
+    for (unsigned i = 0; i < nseen; i++) if (seen[i] == h) return;
+    if (nseen < 128) seen[nseen++] = h;
+    HP_LOG("Direct3D: %s (continuing without it)", what);
+}
+
 /* ---- shaders ---- */
 
 static const char *vs_source(res *vs)
 {
-    if (!vs->msl) {
+    if (!vs->msl && !vs->shader_failed) {
         char err[256];
         vs->msl = halopad_shader_to_msl(vs->tokens, vs->count, NULL, err, sizeof err);
-        if (!vs->msl) hp_unsupported("draw", "vertex shader: %s", err);
-        if (halopad_shader_vs_inputs(vs->tokens, vs->count, vs->in_usage, vs->in_index, vs->in_used) < 0)
-            hp_unsupported("draw", "vertex shader input declarations");
+        if (!vs->msl) { vs->shader_failed = 1; degraded("vertex shader not translated (%s); its draws are skipped", err); }
+        else if (halopad_shader_vs_inputs(vs->tokens, vs->count, vs->in_usage, vs->in_index, vs->in_used) < 0) {
+            vs->shader_failed = 1; vs->msl = NULL;
+            degraded("vertex shader input declarations not understood; its draws are skipped");
+        }
     }
     return vs->msl;
 }
@@ -108,7 +131,7 @@ static const char *ps_source(res *ps, const hp_shader_key *key)
         if (!memcmp(ps->variant[i].key, key, sizeof *key)) return ps->variant[i].msl;
     char err[256];
     char *msl = halopad_shader_to_msl(ps->tokens, ps->count, key, err, sizeof err);
-    if (!msl) hp_unsupported("draw", "pixel shader: %s", err);
+    if (!msl) degraded("pixel shader not translated (%s); its draws are skipped", err);   /* remembered as a NULL variant */
     /* Halo reuses one pixel shader with many texture/sampler setups (heavier maps,
        weapons and effects exceed eight); keep every configuration it asks for. */
     if (ps->nvariant == ps->cap_variant) {
@@ -267,6 +290,8 @@ static void dxt_block(uint32_t f, const uint8_t *b, uint8_t out[16][4])
 /* HALOPAD_TRACE_FRAMES counters (reported by halopad_metal_present) */
 double halopad_trace_now(void);
 extern int halopad_trace_decodes;
+extern int halopad_stall_uploads;
+extern double halopad_stall_upload_s;
 extern double halopad_trace_decode_s, halopad_trace_decode_px;
 
 static void dxt_decode(uint32_t f, const uint8_t *src, uint32_t pitch, uint8_t *dst, uint32_t w, uint32_t h)
@@ -294,6 +319,7 @@ static void *upload_texture(res *t)
     if (!t->native) t->native = halopad_metal_texture(type, mtl, t->width, t->height, type == 4 ? t->depth : 1, t->levels, sw);
     for (uint32_t l = 0; l < t->levels; l++) {
         if (!t->dirty[l]) continue;
+        double upload_t0 = halopad_trace_now();
         if (!t->mem[l]) hp_unsupported("draw", "a texture whose contents live only on the GPU (render target or default pool)");
         uint32_t depth = type == 4 ? t->ld[l] : 1, slice = type == 4 ? t->slice[l] : t->size[l];
         for (uint32_t f = 0; f < faces; f++) {
@@ -319,6 +345,7 @@ static void *upload_texture(res *t)
             }
         }
         t->dirty[l] = 0;
+        halopad_stall_uploads++; halopad_stall_upload_s += halopad_trace_now() - upload_t0;
     }
     return t->native;
 }
@@ -329,7 +356,12 @@ static void *sampler(device *d, int s)
     const uint32_t *v = d->ss[s];
     hp_sampler_desc sd = {0};
     uint32_t mag = v[5], min = v[6], mip = v[7];
-    if (mag > 3 || min > 3 || mip > 2) hp_unsupported("draw", "sampler %d filters %u/%u/%u", s, mag, min, mip);
+    if (mag > 3 || min > 3 || mip > 2) {                           /* pyramidal/Gaussian: linear */
+        degraded("sampler filters %u/%u/%u drawn as linear", mag, min, mip);
+        if (mag > 3) mag = 2;
+        if (min > 3) min = 2;
+        if (mip > 2) mip = 2;
+    }
     sd.mag = mag >= 2; sd.min = min >= 2;
     sd.mip = mip == 0 ? 0 : mip == 1 ? 1 : 2;                       /* MTLSamplerMipFilter: NotMipmapped, Nearest, Linear */
     sd.anisotropy = (uint8_t)((min == 3 || mag == 3) ? (v[10] > 16 ? 16 : v[10]) : 1);
@@ -344,13 +376,17 @@ static void *sampler(device *d, int s)
             if (v[4] == 0) sd.border = 0;
             else if (v[4] == 0xFF000000u) sd.border = 1;
             else if (v[4] == 0xFFFFFFFFu) sd.border = 2;
-            else hp_unsupported("draw", "border colour 0x%08x (Metal offers transparent black, opaque black, opaque white)", v[4]);
+            else {                                                  /* Metal offers transparent black, opaque black, opaque white */
+                uint32_t c = v[4], lum = ((c >> 16 & 255) + (c >> 8 & 255) + (c & 255)) / 3;
+                sd.border = (c >> 24) < 128 ? 0 : lum >= 128 ? 2 : 1;
+                degraded("border colour 0x%08x drawn as the nearest Metal border", c);
+            }
             break;
         case 5: *addr[k] = 1; break;                                /* MIRRORONCE: MirrorClampToEdge */
-        default: hp_unsupported("draw", "sampler %d address mode %u", s, v[1 + k]);
+        default: *addr[k] = 2; degraded("sampler address mode %u drawn as wrap", v[1 + k]);
         }
     }
-    if (v[8]) hp_unsupported("draw", "MIPMAPLODBIAS %g", f32(v[8]));
+    if (v[8]) degraded("MIPMAPLODBIAS %g ignored", f32(v[8]));    /* Metal samplers have no LOD bias */
     sd.lod_min = (float)v[9];                                       /* MAXMIPLEVEL: the largest level used */
     return halopad_metal_sampler(&sd);
 }
@@ -360,25 +396,27 @@ static void *sampler(device *d, int s)
 static uint8_t blend_factor(uint32_t b)
 {
     static const uint8_t m[16] = {0, 0, 1, 2, 3, 4, 5, 8, 9, 6, 7, 10, 4, 5, 11, 12};
-    if (b < 1 || b > 15) hp_unsupported("draw", "blend factor %u", b);
+    if (b < 1 || b > 15) { degraded("blend factor %u drawn as ONE", b); return 1; }
     return m[b];
 }
-static uint8_t blend_op(uint32_t o) { if (o < 1 || o > 5) hp_unsupported("draw", "blend op %u", o); return (uint8_t)(o - 1); }
-static uint8_t compare_fn(uint32_t c) { if (c < 1 || c > 8) hp_unsupported("draw", "compare function %u", c); return (uint8_t)(c - 1); }
-static uint8_t stencil_op(uint32_t o) { if (o < 1 || o > 8) hp_unsupported("draw", "stencil op %u", o); return (uint8_t)(o - 1); }
+static uint8_t blend_op(uint32_t o) { if (o < 1 || o > 5) { degraded("blend op %u drawn as ADD", o); return 0; } return (uint8_t)(o - 1); }
+static uint8_t compare_fn(uint32_t c) { if (c < 1 || c > 8) { degraded("compare function %u drawn as ALWAYS", c); return 7; } return (uint8_t)(c - 1); }
+static uint8_t stencil_op(uint32_t o) { if (o < 1 || o > 8) { degraded("stencil op %u drawn as KEEP", o); return 0; } return (uint8_t)(o - 1); }
 
-static void check_states(device *d)
+/* Render states Metal cannot reproduce exactly. Returns 1 when the draw must be skipped. */
+static int check_states(device *d)
 {
     const uint32_t *rs = d->rs;
-    if (rs[8] != 3 && rs[8] != 2) hp_unsupported("draw", "FILLMODE %u", rs[8]);
-    if (rs[152]) hp_unsupported("draw", "user clip planes (0x%x)", rs[152]);
-    if (rs[28] && rs[35]) hp_unsupported("draw", "table (per-pixel) fog mode %u", rs[35]);
-    if (rs[194]) hp_unsupported("draw", "sRGB writes");
-    if (rs[161] != 1 && rs[161] != 0) hp_unsupported("draw", "MULTISAMPLEANTIALIAS %u", rs[161]);
+    if (rs[8] != 3 && rs[8] != 2) degraded("FILLMODE %u drawn solid", rs[8]);
+    if (rs[152]) degraded("user clip planes (0x%x) ignored", rs[152]);
+    if (rs[28] && rs[35]) degraded("table (per-pixel) fog mode %u ignored", rs[35]);
+    if (rs[194]) degraded("sRGB writes ignored");
+    if (rs[161] != 1 && rs[161] != 0) degraded("MULTISAMPLEANTIALIAS %u ignored", rs[161]);
     /* POINTSPRITEENABLE/POINTSCALEENABLE affect only point lists (refused in draw);
        Halo's state reset turns sprites on for every draw (0x519bf9). */
-    if (rs[174]) hp_unsupported("draw", "scissor test");
-    if (rs[167] || rs[151]) hp_unsupported("draw", "vertex blending in fixed function");
+    if (rs[174]) degraded("scissor test ignored");
+    if ((rs[167] || rs[151]) && !d->vs) { degraded("fixed-function vertex blending: those draws are skipped"); return 1; }
+    return 0;
 }
 
 /* ---- the draw ---- */
@@ -405,7 +443,7 @@ static uint32_t draw(device *d, uint32_t type, uint32_t prims, uint32_t start, i
 {
     if (!d->in_scene) return D3DERR_INVALIDCALL;
     if (type < 1 || type > 6 || !prims) return D3DERR_INVALIDCALL;
-    if (type == 1) hp_unsupported("draw", "point lists (point size, sprites 0x%x, scale 0x%x)", d->rs[156], d->rs[157]);
+    if (type == 1) { degraded("point lists: those draws are skipped"); return D3D_OK; }
     if (halopad_d3d9_tracing()) {
         static uint32_t n, last_frame;
         if (last_frame != halopad_d3d9_frame) { last_frame = halopad_d3d9_frame; n = 0; }
@@ -434,7 +472,11 @@ static uint32_t draw(device *d, uint32_t type, uint32_t prims, uint32_t start, i
         if (d->ps && getenv("HALOPAD_TRACE_DRAWS_CONSTS"))
             for (int c = 0; c < 8; c++) fprintf(stderr, "HALOPAD DRAW   ps c%d = %g %g %g %g\n", c, d->psf[c][0], d->psf[c][1], d->psf[c][2], d->psf[c][3]);
     }
-    check_states(d);
+    if (check_states(d)) return D3D_OK;
+    /* A shader Metal cannot use skips its draw (checked before binding targets). */
+    res *vs_early = d->vs ? halopad_com_state("IDirect3DVertexShader9", d->vs) : NULL;
+    if (vs_early && !vs_source(vs_early)) return D3D_OK;
+    if (!d->decl && !d->fvf) { degraded("a draw with no vertex declaration or FVF is skipped"); return D3D_OK; }
     hp_bound bound = halopad_d3d9_bind_targets(d);
     hp_pipeline_desc pd;
     memset(&pd, 0, sizeof pd);
@@ -457,6 +499,7 @@ static uint32_t draw(device *d, uint32_t type, uint32_t prims, uint32_t start, i
     res *ps = d->ps ? halopad_com_state("IDirect3DPixelShader9", d->ps) : NULL;
     if (ps) {
         pd.ps_msl = ps_source(ps, &key);
+        if (!pd.ps_msl) return D3D_OK;
     } else {
         hp_ff_ps_key fk;
         halopad_ff_ps_key(d, tex_dim, &fk);
@@ -468,8 +511,7 @@ static uint32_t draw(device *d, uint32_t type, uint32_t prims, uint32_t start, i
     int ne;
     uint32_t fvf_stride = 0;
     if (d->decl) ne = decl_elements(halopad_com_state("IDirect3DVertexDeclaration9", d->decl), e);
-    else if (d->fvf) ne = fvf_elements(d->fvf, e, &fvf_stride);
-    else hp_unsupported("draw", "no vertex declaration or FVF");
+    else ne = fvf_elements(d->fvf, e, &fvf_stride);
     res *vs = d->vs ? halopad_com_state("IDirect3DVertexShader9", d->vs) : NULL;
     uint8_t in_usage[16], in_index[16], in_used[16];
     hp_ff_vs_key fvk;
@@ -490,9 +532,12 @@ static uint32_t draw(device *d, uint32_t type, uint32_t prims, uint32_t start, i
         if (found < 0) { pd.constant_regs |= 1u << r; continue; }
         pd.attr[pd.nattr++] = (hp_vattr){e[found].stream, metal_vertex_format(e[found].type), (uint8_t)r, 0, e[found].offset};
         uint32_t st = e[found].stream;
-        if (up) { if (st) hp_unsupported("draw", "a *UP draw using stream %u", st); pd.stride[0] = up_stride; }
+        if (up) {
+            if (st) { degraded("a *UP draw using stream %u is skipped", st); return D3D_OK; }
+            pd.stride[0] = up_stride;
+        }
         else {
-            if (!d->stream[st]) hp_unsupported("draw", "no vertex buffer on stream %u", st);
+            if (!d->stream[st]) { degraded("a draw with no vertex buffer on stream %u is skipped", st); return D3D_OK; }
             pd.stride[st] = d->stream_stride[st];
             if (!dd.vbuf[st]) {
                 dd.vbuf[st] = upload_buffer(halopad_com_state("IDirect3DVertexBuffer9", d->stream[st]));
@@ -524,7 +569,10 @@ static uint32_t draw(device *d, uint32_t type, uint32_t prims, uint32_t start, i
     pd.color_format = bound.mtl;
     char err[512];
     dd.pipeline = halopad_metal_pipeline(&pd, err, sizeof err);
-    if (!dd.pipeline) hp_unsupported("draw", "Metal pipeline: %s", err);
+    if (!dd.pipeline) {
+        if (strcmp(err, "pending")) degraded("Metal rejected a pipeline (%s); those draws are skipped", err);
+        return D3D_OK;                                              /* pending: its shaders compile in the background */
+    }
     if (pd.depth) {
         hp_depth_desc ds;
         memset(&ds, 0, sizeof ds);

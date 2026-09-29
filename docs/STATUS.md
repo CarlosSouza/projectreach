@@ -6,6 +6,14 @@ Operating loop: [HaloPad-GOAL-LOOP-PHASE3.md](HaloPad-GOAL-LOOP-PHASE3.md). Earl
 
 ## Latest physical-device result
 
+**Icon, stability and loading (2026-09-30).** New orbital-arc app icon (Chris's
+pick). Renderer traps other than unknown texture formats now degrade and log
+once instead of crashing. Shaders and pipelines compile in the background and
+are remembered for the next launch; the worst map-load frame on the physical iPad
+was 349 ms. A console-hosted benchmark hit Halo's "Your CD Key is invalid"
+hosting check (the development scene has no installer-written product ID), so it
+was withdrawn and its steady-state numbers are not claimed.
+
 **Public-build pass (2026-09-29, midnight).** The repository is public.
 `scripts/install-device.sh` now builds the tested `tests/halo_app_scene.c` and
 no longer fails under macOS's stock bash when `--work` is omitted. The

@@ -3179,3 +3179,46 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
 - Note for the public history: the Sept 28 journal commit 373cc86 still
   contains the first five characters of the supplied product key; the current
   tree is redacted. Removing it from history needs an explicit rewrite decision.
+
+## 2026-09-30 — icon, renderer fallbacks, background shader compiles, CD-key dialog
+
+- Icon: generated four original concepts with the image tool (orbital arc,
+  hex shield v1/v2, d-pad star; none uses Halo's logo, helmets or text), kept in
+  `assets/icon-concepts/`. Chris chose the orbital arc. It is cropped in for
+  small sizes and installed as `AppIcon.png`; a masked preview stayed legible at
+  40 px. README references updated. Staged in signed candidates, not yet installed.
+- Stability: every Direct3D renderer trap except unsupported texture formats now
+  degrades instead of aborting, each distinct case logged once: unusual sampler
+  filters (linear), border colours (nearest Metal border), address modes (wrap),
+  LOD bias, clip planes, table fog, sRGB writes, MSAA state and scissor (ignored),
+  out-of-range blend/compare/stencil values (safe defaults), and point lists,
+  fixed-function vertex blending, untranslatable shaders, missing streams and
+  Metal-rejected pipelines (draw skipped). Rejected pipelines are remembered so
+  they are never recompiled per draw.
+- Performance: in the app, new shader libraries and render pipelines compile on
+  a background queue (three at a time) and only their draws wait a frame or two;
+  every compiled library is saved to `Caches/HaloPad/shaders` and precompiled at
+  the next launch. `HALOPAD_SYNC_SHADERS=1` restores synchronous compiles; tests
+  stay synchronous. Frame-stall log lines now include pipeline and texture-upload
+  time. Measured at map load in the iPad Air Simulator: the worst Blood Gulch
+  frame went from 1,720 ms (37 synchronous shader compiles) to 799 ms (57 in the
+  background) to 381 ms with warm-up (88 remembered libraries); on the physical
+  iPad the worst load frame was 349 ms with 56 shaders compiled in the
+  background. Remaining load stalls are texture uploads and Halo's own loading.
+- Benchmark withdrawn: a development benchmark hosted maps through Halo's
+  console (`sv_map`). On both the Simulator and the iPad every hosted map
+  returned to the front end within about a second, and on the iPad Halo showed
+  "Your CD Key is invalid." Hosting runs Halo's CD-key check against the key
+  string HaloPad's development scene reads from Halo's own 0x5829e0, which is
+  empty without an installer-written `DigitalProductID`. The steady-state FPS
+  figures from those runs therefore describe the front end, not gameplay, and
+  are not claimed. The benchmark code was removed; HaloPad was relaunched on the
+  iPad without it. Menu-hosted LAN games and online joins had worked before
+  without this dialog. A valid key typed by the player is not a substitute:
+  Halo reads the installer-written product ID, and HaloPad does not generate one.
+- Tests: D3D9 and DirectInput iPad Air Simulator suites 0 failures
+  (`G3/core-arm64-apple-ios17.0-simulator-20260929T233416Z`, `…T233434Z`);
+  overlay 0 failures (`G9/overlay-20260929T233434Z`). The iPad was backed up
+  to ignored `generated/device-backups/ipad-20260930-pre-async-shaders/` before
+  installing the background-compile build; signed icon builds for iPad and
+  iPhone are staged under `generated/device-candidates/*-20260930-icon-async/`.

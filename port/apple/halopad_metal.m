@@ -8,6 +8,8 @@
  * depth/stencil buffer is Depth32Float_Stencil8. Present copies the back buffer into the
  * window's drawable through the window's gamma table. */
 #import "halopad_host.h"
+#import <CommonCrypto/CommonDigest.h>
+#include <os/lock.h>
 #include <stdint.h>
 #include "halopad_metal.h"
 #include "../runtime/halopad_input.h"
@@ -232,7 +234,11 @@ static int trace_libs, trace_pipes;
 static double trace_lib_s, trace_pipe_s;
 static int stall_libs;                              /* the always-on stall log: since the last present */
 static double stall_lib_s;
+static int stall_pipes;
+static double stall_pipe_s;
 int halopad_trace_decodes;                          /* DXT decodes on upload (halopad_d3d9_draw.c) */
+int halopad_stall_uploads;                          /* texture levels uploaded, and their time (halopad_d3d9_draw.c) */
+double halopad_stall_upload_s;
 double halopad_trace_decode_s, halopad_trace_decode_px;
 double halopad_trace_now(void) { return CFAbsoluteTimeGetCurrent(); }
 static void arena_reset(void);                       /* the transient arena, below */
@@ -250,9 +256,12 @@ int halopad_metal_present(void *p)
         static double previous;
         double now = CFAbsoluteTimeGetCurrent();
         if (previous && now - previous > 0.3)
-            HP_LOG("Frame stall: %.0f ms; %d shaders compiled (%.0f ms)%s", (now - previous) * 1000, stall_libs, stall_lib_s * 1000,
+            HP_LOG("Frame stall: %.0f ms; %d shaders compiled (%.0f ms), %d pipelines (%.0f ms), %d texture uploads (%.0f ms)%s",
+                   (now - previous) * 1000, stall_libs, stall_lib_s * 1000, stall_pipes, stall_pipe_s * 1000,
+                   halopad_stall_uploads, halopad_stall_upload_s * 1000,
                    now - previous > 5 ? " (the app may have been in the background)" : "");
-        previous = now; stall_libs = 0; stall_lib_s = 0;
+        previous = now; stall_libs = 0; stall_lib_s = 0; stall_pipes = 0; stall_pipe_s = 0;
+        halopad_stall_uploads = 0; halopad_stall_upload_s = 0;
     }
     if (trace) {
         double now = CFAbsoluteTimeGetCurrent();
@@ -323,38 +332,145 @@ static NSData *key_of(const void *p, size_t n, const char *a, const char *b)
     return k;
 }
 
-static id<MTLFunction> function(const char *src, NSString *name, char *err, uint32_t errlen)
+/* Shader libraries. Tests compile synchronously. The app (halopad_metal_async_shaders)
+   compiles a new library on a background queue and its draws are skipped until it is
+   ready, so a first-seen effect costs a frame or two of pop-in instead of a freeze. Every
+   library it compiles is remembered in Caches/HaloPad/shaders and compiled again in the
+   background at the next launch, before Halo needs it. */
+int halopad_metal_async_shaders;
+static NSMutableSet *pending_sources, *failed_sources;
+static os_unfair_lock library_lock = OS_UNFAIR_LOCK_INIT;
+static dispatch_queue_t compile_queue;
+static dispatch_semaphore_t compile_slots;
+
+static void ensure_compile_queue(void)
 {
-    if (!libraries) libraries = [NSMutableDictionary new];
-    NSString *s = [NSString stringWithUTF8String:src];
-    id<MTLLibrary> lib = libraries[s];
-    if (!lib) {
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        compile_queue = dispatch_queue_create("HaloPad shader compiles", DISPATCH_QUEUE_CONCURRENT);
+        compile_slots = dispatch_semaphore_create(3);           /* leave cores for Halo's thread */
+    });
+}
+static NSString *shader_cache_dir(void)
+{
+    static NSString *dir;
+    if (!dir) {
+        NSString *caches = NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES).firstObject;
+        dir = [caches stringByAppendingPathComponent:@"HaloPad/shaders"];
+        [NSFileManager.defaultManager createDirectoryAtPath:dir withIntermediateDirectories:YES attributes:nil error:nil];
+    }
+    return dir;
+}
+static void remember_source(NSString *s)
+{
+    NSData *bytes = [s dataUsingEncoding:NSUTF8StringEncoding];
+    uint8_t md[CC_SHA256_DIGEST_LENGTH];
+    CC_SHA256(bytes.bytes, (CC_LONG)bytes.length, md);
+    NSMutableString *name = [NSMutableString string];
+    for (int i = 0; i < 12; i++) [name appendFormat:@"%02x", md[i]];
+    NSString *path = [[shader_cache_dir() stringByAppendingPathComponent:name] stringByAppendingPathExtension:@"metal"];
+    if (![NSFileManager.defaultManager fileExistsAtPath:path]) [bytes writeToFile:path atomically:YES];
+}
+static void compile_in_background(NSString *s, BOOL remember)
+{
+    os_unfair_lock_lock(&library_lock);
+    if (!pending_sources) { pending_sources = [NSMutableSet new]; failed_sources = [NSMutableSet new]; }
+    BOOL skip = libraries[s] || [pending_sources containsObject:s] || [failed_sources containsObject:s];
+    if (!skip) [pending_sources addObject:s];
+    os_unfair_lock_unlock(&library_lock);
+    if (skip) return;
+    ensure_compile_queue();
+    dispatch_async(compile_queue, ^{
+        dispatch_semaphore_wait(compile_slots, DISPATCH_TIME_FOREVER);
         NSError *e = nil;
         double t0 = CFAbsoluteTimeGetCurrent();
-        lib = [gpu newLibraryWithSource:s options:nil error:&e];
+        id<MTLLibrary> lib = [gpu newLibraryWithSource:s options:nil error:&e];
         double spent = CFAbsoluteTimeGetCurrent() - t0;
+        dispatch_semaphore_signal(compile_slots);
+        os_unfair_lock_lock(&library_lock);
+        [pending_sources removeObject:s];
+        if (lib) libraries[s] = lib; else [failed_sources addObject:s];
         trace_libs++; trace_lib_s += spent;
-        stall_libs++; stall_lib_s += spent;
-        if (!lib) { snprintf(err, errlen, "%s", e.localizedDescription.UTF8String); return nil; }
-        libraries[s] = lib;
+       
+        os_unfair_lock_unlock(&library_lock);
+        if (!lib) HP_LOG("Metal: a shader library did not compile: %s", e.localizedDescription.UTF8String);
+        else if (remember) remember_source(s);
+    });
+}
+/* The app, once: compile the libraries earlier sessions used, in the background. */
+void halopad_metal_warm_shaders(void)
+{
+    ensure_app();
+    os_unfair_lock_lock(&library_lock);
+    if (!libraries) libraries = [NSMutableDictionary new];
+    os_unfair_lock_unlock(&library_lock);
+    NSString *dir = shader_cache_dir();
+    NSArray *names = [NSFileManager.defaultManager contentsOfDirectoryAtPath:dir error:nil];
+    int queued = 0;
+    for (NSString *n in names) {
+        if (![n.pathExtension isEqualToString:@"metal"]) continue;
+        NSString *s = [NSString stringWithContentsOfFile:[dir stringByAppendingPathComponent:n] encoding:NSUTF8StringEncoding error:nil];
+        if (s.length) { compile_in_background(s, NO); queued++; }
     }
+    HP_LOG("Metal: warming %d remembered shader libraries in the background", queued);
+}
+
+/* A shader function, or nil: *pending is set while its library compiles in the background. */
+static id<MTLFunction> function(const char *src, NSString *name, char *err, uint32_t errlen, int *pending)
+{
+    NSString *s = [NSString stringWithUTF8String:src];
+    os_unfair_lock_lock(&library_lock);
+    if (!libraries) libraries = [NSMutableDictionary new];
+    id<MTLLibrary> lib = libraries[s];
+    BOOL failed = [failed_sources containsObject:s];
+    os_unfair_lock_unlock(&library_lock);
+    if (lib) return [lib newFunctionWithName:name];
+    if (failed) { snprintf(err, errlen, "shader library did not compile"); return nil; }
+    if (halopad_metal_async_shaders && pending) {       /* NULL pending: HaloPad's own shaders, compiled now */
+        compile_in_background(s, YES);
+        *pending = 1;
+        snprintf(err, errlen, "pending");
+        return nil;
+    }
+    NSError *e = nil;
+    double t0 = CFAbsoluteTimeGetCurrent();
+    lib = [gpu newLibraryWithSource:s options:nil error:&e];
+    double spent = CFAbsoluteTimeGetCurrent() - t0;
+    trace_libs++; trace_lib_s += spent;
+    stall_libs++; stall_lib_s += spent;
+   
+    if (!lib) { snprintf(err, errlen, "%s", e.localizedDescription.UTF8String); return nil; }
+    os_unfair_lock_lock(&library_lock);
+    libraries[s] = lib;
+    os_unfair_lock_unlock(&library_lock);
     return [lib newFunctionWithName:name];
 }
 
 void *halopad_metal_pipeline(const hp_pipeline_desc *d, char *err, uint32_t errlen)
 {
     ensure_app();
-    if (!pipelines) pipelines = [NSMutableDictionary new];
+    static NSMutableSet *failed, *waiting;              /* never recompile a rejected combination; one build at a time */
     hp_pipeline_desc copy = *d;
     copy.vs_msl = copy.ps_msl = NULL;
     NSData *key = key_of(&copy, sizeof copy, d->vs_msl, d->ps_msl);
+    os_unfair_lock_lock(&library_lock);                 /* background builds add pipelines too */
+    if (!pipelines) { pipelines = [NSMutableDictionary new]; failed = [NSMutableSet new]; waiting = [NSMutableSet new]; }
     id<MTLRenderPipelineState> ps = pipelines[key];
+    BOOL rejected = [failed containsObject:key], building = [waiting containsObject:key];
+    os_unfair_lock_unlock(&library_lock);
     if (ps) return (__bridge void *)ps;
+    if (rejected) { snprintf(err, errlen, "rejected earlier"); return NULL; }
+    if (building) { snprintf(err, errlen, "pending"); return NULL; }
     @autoreleasepool {
         MTLRenderPipelineDescriptor *pd = [MTLRenderPipelineDescriptor new];
-        pd.vertexFunction = function(d->vs_msl, @"hp_vs", err, errlen);
-        pd.fragmentFunction = function(d->ps_msl, @"hp_ps", err, errlen);
-        if (!pd.vertexFunction || !pd.fragmentFunction) return NULL;
+        int pending = 0;
+        pd.vertexFunction = function(d->vs_msl, @"hp_vs", err, errlen, &pending);
+        pd.fragmentFunction = function(d->ps_msl, @"hp_ps", err, errlen, &pending);   /* both start compiling */
+        if (pending) { snprintf(err, errlen, "pending"); return NULL; }        /* the draw waits a frame or two */
+        if (!pd.vertexFunction || !pd.fragmentFunction) {
+            os_unfair_lock_lock(&library_lock); [failed addObject:key]; os_unfair_lock_unlock(&library_lock);
+            return NULL;
+        }
         MTLVertexDescriptor *vd = [MTLVertexDescriptor vertexDescriptor];
         for (uint32_t i = 0; i < d->nattr; i++) {
             vd.attributes[d->attr[i].reg].format = d->attr[i].format;
@@ -379,13 +495,41 @@ void *halopad_metal_pipeline(const hp_pipeline_desc *d, char *err, uint32_t errl
         ca.sourceAlphaBlendFactor = d->src_a; ca.destinationAlphaBlendFactor = d->dst_a; ca.alphaBlendOperation = d->op_a;
         ca.writeMask = d->write_mask;
         if (d->depth) { pd.depthAttachmentPixelFormat = MTLPixelFormatDepth32Float_Stencil8; pd.stencilAttachmentPixelFormat = MTLPixelFormatDepth32Float_Stencil8; }
+        if (halopad_metal_async_shaders) {              /* the GPU compile happens here too: off Halo's thread */
+            os_unfair_lock_lock(&library_lock); [waiting addObject:key]; os_unfair_lock_unlock(&library_lock);
+            ensure_compile_queue();
+            dispatch_async(compile_queue, ^{
+                dispatch_semaphore_wait(compile_slots, DISPATCH_TIME_FOREVER);
+                NSError *e = nil;
+                double t0 = CFAbsoluteTimeGetCurrent();
+                id<MTLRenderPipelineState> built = [gpu newRenderPipelineStateWithDescriptor:pd error:&e];
+                double spent = CFAbsoluteTimeGetCurrent() - t0;
+                dispatch_semaphore_signal(compile_slots);
+                os_unfair_lock_lock(&library_lock);
+                [waiting removeObject:key];
+                if (built) pipelines[key] = built; else [failed addObject:key];
+                trace_pipes++; trace_pipe_s += spent;
+                os_unfair_lock_unlock(&library_lock);
+                if (!built) HP_LOG("Metal: a pipeline did not build: %s", e.localizedDescription.UTF8String);
+            });
+            snprintf(err, errlen, "pending");
+            return NULL;
+        }
         NSError *e = nil;
         double t0 = CFAbsoluteTimeGetCurrent();
         ps = [gpu newRenderPipelineStateWithDescriptor:pd error:&e];
-        trace_pipes++; trace_pipe_s += CFAbsoluteTimeGetCurrent() - t0;
-        if (!ps) { snprintf(err, errlen, "%s", e.localizedDescription.UTF8String); return NULL; }
+        double spent = CFAbsoluteTimeGetCurrent() - t0;
+        trace_pipes++; trace_pipe_s += spent;
+        stall_pipes++; stall_pipe_s += spent;
+        if (!ps) {
+            snprintf(err, errlen, "%s", e.localizedDescription.UTF8String);
+            os_unfair_lock_lock(&library_lock); [failed addObject:key]; os_unfair_lock_unlock(&library_lock);
+            return NULL;
+        }
     }
+    os_unfair_lock_lock(&library_lock);
     pipelines[key] = ps;
+    os_unfair_lock_unlock(&library_lock);
     return (__bridge void *)ps;
 }
 
@@ -662,8 +806,8 @@ void halopad_metal_stretch(void *p, void *src, uint32_t slevel, const uint32_t s
         if (!ps) {
             char err[512];
             MTLRenderPipelineDescriptor *pd = [MTLRenderPipelineDescriptor new];
-            pd.vertexFunction = function(stretch_msl, @"hp_vs", err, sizeof err);
-            pd.fragmentFunction = function(stretch_msl, opaque ? @"hp_ps_opaque" : @"hp_ps", err, sizeof err);
+            pd.vertexFunction = function(stretch_msl, @"hp_vs", err, sizeof err, NULL);
+            pd.fragmentFunction = function(stretch_msl, opaque ? @"hp_ps_opaque" : @"hp_ps", err, sizeof err, NULL);
             pd.colorAttachments[0].pixelFormat = d.pixelFormat;
             NSError *e = nil;
             ps = [gpu newRenderPipelineStateWithDescriptor:pd error:&e];

@@ -27,6 +27,7 @@ typedef struct res {
     uint8_t in_usage[16], in_index[16], in_used[16];   /* vertex shaders: dcl_<usage><index> v<n> */
     struct hp_ps_variant { uint8_t key[33]; char *msl; } *variant;  /* pixel shaders: source per sampler key */
     uint32_t nvariant, cap_variant;
+    uint8_t shader_failed;                      /* vertex shaders: translation failed; draws are skipped */
 } res;
 
 

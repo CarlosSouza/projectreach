@@ -1186,6 +1186,12 @@ static void touch_selftest(void)
 }
 - (void)startHalo
 {
+    /* New shaders compile off Halo's thread; earlier sessions' shaders warm up now
+       (HALOPAD_SYNC_SHADERS=1 restores synchronous compiles for comparisons). */
+    extern int halopad_metal_async_shaders;
+    void halopad_metal_warm_shaders(void);
+    halopad_metal_async_shaders = getenv("HALOPAD_SYNC_SHADERS") == NULL;
+    if (halopad_metal_async_shaders) halopad_metal_warm_shaders();
     NSThread *t = [[NSThread alloc] initWithBlock:^{
         int code = halopad_app_entry();
         fprintf(stderr, "HALOPAD: Halo returned %d\n", code);
