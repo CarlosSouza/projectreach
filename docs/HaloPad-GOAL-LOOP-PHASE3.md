@@ -7,7 +7,7 @@ Written 2026-09-29. This is the active loop for the supplied device handoff and 
 - The private kit is `ref/handoff/HaloPad-iPad-test/`: an arm64 iPhoneOS `HaloPad.app` and its matching `.halopad.zip`. The original kit stays untouched. The package verifies its 87 files, including 78 stock records.
 - A **copy** of the device app was converted to an ad-hoc Simulator probe under ignored `generated/simulator-probe/`. On this Mac it reaches the main menu on iPad Air 13-inch (M4) and iPhone 17 Pro Simulators. The iPad local LAN match reached first-person play; menu taps and FIRE worked. This probe is not a source-built Simulator binary or physical-device acceptance.
 - The iPad local-host **Leave Game** action in the three-dot menu did not leave; Halo's own pause-menu Leave Game did. Touch controls were initially hidden by the connected-controller setting in the Simulator; turning that setting off exposed them. Two-thumb gestures, real controller input, keyboard typing, private-server joining, and iPhone gameplay remain to be accepted on this machine.
-- This Mac has Xcode 27 and Apple Development identities whose certificate team field is `VKDH2T9UTF` (their display names end in `P52SY73DYK`), but no cached profile for `dev.halopad.HaloPad` with the required memory entitlements. The iPad is not connected. No original 1.10 build inputs or CrossOver are available here, so source rebuilding is unavailable until those inputs arrive. The kit can be re-signed without a rebuild.
+- This Mac has Xcode 27 and Apple Development identities on team `VKDH2T9UTF`. A new cached development profile for the exact `dev.halopad.HaloPad` App ID and connected iPhone 14 passes both memory entitlement checks. The handoff app and prepared package are installed on the iPhone, and physical launch reached the import screen. Files import and gameplay remain open. The iPad is not connected. Original 1.10 build inputs and CrossOver are unavailable here, so a source rebuild waits for those inputs; the installed app is the supplied kit re-signed locally.
 
 ## Loop rule
 
@@ -59,7 +59,7 @@ Rebuild from accepted original inputs, run targeted native/package/input tests, 
 1. Finish the Simulator phone/tablet walkthrough and save evidence without touching the original kit or an existing player's data.
 2. The explicit App ID, memory capabilities, and cached iPhone 14 development profile are ready and locally verified. The supplied handoff app and package are installed on the phone; finish Files import and physical UI acceptance before claiming D1.
 3. Fix the reproduced Leave Game issue in source, then verify it on a rebuilt matching app when the private 1.10 inputs are available. In parallel, prepare the original app icon source and build wiring.
-4. Once signing is ready, execute D1, D2, and D3 on the connected physical iPhone 14 and collect its performance baseline. Repeat on iPad when it arrives; a paired Device Hub record alone does not establish physical presence.
+4. Finish D1, D2, and D3 on the connected physical iPhone 14 and collect its performance baseline. Repeat on iPad when it arrives; a paired Device Hub record alone does not establish physical presence.
 
 ## Suggested `/goal` objective
 
