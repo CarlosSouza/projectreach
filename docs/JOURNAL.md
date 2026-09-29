@@ -2707,7 +2707,9 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
 - `actool` compiled the asset for both `iphoneos` and `iphonesimulator` at iOS 17
   deployment target, emitting `Assets.car`, phone/tablet PNGs, and the phone/tablet
   `CFBundleIcons` plist entries. `build-ios-app.py` now merges those entries and
-  compiles the icon into an app before signing. Python syntax and diff checks pass.
+  compiles the icon into an app before signing. Its actual packaging helper was
+  run on a minimal device app directory and produced `Assets.car` plus both
+  phone/iPad plist keys. Python syntax and diff checks pass.
 - A full source app cannot be built on this Mac until the accepted private 1.10
   inputs and reference-machine files are present. Home Screen appearance on iPhone
   and iPad therefore remains the D5 acceptance gate; no claim is made from the
