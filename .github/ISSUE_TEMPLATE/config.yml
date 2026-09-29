@@ -1,5 +1,5 @@
 blank_issues_enabled: false
 contact_links:
   - name: Installing HaloPad
-    url: https://github.com/chrissotraidis/projectreach/blob/codex/halopad-phase2/docs/INSTALL-IPHONE.md
+    url: https://github.com/chrissotraidis/projectreach/blob/main/docs/INSTALL-IPHONE.md
     about: Building, signing and adding your game files.
