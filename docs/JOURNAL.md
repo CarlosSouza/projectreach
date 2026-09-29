@@ -2763,3 +2763,26 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   The overlay input suite and 90 layout cases pass on iPhone 17 Simulator, but a
   live check of the changed alert requires a source-built app; the handoff
   binary still contains the old message. No private server was joined.
+
+## 2026-09-29 — phone profile text path and physical iPad discovery
+
+- On the fresh iPhone 17 Simulator install, Halo's Profiles screen opened the
+  profile-name dialog with `New001` selected. Tapping the guest field did not
+  summon a native keyboard. The three-dot **Keyboard & Chat → Show Keyboard**
+  action did: an iOS keyboard appeared, a virtual `a` replaced `New001`, and
+  virtual Return saved profile `a`. **Hide Keyboard** restored the full view;
+  the Select Profile screen showed the new profile. The game view shrank to a
+  small rectangle while the landscape keyboard was open, so phone text
+  readability remains an acceptance concern. The first menu attempt selected
+  the submenu header rather than Show Keyboard; the corrected row worked, and
+  a traced run recorded `focus 1` and a docked keyboard frame. Evidence:
+  `G11/iphone-17-keyboard-trace.log` and
+  `G11/iphone-17-virtual-keyboard-profile-saved.png` (ignored).
+- With that profile, touch navigation reached **Multiplayer → Create Game → LAN
+  → Battle Creek → Slayer → Server Setup**. Start Game has not yet produced an
+  observed phone match, so gameplay controls remain pending in this run.
+- `devicectl` and Device Hub now show Chris's physical iPad Pro as paired and
+  available. A read-only installed-app query failed before listing anything:
+  CoreDevice could not mount its developer disk image because the iPad was
+  locked. No app or device data was changed. Apple Developer remains at the
+  initial sign-in form; none of the five cached profiles is HaloPad's.
