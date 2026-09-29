@@ -1,8 +1,16 @@
 # HaloPad status
 
-Updated 2026-09-28. **ACTIVE — phase 2 loop. G2 closed (GO: SRW/llasm in the original-address model); working G3.**
+Updated 2026-09-29. **ACTIVE — phase 3 device-readiness loop.** G2's Mac/Simulator rows passed earlier; physical acceptance remains open.
 
-Operating loop: [HaloPad-GOAL-LOOP-PHASE2.md](HaloPad-GOAL-LOOP-PHASE2.md) (replaces G0–G2 of the original loop; inherits the rest).
+Operating loop: [HaloPad-GOAL-LOOP-PHASE3.md](HaloPad-GOAL-LOOP-PHASE3.md). Earlier engineering history remains in [phase 2](HaloPad-GOAL-LOOP-PHASE2.md).
+
+## Current handoff on this Mac
+
+- The supplied private kit in ignored `ref/handoff/HaloPad-iPad-test/` contains an arm64 iPhoneOS app and matching prepared game package. Package verification passed: 87 records total, 78 stock. The original app/package were not modified.
+- An ad-hoc converted **copy** under ignored `generated/simulator-probe/` launched on iPad Air 13-inch (M4) and iPhone 17 Pro Simulators, reached Halo's main menu, and the iPad started a locally hosted Battle Creek Slayer match through Halo's menus. FIRE reduced plasma-pistol charge 100→99. Touch controls were shown after disabling “Hide Touch Controls with a Controller” in this Simulator. This is a compatibility probe, not a source-built Simulator binary or hardware result. Native package suite: 16/16 passed, including a real-package import on the iPad Air Simulator.
+- The three-dot **Leave Game** action did not exit that local-host match; Halo's pause-menu Leave Game did. The iPhone Simulator displayed a usable landscape main menu, but its keyboard, two-thumb, match, and network flows have not been accepted in this handoff run. See the latest journal and `docs/artifacts/2026-09-29/G11/`.
+- Physical iPad is absent; no iPhone 14 run or hardware frame/memory/thermal result exists. The connected iPhone 14 is listed unavailable by Device Hub. This Mac has Xcode 27 and team `P52SY73DYK` signing identity, but no matching cached `dev.halopad.HaloPad` profile with both memory entitlements. Apple Developer sign-in is pending. Accepted 1.10 source-build inputs and CrossOver are also absent here; the provided kit can be re-signed without them.
+- A device-platform app was inadvertently installed over an existing iPad Pro M5 Simulator app while probing the kit. Its data container was not reset, but the previous app binary has not been restored; further testing moved to the fresh iPad Air Simulator. Do not use the iPad Pro installation as an accepted baseline.
 
 - **G0′ PASS:** workspace committed locally on `codex/halopad-phase2` at `5c85449`; safety check green; no push.
 - **G1a PASS (engineering tier):** `scripts/prepare-patched-client.sh` reproduced the 1.10 files twice in fresh bottles with identical hashes; `scripts/assemble-custom-original.py` built ignored `ref/inputs/custom-original/` (104 files, manifest). Profile `accepted_sha256` = `feea46fce285ec071016cf5534abe47ecf36f6cfac8f1973ee6919851ea5a037`, `input_state` ENGINEERING_DERIVED; `inspect-inputs.py` passes 1.10, fails 1.00. Cross-check: ProcessChecker's same-size 1.10 copy has a different MD5; see `INPUTS.md`.

@@ -2662,3 +2662,39 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
 - Installation and hardware gameplay are pending a matching handoff kit, a profile
   granting both memory capabilities, and a connected/trusted iPad. No device launch,
   touch/controller/menu/private-match, or frame-rate result is claimed by this setup.
+
+## 2026-09-29 — supplied handoff, Mac compatibility probe, phase 3 loop
+
+- Found `ref/handoff/HaloPad-iPad-test/`. Verified its prepared package against the
+  bundled app: 87 records, 78 stock; no private bytes were staged for Git. The
+  original app and package stayed unchanged. `scripts/test-native-package.py` passed
+  16 native package cases on iPad Air 13-inch (M4) Simulator, including the real
+  package and byte-for-byte stock comparison. Evidence:
+  `docs/artifacts/2026-09-29/G9/native-package-20260929T062903Z/`.
+- A copied app was locally re-marked for iPhoneSimulator and ad-hoc signed under
+  `generated/simulator-probe/`; this is an unsupported compatibility probe, not a
+  source rebuild. On iPad Air Simulator it launched from a directly copied verified
+  installed folder to
+  Halo's main menu. Created New001, used Multiplayer → Create Game → LAN → Battle
+  Creek → Slayer → Start, and spawned. Tapped FIRE; plasma-pistol charge decreased
+  100→99. Touch overlay was initially hidden by the Simulator's virtual-controller
+  setting; turning that option off showed it. Sequential menu taps and view drag
+  worked. Simultaneous thumbs, real controller, private server, and physical-device
+  behavior were not tested.
+- Three-dot menu kept its round dots. Controls and problem-report UI opened; the
+  report was cancelled. Three-dot Leave Game failed to leave the hosted match;
+  Halo's pause-menu Leave Game succeeded. The menu may raise a software keyboard
+  behind the popover; investigate rather than call it accepted.
+- The same copied app reached the landscape Halo main menu on iPhone 17 Pro
+  Simulator. Saved `docs/artifacts/2026-09-29/G11/iphone-17-pro-landscape-menu.png`.
+  Further iPhone keyboard/match controls remain unproven in this run. This
+  Simulator is not an iPhone 14 performance proxy.
+- During the first probe, installing the device-platform kit over the pre-existing
+  iPad Pro M5 Simulator bundle replaced its app binary; its data container was not
+  erased. Launch there was denied because that binary targets iPhoneOS. The prior
+  Simulator app binary was not available to restore. All later runs used the fresh
+  iPad Air Simulator. Preserve the iPad Pro container and report this limitation.
+- Wrote [HaloPad-GOAL-LOOP-PHASE3.md](HaloPad-GOAL-LOOP-PHASE3.md), with independent
+  signing/install, input, private network, iPhone 14 performance, icon, and release
+  candidate gates. Apple Developer portal currently waits for account sign-in;
+  no cached profile has yet been created. Physical iPad is not present.
