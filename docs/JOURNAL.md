@@ -2740,3 +2740,26 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   use the same team. Their displayed names end in `P52SY73DYK`; that suffix is
   not the provisioning team. The future HaloPad App ID/profile must be created
   under `VKDH2T9UTF` and matched to one of these certificate SHA-1 values.
+
+## 2026-09-29 — fresh phone import and keyboard layout
+
+- An iPhone 17 Pro Simulator check was interrupted by an unrelated YomiBoy UI
+  test runner on that same device. HaloPad remained alive and suspended; no
+  HaloPad crash was found. Moved to the booted iPhone 17 Simulator, where no
+  HaloPad install or competing test runner existed.
+- Installed the same converted Simulator **copy** of the handoff app on iPhone
+  17 (iOS 26.5), copied only the private matching `.halopad.zip` into its new
+  Documents container, and used the actual **Choose Prepared Package → Files →
+  Browse → Halo-CE.halopad.zip** path. HaloPad reached the main menu. A direct
+  SHA-256 comparison found all 78 installed stock files present and identical
+  to the already verified package import. Evidence:
+  `docs/artifacts/2026-09-29/G11/iphone-17-imported-menu.png`.
+- On that iPhone, the three-dot Join Server form opened. Focusing address
+  showed the landscape software keyboard; tapping `1` entered `1`; Cancel
+  dismissed both keyboard and form. With the keyboard open, the current kit's
+  long alert message displaced the title and optional password field above
+  the visible screen (`G11/iphone-17-join-keyboard-clipped.png`). The source
+  alert now relies on its title and field placeholders, removing that message.
+  The overlay input suite and 90 layout cases pass on iPhone 17 Simulator, but a
+  live check of the changed alert requires a source-built app; the handoff
+  binary still contains the old message. No private server was joined.

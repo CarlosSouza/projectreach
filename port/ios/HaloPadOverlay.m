@@ -981,7 +981,7 @@ static NSString * const HPRepositoryURL = @"https://github.com/chrissotraidis/pr
 - (void)promptJoin
 {
     UIAlertController *a = [UIAlertController alertControllerWithTitle:@"Join Server"
-                                                               message:@"The server's address and port, for example 203.0.113.5:2302. Halo connects through its console command \"connect\"."
+                                                               message:nil
                                                         preferredStyle:UIAlertControllerStyleAlert];
     [a addTextFieldWithConfigurationHandler:^(UITextField *f) {
         f.placeholder = @"address:port";
