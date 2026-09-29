@@ -2698,3 +2698,17 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   signing/install, input, private network, iPhone 14 performance, icon, and release
   candidate gates. Apple Developer portal currently waits for account sign-in;
   no cached profile has yet been created. Physical iPad is not present.
+
+## 2026-09-29 — original iOS/iPadOS icon source and packaging
+
+- Drew a new HaloPad H/orbit mark in `assets/HaloPadIcon.svg`, with no game artwork
+  or logo. `scripts/render-app-icon.sh` renders an opaque 1024×1024 PNG from it;
+  the checked-in `Assets.xcassets/AppIcon.appiconset` makes the result reproducible.
+- `actool` compiled the asset for both `iphoneos` and `iphonesimulator` at iOS 17
+  deployment target, emitting `Assets.car`, phone/tablet PNGs, and the phone/tablet
+  `CFBundleIcons` plist entries. `build-ios-app.py` now merges those entries and
+  compiles the icon into an app before signing. Python syntax and diff checks pass.
+- A full source app cannot be built on this Mac until the accepted private 1.10
+  inputs and reference-machine files are present. Home Screen appearance on iPhone
+  and iPad therefore remains the D5 acceptance gate; no claim is made from the
+  raw 1024-pixel preview alone.

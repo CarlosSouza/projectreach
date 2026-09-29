@@ -63,6 +63,9 @@ scripts/doctor.sh
 ```
 
 The CMake setting lets the pinned Unicorn source package build with current CMake versions.
+The iOS/iPadOS icon is compiled from `assets/Assets.xcassets` into each app build. Its
+editable source is `assets/HaloPadIcon.svg`; rerender the checked-in PNG with
+`scripts/render-app-icon.sh` (requires ImageMagick) after changing the design.
 
 On an iPad Simulator with iPadOS 26, choose **Settings → Multitasking & Gestures → Full Screen
 Apps**; otherwise every app, HaloPad included, opens in a resizable window.

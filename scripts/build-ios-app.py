@@ -48,6 +48,19 @@ BUNDLE_ID = 'dev.halopad.HaloPad'
 STATE = ROOT / 'generated' / 'halopad-disk-ios'
 
 
+def compile_icon(app, out, target):
+    partial = out / 'icon-info.plist'
+    subprocess.run([
+        'xcrun', 'actool', '--compile', str(app),
+        '--platform', 'iphonesimulator' if 'simulator' in target else 'iphoneos',
+        '--minimum-deployment-target', '17.0',
+        '--target-device', 'iphone', '--target-device', 'ipad',
+        '--app-icon', 'AppIcon', '--output-partial-info-plist', str(partial),
+        str(ROOT / 'assets' / 'Assets.xcassets'),
+    ], check=True, capture_output=True)
+    return plistlib.loads(partial.read_bytes())
+
+
 def package(exe, out, work, target=TARGET, identity=None, provisioning=None):
     app = out / 'HaloPad.app'
     if app.exists():
@@ -66,6 +79,9 @@ def package(exe, out, work, target=TARGET, identity=None, provisioning=None):
         # the player's Halo folder is copied into Documents (Files app, Finder) or picked from a folder
         'UIFileSharingEnabled': True, 'LSSupportsOpeningDocumentsInPlace': True,
     }
+    if 'simulator' not in target:
+        info['UIRequiredDeviceCapabilities'] = ['arm64', 'metal']
+    info.update(compile_icon(app, out, target))
     with open(app / 'Info.plist', 'wb') as f:
         plistlib.dump(info, f)
     # the app's own data: the translated image and modules, the reference machine's files, the
@@ -92,9 +108,6 @@ def package(exe, out, work, target=TARGET, identity=None, provisioning=None):
     if 'simulator' in target:
         subprocess.run(['codesign', '--force', '--sign', '-', '--timestamp=none', str(app)], check=True, capture_output=True)
         return app
-    info['UIRequiredDeviceCapabilities'] = ['arm64', 'metal']
-    with open(app / 'Info.plist', 'wb') as f:
-        plistlib.dump(info, f)
     entitlements = dict(ENTITLEMENTS)
     if provisioning:
         shutil.copy2(provisioning, app / 'embedded.mobileprovision')
