@@ -570,6 +570,36 @@ int main(void)
         overlay.availableActions = (1u << 29) - 1;
         check_drag_tracking();
         check_stick_tracking();
+        /* Three-dot menu: complete for a phone player, and a round system button. */
+        {
+            HPOverlay *m = [[HPOverlay alloc] initWithFrame:CGRectMake(0, 0, 844, 390)];
+            UIButton *menu = [m valueForKey:@"menuButton"];
+            NSMutableArray<NSString *> *titles = [NSMutableArray array];
+            __block __weak void (^weakWalk)(UIMenu *);
+            void (^walk)(UIMenu *) = ^(UIMenu *u) {
+                for (UIMenuElement *e in u.children) {
+                    if (e.title.length) [titles addObject:e.title];
+                    if ([e isKindOfClass:UIMenu.class]) weakWalk((UIMenu *)e);
+                }
+            };
+            weakWalk = walk;
+            walk(menu.menu);
+            check("menu button is drawn by a system configuration (round, keeps its dots after dismissal)",
+                  menu.configuration != nil && menu.configuration.image != nil &&
+                  menu.configuration.cornerStyle == UIButtonConfigurationCornerStyleCapsule && menu.showsMenuAsPrimaryAction);
+            check("menu button never takes a square keyboard-focus ring", !menu.canBecomeFocused);
+            for (NSString *need in @[@"Join Server by Address…", @"Recent Servers", @"Controls", @"Touch Control Settings…",
+                                     @"Edit Touch Layout", @"Hide Touch Controls", @"Hide Touch Controls with a Controller",
+                                     @"Controller Layout", @"Keyboard & Chat", @"All Chat", @"Team Chat", @"Show Keyboard",
+                                     @"Halo Console", @"Display", @"Help", @"Report a Problem…", @"HaloPad on GitHub", @"About HaloPad"])
+                check([NSString stringWithFormat:@"menu has %@", need].UTF8String, [titles containsObject:need]);
+            check("Leave Game is hidden outside a game", ![titles containsObject:@"Leave Game"]);
+            m.inGame = YES;
+            [titles removeAllObjects];
+            walk(menu.menu);
+            check("Leave Game appears in a game", [titles containsObject:@"Leave Game"]);
+            check("the top level stays short: three grouped sections", menu.menu.children.count == 3);
+        }
         check_stick_ownership();
         check_layouts();
         check_editor_alignment();

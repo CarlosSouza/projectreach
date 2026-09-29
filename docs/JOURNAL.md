@@ -2611,3 +2611,38 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   sniper. Server roster: New002 ping 24 plus four named players; score 12–12.
 - A real FIRE-button tap produced a sniper tracer; the HUD ammo stayed at 008 ×4
   (probably server-side infinite ammo, not proven). Left the iPad in the match.
+
+## 2026-09-29 — three-dot menu, controllers, full screen, device build, README
+
+- Chris: stop public-server testing; polish menu, controllers, install, README; fix the
+  SunPad menu-button bug; windowed Simulator. Supplied key G9QK2-… (valid 25-character
+  Microsoft key alphabet, unlike the earlier strings).
+- Menu button bug reproduced: after tapping away, the button became an empty square
+  outline without dots for several seconds (both before and after a first fix attempt
+  with custom targeted previews). Cause: a custom layer-styled UIButton gives iOS 26's
+  menu morph no shape to return to. Fix: UIButtonConfiguration (capsule, symbol, colors)
+  plus no focus ring and a round pointer shape. Verified on screen: dots persist through
+  repeated open/tap-away cycles, menu and in-game.
+- Menu reorganized into three groups: play (join by address, recent servers, Leave Game
+  in a game), setup (Controls, Keyboard & Chat, Display, Add Custom Maps), Help (Report a
+  Problem, HaloPad on GitHub, About). Report a Problem opens a prefilled GitHub issue
+  (title, label, device/OS/build/map/frames/controllers) or shares text; verified the
+  exact URL handed to Safari in the Simulator log. HaloPad sheets now own the keyboard.
+- Controllers: Halo 1.10 has device defaults in ui.map only for 2003-era controllers
+  (xbox 045E:0285); HaloPad presents pads as Xbox 360 (028E), so a pad had no bindings.
+  New halopad_gamepad_defaults.c applies Halo's own Xbox layout through setter 0x48e360
+  to an empty slot (never over bindings), activating the pad with input_activate_joy.
+  Menu navigation (A/B/D-pad/Menu → Enter/Escape/arrows) outside gameplay. DirectInput
+  suite: 11 new checks pass incl. stick walks forward/strafes through Halo's consumer.
+  Live: the Simulator's virtual gamepad got the layout on slot 0, touch kept slot 1.
+- Windowed Simulator: iPadOS 26 defaulted the device to Windowed Apps (Settings →
+  Multitasking & Gestures). Switched it to Full Screen Apps; Halo now fills the screen.
+  App prefers the minimal window-control style; README documents the setting.
+- Device build: --iphoneos builds arm64-apple-ios17.0, embeds extended-virtual-addressing
+  and increased-memory-limit entitlements, writes HaloPad.ipa (ad-hoc; no signing identity
+  on this Mac, no device connected). docs/INSTALL-IPHONE.md written.
+- Private-server controls: five touch checks pass on 127.0.0.1:2310 Blood Gulch.
+- Key: the repo's HaloCESetup.exe is a repack titled "Halo CE Cracked Setup" (seen when
+  launched in a throwaway bottle; stopped immediately, bottle deleted). The official
+  halocesetup_en_1.00.exe mirrors are unreachable (vaporeon.io, halomaps.org). The key
+  still needs the official installer; not used otherwise.

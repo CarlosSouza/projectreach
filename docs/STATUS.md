@@ -75,6 +75,8 @@ Operating loop: [HaloPad-GOAL-LOOP-PHASE2.md](HaloPad-GOAL-LOOP-PHASE2.md) (repl
 
 - **Joined from Halo's own Internet Lobby on the iPad (player path, no -connect):** app launched with only the internet network policy; Multiplayer → Join Game → Internet → Get List showed 169 servers / 92 players with pings; tapped AUSSIES MADNESS 3 (Blood Gulch CTF, tied 12-12) and Join Game. Spawned on Red with a sniper rifle; server roster lists New002 (ping 24) with YOUR SISTER, Killer, Wilshire, Dopey. A tap on the on-screen FIRE button left a sniper tracer; the ammo counter did not drop, which fits this server's modded ammo but was not proven. Evidence `G5/lobby-join`.
 
+- **Polish pass (2026-09-29):** three-dot menu button keeps its round dots after dismissal (system button configuration); menu grouped into play / setup / help with GitHub issue reporting; controllers get Halo's own Xbox layout automatically and navigate menus; iPad Simulator switched to Full Screen Apps; `--iphoneos` builds a device IPA with the memory entitlements (unsigned here); README and docs/INSTALL-IPHONE.md rewritten for players.
+
 ## Parked, waiting on Chris
 
 | Item | Parks | Status |

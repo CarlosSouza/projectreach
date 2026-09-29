@@ -17,6 +17,7 @@ extern _Thread_local _cpu *halopad_cpu;
 extern int halopad_host_input_off;
 extern hp_gamepad halopad_gamepad_test[4];
 extern int halopad_gamepad_test_count;
+int halopad_gamepad_defaults_apply(int slot);
 uint32_t halopad_guest_init(const char *image_path, uint32_t image_base);
 void halopad_thread_init(uint32_t stack_base, uint32_t stack_limit, uint32_t image_base);
 void halopad_vm_mark(uint32_t base, uint32_t size);
@@ -790,6 +791,35 @@ int main(void)
     }
     halopad_host_input_off = 1;
     memcpy(halopad_guest_ptr(0x64c738), &saved_granularity, 4);
+    /* A connected controller with no bindings gets Halo's Xbox layout through the
+       original setter, then plays through Halo's own poll and movement consumer. */
+    for (uint32_t a = 0x6ab426; a < 0x6abb36; a += 2)
+        if (a < 0x6ab526 || a >= 0x6ab536) memcpy(halopad_guest_ptr(a), &(uint16_t){0x7fff}, 2);
+    memcpy(halopad_guest_ptr(0x64dc18), &(uint32_t){0}, 4);
+    memcpy(halopad_guest_ptr(0x64c9c8), &(uint32_t){0}, 4);
+    check("controller defaults bind all twenty controls", halopad_gamepad_defaults_apply(0), 20);
+    uint16_t w;
+    memcpy(&w, halopad_guest_ptr(0x6ab426 + 0 * 2), 2); check("controller A is jump", w, 0);
+    memcpy(&w, halopad_guest_ptr(0x6ab426 + 5 * 2), 2); check("controller RB is action", w, 2);
+    memcpy(&w, halopad_guest_ptr(0x6ab536 + 1 * 4 + 2), 2); check("left stick up is forward", w, 19);
+    memcpy(&w, halopad_guest_ptr(0x6ab536 + 2 * 4 + 2), 2); check("right trigger is fire", w, 7);
+    memcpy(&w, halopad_guest_ptr(0x6ab536 + 2 * 4), 2); check("left trigger throws a grenade", w, 6);
+    memcpy(&w, halopad_guest_ptr(0x6ab736), 2); check("D-pad up is the flashlight", w, 5);
+    check("defaults never overwrite a slot with bindings", halopad_gamepad_defaults_apply(0), 0);
+    static const struct { float x, y, forward, strafe; const char *name; } pads[] = {
+        {0, 1, 1, 0, "default layout: stick up walks forward"},
+        {-1, 0, 0, 1, "default layout: stick left strafes left"},
+        {0, 0, 0, 0, "default layout: release"},
+    };
+    for (unsigned i = 0; i < sizeof pads / sizeof *pads; i++) {
+        halopad_gamepad_test[0] = (hp_gamepad){.id = 7, .lx = pads[i].x, .ly = pads[i].y, .dpad = -1};
+        halopad_call_guest(0x493520, 0, NULL);
+        halopad_call_guest(0x48f850, 0, NULL);
+        float forward, strafe;
+        memcpy(&forward, halopad_guest_ptr(0x6ad4b8), 4);
+        memcpy(&strafe, halopad_guest_ptr(0x6ad4bc), 4);
+        check(pads[i].name, fabsf(forward - pads[i].forward) < 0.00001f && fabsf(strafe - pads[i].strafe) < 0.00001f, 1);
+    }
     memcpy(halopad_guest_ptr(0x6ab328), saved_bindings, sizeof saved_bindings);
     memcpy(halopad_guest_ptr(0x6ad498), saved_state, sizeof saved_state);
     memcpy(halopad_guest_ptr(0x64dc18), saved_pad_map, sizeof saved_pad_map);

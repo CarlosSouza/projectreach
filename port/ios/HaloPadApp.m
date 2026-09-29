@@ -14,6 +14,7 @@
  * (scripts/build-ios-app.py passes HALOPAD_* through simctl launch). */
 #import <UIKit/UIKit.h>
 #import <AVFoundation/AVFoundation.h>
+#import <GameController/GameController.h>
 #include <stdio.h>
 #include <math.h>
 #include <stdatomic.h>
@@ -25,6 +26,44 @@
 #include <pthread.h>
 
 int halopad_core_run(void);
+void halopad_gamepad_defaults_update(int in_game);  /* Halo's thread: a connected controller gets Halo's Xbox layout */
+
+/* A game controller also drives what Halo reads from the keyboard: Menu pauses
+   (Escape) everywhere; in Halo's menus the D-pad moves, A selects and B goes
+   back, as Halo's own keyboard navigation does. In play, A/B/D-pad stay game
+   controls through DirectInput. Keys are hardware-sourced, not touch. */
+static BOOL controller_in_menus = YES;
+static void controller_key(uint32_t vk, uint32_t scan, int extended, BOOL down)
+{
+    hp_input e = {.kind = HPI_KEY, .vk = vk, .side_vk = vk, .scan = scan, .extended = extended, .down = down};
+    halopad_host_post_input(&e);
+}
+static void controller_menu_key(uint32_t vk, uint32_t scan, int extended, BOOL down)
+{
+    static BOOL held[256];
+    if (down && !controller_in_menus) return;         /* gameplay: DirectInput owns it */
+    if (!down && !held[vk & 255]) return;             /* release only what we pressed */
+    held[vk & 255] = down;
+    controller_key(vk, scan, extended, down);
+}
+static void attach_controller(GCController *c)
+{
+    GCExtendedGamepad *g = c.extendedGamepad;
+    if (!g) return;
+    g.buttonMenu.pressedChangedHandler = ^(GCControllerButtonInput *b, float v, BOOL down) { controller_key(0x1B, 0x01, 0, down); };
+    g.buttonA.pressedChangedHandler = ^(GCControllerButtonInput *b, float v, BOOL down) { controller_menu_key(0x0D, 0x1C, 0, down); };
+    g.buttonB.pressedChangedHandler = ^(GCControllerButtonInput *b, float v, BOOL down) { controller_menu_key(0x1B, 0x01, 0, down); };
+    g.dpad.up.pressedChangedHandler = ^(GCControllerButtonInput *b, float v, BOOL down) { controller_menu_key(0x26, 0x48, 1, down); };
+    g.dpad.down.pressedChangedHandler = ^(GCControllerButtonInput *b, float v, BOOL down) { controller_menu_key(0x28, 0x50, 1, down); };
+    g.dpad.left.pressedChangedHandler = ^(GCControllerButtonInput *b, float v, BOOL down) { controller_menu_key(0x25, 0x4B, 1, down); };
+    g.dpad.right.pressedChangedHandler = ^(GCControllerButtonInput *b, float v, BOOL down) { controller_menu_key(0x27, 0x4D, 1, down); };
+}
+static void watch_controllers(void)
+{
+    for (GCController *c in GCController.controllers) attach_controller(c);
+    [NSNotificationCenter.defaultCenter addObserverForName:GCControllerDidConnectNotification object:nil queue:NSOperationQueue.mainQueue
+                                                usingBlock:^(NSNotification *n) { attach_controller(n.object); }];
+}
 /* what the core thread runs: Halo from its entry point, unless a development scene replaces it
    (scripts/build-ios-app.py --scene) */
 __attribute__((weak, noinline)) int halopad_app_entry(void) { return halopad_core_run(); }
@@ -95,6 +134,7 @@ static void update_overlay_game_state(void)
     }
     BOOL inGame = map[0] && strcmp(map, "ui");
     BOOL menuVisible = root != 0;
+    halopad_gamepad_defaults_update(inGame);
     static int previous = -1;
     BOOL analogMove = halopad_app_touch_move_ready();
     int state = inGame | (menuVisible << 1) | (analogMove << 2);
@@ -108,6 +148,9 @@ static void update_overlay_game_state(void)
     dispatch_async(dispatch_get_main_queue(), ^{
         overlay.haloMenuVisible = menuVisible;
         overlay.inGame = inGame;
+        controller_in_menus = !inGame || menuVisible;
+        /* A controller or a quiet moment in a match must not let the device lock. */
+        UIApplication.sharedApplication.idleTimerDisabled = inGame;
         overlay.analogMoveReady = analogMove;
         overlay.availableActions = availableActions;
     });
@@ -394,7 +437,7 @@ static void resolve_device_paths(void)
 }
 @end
 
-@interface HPGameViewController : UIViewController <HPOverlayDelegate>
+@interface HPGameViewController : UIViewController <HPOverlayDelegate, UIDocumentPickerDelegate>
 @property(nonatomic) BOOL trackingMenuTouch;
 @property(nonatomic) unsigned menuTouchToken;
 @end
@@ -1030,6 +1073,7 @@ static void touch_selftest(void)
     started = 1;
     [self applyDisplay];
     halopad_host_set_window_handler(on_window);
+    watch_controllers();
     if (!halopad_d3d9_present_hook) halopad_d3d9_present_hook = count_present;
     if (getenv("HALOPAD_TOUCH_LIFECYCLE_SELFTEST")) after(5, ^{ touch_lifecycle_selftest(); });
     else if (getenv("HALOPAD_TOUCH_TRANSITION_SERVER")) after(5, ^{ touch_transition_selftest(); });
@@ -1088,9 +1132,93 @@ static void touch_selftest(void)
     struct utsname u;
     uname(&u);
     NSString *ver = [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"?";
-    return [NSString stringWithFormat:@"HaloPad %@\nDevice %s, %@ %@\nHalo's map: %@\nDisplay: %@, touch controls %@",
-            ver, u.machine, UIDevice.currentDevice.systemName, UIDevice.currentDevice.systemVersion, current_map(),
-            HPSettings.shared.aspect == HPAspectFill ? @"stretch to fill" : @"original 4:3", HPSettings.shared.hideTouchControls ? @"hidden" : @"shown"];
+    NSString *build = [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleVersion"] ?: @"?";
+    NSMutableArray *pads = [NSMutableArray array];
+    for (GCController *c in GCController.controllers) [pads addObject:c.vendorName ?: @"controller"];
+    CGSize screen = UIScreen.mainScreen.bounds.size;
+    return [NSString stringWithFormat:@"HaloPad %@ (build %@)\nDevice: %s, %@ %@, %.0fx%.0f points\nHalo map: %@\n"
+            "Frames presented: %d\nControllers: %@\nTouch controls: %@; display %@",
+            ver, build, u.machine, UIDevice.currentDevice.systemName, UIDevice.currentDevice.systemVersion,
+            screen.width, screen.height, current_map().length ? current_map() : @"(none)", atomic_load(&presented),
+            pads.count ? [pads componentsJoinedByString:@", "] : @"none",
+            HPSettings.shared.hideTouchControls ? @"hidden" : @"shown",
+            HPSettings.shared.aspect == HPAspectFill ? @"stretch to fill" : @"original 4:3"];
+}
+/* Custom maps: Halo reads HALOPAD_STATE_ROOT/install/maps over the game folder, as a
+   PC reads its maps folder. Only Custom Edition map files are accepted, and the
+   stock maps are never replaced. The app does not download maps (Halo CE never did). */
+static NSString *custom_maps_dir(void)
+{
+    const char *state = getenv("HALOPAD_STATE_ROOT");
+    return state ? [@(state) stringByAppendingPathComponent:@"install/maps"] : nil;
+}
+static NSString *custom_map_problem(NSURL *url, NSString **name)
+{
+    NSString *file = url.lastPathComponent.lowercaseString;
+    static NSSet *stock;
+    if (!stock) stock = [NSSet setWithArray:@[@"beavercreek", @"bitmaps", @"bloodgulch", @"boardingaction", @"carousel", @"chillout",
+        @"damnation", @"dangercanyon", @"deathisland", @"gephyrophobia", @"hangemhigh", @"icefields", @"infinity", @"loc",
+        @"longest", @"prisoner", @"putput", @"ratrace", @"sidewinder", @"sounds", @"timberland", @"ui", @"wizard"]];
+    if (![file.pathExtension isEqualToString:@"map"]) return @"is not a .map file";
+    NSString *base = file.stringByDeletingPathExtension;
+    NSCharacterSet *bad = [NSCharacterSet characterSetWithCharactersInString:@"abcdefghijklmnopqrstuvwxyz0123456789_-. []()'"].invertedSet;
+    if (!base.length || base.length > 31 || [base rangeOfCharacterFromSet:bad].location != NSNotFound) return @"has a name Halo cannot use";
+    if ([stock containsObject:base]) return @"has the name of a stock map, which HaloPad never replaces";
+    NSFileHandle *h = [NSFileHandle fileHandleForReadingFromURL:url error:nil];
+    if (!h) return @"could not be read";
+    NSData *head = [h readDataUpToLength:0x800 error:nil];
+    [h closeFile];
+    if (head.length < 0x800) return @"is too small to be a Halo map";
+    const uint8_t *b = head.bytes;
+    uint32_t version; memcpy(&version, b + 4, 4);
+    if (memcmp(b, "daeh", 4) || memcmp(b + 0x7fc, "toof", 4)) return @"is not a Halo map";
+    if (version != 609) return [NSString stringWithFormat:@"is not a Custom Edition map (version %u)", version];
+    *name = file;
+    return nil;
+}
+- (void)overlayRequestsCustomMaps:(HPOverlay *)o
+{
+    UIDocumentPickerViewController *picker = [[UIDocumentPickerViewController alloc] initForOpeningContentTypes:@[UTTypeData] asCopy:YES];
+    picker.allowsMultipleSelection = YES;
+    picker.delegate = self;
+    [self presentViewController:picker animated:YES completion:nil];
+}
+- (void)documentPicker:(UIDocumentPickerViewController *)controller didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls
+{
+    NSString *dir = custom_maps_dir();
+    NSMutableArray<NSString *> *lines = [NSMutableArray array];
+    NSFileManager *fm = NSFileManager.defaultManager;
+    [fm createDirectoryAtPath:dir withIntermediateDirectories:YES attributes:nil error:nil];
+    for (NSURL *url in urls) {
+        NSString *name = nil, *problem = dir ? custom_map_problem(url, &name) : @"has nowhere to go (Halo is not set up yet)";
+        if (!problem) {
+            NSString *dest = [dir stringByAppendingPathComponent:name], *tmp = [dest stringByAppendingString:@".part"];
+            NSError *err = nil;
+            [fm removeItemAtPath:tmp error:nil];
+            if ([fm copyItemAtPath:url.path toPath:tmp error:&err] &&
+                ([fm fileExistsAtPath:dest] ? [fm replaceItemAtURL:[NSURL fileURLWithPath:dest] withItemAtURL:[NSURL fileURLWithPath:tmp]
+                                                    backupItemName:nil options:0 resultingItemURL:nil error:&err]
+                                            : [fm moveItemAtPath:tmp toPath:dest error:&err]))
+                [lines addObject:[NSString stringWithFormat:@"✓ %@", name]];
+            else { [fm removeItemAtPath:tmp error:nil]; problem = err.localizedDescription ?: @"could not be copied"; }
+        }
+        if (problem) [lines addObject:[NSString stringWithFormat:@"✗ %@ %@", url.lastPathComponent, problem]];
+    }
+    UIAlertController *a = [UIAlertController alertControllerWithTitle:@"Custom Maps"
+        message:[[lines componentsJoinedByString:@"\n"] stringByAppendingString:@"\n\nHalo uses a map when you join a server running it."]
+        preferredStyle:UIAlertControllerStyleAlert];
+    [a addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:nil]];
+    [self presentViewController:a animated:YES completion:nil];
+}
+- (NSString *)overlayAbout:(HPOverlay *)o
+{
+    NSString *ver = [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"?";
+    NSString *build = [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleVersion"] ?: @"?";
+    NSArray *maps = [[NSFileManager.defaultManager contentsOfDirectoryAtPath:custom_maps_dir() error:nil]
+                     filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"self ENDSWITH '.map'"]];
+    return [NSString stringWithFormat:@"HaloPad %@ (%@)\nHalo Custom Edition 1.10, translated to run natively.\n\n"
+            "Game files: Files app → HaloPad → Halo Custom Edition\nCustom maps installed: %lu\n\n"
+            "HaloPad needs your own copy of Halo. It includes no game data.", ver, build, (unsigned long)maps.count];
 }
 /* ---- input: hardware keyboard, touch and pointer, queued for Halo's thread ---- */
 - (BOOL)canBecomeFirstResponder { return YES; }
@@ -1115,7 +1243,14 @@ static void touch_selftest(void)
         halopad_host_post_input(&in);
     }
 }
-- (void)pressesBegan:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event { [self keys:presses down:1]; }
+/* While a HaloPad sheet or alert is up (Report a Problem, Join Server, a file
+   picker), the keyboard belongs to it: Halo must not also see the keys. */
+- (BOOL)keysBelongToSheet { return self.presentedViewController != nil; }
+- (void)pressesBegan:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event
+{
+    if (self.keysBelongToSheet) { [super pressesBegan:presses withEvent:event]; return; }
+    [self keys:presses down:1];
+}
 - (void)pressesEnded:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event { [self keys:presses down:0]; }
 - (void)pressesCancelled:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event { [self keys:presses down:0]; }
 
@@ -1447,6 +1582,14 @@ int halopad_host_open_url(const char *url)
     /* landscape, as Halo's desktop is (iPadOS 26 no longer holds apps to Info.plist's list) */
     UIWindowSceneGeometryPreferencesIOS *land = [[UIWindowSceneGeometryPreferencesIOS alloc] initWithInterfaceOrientations:UIInterfaceOrientationMaskLandscape];
     [(UIWindowScene *)scene requestGeometryUpdateWithPreferences:land errorHandler:^(NSError *e) { fprintf(stderr, "HALOPAD APP: landscape request: %s\n", e.localizedDescription.UTF8String); }];
+}
+/* iPadOS 26 opens apps in resizable windows when the iPad uses Windowed Apps
+   (Settings → Multitasking & Gestures); only the player can choose Full Screen
+   Apps. Keep the window controls minimal so they stay out of Halo's picture,
+   which letterboxes to any window size. */
+- (UISceneWindowingControlStyle *)preferredWindowingControlStyleForScene:(UIWindowScene *)windowScene API_AVAILABLE(ios(26.0))
+{
+    return UISceneWindowingControlStyle.minimalStyle;
 }
 - (void)sceneDidBecomeActive:(UIScene *)scene
 {

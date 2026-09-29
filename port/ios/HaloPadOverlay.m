@@ -419,6 +419,42 @@ static const hp_control_def CONTROLS[] = {
 };
 #define NCONTROLS (int)(sizeof CONTROLS / sizeof CONTROLS[0])
 
+/* The three-dot button. On iOS 26 a button's menu grows out of the button and
+   shrinks back into it. A custom button styled through its layer (background,
+   cornerRadius, border) gives that animation no shape to return to: after
+   tapping elsewhere it showed an empty square outline and the dots vanished
+   for seconds (the same bug SunPad has). A UIButtonConfiguration describes
+   the round shape, icon and colors to UIKit itself, so the menu animates back
+   into the same circle. Keyboard focus, whose ring was another square, is off;
+   the pointer highlight is round. */
+@interface HPMenuButton : UIButton
+@end
+@implementation HPMenuButton
++ (instancetype)menuButton
+{
+    UIButtonConfiguration *c = [UIButtonConfiguration filledButtonConfiguration];
+    c.image = [UIImage systemImageNamed:@"ellipsis" withConfiguration:
+        [UIImageSymbolConfiguration configurationWithPointSize:19 weight:UIImageSymbolWeightBold]];
+    c.baseForegroundColor = UIColor.whiteColor;
+    c.baseBackgroundColor = [UIColor colorWithWhite:0.06 alpha:0.72];
+    c.cornerStyle = UIButtonConfigurationCornerStyleCapsule;
+    c.background.strokeColor = [UIColor colorWithWhite:1 alpha:0.3];
+    c.background.strokeWidth = 1;
+    c.contentInsets = NSDirectionalEdgeInsetsZero;
+    HPMenuButton *b = [self buttonWithConfiguration:c primaryAction:nil];
+    b.showsMenuAsPrimaryAction = YES;
+    b.changesSelectionAsPrimaryAction = NO;
+    b.focusEffect = nil;
+    b.pointerInteractionEnabled = YES;
+    b.pointerStyleProvider = ^UIPointerStyle *(UIButton *button, UIPointerEffect *effect, UIPointerShape *shape) {
+        return [UIPointerStyle styleWithEffect:[UIPointerLiftEffect effectWithPreview:[[UITargetedPreview alloc] initWithView:button]]
+                                         shape:[UIPointerShape shapeWithPath:[UIBezierPath bezierPathWithOvalInRect:button.bounds]]];
+    };
+    return b;
+}
+- (BOOL)canBecomeFocused { return NO; }
+@end
+
 @interface HPOverlay () <UIGestureRecognizerDelegate>
 @end
 
@@ -690,6 +726,7 @@ static const hp_control_def CONTROLS[] = {
     if (_inGame == inGame) return;
     _inGame = inGame;
     if (!inGame) [self clearTouchInput];
+    [self rebuildMenu];
     [self updateAppearance];
 }
 
@@ -841,18 +878,9 @@ static const hp_control_def CONTROLS[] = {
 
 - (void)buildMenuButton
 {
-    _menuButton = [UIButton buttonWithType:UIButtonTypeCustom];
-    UIImage *dots = [UIImage systemImageNamed:@"ellipsis" withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:19 weight:UIImageSymbolWeightBold]];
-    [_menuButton setImage:dots forState:UIControlStateNormal];
-    _menuButton.tintColor = UIColor.whiteColor;
-    _menuButton.backgroundColor = [UIColor colorWithWhite:0.06 alpha:0.72];
-    _menuButton.layer.cornerRadius = 22;
-    _menuButton.layer.borderWidth = 1;
-    _menuButton.layer.borderColor = [UIColor colorWithWhite:1 alpha:0.3].CGColor;
-    _menuButton.layer.masksToBounds = YES;
+    _menuButton = [HPMenuButton menuButton];
     _menuButton.accessibilityLabel = @"Menu";
     _menuButton.accessibilityIdentifier = @"HaloPadMenu";
-    _menuButton.showsMenuAsPrimaryAction = YES;
     [_menuButton addTarget:self action:@selector(clearTouchInput) forControlEvents:UIControlEventMenuActionTriggered];
     [self addSubview:_menuButton];
     [self rebuildMenu];
@@ -865,41 +893,74 @@ static const hp_control_def CONTROLS[] = {
     return a;
 }
 
+static NSString * const HPRepositoryURL = @"https://github.com/chrissotraidis/projectreach";
+
+/* The three-dot menu, grouped the way a player looks for things: play, controls,
+   chat, display, maps, help. Everything Halo's own menus already do stays there. */
 - (void)rebuildMenu
 {
     __weak HPOverlay *weak = self;
     HPSettings *s = HPSettings.shared;
+    UIImage *(^icon)(NSString *) = ^UIImage *(NSString *name) { return [UIImage systemImageNamed:name]; };
+
     NSMutableArray<UIMenuElement *> *recent = [NSMutableArray array];
     for (NSString *addr in s.recentServers)
         [recent addObject:[UIAction actionWithTitle:addr image:nil identifier:nil handler:^(__kindof UIAction *a) { [weak joinServer:addr password:@""]; }]];
-    UIMenu *online = [UIMenu menuWithTitle:@"" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[
-        [UIAction actionWithTitle:@"Join Server by Address…" image:[UIImage systemImageNamed:@"network"] identifier:nil
-                          handler:^(__kindof UIAction *a) { [weak promptJoin]; }],
-        [UIMenu menuWithTitle:@"Recent Servers" image:[UIImage systemImageNamed:@"clock"] identifier:nil options:0
-                     children:recent.count ? recent : @[[UIAction actionWithTitle:@"None yet" image:nil identifier:nil handler:^(__kindof UIAction *a) {}]]]]];
-    UIMenu *text = [UIMenu menuWithTitle:@"Keyboard & Chat" image:[UIImage systemImageNamed:@"keyboard"] identifier:nil options:0 children:@[
-        [UIAction actionWithTitle:@"Show Keyboard" image:[UIImage systemImageNamed:@"keyboard"] identifier:nil
-                          handler:^(__kindof UIAction *a) { [weak.delegate overlayRequestsKeyboard:weak]; }],
-        [UIAction actionWithTitle:@"Halo Console" image:[UIImage systemImageNamed:@"terminal"] identifier:nil
-                          handler:^(__kindof UIAction *a) { [HPOverlay tapKey:0xC0 scan:0x29]; }],
-        [UIAction actionWithTitle:@"Team Chat" image:[UIImage systemImageNamed:@"bubble.left"] identifier:nil
+    if (!recent.count) {
+        UIAction *none = [UIAction actionWithTitle:@"No Recent Servers" image:nil identifier:nil handler:^(__kindof UIAction *a) {}];
+        none.attributes = UIMenuElementAttributesDisabled;
+        [recent addObject:none];
+    }
+    NSMutableArray<UIMenuElement *> *play = [NSMutableArray arrayWithObjects:
+        [UIAction actionWithTitle:@"Join Server by Address…" image:icon(@"network") identifier:nil handler:^(__kindof UIAction *a) { [weak promptJoin]; }],
+        [UIMenu menuWithTitle:@"Recent Servers" image:icon(@"clock.arrow.circlepath") identifier:nil options:0 children:recent], nil];
+    if (self.inGame) {
+        UIAction *leave = [UIAction actionWithTitle:@"Leave Game" image:icon(@"rectangle.portrait.and.arrow.right") identifier:nil
+                                            handler:^(__kindof UIAction *a) { [weak leaveGame]; }];
+        leave.attributes = UIMenuElementAttributesDestructive;
+        [play addObject:leave];
+    }
+
+    UIMenu *controls = [UIMenu menuWithTitle:@"Controls" image:icon(@"gamecontroller") identifier:nil options:0 children:@[
+        [UIAction actionWithTitle:@"Touch Control Settings…" image:icon(@"slider.horizontal.3") identifier:nil handler:^(__kindof UIAction *a) { [weak togglePanel]; }],
+        [UIAction actionWithTitle:@"Edit Touch Layout" image:icon(@"hand.draw") identifier:nil handler:^(__kindof UIAction *a) { [weak beginEditing]; }],
+        [self check:@"Hide Touch Controls" on:s.hideTouchControls handler:^{
+            HPSettings.shared.hideTouchControls = !HPSettings.shared.hideTouchControls; [weak clearTouchInput]; [weak updateAppearance]; [weak rebuildMenu]; }],
+        [self check:@"Hide Touch Controls with a Controller" on:s.hideWithController handler:^{
+            HPSettings.shared.hideWithController = !HPSettings.shared.hideWithController; [weak refreshControllerVisibility]; [weak rebuildMenu]; }],
+        [UIAction actionWithTitle:@"Controller Layout" image:icon(@"list.bullet.rectangle") identifier:nil handler:^(__kindof UIAction *a) { [weak showControllerLayout]; }]]];
+
+    UIMenu *chat = [UIMenu menuWithTitle:@"Keyboard & Chat" image:icon(@"keyboard") identifier:nil options:0 children:@[
+        [UIAction actionWithTitle:@"All Chat" image:icon(@"bubble.left.and.bubble.right") identifier:nil
+                          handler:^(__kindof UIAction *a) { [HPOverlay tapKey:'T' scan:0x14]; [weak.delegate overlayRequestsKeyboard:weak]; }],
+        [UIAction actionWithTitle:@"Team Chat" image:icon(@"bubble.left") identifier:nil
                           handler:^(__kindof UIAction *a) { [HPOverlay tapKey:'Y' scan:0x15]; [weak.delegate overlayRequestsKeyboard:weak]; }],
-        [UIAction actionWithTitle:@"All Chat" image:[UIImage systemImageNamed:@"bubble.left.and.bubble.right"] identifier:nil
-                          handler:^(__kindof UIAction *a) { [HPOverlay tapKey:'T' scan:0x14]; [weak.delegate overlayRequestsKeyboard:weak]; }]]];
-    UIMenu *display = [UIMenu menuWithTitle:@"Display" image:[UIImage systemImageNamed:@"display"] identifier:nil options:0 children:@[
-        [UIMenu menuWithTitle:@"Aspect Ratio" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[
+        [UIAction actionWithTitle:@"Show Keyboard" image:icon(@"keyboard.chevron.compact.down") identifier:nil
+                          handler:^(__kindof UIAction *a) { [weak.delegate overlayRequestsKeyboard:weak]; }],
+        [UIAction actionWithTitle:@"Halo Console" image:icon(@"terminal") identifier:nil
+                          handler:^(__kindof UIAction *a) { [HPOverlay tapKey:0xC0 scan:0x29]; [weak.delegate overlayRequestsKeyboard:weak]; }]]];
+
+    UIMenu *display = [UIMenu menuWithTitle:@"Display" image:icon(@"display") identifier:nil options:0 children:@[
+        [UIMenu menuWithTitle:@"" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[
             [self check:@"Original 4:3" on:s.aspect == HPAspectOriginal handler:^{ HPSettings.shared.aspect = HPAspectOriginal; [weak displayChanged]; }],
             [self check:@"Stretch to Fill" on:s.aspect == HPAspectFill handler:^{ HPSettings.shared.aspect = HPAspectFill; [weak displayChanged]; }]]],
         [self check:@"Show FPS Counter" on:s.showFPS handler:^{ HPSettings.shared.showFPS = !HPSettings.shared.showFPS; [weak displayChanged]; }]]];
-    UIMenu *controls = [UIMenu menuWithTitle:@"" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[
-        [UIAction actionWithTitle:@"Touch Control Settings…" image:[UIImage systemImageNamed:@"slider.horizontal.3"] identifier:nil
-                          handler:^(__kindof UIAction *a) { [weak togglePanel]; }],
-        [self check:@"Hide Touch Controls" on:s.hideTouchControls handler:^{
-            HPSettings.shared.hideTouchControls = !HPSettings.shared.hideTouchControls; [weak clearTouchInput]; [weak updateAppearance]; [weak rebuildMenu]; }]]];
-    UIAction *report = [UIAction actionWithTitle:@"Report a Problem…" image:[UIImage systemImageNamed:@"exclamationmark.bubble"] identifier:nil
-                                         handler:^(__kindof UIAction *a) { [weak report]; }];
-    /* Keep control adjustment visible on short landscape phones. */
-    _menuButton.menu = [UIMenu menuWithTitle:@"HaloPad" children:@[controls, display, online, text, report]];
+
+    NSMutableArray<UIMenuElement *> *setup = [NSMutableArray arrayWithObjects:controls, chat, display, nil];
+    if ([self.delegate respondsToSelector:@selector(overlayRequestsCustomMaps:)])
+        [setup addObject:[UIAction actionWithTitle:@"Add Custom Maps…" image:icon(@"map") identifier:nil
+                                           handler:^(__kindof UIAction *a) { [weak.delegate overlayRequestsCustomMaps:weak]; }]];
+
+    UIMenu *help = [UIMenu menuWithTitle:@"Help" image:icon(@"questionmark.circle") identifier:nil options:0 children:@[
+        [UIAction actionWithTitle:@"Report a Problem…" image:icon(@"exclamationmark.bubble") identifier:nil handler:^(__kindof UIAction *a) { [weak report]; }],
+        [UIAction actionWithTitle:@"HaloPad on GitHub" image:icon(@"safari") identifier:nil handler:^(__kindof UIAction *a) {
+            [UIApplication.sharedApplication openURL:[NSURL URLWithString:HPRepositoryURL] options:@{} completionHandler:nil]; }],
+        [UIAction actionWithTitle:@"About HaloPad" image:icon(@"info.circle") identifier:nil handler:^(__kindof UIAction *a) { [weak showAbout]; }]]];
+
+    _menuButton.menu = [UIMenu menuWithTitle:@"HaloPad" children:@[
+        [UIMenu menuWithTitle:@"" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:play],
+        [UIMenu menuWithTitle:@"" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:setup],
+        [UIMenu menuWithTitle:@"" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[help]]]];
 }
 
 - (void)displayChanged
@@ -955,13 +1016,73 @@ static const hp_control_def CONTROLS[] = {
     [HPOverlay tapKey:0xC0 scan:0x29];                              /* and close it: in a game its keys would type there */
 }
 
+/* Halo's own console command, as its pause menu's Leave Game does for a client. */
+- (void)leaveGame
+{
+    [self clearTouchInput];
+    [HPOverlay tapKey:0xC0 scan:0x29];
+    [HPOverlay typeText:@"disconnect\n"];
+    [HPOverlay tapKey:0xC0 scan:0x29];
+}
+- (void)showAbout
+{
+    NSString *text = [self.delegate respondsToSelector:@selector(overlayAbout:)] ? [self.delegate overlayAbout:self] : @"";
+    UIAlertController *a = [UIAlertController alertControllerWithTitle:@"About HaloPad" message:text preferredStyle:UIAlertControllerStyleAlert];
+    [a addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:nil]];
+    [self.presenter presentViewController:a animated:YES completion:nil];
+}
+/* Report a Problem: a short description, then a prefilled GitHub issue (the device,
+   OS, app build and Halo's state are filled in; nothing is sent without the player
+   submitting it) or a plain-text report for anywhere else. */
 - (void)report
 {
-    NSString *body = [NSString stringWithFormat:@"HaloPad problem report\n\n%@\n\nWhat happened:\n", [self.delegate overlayDiagnostics:self]];
+    [self clearTouchInput];
+    UIAlertController *a = [UIAlertController alertControllerWithTitle:@"Report a Problem"
+        message:@"Describe what happened. HaloPad adds the app version, device and game state; no game files or personal data."
+        preferredStyle:UIAlertControllerStyleAlert];
+    [a addTextFieldWithConfigurationHandler:^(UITextField *f) { f.placeholder = @"What went wrong?"; f.autocapitalizationType = UITextAutocapitalizationTypeSentences; }];
+    [a addTextFieldWithConfigurationHandler:^(UITextField *f) { f.placeholder = @"What were you doing? (map, server, controls)"; f.autocapitalizationType = UITextAutocapitalizationTypeSentences; }];
+    __weak HPOverlay *weak = self;
+    __weak UIAlertController *wa = a;
+    [a addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+    [a addAction:[UIAlertAction actionWithTitle:@"Share as Text…" style:UIAlertActionStyleDefault handler:^(UIAlertAction *x) {
+        [weak shareReport:wa.textFields[0].text context:wa.textFields[1].text]; }]];
+    UIAlertAction *github = [UIAlertAction actionWithTitle:@"Open GitHub Issue" style:UIAlertActionStyleDefault handler:^(UIAlertAction *x) {
+        [weak openIssue:wa.textFields[0].text context:wa.textFields[1].text]; }];
+    [a addAction:github];
+    a.preferredAction = github;
+    [self.presenter presentViewController:a animated:YES completion:nil];
+}
+- (NSString *)reportBody:(NSString *)problem context:(NSString *)context
+{
+    return [NSString stringWithFormat:@"### What happened\n%@\n\n### What I was doing\n%@\n\n### Details\n```\n%@\n```\n",
+            problem.length ? problem : @"(not given)", context.length ? context : @"(not given)", [self.delegate overlayDiagnostics:self]];
+}
+- (void)openIssue:(NSString *)problem context:(NSString *)context
+{
+    NSString *title = problem.length ? problem : @"Problem report";
+    if (title.length > 80) title = [[title substringToIndex:80] stringByAppendingString:@"…"];
+    NSURLComponents *c = [NSURLComponents componentsWithString:[HPRepositoryURL stringByAppendingString:@"/issues/new"]];
+    c.queryItems = @[[NSURLQueryItem queryItemWithName:@"title" value:[@"[Bug] " stringByAppendingString:title]],
+                     [NSURLQueryItem queryItemWithName:@"labels" value:@"bug"],
+                     [NSURLQueryItem queryItemWithName:@"body" value:[self reportBody:problem context:context]]];
+    [UIApplication.sharedApplication openURL:c.URL options:@{} completionHandler:nil];
+}
+- (void)shareReport:(NSString *)problem context:(NSString *)context
+{
+    NSString *body = [@"HaloPad problem report\n\n" stringByAppendingString:[self reportBody:problem context:context]];
     UIActivityViewController *share = [[UIActivityViewController alloc] initWithActivityItems:@[body] applicationActivities:nil];
     share.popoverPresentationController.sourceView = _menuButton;
     share.popoverPresentationController.sourceRect = _menuButton.bounds;
     [self.presenter presentViewController:share animated:YES completion:nil];
+}
+- (void)showControllerLayout
+{
+    UIAlertController *a = [UIAlertController alertControllerWithTitle:@"Controller Layout"
+        message:@"Left stick  move\nRight stick  look\nRT  fire    LT  grenade\nA  jump    B  melee\nX  reload    Y  switch weapon\nRB  use / pick up / enter vehicle\nLB  switch grenade\nD-pad up  flashlight\nLeft stick click  crouch\nRight stick click  zoom\nView  scores    Menu  pause\n\nIn Halo's menus: D-pad moves, A selects, B goes back. Change any control in Halo's Settings → Controls Setup."
+        preferredStyle:UIAlertControllerStyleAlert];
+    [a addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:nil]];
+    [self.presenter presentViewController:a animated:YES completion:nil];
 }
 
 + (void)setTextInputActive:(BOOL)active

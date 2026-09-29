@@ -10,6 +10,13 @@ generated/halopad-disk-ios/. With --launch the script waits, takes a screenshot 
 and records stdout/stderr as evidence; it never taps anything in the app.
 
 Usage: .venv/bin/python scripts/build-ios-app.py [--work RUN_DIR] [--device UDID] [--launch] [--wait S]
+       .venv/bin/python scripts/build-ios-app.py --iphoneos [--identity NAME --profile FILE.mobileprovision]
+
+--iphoneos builds for a physical iPhone/iPad (arm64-apple-ios17.0) and writes HaloPad.ipa. Halo's
+32-bit guest memory is one 4 GiB reservation (port/runtime/halopad_guest.c), so the build asks for
+Apple's extended-virtual-addressing and increased-memory-limit entitlements; the provisioning
+profile must allow them. Without --identity the app is ad-hoc signed and cannot be installed on a
+device; see docs/INSTALL-IPHONE.md.
 """
 import argparse
 import datetime
@@ -30,11 +37,18 @@ run_core = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(run_core)
 
 TARGET = 'arm64-apple-ios17.0-simulator'
+DEVICE_TARGET = 'arm64-apple-ios17.0'
+ENTITLEMENTS = {
+    # one 4 GiB PROT_NONE reservation for Halo's 32-bit address space
+    'com.apple.developer.kernel.extended-virtual-addressing': True,
+    # Halo's maps and tag memory; the default memory limit is tight on older phones
+    'com.apple.developer.kernel.increased-memory-limit': True,
+}
 BUNDLE_ID = 'dev.halopad.HaloPad'
 STATE = ROOT / 'generated' / 'halopad-disk-ios'
 
 
-def package(exe, out, work):
+def package(exe, out, work, target=TARGET, identity=None, provisioning=None):
     app = out / 'HaloPad.app'
     if app.exists():
         shutil.rmtree(app)
@@ -43,7 +57,7 @@ def package(exe, out, work):
     info = {
         'CFBundleIdentifier': BUNDLE_ID, 'CFBundleExecutable': 'HaloPad', 'CFBundleName': 'HaloPad',
         'CFBundleDisplayName': 'HaloPad', 'CFBundlePackageType': 'APPL', 'CFBundleVersion': '1',
-        'CFBundleShortVersionString': '0.1', 'CFBundleSupportedPlatforms': ['iPhoneSimulator'],
+        'CFBundleShortVersionString': '0.1', 'CFBundleSupportedPlatforms': ['iPhoneSimulator' if 'simulator' in target else 'iPhoneOS'],
         'MinimumOSVersion': '17.0', 'UIDeviceFamily': [1, 2], 'UIRequiresFullScreen': True, 'UILaunchScreen': {},
         'UIStatusBarHidden': True,
         'UISupportedInterfaceOrientations': ['UIInterfaceOrientationLandscapeLeft', 'UIInterfaceOrientationLandscapeRight'],
@@ -73,9 +87,41 @@ def package(exe, out, work):
     inputs = {f'{name}.va.o': objects / f'{name}.va.o' for name in ['haloce', *profile['modules']]}
     inputs['dispatch.ll'] = work / 'va' / 'dispatch.ll'
     inputs.update({p.name: p for p in (work / 'va').glob('halopad-*.ll')})
-    identity = create_identity(profile, TARGET, inputs, data, stock)
-    (data / 'core-identity.json').write_text(json.dumps(identity, sort_keys=True, indent=2) + '\n')
-    subprocess.run(['codesign', '--force', '--sign', '-', '--timestamp=none', str(app)], check=True, capture_output=True)
+    core = create_identity(profile, target, inputs, data, stock)
+    (data / 'core-identity.json').write_text(json.dumps(core, sort_keys=True, indent=2) + '\n')
+    if 'simulator' in target:
+        subprocess.run(['codesign', '--force', '--sign', '-', '--timestamp=none', str(app)], check=True, capture_output=True)
+        return app
+    info['UIRequiredDeviceCapabilities'] = ['arm64', 'metal']
+    with open(app / 'Info.plist', 'wb') as f:
+        plistlib.dump(info, f)
+    entitlements = dict(ENTITLEMENTS)
+    if provisioning:
+        shutil.copy2(provisioning, app / 'embedded.mobileprovision')
+        decoded = subprocess.run(['security', 'cms', '-D', '-i', str(provisioning)], check=True, capture_output=True).stdout
+        granted = plistlib.loads(decoded).get('Entitlements', {})
+        missing = [k for k in ENTITLEMENTS if not granted.get(k)]
+        if missing:
+            print('warning: the provisioning profile does not grant', ', '.join(missing), file=sys.stderr)
+            for k in missing:
+                entitlements.pop(k)
+        entitlements.update({k: granted[k] for k in ('application-identifier', 'com.apple.developer.team-identifier', 'get-task-allow') if k in granted})
+    ent = out / 'entitlements.plist'
+    with open(ent, 'wb') as f:
+        plistlib.dump(entitlements, f)
+    subprocess.run(['codesign', '--force', '--sign', identity or '-', '--entitlements', str(ent), '--timestamp=none', str(app)],
+                   check=True, capture_output=True)
+    ipa = out / 'HaloPad.ipa'
+    payload = out / 'Payload'
+    if payload.exists():
+        shutil.rmtree(payload)
+    payload.mkdir()
+    shutil.copytree(app, payload / 'HaloPad.app', symlinks=True)
+    if ipa.exists():
+        ipa.unlink()
+    subprocess.run(['ditto', '-c', '-k', '--sequesterRsrc', '--keepParent', 'Payload', str(ipa)], cwd=out, check=True)
+    shutil.rmtree(payload)
+    print('ipa', ipa.relative_to(ROOT), '(signed with', (identity or 'ad-hoc; sign before installing') + ')')
     return app
 
 
@@ -89,12 +135,18 @@ def main():
                     help='launch without the Mac data paths: the app uses its bundle and Documents, as on a device (the import screen when no game folder is there)')
     ap.add_argument('--scene', type=pathlib.Path,
                     help='development only: a C file whose halopad_app_entry replaces the core start (evidence scenes in tests/)')
+    ap.add_argument('--iphoneos', action='store_true', help='build for a physical iPhone/iPad and write HaloPad.ipa')
+    ap.add_argument('--identity', help='codesign identity for --iphoneos, e.g. "Apple Development: Name (TEAMID)"')
+    ap.add_argument('--profile', type=pathlib.Path, help='provisioning profile for --iphoneos')
     a = ap.parse_args()
     work = (a.work or max(run_core.PROFILE.glob('run-*/va/haloce.va.ll'), key=lambda p: p.stat().st_mtime).parent.parent).resolve()
     extra = [ROOT / 'port' / 'ios' / name for name in ('HaloPadOverlay.m', 'HaloPadImport.m', 'HaloPadPackage.m', 'HaloPadDataIdentity.m')] + ([a.scene.resolve()] if a.scene else [])
-    exe, _ = run_core.build(work, TARGET, ROOT / 'port' / 'ios' / 'HaloPadApp.m', extra=extra)
-    app = package(exe, work / f'ios-app-{TARGET}', work)
+    target = DEVICE_TARGET if a.iphoneos else TARGET
+    exe, _ = run_core.build(work, target, ROOT / 'port' / 'ios' / 'HaloPadApp.m', extra=extra)
+    app = package(exe, work / f'ios-app-{target}', work, target, a.identity, a.profile)
     print('built', app.relative_to(ROOT))
+    if a.iphoneos:
+        return 0
     if not a.launch:
         return 0
     stamp = datetime.datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')

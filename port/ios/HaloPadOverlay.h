@@ -19,6 +19,11 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)overlayRequestsKeyboard:(HPOverlay *)overlay;
 /* Privacy-safe state for a problem report. */
 - (NSString *)overlayDiagnostics:(HPOverlay *)overlay;
+@optional
+/* Let the player pick custom .map files for the servers they join. */
+- (void)overlayRequestsCustomMaps:(HPOverlay *)overlay;
+/* Version, game data and file locations for About HaloPad. */
+- (NSString *)overlayAbout:(HPOverlay *)overlay;
 @end
 
 typedef NS_ENUM(NSInteger, HPAspectMode) { HPAspectOriginal = 0, HPAspectFill = 1 };

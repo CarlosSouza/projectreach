@@ -1,0 +1,36 @@
+name: Bug report
+description: Something went wrong while playing HaloPad.
+title: "[Bug] "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. The quickest way is **three-dot menu → Help → Report a Problem…**
+        in the app, which fills in your device and app build. Never attach game files,
+        product keys or saved profiles.
+  - type: textarea
+    id: body
+    attributes:
+      label: What happened
+      description: What you expected, what happened instead, and how often.
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Device and iOS version
+      placeholder: iPhone 15 Pro, iOS 26.1
+  - type: dropdown
+    id: input
+    attributes:
+      label: Controls
+      options:
+        - Touch
+        - Game controller (Xbox, PlayStation, other)
+        - Keyboard and mouse or trackpad
+  - type: input
+    id: where
+    attributes:
+      label: Where
+      description: Map, game type, and server (name or address) if online.
