@@ -63,6 +63,36 @@ Then AirDrop the package to the device or drop it into HaloPad in Finder's devic
 and choose it on the first screen. A package matches only the build that prepared it;
 prepare a new one after rebuilding.
 
+## Installing from another Mac
+
+The repository holds HaloPad's code, not your game files or the translated game (about
+50 GB of generated build output, made from your own `haloce.exe`). A second Mac therefore
+installs a finished build instead of rebuilding:
+
+1. On the build Mac, copy the handoff kit to the other Mac (AirDrop or a drive). It is the
+   device `HaloPad.app` plus the `.halopad.zip` prepared for exactly that build; the
+   current one is `generated/handoff/HaloPad-iPad-test.zip`. It contains your game files, so
+   keep it private.
+2. On the other Mac: install Xcode, sign in to your Apple ID (Xcode → Settings → Accounts),
+   clone the repository and download the provisioning profile described above.
+3. Connect the iPad and run, from the clone:
+
+```sh
+scripts/install-device.sh \
+  --identity "Apple Development: Your Name (TEAMID)" \
+  --profile ~/Downloads/HaloPad_Development.mobileprovision \
+  --app HaloPad-iPad-test/HaloPad.app \
+  --package HaloPad-iPad-test/Halo-CE.halopad.zip
+```
+
+That signs a copy of the app for your team (`scripts/sign-app.py`, standard-library Python
+only), installs it and copies the package into HaloPad's Documents. Then continue with
+**First launch** above.
+
+To rebuild from source on a new Mac you also need the private inputs under `ref/` (the
+Custom Edition installer and 1.10 patch, the reference system files) and CrossOver for the
+patch step; that is a development setup, not needed for testing.
+
 ## What to check on first hardware run
 
 1. HaloPad opens and the import finishes (memory reservation works on this device).

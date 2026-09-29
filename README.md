@@ -47,7 +47,8 @@ scripts/install-device.sh --identity "Apple Development: Your Name (TEAMID)" \
   --profile HaloPad.mobileprovision --game "/path/to/Halo Custom Edition"
 ```
 
-Then open HaloPad and choose the package it copied over. Details, signing setup and a
+Then open HaloPad and choose the package it copied over. Installing on a Mac that does not
+hold the build (for example a second Mac): see "Installing from another Mac" in the guide. Details, signing setup and a
 first-run checklist: **[Installing on iPhone or iPad](docs/INSTALL-IPHONE.md)**.
 
 ## Build from source

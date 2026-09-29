@@ -5,13 +5,19 @@
 #   scripts/install-device.sh --identity "Apple Development: Name (TEAMID)" \
 #       --profile ~/Downloads/HaloPad.mobileprovision --game "/path/to/Halo Custom Edition"
 #
+# On another Mac, without the build tree, install a prebuilt app and its matching package
+# (the handoff folder made on the build Mac) instead:
+#
+#   scripts/install-device.sh --identity "..." --profile X.mobileprovision \\
+#       --app HaloPad.app --package Halo-CE.halopad.zip
+#
 # Options: --device ID (default: the only connected device), --work RUN_DIR.
 # Development builds use the menu scene (tests/halo_touch_move_scene.c) until Halo's normal
 # start-up can find the product ID its original installer writes.
 set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
-PY="$ROOT/.venv/bin/python"
-IDENTITY="" PROFILE="" GAME="" DEVICE="" WORK=""
+PY="$ROOT/.venv/bin/python"; [[ -x "$PY" ]] || PY=python3
+IDENTITY="" PROFILE="" GAME="" DEVICE="" WORK="" PREBUILT="" PACKAGE=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --identity) IDENTITY=$2; shift 2 ;;
@@ -19,13 +25,19 @@ while [[ $# -gt 0 ]]; do
     --game) GAME=$2; shift 2 ;;
     --device) DEVICE=$2; shift 2 ;;
     --work) WORK=$2; shift 2 ;;
+    --app) PREBUILT=$2; shift 2 ;;
+    --package) PACKAGE=$2; shift 2 ;;
     *) echo "unknown option $1" >&2; exit 2 ;;
   esac
 done
 die() { echo "error: $*" >&2; exit 1; }
 [[ -n "$IDENTITY" ]] || die "--identity is required (security find-identity -v -p codesigning)"
 [[ -f "$PROFILE" ]] || die "--profile must name a .mobileprovision for dev.halopad.HaloPad"
-[[ -d "$GAME" ]] || die "--game must name your Halo Custom Edition 1.10 folder"
+if [[ -n "$PREBUILT" ]]; then
+  [[ -d "$PREBUILT" && -f "$PACKAGE" ]] || die "--app needs a HaloPad.app folder and --package its .halopad.zip"
+else
+  [[ -d "$GAME" ]] || die "--game must name your Halo Custom Edition 1.10 folder"
+fi
 
 if [[ -z "$DEVICE" ]]; then
   JSON=$(mktemp)
@@ -34,16 +46,25 @@ if [[ -z "$DEVICE" ]]; then
   [[ -n "$DEVICE" ]] || die "connect and trust exactly one iPhone/iPad, or pass --device (xcrun devicectl list devices)"
 fi
 
-echo "==> Building for the device"
-WORKARG=()
-[[ -n "$WORK" ]] && WORKARG=(--work "$WORK")
-"$PY" "$ROOT/scripts/build-ios-app.py" --iphoneos --identity "$IDENTITY" --profile "$PROFILE" \
-  --scene "$ROOT/tests/halo_touch_move_scene.c" "${WORKARG[@]}"
-APP=$(ls -td "$ROOT"/generated/srw/*/run-*/ios-app-arm64-apple-ios17.0/HaloPad.app | head -1)
+if [[ -n "$PREBUILT" ]]; then
+  echo "==> Signing the prebuilt app for your team"
+  STAGE=$(mktemp -d)
+  ditto "$PREBUILT" "$STAGE/HaloPad.app"
+  APP="$STAGE/HaloPad.app"
+  "$PY" "$ROOT/scripts/sign-app.py" "$APP" --identity "$IDENTITY" --profile "$PROFILE"
+  PKG="$PACKAGE"
+else
+  echo "==> Building for the device"
+  WORKARG=()
+  [[ -n "$WORK" ]] && WORKARG=(--work "$WORK")
+  "$PY" "$ROOT/scripts/build-ios-app.py" --iphoneos --identity "$IDENTITY" --profile "$PROFILE" \
+    --scene "$ROOT/tests/halo_touch_move_scene.c" "${WORKARG[@]}"
+  APP=$(ls -td "$ROOT"/generated/srw/*/run-*/ios-app-arm64-apple-ios17.0/HaloPad.app | head -1)
 
-echo "==> Preparing your game package for this build"
-PKG="$ROOT/generated/prepared/device-$(date +%Y%m%d-%H%M%S).halopad.zip"
-"$PY" "$ROOT/scripts/prepare-game-data.py" --app-data "$APP/data" --game "$GAME" --output "$PKG"
+  echo "==> Preparing your game package for this build"
+  PKG="$ROOT/generated/prepared/device-$(date +%Y%m%d-%H%M%S).halopad.zip"
+  "$PY" "$ROOT/scripts/prepare-game-data.py" --app-data "$APP/data" --game "$GAME" --output "$PKG"
+fi
 
 echo "==> Installing on $DEVICE"
 xcrun devicectl device install app --device "$DEVICE" "$APP"

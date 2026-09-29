@@ -1,0 +1,58 @@
+#!/usr/bin/env python3
+"""Sign a prebuilt device HaloPad.app for your own team, on any Mac with Xcode.
+
+The app is built on the Mac that holds the translated game (scripts/build-ios-app.py --iphoneos).
+This signs a copy of it with your identity and provisioning profile, requesting the two memory
+entitlements Halo needs, so another Mac can install it without the build tree.
+Uses only the Python standard library.
+
+Usage: scripts/sign-app.py HaloPad.app --identity "Apple Development: Name (TEAMID)" --profile X.mobileprovision
+"""
+import argparse
+import pathlib
+import plistlib
+import shutil
+import subprocess
+import sys
+import tempfile
+
+ENTITLEMENTS = {
+    'com.apple.developer.kernel.extended-virtual-addressing': True,
+    'com.apple.developer.kernel.increased-memory-limit': True,
+}
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument('app', type=pathlib.Path)
+    ap.add_argument('--identity', required=True)
+    ap.add_argument('--profile', type=pathlib.Path, required=True)
+    a = ap.parse_args()
+    app = a.app.resolve()
+    if not (app / 'Info.plist').is_file() or not (app / 'data' / 'core-identity.json').is_file():
+        sys.exit(f'{app} is not a HaloPad device build')
+    info = plistlib.loads((app / 'Info.plist').read_bytes())
+    if info.get('CFBundleSupportedPlatforms') != ['iPhoneOS']:
+        sys.exit(f'{app} is a Simulator build; use the ios-app-arm64-apple-ios17.0 one')
+    decoded = subprocess.run(['security', 'cms', '-D', '-i', str(a.profile)], check=True, capture_output=True).stdout
+    granted = plistlib.loads(decoded).get('Entitlements', {})
+    appid = granted.get('application-identifier', '')
+    bundle = info['CFBundleIdentifier']
+    if appid and not (appid.endswith('.' + bundle) or appid.endswith('.*')):
+        sys.exit(f'profile is for {appid}, not {bundle}')
+    entitlements = dict(ENTITLEMENTS)
+    for k in ENTITLEMENTS:
+        if not granted.get(k):
+            print(f'warning: the profile does not grant {k}; Halo may not start', file=sys.stderr)
+            entitlements.pop(k)
+    entitlements.update({k: granted[k] for k in ('application-identifier', 'com.apple.developer.team-identifier', 'get-task-allow') if k in granted})
+    shutil.copy2(a.profile, app / 'embedded.mobileprovision')
+    with tempfile.NamedTemporaryFile(suffix='.plist', delete=False) as f:
+        plistlib.dump(entitlements, f)
+    subprocess.run(['codesign', '--force', '--sign', a.identity, '--entitlements', f.name, '--timestamp=none', str(app)], check=True)
+    subprocess.run(['codesign', '--verify', '--deep', '--strict', str(app)], check=True)
+    print('signed', app)
+
+
+if __name__ == '__main__':
+    main()
