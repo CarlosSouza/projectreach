@@ -46,6 +46,8 @@ if [[ -z "$DEVICE" ]]; then
   [[ -n "$DEVICE" ]] || die "connect and trust exactly one iPhone/iPad, or pass --device (xcrun devicectl list devices)"
 fi
 
+"$PY" "$ROOT/scripts/device_profile.py" --profile "$PROFILE" --identity "$IDENTITY" --device "$DEVICE"
+
 if [[ -n "$PREBUILT" ]]; then
   echo "==> Signing the prebuilt app for your team"
   STAGE=$(mktemp -d)

@@ -24,6 +24,15 @@ reservation, which iOS allows only with Apple's
    *Extended Virtual Addressing* and *Increased Memory Limit*.
 2. Create a development provisioning profile for that App ID and your device, and download it.
 3. Find your signing identity: `security find-identity -v -p codesigning`.
+4. Check the profile before installing. If several certificates have the same
+   name, use the unique SHA-1 shown by `security find-identity` as `--identity`.
+
+```sh
+python3 scripts/device_profile.py \
+  --profile ~/Downloads/HaloPad_Development.mobileprovision \
+  --identity "Apple Development: Your Name (TEAMID)" \
+  --device <UDID>
+```
 
 ## 2. Build, install and add your game (one command)
 
@@ -38,8 +47,9 @@ scripts/install-device.sh \
 
 This builds HaloPad for the device (the first build compiles the translated game, a few
 minutes), signs it, prepares a `.halopad.zip` of your game files for exactly this build,
-installs the app and copies the package into HaloPad's Documents folder. It warns if the
-profile lacks either memory entitlement.
+installs the app and copies the package into HaloPad's Documents folder. The script stops
+before signing or installing if the profile has the wrong App ID, certificate, device,
+expiry, or lacks either memory entitlement.
 
 ## 3. First launch
 

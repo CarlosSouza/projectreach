@@ -7,7 +7,7 @@ Written 2026-09-29. This is the active loop for the supplied device handoff and 
 - The private kit is `ref/handoff/HaloPad-iPad-test/`: an arm64 iPhoneOS `HaloPad.app` and its matching `.halopad.zip`. The original kit stays untouched. The package verifies its 87 files, including 78 stock records.
 - A **copy** of the device app was converted to an ad-hoc Simulator probe under ignored `generated/simulator-probe/`. On this Mac it reaches the main menu on iPad Air 13-inch (M4) and iPhone 17 Pro Simulators. The iPad local LAN match reached first-person play; menu taps and FIRE worked. This probe is not a source-built Simulator binary or physical-device acceptance.
 - The iPad local-host **Leave Game** action in the three-dot menu did not leave; Halo's own pause-menu Leave Game did. Touch controls were initially hidden by the connected-controller setting in the Simulator; turning that setting off exposed them. Two-thumb gestures, real controller input, keyboard typing, private-server joining, and iPhone gameplay remain to be accepted on this machine.
-- This Mac has Xcode 27 and an Apple Development identity for team `P52SY73DYK`, but no cached profile for `dev.halopad.HaloPad` with the required memory entitlements. The iPad is not connected. No original 1.10 build inputs or CrossOver are available here, so source rebuilding is unavailable until those inputs arrive. The kit can be re-signed without a rebuild.
+- This Mac has Xcode 27 and Apple Development identities whose certificate team field is `VKDH2T9UTF` (their display names end in `P52SY73DYK`), but no cached profile for `dev.halopad.HaloPad` with the required memory entitlements. The iPad is not connected. No original 1.10 build inputs or CrossOver are available here, so source rebuilding is unavailable until those inputs arrive. The kit can be re-signed without a rebuild.
 
 ## Loop rule
 
@@ -15,7 +15,7 @@ Work the lowest useful unblocked item. Keep independent Simulator, signing, sour
 
 ## D1. Make the handoff installable on hardware
 
-1. In Apple Developer, create/check the App ID `dev.halopad.HaloPad` on team `P52SY73DYK`, enable Extended Virtual Addressing and Increased Memory Limit, and create a device development profile. Before use, decode the downloaded profile and check App ID, team, certificate, device UDID, expiry, and both entitlements. Never place keys or the profile in Git.
+1. In Apple Developer, create/check the App ID `dev.halopad.HaloPad` on certificate team `VKDH2T9UTF`, enable Extended Virtual Addressing and Increased Memory Limit, and create a device development profile. Before use, decode the downloaded profile and check App ID, team, certificate, device UDID, expiry, and both entitlements. Never place keys or the profile in Git.
 2. While the iPad is absent, retain the verified kit and profile locally. Once it is connected and trusted, inspect the existing bundle/container, preserve `Documents` and `Library`, and install in place using `scripts/install-device.sh --app ... --package ...`. Read back app identity, installed package, and container state. Do not uninstall/reset to make installation work.
 3. On iPad, import through the actual Files picker and reach the main menu. Record the launch log, import result, crash/memory outcome, and screenshot. If the 4 GiB guest reservation fails, capture the exact OS denial before changing code. An iPhone 14 run follows the same preservation steps when that device is explicitly in scope.
 

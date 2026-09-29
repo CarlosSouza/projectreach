@@ -2718,3 +2718,25 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   the iPad remains unavailable. Five cached Xcode profiles were decoded; none
   covers `dev.halopad.HaloPad` or grants both memory entitlements. The Apple
   Developer tab still shows its sign-in form. No device app was installed.
+
+## 2026-09-29 — fail-closed device profile preflight
+
+- Added `scripts/device_profile.py` and made both the prebuilt signing and source
+  build paths require an exact HaloPad App ID, matching installed signing
+  certificate, unexpired development profile, and both memory entitlements.
+  `scripts/install-device.sh` also checks the physical device UDID before it
+  copies, signs, or installs anything. Duplicate certificate names require a
+  unique SHA-1 selector.
+- Five synthetic profile tests pass (valid, missing memory capability, wildcard
+  App ID, wrong device/certificate, expired/distribution). Python compilation
+  and shell syntax pass. A real cached AgePad profile was rejected by the full
+  install command for its wrong App ID and missing Extended Virtual Addressing;
+  it exited before staging or device mutation. The original handoff kit remains
+  untouched, and the iPhone 14 has not received HaloPad.
+- Apple Developer sign-in is still at its initial form; no matching profile
+  exists locally. The iPad remains unavailable, while the iPhone 14 is connected.
+- Certificate inspection corrected the target team: all three Apple Development
+  identities have certificate subject `OU=VKDH2T9UTF`, and the cached profiles
+  use the same team. Their displayed names end in `P52SY73DYK`; that suffix is
+  not the provisioning team. The future HaloPad App ID/profile must be created
+  under `VKDH2T9UTF` and matched to one of these certificate SHA-1 values.

@@ -30,6 +30,7 @@ import subprocess
 import sys
 import time
 from halopad_package import create_identity
+from device_profile import check as check_device_profile
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location('run_core', ROOT / 'scripts' / 'run-core.py')
@@ -111,13 +112,7 @@ def package(exe, out, work, target=TARGET, identity=None, provisioning=None):
     entitlements = dict(ENTITLEMENTS)
     if provisioning:
         shutil.copy2(provisioning, app / 'embedded.mobileprovision')
-        decoded = subprocess.run(['security', 'cms', '-D', '-i', str(provisioning)], check=True, capture_output=True).stdout
-        granted = plistlib.loads(decoded).get('Entitlements', {})
-        missing = [k for k in ENTITLEMENTS if not granted.get(k)]
-        if missing:
-            print('warning: the provisioning profile does not grant', ', '.join(missing), file=sys.stderr)
-            for k in missing:
-                entitlements.pop(k)
+        granted = check_device_profile(provisioning, BUNDLE_ID, identity)
         entitlements.update({k: granted[k] for k in ('application-identifier', 'com.apple.developer.team-identifier', 'get-task-allow') if k in granted})
     ent = out / 'entitlements.plist'
     with open(ent, 'wb') as f:
@@ -152,6 +147,10 @@ def main():
     ap.add_argument('--identity', help='codesign identity for --iphoneos, e.g. "Apple Development: Name (TEAMID)"')
     ap.add_argument('--profile', type=pathlib.Path, help='provisioning profile for --iphoneos')
     a = ap.parse_args()
+    if a.profile and not a.identity:
+        ap.error('--profile requires --identity')
+    if a.iphoneos and a.profile:
+        check_device_profile(a.profile, BUNDLE_ID, a.identity)
     work = (a.work or max(run_core.PROFILE.glob('run-*/va/haloce.va.ll'), key=lambda p: p.stat().st_mtime).parent.parent).resolve()
     extra = [ROOT / 'port' / 'ios' / name for name in ('HaloPadOverlay.m', 'HaloPadImport.m', 'HaloPadPackage.m', 'HaloPadDataIdentity.m')] + ([a.scene.resolve()] if a.scene else [])
     target = DEVICE_TARGET if a.iphoneos else TARGET

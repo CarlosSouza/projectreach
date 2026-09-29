@@ -15,6 +15,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from device_profile import check
 
 ENTITLEMENTS = {
     'com.apple.developer.kernel.extended-virtual-addressing': True,
@@ -34,17 +35,12 @@ def main():
     info = plistlib.loads((app / 'Info.plist').read_bytes())
     if info.get('CFBundleSupportedPlatforms') != ['iPhoneOS']:
         sys.exit(f'{app} is a Simulator build; use the ios-app-arm64-apple-ios17.0 one')
-    decoded = subprocess.run(['security', 'cms', '-D', '-i', str(a.profile)], check=True, capture_output=True).stdout
-    granted = plistlib.loads(decoded).get('Entitlements', {})
-    appid = granted.get('application-identifier', '')
     bundle = info['CFBundleIdentifier']
-    if appid and not (appid.endswith('.' + bundle) or appid.endswith('.*')):
-        sys.exit(f'profile is for {appid}, not {bundle}')
+    try:
+        granted = check(a.profile, bundle, a.identity)
+    except (ValueError, subprocess.CalledProcessError, plistlib.InvalidFileException) as exc:
+        sys.exit(f'profile preflight failed: {exc}')
     entitlements = dict(ENTITLEMENTS)
-    for k in ENTITLEMENTS:
-        if not granted.get(k):
-            print(f'warning: the profile does not grant {k}; Halo may not start', file=sys.stderr)
-            entitlements.pop(k)
     entitlements.update({k: granted[k] for k in ('application-identifier', 'com.apple.developer.team-identifier', 'get-task-allow') if k in granted})
     shutil.copy2(a.profile, app / 'embedded.mobileprovision')
     with tempfile.NamedTemporaryFile(suffix='.plist', delete=False) as f:
