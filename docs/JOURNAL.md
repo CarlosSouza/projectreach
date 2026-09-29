@@ -2646,3 +2646,19 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   launched in a throwaway bottle; stopped immediately, bottle deleted). The official
   halocesetup_en_1.00.exe mirrors are unreachable (vaporeon.io, halomaps.org). The key
   still needs the official installer; not used otherwise.
+
+## 2026-09-29 — clean-checkout setup on the installation Mac
+
+- Started from clean `main` with only the third-party Halo CE repack in ignored `ref/`.
+  No handoff kit, 1.10 patch, accepted `haloce.exe`, or official installer was found.
+  The repack was not run.
+- Xcode 27 and an Apple Development signing identity are present. The physical iPad
+  appears in `devicectl` as unavailable. Four cached development profiles were
+  inspected; none is for `dev.halopad.HaloPad` or grants Extended Virtual Addressing.
+- Created `.venv`, bootstrapped pinned sources, and ran `scripts/doctor.sh` successfully.
+  The pinned Unicorn build initially failed because current CMake removed compatibility
+  with versions below 3.5. Re-running pip with `CMAKE_POLICY_VERSION_MINIMUM=3.5`
+  succeeded. README and lifter preparation instructions now use that setting.
+- Installation and hardware gameplay are pending a matching handoff kit, a profile
+  granting both memory capabilities, and a connected/trusted iPad. No device launch,
+  touch/controller/menu/private-match, or frame-rate result is claimed by this setup.

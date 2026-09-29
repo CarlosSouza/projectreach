@@ -55,12 +55,14 @@ first-run checklist: **[Installing on iPhone or iPad](docs/INSTALL-IPHONE.md)**.
 
 ```sh
 python3 -m venv .venv
-.venv/bin/python -m pip install -r scripts/requirements-tools.txt
+CMAKE_POLICY_VERSION_MINIMUM=3.5 .venv/bin/python -m pip install -r scripts/requirements-tools.txt
 scripts/bootstrap-sources.sh
 scripts/doctor.sh
 .venv/bin/python scripts/build-ios-app.py --iphoneos      # device build, writes HaloPad.ipa
 .venv/bin/python scripts/build-ios-app.py --launch        # iPad Simulator
 ```
+
+The CMake setting lets the pinned Unicorn source package build with current CMake versions.
 
 On an iPad Simulator with iPadOS 26, choose **Settings → Multitasking & Gestures → Full Screen
 Apps**; otherwise every app, HaloPad included, opens in a resizable window.

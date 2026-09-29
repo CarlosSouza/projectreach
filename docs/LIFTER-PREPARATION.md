@@ -9,7 +9,7 @@ This is executed evidence of tool wiring. It is not a comparison with original x
 ## Reproduction and identities
 
 ```sh
-.venv/bin/python -m pip install -r scripts/requirements-tools.txt
+CMAKE_POLICY_VERSION_MINIMUM=3.5 .venv/bin/python -m pip install -r scripts/requirements-tools.txt
 scripts/build-lifter.sh
 .venv/bin/python scripts/test-lifter-smoke.py --build generated/tool-builds/f056cf19425c-b11a4f45
 ```
