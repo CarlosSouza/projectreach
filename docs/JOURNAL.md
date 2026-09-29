@@ -2615,7 +2615,7 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
 ## 2026-09-29 — three-dot menu, controllers, full screen, device build, README
 
 - Chris: stop public-server testing; polish menu, controllers, install, README; fix the
-  SunPad menu-button bug; windowed Simulator. Supplied key G9QK2-… (valid 25-character
+  SunPad menu-button bug; windowed Simulator. Supplied a private key (valid 25-character
   Microsoft key alphabet, unlike the earlier strings).
 - Menu button bug reproduced: after tapping away, the button became an empty square
   outline without dots for several seconds (both before and after a first fix attempt
