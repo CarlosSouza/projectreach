@@ -2934,3 +2934,16 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
 - The static Battle Creek Time Profiler trace identifies guest dispatch and
   thread yielding as candidates, but there is still no measured cause for
   map-loading stalls or a demonstrated sustained iPhone performance gain.
+- Follow-up isolated the apparent 1280 × 720 fallback: the earlier relaunch
+  happened before saving the parent profile settings. Repeated the physical
+  switch, accepted Halo's video-test **OK**, pressed **OK** in **Edit Profile
+  Settings**, and observed its save dialog finish. Relaunch returned with the
+  wider 16:9 layout. Halo's Video Setup had shown 1280 × 720 before that save;
+  the post-save relaunch displayed the same wide layout.
+- From that relaunched build, created a local LAN Battle Creek Slayer game
+  through Halo's menus, reached first-person play with the touch overlay
+  visible, opened the pause menu, and used **Leave Game** to return to the
+  wide main menu. Mirrored pointer clicks selected the menus. Momentary overlay
+  readings were 29–30 FPS; this is not a frame-time distribution or heat test.
+  No public server was joined. Direct-finger aiming, two-thumb play, controller
+  input, longer play and physical iPad acceptance remain open.

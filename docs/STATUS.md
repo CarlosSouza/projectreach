@@ -23,9 +23,11 @@ gameplay or loading baseline. The first 1280 × 720 attempt exposed a stale
 generated VA runtime import, then unsupported Windows language-bar COM creation
 and an unissued D3D9 query. After rebuilding and fixing those calls, the latest
 physical iPhone build reached Halo's widescreen confirmation dialog and rendered
-a wider scene. The setting returned to 800 × 600 after the dialog; confirmation
-timing, persistence, pointer mapping, and sustained play remain unverified. Use
-Original 4:3 presentation for now; Fill stretches the image. No physical iPad is connected. Its
+a wider scene. Accepting that prompt and pressing **OK** on **Edit Profile
+Settings** saved 1280 × 720: it survived an app relaunch. A local Battle Creek
+match, pause menu, and Leave Game worked at that mode with momentary overlay
+readings of 29–30 FPS. Sustained frame times and direct-finger mapping remain
+unverified. Original aspect preserves geometry; Fill stretches the image. No physical iPad is connected. Its
 development profile must include its actual UDID before installation. The
 public README is prepared as a truthful draft; no public IPA or rights clearance
 is claimed. No live public match is part of the current testing scope.
