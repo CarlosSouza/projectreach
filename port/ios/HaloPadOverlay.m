@@ -16,7 +16,7 @@
     dispatch_once(&once, ^{
         s = [HPSettings new];
         [NSUserDefaults.standardUserDefaults registerDefaults:@{
-            @"HaloPad.controlOpacity": @0.8, @"HaloPad.controlSize": @1.0, @"HaloPad.lookSensitivity": @1.0,
+            @"HaloPad.controlOpacity": @0.8, @"HaloPad.controlSize": @1.0, @"HaloPad.lookSensitivity": @1.5,
             @"HaloPad.hideWithController": @YES, @"HaloPad.hideTouchControls": @NO, @"HaloPad.showFPS": @NO,
             @"HaloPad.aspect": @0, @"HaloPad.recentServers": @[], @"HaloPad.leftHanded": @NO, @"HaloPad.showCaptions": @YES,
             @"HaloPad.ringSpacing": @1}];
@@ -28,7 +28,7 @@
     - (void)set:(type)v { [NSUserDefaults.standardUserDefaults setObject:box forKey:key]; }
 HP_SETTING(CGFloat, controlOpacity, setControlOpacity, @"HaloPad.controlOpacity", @(fmin(1, fmax(0.25, v))), doubleValue)
 HP_SETTING(CGFloat, controlSize, setControlSize, @"HaloPad.controlSize", @(fmin(1.35, fmax(0.7, v))), doubleValue)
-HP_SETTING(CGFloat, lookSensitivity, setLookSensitivity, @"HaloPad.lookSensitivity", @(fmin(3, fmax(0.25, v))), doubleValue)
+HP_SETTING(CGFloat, lookSensitivity, setLookSensitivity, @"HaloPad.lookSensitivity", @(fmin(6, fmax(0.25, v))), doubleValue)
 HP_SETTING(BOOL, hideWithController, setHideWithController, @"HaloPad.hideWithController", @(v), boolValue)
 HP_SETTING(BOOL, hideTouchControls, setHideTouchControls, @"HaloPad.hideTouchControls", @(v), boolValue)
 HP_SETTING(BOOL, showFPS, setShowFPS, @"HaloPad.showFPS", @(v), boolValue)
@@ -668,7 +668,9 @@ static const hp_control_def CONTROLS[] = {
     if (magnitude <= 0.12f) return;
     /* Radial dead zone, gentle near-centre aim, speed independent of refresh rate. */
     double response = pow(fmin(1, (magnitude - 0.12) / 0.88), 1.5);
-    double dt = fmin(0.05, fmax(0, clock.targetTimestamp - clock.timestamp));
+    /* Keep turning speed proportional to real time when the phone falls below 20 FPS.
+       Bound long app stalls so one resumed frame cannot swing the view wildly. */
+    double dt = fmin(0.2, fmax(0, clock.targetTimestamp - clock.timestamp));
     double speed = 250 * response * dt / magnitude;
     [self lookX:_aimX * speed y:-_aimY * speed];
 }
@@ -915,20 +917,19 @@ static NSString * const HPRepositoryURL = @"https://github.com/chrissotraidis/pr
         [UIAction actionWithTitle:@"Join Server by Address…" image:icon(@"network") identifier:nil handler:^(__kindof UIAction *a) { [weak promptJoin]; }],
         [UIMenu menuWithTitle:@"Recent Servers" image:icon(@"clock.arrow.circlepath") identifier:nil options:0 children:recent], nil];
     if (self.inGame) {
-        UIAction *leave = [UIAction actionWithTitle:@"Leave Game" image:icon(@"rectangle.portrait.and.arrow.right") identifier:nil
+        UIAction *leave = [UIAction actionWithTitle:@"Open Leave Game Menu…" image:icon(@"rectangle.portrait.and.arrow.right") identifier:nil
                                             handler:^(__kindof UIAction *a) { [weak leaveGame]; }];
-        leave.attributes = UIMenuElementAttributesDestructive;
         [play addObject:leave];
     }
 
     UIMenu *controls = [UIMenu menuWithTitle:@"Controls" image:icon(@"gamecontroller") identifier:nil options:0 children:@[
-        [UIAction actionWithTitle:@"Touch Control Settings…" image:icon(@"slider.horizontal.3") identifier:nil handler:^(__kindof UIAction *a) { [weak togglePanel]; }],
+        [UIAction actionWithTitle:@"Look Speed & Touch Settings…" image:icon(@"slider.horizontal.3") identifier:nil handler:^(__kindof UIAction *a) { [weak togglePanel]; }],
         [UIAction actionWithTitle:@"Edit Touch Layout" image:icon(@"hand.draw") identifier:nil handler:^(__kindof UIAction *a) { [weak beginEditing]; }],
         [self check:@"Hide Touch Controls" on:s.hideTouchControls handler:^{
             HPSettings.shared.hideTouchControls = !HPSettings.shared.hideTouchControls; [weak clearTouchInput]; [weak updateAppearance]; [weak rebuildMenu]; }],
         [self check:@"Hide Touch Controls with a Controller" on:s.hideWithController handler:^{
             HPSettings.shared.hideWithController = !HPSettings.shared.hideWithController; [weak refreshControllerVisibility]; [weak rebuildMenu]; }],
-        [UIAction actionWithTitle:@"Controller Layout" image:icon(@"list.bullet.rectangle") identifier:nil handler:^(__kindof UIAction *a) { [weak showControllerLayout]; }]]];
+        [UIAction actionWithTitle:@"Controller Guide" image:icon(@"gamecontroller.fill") identifier:nil handler:^(__kindof UIAction *a) { [weak showControllerLayout]; }]]];
 
     UIMenu *chat = [UIMenu menuWithTitle:@"Keyboard & Chat" image:icon(@"keyboard") identifier:nil options:0 children:@[
         [UIAction actionWithTitle:@"All Chat" image:icon(@"bubble.left.and.bubble.right") identifier:nil
@@ -1016,13 +1017,12 @@ static NSString * const HPRepositoryURL = @"https://github.com/chrissotraidis/pr
     [HPOverlay tapKey:0xC0 scan:0x29];                              /* and close it: in a game its keys would type there */
 }
 
-/* Halo's own console command, as its pause menu's Leave Game does for a client. */
+/* The original pause menu handles both a local host and a remote client.
+   The console's disconnect command leaves a local host stuck in its match. */
 - (void)leaveGame
 {
     [self clearTouchInput];
-    [HPOverlay tapKey:0xC0 scan:0x29];
-    [HPOverlay typeText:@"disconnect\n"];
-    [HPOverlay tapKey:0xC0 scan:0x29];
+    [HPOverlay tapKey:0x1b scan:0x01];
 }
 - (void)showAbout
 {
@@ -1078,12 +1078,87 @@ static NSString * const HPRepositoryURL = @"https://github.com/chrissotraidis/pr
 }
 - (void)showControllerLayout
 {
-    UIAlertController *a = [UIAlertController alertControllerWithTitle:@"Controller Layout"
-        message:@"Left stick  move\nRight stick  look\nRT  fire    LT  grenade\nA  jump    B  melee\nX  reload    Y  switch weapon\nRB  use / pick up / enter vehicle\nLB  switch grenade\nD-pad up  flashlight\nLeft stick click  crouch\nRight stick click  zoom\nView  scores    Menu  pause\n\nIn Halo's menus: D-pad moves, A selects, B goes back. Change any control in Halo's Settings → Controls Setup."
-        preferredStyle:UIAlertControllerStyleAlert];
-    [a addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:nil]];
-    [self.presenter presentViewController:a animated:YES completion:nil];
+    UIViewController *guide = [UIViewController new];
+    guide.view.backgroundColor = [UIColor colorWithWhite:0.06 alpha:1];
+    guide.preferredContentSize = CGSizeMake(520, 580);
+    UIScrollView *scroll = [UIScrollView new];
+    scroll.translatesAutoresizingMaskIntoConstraints = NO;
+    UIStackView *stack = [UIStackView new];
+    stack.axis = UILayoutConstraintAxisVertical;
+    stack.spacing = 8;
+    stack.translatesAutoresizingMaskIntoConstraints = NO;
+    UILabel *title = [UILabel new];
+    title.text = @"Controller Guide";
+    title.textColor = UIColor.whiteColor;
+    title.font = [UIFont systemFontOfSize:22 weight:UIFontWeightBold];
+    [stack addArrangedSubview:title];
+    NSArray<NSArray *> *sections = @[
+        @[@"Movement & View", @[@"Left stick", @"Move"], @[@"Right stick", @"Look"],
+          @[@"Left stick click", @"Crouch"], @[@"Right stick click", @"Zoom"]],
+        @[@"Combat & Actions", @[@"RT", @"Fire"], @[@"LT", @"Throw grenade"],
+          @[@"A", @"Jump"], @[@"B", @"Melee"], @[@"X", @"Reload"],
+          @[@"Y", @"Switch weapon"], @[@"RB", @"Use / pick up / enter vehicle"],
+          @[@"LB", @"Switch grenade"], @[@"D-pad up", @"Flashlight"]],
+        @[@"Menus", @[@"D-pad", @"Move selection"], @[@"A", @"Select"],
+          @[@"B", @"Back"], @[@"View", @"Scoreboard"], @[@"Menu", @"Pause"]]
+    ];
+    for (NSArray *section in sections) {
+        UILabel *heading = [UILabel new];
+        heading.text = section[0];
+        heading.textColor = UIColor.systemTealColor;
+        heading.font = [UIFont systemFontOfSize:15 weight:UIFontWeightBold];
+        [stack addArrangedSubview:heading];
+        for (NSUInteger i = 1; i < section.count; i++) {
+            NSArray<NSString *> *pair = section[i];
+            UILabel *button = [UILabel new];
+            button.text = pair[0]; button.textColor = UIColor.whiteColor;
+            button.font = [UIFont systemFontOfSize:15 weight:UIFontWeightSemibold];
+            [button.widthAnchor constraintEqualToConstant:132].active = YES;
+            UILabel *action = [UILabel new];
+            action.text = pair[1]; action.textColor = UIColor.lightGrayColor;
+            action.font = [UIFont systemFontOfSize:15];
+            action.numberOfLines = 0;
+            UIStackView *row = [[UIStackView alloc] initWithArrangedSubviews:@[button, action]];
+            row.spacing = 12;
+            row.alignment = UIStackViewAlignmentTop;
+            row.isAccessibilityElement = YES;
+            row.accessibilityLabel = [NSString stringWithFormat:@"%@, %@", pair[0], pair[1]];
+            [stack addArrangedSubview:row];
+        }
+    }
+    UILabel *note = [UILabel new];
+    note.text = @"Change bindings in Halo → Settings → Controls Setup.";
+    note.textColor = UIColor.lightGrayColor;
+    note.font = [UIFont systemFontOfSize:13];
+    note.numberOfLines = 0;
+    [stack addArrangedSubview:note];
+    [guide.view addSubview:scroll];
+    [scroll addSubview:stack];
+    UIButton *done = [UIButton buttonWithType:UIButtonTypeSystem];
+    [done setTitle:@"Done" forState:UIControlStateNormal];
+    done.titleLabel.font = [UIFont systemFontOfSize:17 weight:UIFontWeightSemibold];
+    done.translatesAutoresizingMaskIntoConstraints = NO;
+    [done addTarget:self action:@selector(dismissControllerGuide) forControlEvents:UIControlEventPrimaryActionTriggered];
+    [guide.view addSubview:done];
+    UILayoutGuide *safe = guide.view.safeAreaLayoutGuide;
+    [NSLayoutConstraint activateConstraints:@[
+        [scroll.topAnchor constraintEqualToAnchor:safe.topAnchor constant:16],
+        [scroll.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:20],
+        [scroll.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-20],
+        [scroll.bottomAnchor constraintEqualToAnchor:done.topAnchor constant:-8],
+        [stack.topAnchor constraintEqualToAnchor:scroll.contentLayoutGuide.topAnchor],
+        [stack.bottomAnchor constraintEqualToAnchor:scroll.contentLayoutGuide.bottomAnchor],
+        [stack.leadingAnchor constraintEqualToAnchor:scroll.contentLayoutGuide.leadingAnchor],
+        [stack.trailingAnchor constraintEqualToAnchor:scroll.contentLayoutGuide.trailingAnchor],
+        [stack.widthAnchor constraintEqualToAnchor:scroll.frameLayoutGuide.widthAnchor],
+        [done.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:20],
+        [done.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-20],
+        [done.bottomAnchor constraintEqualToAnchor:safe.bottomAnchor constant:-8],
+        [done.heightAnchor constraintEqualToConstant:44]
+    ]];
+    [self.presenter presentViewController:guide animated:YES completion:nil];
 }
+- (void)dismissControllerGuide { [self.presenter dismissViewControllerAnimated:YES completion:nil]; }
 
 + (void)setTextInputActive:(BOOL)active
 {
@@ -1162,7 +1237,7 @@ static NSString * const HPRepositoryURL = @"https://github.com/chrissotraidis/pr
     title.font = [UIFont systemFontOfSize:17 weight:UIFontWeightBold];
     _opacity = [self slider:0.25 max:1 action:@selector(opacityChanged:)];
     _size = [self slider:0.7 max:1.35 action:@selector(sizeChanged:)];
-    _look = [self slider:0.25 max:3 action:@selector(lookChanged:)];
+    _look = [self slider:0.25 max:6 action:@selector(lookChanged:)];
     _hideSwitch = [UISwitch new];
     [_hideSwitch addTarget:self action:@selector(hideChanged:) forControlEvents:UIControlEventValueChanged];
     _editSwitch = [UISwitch new];

@@ -1,85 +1,120 @@
 # HaloPad
 
-Halo: Custom Edition 1.10 on iPhone and iPad, playing online with PC players.
+**Halo: Custom Edition on iPhone and iPad, built from ahead-of-time translated game code.**
 
-HaloPad is not an emulator. The original `haloce.exe` was translated ahead of time into native
-ARM64 code, and HaloPad supplies the Windows, Direct3D 9, DirectInput, DirectSound and Winsock
-services it expects on top of Metal, UIKit and GameController. It speaks Halo's own network
-protocol, so it joins the same Custom Edition servers PC players use today.
+HaloPad is the current app name for Project Reach. It is an experimental, privately tested
+port, not an official Halo release. The repository contains the Apple app, compatibility
+runtime, and build tools. It does not contain Halo's executable, maps, sounds, saves,
+product key, or translated game code. Bring your own legitimate Halo Custom Edition 1.10
+files. No public IPA is available from this repository.
 
-HaloPad contains no game data. You need your own copy of Halo Custom Edition.
+The Windows game's 32-bit code is translated to native ARM64 ahead of time. HaloPad then
+provides the Windows, Direct3D 9, input, audio, and network services the game expects,
+with Metal rendering on Apple devices. This is a game-specific compatibility runtime,
+not a general Windows emulator.
 
-## What works
+## Current status
 
-- **Online play.** Halo's own Internet Lobby lists the live public servers; HaloPad has joined
-  populated public games and played full matches on private servers.
-- **Touch controls.** Two sticks, a FIRE button that also aims, and Halo's actions in thumb reach,
-  on both iPhone and iPad. Every control can be moved and resized, and controls follow the
-  bindings in Halo's own Controls Setup.
-- **Game controllers.** Connect an Xbox, PlayStation or other MFi controller and play: HaloPad
-  gives it Halo's own Xbox controller layout the first time, and the touch controls step aside.
-  In menus, the D-pad moves, A selects and B goes back.
-- **Keyboard, mouse and trackpad** on iPad.
-- **The three-dot menu** for what Halo's menus don't cover: join a server by address, recent
-  servers, leave the game, controls, chat and the console, display options, custom maps, and
-  reporting a problem straight to GitHub Issues.
+The source-built app is signed and installed on a physical **iPhone 14**. It imported its
+matching 87-file package, reached Halo's main menu, and the player joined a local LAN
+match. The player reports slow loading and gameplay. Touch look speed and screen coverage
+are being refined. Profile-name entry and the local-host leave path now pass a physical
+iPhone test. The Internet server list refreshes, but full phone online, controller,
+and sustained-performance
+acceptance is still in progress.
 
-## Controller layout
+An iPad Simulator reached a local match, and earlier iPad work joined public Custom
+Edition servers. A **physical iPad has not yet been tested in this round**. The iPhone
+result does not establish iPad performance or usability. See [current status](docs/STATUS.md)
+and the [device-readiness loop](docs/HaloPad-GOAL-LOOP-PHASE3.md) for evidence and open gates.
 
-| Control | Action | Control | Action |
-|---|---|---|---|
-| Left stick | Move | Right stick | Look |
-| RT | Fire | LT | Throw grenade |
-| A | Jump | B | Melee |
-| X | Reload | Y | Switch weapon |
-| RB | Use, pick up, enter vehicle | LB | Switch grenade |
-| Left stick click | Crouch | Right stick click | Zoom |
-| D-pad up | Flashlight | View / Menu | Scores / Pause |
+| Area | Current result |
+| --- | --- |
+| Game data | Own Custom Edition 1.10 files; package matched to the exact build |
+| iPhone | Physical iPhone 14 import, menu, and local LAN play observed; performance and controls need work |
+| iPad | Simulator gameplay observed; current physical-iPad test pending |
+| Multiplayer | Native lobby/network path exists; current phone acceptance open |
+| Input | Touch and controller mappings exist; real phone touch is being tuned |
+| Distribution | Private engineering build; no public app or game-data download |
 
-Change any of it in Halo's **Settings → Controls Setup**; your layout is saved with your profile.
+## Playing
 
-## Install
+After a development build is installed, choose its prepared `.halopad.zip` package from
+HaloPad's first-run screen. Create a Halo profile, then use the game's own Multiplayer
+menus to host or join. The three-dot button exposes touch settings, keyboard and chat,
+server address entry, display choices, custom-map import, and help. **Controls → Look
+Speed & Touch Settings** adjusts touch look; **Controller Guide** shows the mapping.
+The iOS keyboard has an **Enter / Accept** action for Halo dialogs.
 
-With an iPad or iPhone plugged into your Mac and a development signing profile:
+The touch overlay can be moved and resized. A supported game controller uses Halo's
+controller layout, and the overlay can hide while a controller is connected. Final feel,
+all menu paths, and controller connection changes still need physical-device checks.
+**Open Leave Game Menu…** opens Halo's original pause menu; select **Leave Game** there.
 
-```sh
-scripts/install-device.sh --identity "Apple Development: Your Name (TEAMID)" \
-  --profile HaloPad.mobileprovision --game "/path/to/Halo Custom Edition"
-```
+Custom `.map` files can be added through **three-dot menu → Add Custom Maps…**. Windows
+client DLL mods such as Chimera, OpenSauce, and HAC2 do not load in this app. The retail
+campaign executable `halo.exe` is a separate future target.
 
-Then open HaloPad and choose the package it copied over. Installing on a Mac that does not
-hold the build (for example a second Mac): see "Installing from another Mac" in the guide. Details, signing setup and a
-first-run checklist: **[Installing on iPhone or iPad](docs/INSTALL-IPHONE.md)**.
+## Build and install
 
-## Build from source
+You need macOS, Xcode, this repository's pinned tools, your own supported game files,
+and an Apple development profile for the app's bundle ID. The profile must allow
+**Extended Virtual Addressing** and **Increased Memory Limit**, because the runtime
+reserves Halo's 32-bit guest address space. Building from a fresh clone also requires
+private input preparation; the repository alone cannot produce a playable IPA.
 
-```sh
-python3 -m venv .venv
-CMAKE_POLICY_VERSION_MINIMUM=3.5 .venv/bin/python -m pip install -r scripts/requirements-tools.txt
-scripts/bootstrap-sources.sh
-scripts/doctor.sh
-.venv/bin/python scripts/build-ios-app.py --iphoneos      # device build, writes HaloPad.ipa
-.venv/bin/python scripts/build-ios-app.py --launch        # iPad Simulator
-```
+Start with `scripts/doctor.sh` and follow [Installing on iPhone or iPad](docs/INSTALL-IPHONE.md)
+for signing, build, device install, package preparation, and first launch. An in-place
+update should preserve the same bundle ID and existing app data. Do not uninstall an
+existing app to update it.
 
-The CMake setting lets the pinned Unicorn source package build with current CMake versions.
-The iOS/iPadOS icon is compiled from `assets/Assets.xcassets` into each app build. Its
-editable source is `assets/HaloPadIcon.svg`; rerender the checked-in PNG with
-`scripts/render-app-icon.sh` (requires ImageMagick) after changing the design.
+The app icon is built from [HaloPadIcon.svg](assets/HaloPadIcon.svg) and the checked-in
+asset catalog. The signed iPhone build returns the intended icon from iOS; physical iPad
+Home Screen appearance remains to be checked.
 
-On an iPad Simulator with iPadOS 26, choose **Settings → Multitasking & Gestures → Full Screen
-Apps**; otherwise every app, HaloPad included, opens in a resizable window.
+## Questions and limits
 
-## Status and limits
+**Can I download an IPA?** No public release is available. This is an active private
+development build. An IPA by itself would not contain the game files.
 
-- Built and tested on the iPad and iPhone Simulators; the first physical-device run is pending.
-- Halo checks the product ID its original installer writes from your CD key. Development builds
-  start through a test scene; see [status](docs/STATUS.md).
-- Custom maps: add `.map` files with **three-dot menu → Add Custom Maps…**. Client mods
-  (Chimera, OpenSauce, HAC2) are Windows DLLs and cannot load.
-- The retail campaign (`halo.exe`) is a separate, later target.
+**Does it work on an iPhone 14?** It launches, imports, reaches the menu, and has played
+a local LAN match. Loading and gameplay can be slow. A reliable frame rate, thermal
+behavior, and a complete comfortable control flow have not been established.
 
-Engineering detail lives in [status](docs/STATUS.md), the [journal](docs/JOURNAL.md), the
-[runtime notes](docs/G3-RUNTIME.md) and the [touch controls notes](docs/SUNPAD-TRANSFER.md).
-Game inputs and generated code stay under ignored `ref/` and `generated/`; see
-[rights status](docs/RIGHTS-STATUS.md). Problems: [open an issue](https://github.com/chrissotraidis/projectreach/issues/new/choose).
+**Can it play with PC players?** The app uses Halo Custom Edition's network protocol,
+and prior development builds joined public PC servers. Current iPhone 14 online play
+and reconnect behavior still need a full test on this exact build.
+
+**Will updates keep my profile?** In-place development installs have preserved the app
+container in testing. Back up `Documents` and `Library` before changing signing or build
+identity; [the install guide](docs/INSTALL-IPHONE.md) explains the device path.
+
+**Why does resolution say 800 × 600?** That is Halo's internal rendering resolution.
+The original 4:3 presentation keeps geometry correct on iPhone. The app's Fill option
+stretches it. Halo lists 1280 × 720, but applying that mode exits the current iPhone 14
+build to the Home Screen; it recovers on relaunch. True, undistorted widescreen is open.
+
+## Project map
+
+- [Install guide](docs/INSTALL-IPHONE.md): signing, packaging, and device setup.
+- [Status](docs/STATUS.md) and [journal](docs/JOURNAL.md): tested builds and observations.
+- [Phase 3 goal loop](docs/HaloPad-GOAL-LOOP-PHASE3.md): iPhone/iPad acceptance plan.
+- [Execution model](docs/EXECUTION-MODEL.md): translation coverage and guest dispatch.
+- [Rights status](docs/RIGHTS-STATUS.md): input, generated-code, and publication boundaries.
+
+## Credits and legal
+
+Halo: Custom Edition and Halo belong to their respective owners. This project is
+independent and is not affiliated with or endorsed by Microsoft, Xbox, or Halo Studios.
+HaloPad does not grant rights to distribute or download their game content.
+
+The translation pipeline builds on [SR](https://github.com/M-HT/SR). Runtime research
+also uses [xboxrecomp](https://github.com/sp00nznet/xboxrecomp) and other pinned
+dependencies. Ogg/Vorbis are by Xiph.Org contributors. Their separate licenses and
+notices apply to their code; this repository does not claim a blanket license over
+upstream work or Halo content. See [rights status](docs/RIGHTS-STATUS.md) before any
+distribution decision.
+
+For a reproducible problem report, include the device, iOS/iPadOS version, build, map,
+what you tapped, and whether a controller was connected. Use the app's **Report a
+Problem** action or [open an issue](https://github.com/chrissotraidis/projectreach/issues/new/choose).

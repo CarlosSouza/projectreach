@@ -224,11 +224,13 @@ static NSString *current_map(void)
         _keyboardBar.autoresizingMask = UIViewAutoresizingFlexibleWidth;
         _keyboardBar.items = @[
             [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace target:nil action:nil],
+            [[UIBarButtonItem alloc] initWithTitle:@"Enter / Accept" style:UIBarButtonItemStyleDone target:self action:@selector(submitText)],
             [[UIBarButtonItem alloc] initWithTitle:@"Hide Keyboard" style:UIBarButtonItemStyleDone target:self action:@selector(hideKeyboard)]];
     }
     return _keyboardBar;
 }
 - (void)hideKeyboard { [self resignFirstResponder]; }
+- (void)submitText { [HPOverlay typeText:@"\n"]; }
 - (BOOL)canBecomeFirstResponder { return YES; }
 - (BOOL)pointInside:(CGPoint)point withEvent:(UIEvent *)event { return NO; }
 - (BOOL)hasText { return YES; }
@@ -1283,7 +1285,7 @@ static NSString *custom_map_problem(NSURL *url, NSString **name)
     in.button = (t.type == UITouchTypeIndirectPointer && (ev.buttonMask & UIEventButtonMaskSecondary)) ? 1 : 0;
     halopad_host_post_input(&in);
 }
-/* A direct finger touch in Halo's menus positions the game cursor before clicking.
+/* A finger or primary pointer click in Halo's menus positions the game cursor before clicking.
    Keep the gesture's ownership through its end even if the menu changes underneath it. */
 - (void)menuTouch:(UITouch *)touch begin:(BOOL)begin ended:(BOOL)ended
 {
@@ -1301,7 +1303,9 @@ static NSString *custom_map_problem(NSURL *url, NSString **name)
 - (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
 {
     UITouch *t = touches.anyObject;
-    self.trackingMenuTouch = overlay.haloMenuVisible && t.type == UITouchTypeDirect;
+    self.trackingMenuTouch = overlay.haloMenuVisible &&
+        (t.type == UITouchTypeDirect ||
+         (t.type == UITouchTypeIndirectPointer && !(event.buttonMask & UIEventButtonMaskSecondary)));
     if (self.trackingMenuTouch) { [self menuTouch:t begin:YES ended:NO]; return; }
     [self pointer:t event:event kind:HPI_MOUSEMOVE down:0];
     [self pointer:t event:event kind:HPI_BUTTON down:1];

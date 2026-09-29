@@ -213,6 +213,11 @@ void Sleep_c(uint32_t ms)
     while (nanosleep(&t, &t) != 0 && errno == EINTR) {}
 }
 
+/* Windows yields the current thread for up to one scheduling slice.
+   POSIX does not expose whether another thread actually ran; report whether
+   the host accepted the yield. */
+uint32_t SwitchToThread_c(void) { return sched_yield() == 0; }
+
 /* MsgWaitForMultipleObjects: take the first of n handles (a guest array) that is signaled
    now; -1 if none is. */
 int halopad_wait_poll(uint32_t n, uint32_t handles)

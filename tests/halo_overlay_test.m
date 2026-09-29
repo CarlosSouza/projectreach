@@ -588,16 +588,16 @@ int main(void)
                   menu.configuration != nil && menu.configuration.image != nil &&
                   menu.configuration.cornerStyle == UIButtonConfigurationCornerStyleCapsule && menu.showsMenuAsPrimaryAction);
             check("menu button never takes a square keyboard-focus ring", !menu.canBecomeFocused);
-            for (NSString *need in @[@"Join Server by Address…", @"Recent Servers", @"Controls", @"Touch Control Settings…",
+            for (NSString *need in @[@"Join Server by Address…", @"Recent Servers", @"Controls", @"Look Speed & Touch Settings…",
                                      @"Edit Touch Layout", @"Hide Touch Controls", @"Hide Touch Controls with a Controller",
-                                     @"Controller Layout", @"Keyboard & Chat", @"All Chat", @"Team Chat", @"Show Keyboard",
+                                     @"Controller Guide", @"Keyboard & Chat", @"All Chat", @"Team Chat", @"Show Keyboard",
                                      @"Halo Console", @"Display", @"Help", @"Report a Problem…", @"HaloPad on GitHub", @"About HaloPad"])
                 check([NSString stringWithFormat:@"menu has %@", need].UTF8String, [titles containsObject:need]);
-            check("Leave Game is hidden outside a game", ![titles containsObject:@"Leave Game"]);
+            check("leave menu is hidden outside a game", ![titles containsObject:@"Open Leave Game Menu…"]);
             m.inGame = YES;
             [titles removeAllObjects];
             walk(menu.menu);
-            check("Leave Game appears in a game", [titles containsObject:@"Leave Game"]);
+            check("leave menu appears in a game", [titles containsObject:@"Open Leave Game Menu…"]);
             check("the top level stays short: three grouped sections", menu.menu.children.count == 3);
         }
         check_stick_ownership();

@@ -32,7 +32,7 @@ typedef NS_ENUM(NSInteger, HPAspectMode) { HPAspectOriginal = 0, HPAspectFill = 
 + (instancetype)shared;
 @property(nonatomic) CGFloat controlOpacity;        /* 0.25..1 */
 @property(nonatomic) CGFloat controlSize;           /* 0.70..1.35 */
-@property(nonatomic) CGFloat lookSensitivity;       /* 0.25..3 */
+@property(nonatomic) CGFloat lookSensitivity;       /* 0.25..6 */
 @property(nonatomic) BOOL hideWithController;
 @property(nonatomic) BOOL hideTouchControls;
 @property(nonatomic) BOOL showFPS;

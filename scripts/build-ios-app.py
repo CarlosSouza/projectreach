@@ -100,7 +100,7 @@ def package(exe, out, work, target=TARGET, identity=None, provisioning=None):
     shutil.copy2(ROOT / 'config' / 'profiles' / 'custom-en-1.0.10.0621.json', data / 'profile.json')
     profile = json.loads((data / 'profile.json').read_text())
     stock = json.loads((ROOT / profile['original_root'] / 'MANIFEST.json').read_text())
-    objects = work / f'slices-va-{TARGET}'
+    objects = work / f'slices-va-{target}'
     inputs = {f'{name}.va.o': objects / f'{name}.va.o' for name in ['haloce', *profile['modules']]}
     inputs['dispatch.ll'] = work / 'va' / 'dispatch.ll'
     inputs.update({p.name: p for p in (work / 'va').glob('halopad-*.ll')})

@@ -13,6 +13,7 @@ func SetThreadPriority_c a1, a2
 func GetThreadPriority_c a1
 func TerminateThread_c a1, a2
 func SleepEx_c a1, a2
+func SwitchToThread_c
 
 proc hpimp_CreateThread public
         Call_Asm_Stack6 CreateThread_c
@@ -52,6 +53,11 @@ endp
 proc hpimp_SleepEx public
         Call_Asm_Stack2 SleepEx_c
         Call_Asm_Return 2
+endp
+
+proc hpimp_SwitchToThread public
+        Call_Asm_Stack0 SwitchToThread_c
+        Call_Asm_Return 0
 endp
 
 proc hpimp_DuplicateHandle public

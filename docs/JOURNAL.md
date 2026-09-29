@@ -2815,3 +2815,90 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   physical app. QuickTime wired capture showed the package import screen
   behind an iOS headphones prompt. Import, menu, touch, online, and phone
   performance acceptance remain open.
+
+## 2026-09-29 — source-built iPhone 14 install and first physical menu
+
+- The supplied private handoff package held the accepted 1.10 `haloce.exe`,
+  four modules, 78 stock game files, and reference-machine content. Restored
+  them only into ignored `ref/inputs/`, verifying the package manifest and
+  locked profile hashes. This is byte-verified handoff provenance, not a fresh
+  CrossOver installer/patch reproduction. `inspect-inputs.py`, executable
+  audit, lifter smoke (36/36), game/four-module SRW pipelines, and VA model
+  passed. The Unicode `bestfit1252.txt` mapping was checked against the
+  script's pinned SHA-256.
+- A fresh `--iphoneos` build using the development scene entry initially
+  failed during packaging: `build-ios-app.py` selected the Simulator object
+  directory for device core identity. Changed it to use the requested target.
+  The signed arm64 device app and IPA then built; `codesign --verify --deep
+  --strict` passed, and decoded entitlements contain the exact App ID, team,
+  Extended Virtual Addressing, and Increased Memory Limit. Its original icon
+  compiled into `Assets.car` with iPhone/iPad `CFBundleIcons`. Core identity
+  `a40934eac9383796ba5bd566d2d8bc2e28f6f54c4396208ae7d7fb738006ac00`;
+  its 87-file private package passed preparation and independent verification.
+- Before replacing the installed handoff app, copied its Documents and Library
+  to ignored `G11/iphone14-pre-source-install-backup/`. The old package's SHA-256
+  was identical to the handoff source. Installed the source app in place on
+  physical iPhone 14 `00008110-001C2C641123A01E`; copied the new package to
+  Documents without removing the old one. `devicectl` readback confirmed the
+  bundle and both packages. Launched successfully. After Chris dismissed an
+  iOS headphones prompt and locked the phone, iPhone Mirroring connected.
+- Through the actual physical Files picker, selected
+  `Halo-CE-source-20260929.halopad.zip`; HaloPad imported and reached Halo's
+  main menu. CoreDevice listed `Documents/Halo Custom Edition` with 78 files
+  (plus directories). A new `Test14` profile was entered and saved. The native
+  Keyboard & Chat control activated the phone's keyboard mode, and Mirroring
+  routed Mac text entry; physical on-screen key taps still need acceptance.
+  The source Join Server form displayed title, address and optional-password
+  fields, and buttons without the earlier Simulator clipping. Numeric address
+  input and Cancel worked; no connection was attempted.
+- iPhone Mirroring pointer clicks moved its pointer over Halo's rendered menu
+  but did not select Create Game → LAN. A Return key activated the previously
+  selected Join Internet option. UIKit overlays remained clickable. Source
+  inspection found menu tap routing limited to `UITouchTypeDirect`; a small
+  change now routes primary `UITouchTypeIndirectPointer` menu clicks through
+  the same menu tap path while retaining secondary-click behavior. The revised
+  signed app/IPA built and the post-import Documents folder was backed up to
+  ignored `G11/iphone14-pre-pointer-fix-backup/`. **This revised build has not
+  been installed or tested on the phone yet:** Chris requested direct phone
+  access, so iPhone Mirroring was quit and the installed app left in place.
+  Hardware gameplay, two-thumb controls, private online, frame/thermal data,
+  and physical Home Screen icon checks remain open.
+
+## 2026-09-29 — iPhone 14 control iteration and widescreen probe
+
+- Preserved Documents and accessible Library contents before each in-place
+  source rebuild/install under ignored `docs/artifacts/2026-09-29/G11/`.
+  The signed app remained on physical iPhone 14
+  `00008110-001C2C641123A01E`; the matching imported game folder and two
+  prepared packages remained. Protected SplashBoard Library content could not
+  be copied, so the backup is not a complete Library snapshot.
+- Raised default touch look multiplier to 1.5, extended the control to 6, and
+  relaxed the per-frame aim delta cap for slow frames. Renamed the Controls
+  entry to **Look Speed & Touch Settings…**. Replaced the plain-text controller
+  layout alert with a native scrollable Controller Guide. Added a keyboard
+  accessory **Enter / Accept** action. In iPhone Mirroring, created profile
+  `TouchQA` through Halo's profile menu with Show Keyboard and the new action.
+  These checks prove the button path, not physical fingertip ergonomics.
+- The earlier three-dot `disconnect` action did not leave a local-host game.
+  Changed it to **Open Leave Game Menu…**, which sends Escape to Halo. A local
+  Battle Creek LAN Slayer game started, the action opened the original pause
+  dialog, and its **Leave Game** returned to the main menu. No public match was
+  joined. Mirrored primary pointer clicks now select Halo menu entries.
+- CoreDevice returned a 1024-pixel nonplaceholder H/orbit icon from the installed
+  bundle, also visible in iPhone suggestions. The physical iPad icon still
+  needs inspection when that device is connected.
+- In a stationary Battle Creek view, the overlay showed 30 FPS. A 30-second
+  physical Time Profiler sample (`G11/iphone14-battle-creek-timeprofiler.trace`)
+  contained 9,791 CPU-sample ms; `halopad_lookup` consumed 2,698 ms and
+  thread-yield/Sleep 2,234 ms. This points to CPU dispatch as an experiment
+  candidate but does not explain slow map loading or prove sustained play.
+- Halo's Video Setup lists 1280 × 720. Applied it on the physical iPhone after
+  backups. Halo displayed its video-test warning, then exited to Home Screen.
+  The build includes an implementation of the previously missing
+  `SwitchToThread` import, but this did not make the resolution switch work.
+  Relaunch reached the main menu again. Keep 800 × 600 at Original aspect to
+  avoid distortion. The precise remaining crash cause is open.
+- Rewrote the installation guide for the actual iPad handoff: a newly connected
+  iPad needs its own UDID in the development profile, container backup, in-place
+  install of the matching app/package, and physical gameplay checks. Updated
+  the public-facing README with the current limits. No public release was made.

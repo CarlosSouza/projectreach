@@ -1,134 +1,105 @@
-# Installing HaloPad on an iPhone or iPad
+# Install HaloPad on iPhone or iPad
 
-HaloPad runs Halo Custom Edition 1.10, translated ahead of time to native ARM64. It ships no game
-data: you prepare your own Custom Edition 1.10 files on the Mac and move them to the device.
+HaloPad is a private development build for a player who owns Halo Custom Edition
+1.10. The repository does not contain game data or the translated executable.
+The current source build starts through a development scene while the original
+installer-written product ID path remains unresolved. It is not a normal
+clean-checkout player release.
 
-## What you need
+## Requirements
 
-- A Mac with Xcode 26 and this repository built (see the README).
-- An iPhone or iPad on iOS/iPadOS 17 or later, with **Developer Mode** on
-  (Settings → Privacy & Security → Developer Mode).
-- An Apple ID in Xcode (Settings → Accounts). A paid developer team is needed for the
-  memory entitlements below; a free Personal Team works only if its profile grants them.
-- Your Halo Custom Edition 1.10 folder.
+- macOS with Xcode 27, this repository and its ignored, accepted `ref/inputs`.
+- iOS/iPadOS 17 or later, Developer Mode enabled, a trusted cable connection.
+- An Apple Development identity and a development provisioning profile for
+  `dev.halopad.HaloPad`, including the **specific device UDID**, Extended Virtual
+  Addressing and Increased Memory Limit.
+- A game-data package prepared for the **exact build** being installed.
 
-## 1. Signing
+The App ID and both memory capabilities exist on team `VKDH2T9UTF`. The cached
+profile used for iPhone 14 testing includes **only that iPhone**. Once the
+physical iPad is connected, its UDID must be added to a new development profile
+before the same app can be signed for the iPad. Do not treat a paired iPad record
+in Device Hub as a connected device.
 
-Halo is a 32-bit Windows program. HaloPad keeps its whole address space in one 4 GiB
-reservation, which iOS allows only with Apple's
-`com.apple.developer.kernel.extended-virtual-addressing` entitlement. The build also asks for
-`com.apple.developer.kernel.increased-memory-limit`.
+## Install on the connected iPad
 
-1. In the Apple Developer portal, register the App ID `dev.halopad.HaloPad` (or change
-   `BUNDLE_ID` in `scripts/build-ios-app.py` to one your team owns) and enable
-   *Extended Virtual Addressing* and *Increased Memory Limit*.
-2. Create a development provisioning profile for that App ID and your device, and download it.
-3. Find your signing identity: `security find-identity -v -p codesigning`.
-4. Check the profile before installing. If several certificates have the same
-   name, use the unique SHA-1 shown by `security find-identity` as `--identity`.
+1. Connect the iPad by cable, unlock it, tap **Trust**, and confirm it is listed
+   as connected by `xcrun devicectl list devices`. Record its actual UDID.
+2. If HaloPad is already installed, copy its `Documents` and accessible `Library`
+   contents to a private ignored backup. Do not uninstall the app or erase its
+   container. An iOS-protected Library file may resist copying; record that
+   limitation and preserve the accessible directories.
+3. In Apple Developer, add the actual iPad UDID and create a development profile
+   for the existing App ID with both memory capabilities. Download it into a
+   private location. Validate the profile against the identity and iPad:
 
-```sh
-python3 scripts/device_profile.py \
-  --profile ~/Downloads/HaloPad_Development.mobileprovision \
-  --identity "Apple Development: Your Name (TEAMID)" \
-  --device <UDID>
-```
+   ```sh
+   .venv/bin/python scripts/device_profile.py \
+     --profile /private/path/HaloPad.mobileprovision \
+     --identity <Apple-Development-certificate-SHA1> \
+     --device <actual-iPad-UDID>
+   ```
 
-## 2. Build, install and add your game (one command)
+4. Build the device app from the accepted local inputs, or use a preserved
+   matching app and package. For the current development build:
 
-Connect the iPad or iPhone with a cable, unlock it and tap **Trust**. Then:
+   ```sh
+   .venv/bin/python scripts/build-ios-app.py --iphoneos \
+     --work generated/srw/custom-en-1.0.10.0621/<accepted-run> \
+     --identity <Apple-Development-certificate-SHA1> \
+     --profile /private/path/HaloPad.mobileprovision \
+     --scene tests/halo_touch_move_scene.c
+   ```
 
-```sh
-scripts/install-device.sh \
-  --identity "Apple Development: Your Name (TEAMID)" \
-  --profile ~/Downloads/HaloPad_Development.mobileprovision \
-  --game "/path/to/Halo Custom Edition"
-```
+5. Install the signed `HaloPad.app` and its matching `.halopad.zip` to the exact
+   device:
 
-This builds HaloPad for the device (the first build compiles the translated game, a few
-minutes), signs it, prepares a `.halopad.zip` of your game files for exactly this build,
-installs the app and copies the package into HaloPad's Documents folder. The script stops
-before signing or installing if the profile has the wrong App ID, certificate, device,
-expiry, or lacks either memory entitlement.
+   ```sh
+   scripts/install-device.sh \
+     --identity <Apple-Development-certificate-SHA1> \
+     --profile /private/path/HaloPad.mobileprovision \
+     --device <actual-iPad-UDID> \
+     --app /private/path/HaloPad.app \
+     --package /private/path/matching.halopad.zip
+   ```
 
-## 3. First launch
+   The script checks App ID, certificate, UDID, expiry and entitlements
+   before installation. Keep the same bundle ID to preserve the existing app
+   container. Read back the installed bundle and Documents after the copy.
+6. Open HaloPad on the iPad. If the first-run picker appears, choose the
+   matching package and wait for verification and import. Reach the Halo main
+   menu before calling the install successful.
 
-Open HaloPad. The first screen asks for your game files: tap **Choose Prepared Package…**
-and pick the `device-….halopad.zip` file. HaloPad verifies all 87 files, installs them and
-starts Halo at its main menu. (If Settings asks, trust the developer under General → VPN &
-Device Management first.) This was checked end to end on a freshly installed Simulator app.
+The current iPhone 14 build is signed and installed. Its matching package
+imported through the physical Files picker and reached the main menu. A local
+LAN Battle Creek match, profile creation, and leave flow also worked. The iPad
+has not been physically connected or tested in this round.
 
-## 4. Doing it by hand
+## First iPad test
 
-```sh
-.venv/bin/python scripts/build-ios-app.py --iphoneos --identity "…" --profile … \
-  --scene tests/halo_touch_move_scene.c
-.venv/bin/python scripts/prepare-game-data.py \
-  --app-data generated/srw/<profile>/<run>/ios-app-arm64-apple-ios17.0/HaloPad.app/data \
-  --game "/path/to/Halo Custom Edition"
-xcrun devicectl device install app --device <ID> generated/srw/<profile>/<run>/ios-app-arm64-apple-ios17.0/HaloPad.app
-```
+Use a local LAN match only: Multiplayer → Create Game → LAN → Battle Creek →
+Slayer → Start Game. Check touch movement, look, fire and pause. Then connect a
+controller and check menu navigation, movement, aim, fire and touch-overlay
+visibility. Check the three-dot menu, **Controls → Look Speed & Touch Settings**,
+**Controller Guide**, **Keyboard & Chat → Show Keyboard**, and profile-name
+**Enter / Accept**. **Open Leave Game Menu…** opens Halo's pause menu; choose
+Halo's **Leave Game** there. Check lock/unlock recovery and sustained frame
+times, heat and battery. A private server test can follow; public battles are
+outside this test.
 
-Then AirDrop the package to the device or drop it into HaloPad in Finder's device window,
-and choose it on the first screen. A package matches only the build that prepared it;
-prepare a new one after rebuilding.
+## Current display and performance limits
 
-## Installing from another Mac
+The verified internal mode is 800 × 600 at 30 FPS. The app's Original aspect
+setting preserves 4:3 geometry with side bars on iPhone. Fill stretches the
+image and distorts it. Halo lists 1280 × 720, but applying that mode on the
+physical iPhone 14 currently exits the app; do not select it for normal play.
+The iPhone player reported slow loading and gameplay. A static Battle Creek
+view showed about 30 FPS, but that does not establish sustained playability.
+Physical finger feel, controller behavior and the iPad result remain open.
 
-The repository holds HaloPad's code, not your game files or the translated game (about
-50 GB of generated build output, made from your own `haloce.exe`). A second Mac therefore
-installs a finished build instead of rebuilding:
+## Data and rights
 
-1. On the build Mac, copy the handoff kit to the other Mac (AirDrop or a drive). It is the
-   device `HaloPad.app` plus the `.halopad.zip` prepared for exactly that build; the
-   current one is `generated/handoff/HaloPad-iPad-test.zip`. It contains your game files, so
-   keep it private.
-2. On the other Mac: install Xcode, sign in to your Apple ID (Xcode → Settings → Accounts),
-   clone the repository and download the provisioning profile described above.
-3. Connect the iPad and run, from the clone:
-
-```sh
-scripts/install-device.sh \
-  --identity "Apple Development: Your Name (TEAMID)" \
-  --profile ~/Downloads/HaloPad_Development.mobileprovision \
-  --app HaloPad-iPad-test/HaloPad.app \
-  --package HaloPad-iPad-test/Halo-CE.halopad.zip
-```
-
-That signs a copy of the app for your team (`scripts/sign-app.py`, standard-library Python
-only), installs it and copies the package into HaloPad's Documents. Then continue with
-**First launch** above.
-
-To rebuild from source on a new Mac you also need the private inputs under `ref/` (the
-Custom Edition installer and 1.10 patch, the reference system files) and CrossOver for the
-patch step; that is a development setup, not needed for testing.
-
-## What to check on first hardware run
-
-1. HaloPad opens and the import finishes (memory reservation works on this device).
-2. The Halo main menu appears and responds to taps.
-3. Multiplayer → Create Game → LAN → any map → Start: touch controls move, look and fire.
-4. Connect a controller: touch controls hide, the stick walks, RT fires.
-5. Three-dot menu → Help → Report a Problem… files anything that goes wrong.
-
-If HaloPad closes immediately at launch, the provisioning profile most likely lacks
-*Extended Virtual Addressing*; Xcode → Devices → Open Console shows
-`HALOPAD: reserving guest address space` in that case.
-
-## Play
-
-- **Multiplayer → Join Game → Internet → Get List** lists public servers; **Direct IP** or the
-  three-dot menu's **Join Server by Address…** joins a private one.
-- Touch controls: left stick moves, right stick or a drag on open screen looks, FIRE also aims
-  while held. Rearrange them in the three-dot menu → **Touch Control Settings…** → Edit Layout.
-- A game controller works as in Halo; touch controls hide when one connects (a setting).
-- The three-dot menu also has **Leave Game**, **Add Custom Maps…** (Custom Edition `.map`
-  files for servers running them), display options, the keyboard, Halo's console, team and
-  all chat, **About HaloPad** and **Report a Problem…**.
-
-## Known limits
-
-- Not yet run on physical hardware: the 4 GiB reservation, memory use, heat and battery are
-  unmeasured on devices.
-- Halo's own startup check needs the product ID its official installer writes from a Halo PC
-  key. HaloPad does not create one; see STATUS.md.
+Game files, prepared packages, provisioning profiles and backups belong in
+ignored private paths, never Git. A build/IPA contains translated game code
+and requires a rights review before any public distribution. See
+[rights status](RIGHTS-STATUS.md) and [current status](STATUS.md).
