@@ -16,13 +16,19 @@ with the existing `New001` profile. Its revised icon appeared on the Home
 Screen. The full-startup product ID must be provisioned from a legitimate
 original Halo PC installation and verified privately before release.
 
-The physical iPad's 10-second frame trace recorded one 456 ms gap while the
-local map changed; 27 shader libraries and 24 pipelines were created in that
-interval, with reported creation time below the log's 0.01 s precision. Most
-steady intervals were about 30 FPS with no >100 ms gap, but the trace does not
-yet locate the work inside the stall. An iOS stable physical controller slot
-now passes DirectInput Simulator tests for late connect, replacement and
-disconnect. It awaits installation and physical resolution-reset testing.
+The physical iPad's first 10-second frame trace recorded one 456 ms gap while
+the local map changed. The stable-controller candidate was then installed in
+place after backing up its current `Documents` and `Library` to ignored
+`generated/device-backups/ipad-20260929-pre-stable-controller/`. Existing
+profile `New001` survived, and a local Battle Creek match reached first-person
+play. The updated trace recorded a 454 ms gap on match entry, with 27 shader
+libraries and 25 pipelines created in under 0.01 s reported aggregate time.
+Steady intervals were about 30 FPS, usually with no >100 ms gap. This still
+does not locate the work inside the stall. The stable slot passes DirectInput
+Simulator tests; physical late-connect and resolution-reset acceptance remain
+open. During the attempted physical test, iPadOS Bluetooth did not complete
+pairing with the Xbox controller, before HaloPad could observe it. The user is
+re-pairing the controller; this is not evidence for or against the gamepad fix.
 
 Chris's physical iPad Pro 12.9-inch (6th generation, iPadOS 27.0) is connected.
 Its exact development profile passed App ID, certificate, UDID and memory-entitlement
@@ -30,9 +36,11 @@ checks. The signed app was installed in place, imported the matching package, an
 reached a local Battle Creek Slayer match. Its `Documents` and `Library` were read
 back to ignored `generated/device-backups/ipad-20260929-first-import/`. Direct
 touch/menu actions and Halo's pause/leave flow passed. Chris confirmed Xbox
-controller movement and crouch after closing and reopening HaloPad with the
-controller already connected. Late connection hides the touch overlay but does
-not register gameplay input in this build; the startup controller path works.
+controller movement and crouch after closing and reopening the earlier HaloPad
+build with the controller already connected. On that earlier build, late
+connection hid the touch overlay without registering gameplay input. The new
+stable-slot candidate is installed, but its physical late-connect result is
+still pending because the controller has not paired at the iPadOS level.
 Chris reports iPad asset-load pauses and gameplay jitter. A 20-second live Time
 Profiler trace is in ignored `docs/artifacts/2026-09-29/G11/`; it samples draw
 and graphics-state work but does not establish frame-gap timing or the cause of

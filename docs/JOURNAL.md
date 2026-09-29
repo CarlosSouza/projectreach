@@ -3049,3 +3049,36 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   Mac; only Wine Stable at `/opt/homebrew/bin/wine` was found. Next work should
   keep key material outside source and public logs, establish an original
   installer-produced `DigitalProductID`, and only then retest full startup.
+
+## 2026-09-29 — stable-slot candidate on physical iPad
+
+- Revalidated the cached development profile against the iPad UDID, exact App
+  ID, signing certificate, expiry and both memory entitlements. The signed
+  stable-slot app passed `codesign --verify --deep --strict`. Copied the current
+  iPad `Documents` and `Library` to ignored
+  `generated/device-backups/ipad-20260929-pre-stable-controller/` before an
+  in-place install. `devicectl` installed `dev.halopad.HaloPad` successfully;
+  profile `New001` remained available afterward.
+- Launched the updated app with `HALOPAD_TRACE_FRAMES=1`, created a local LAN
+  Battle Creek Slayer match through Halo's menus, and observed first-person
+  play with the touch overlay. No public game was joined. In the entry interval,
+  286 frames presented in ten seconds (28.5/s) with a 454 ms longest gap and
+  two gaps over 100 ms. The same interval created 27 shader libraries and 25
+  pipelines, with aggregate creation time reported below 0.01 s. Following
+  intervals generally presented 300 frames per ten seconds with no >100 ms
+  gap. Private log: `G11/ipad-stable-controller-device.log`. This measures the
+  stall but does not identify its CPU, I/O or scheduler cause.
+- The test app later exited with code 0 while the user was opening iPadOS
+  Bluetooth settings; no crash or resolution change was observed in that
+  session. The Xbox controller first showed a connection spinner in the iPad's
+  Bluetooth list and then disappeared from saved devices after the user
+  unpaired it. HaloPad cannot receive a gamepad until iPadOS pairs it. The
+  physical late-connect and post-video-change tests remain open. Bluetooth
+  pairing troubleshooting is in progress; no Bluetooth settings were changed
+  by the agent.
+- An isolated Wine prefix was initialized under ignored
+  `generated/license-probe/prefix/` to inspect the supplied Custom Edition
+  installer path without entering or recording the private product key. The
+  installer command exited 1 without useful output or a visible UI; no
+  `DigitalProductID` was provisioned. The original Halo PC installer path is
+  still the full-entry gate.
