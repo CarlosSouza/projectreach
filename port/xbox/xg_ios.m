@@ -19,6 +19,7 @@
 #include <SDL3/SDL_gamepad.h>
 #include <SDL3/SDL_audio.h>
 #include <dlfcn.h>
+#include <crt_externs.h>
 #include <mach/mach_time.h>
 #include <pthread.h>
 #include <math.h>
@@ -468,7 +469,8 @@ int xg_ios_start(const char *image_path, const char *data_root, const char *save
 {
 	NSData *image;
 	char buffers[5][1100];
-	const char *environment[6];
+	const char *environment[48];
+	int count = 5;
 	CGSize screen = UIScreen.mainScreen.bounds.size;
 	CGFloat longer = MAX(screen.width, screen.height), shorter = MIN(screen.width, screen.height);
 	uint32_t boot;
@@ -500,7 +502,11 @@ int xg_ios_start(const char *image_path, const char *data_root, const char *save
 	}
 	for (int index = 0; index < 5; index++)
 		environment[index] = buffers[index];
-	boot = xg_make_boot(environment, 5, 1, (char *[]){ "halo" });
+	/* upstream's settings as HALO_* variables (development and tests) */
+	for (char **entry = *_NSGetEnviron(); *entry && count < 47; entry++)
+		if (!strncmp(*entry, "HALO_", 5) && strncmp(*entry, "HALO_DATA_ROOT=", 15) && strncmp(*entry, "HALO_SAVE_ROOT=", 15))
+			environment[count++] = *entry;
+	boot = xg_make_boot(environment, count, 1, (char *[]){ "halo" });
 	if (!boot || xg_start_game(boot))
 	{
 		xg_log("cannot start the game thread");

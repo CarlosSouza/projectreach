@@ -6,6 +6,15 @@ Operating loop: [HaloPad-GOAL-LOOP-PHASE3.md](HaloPad-GOAL-LOOP-PHASE3.md). Earl
 
 ## Latest physical-device result
 
+**Second engine: Halo Xbox (2026-09-30).** HaloPad now opens with a choice of
+Halo PC or Halo Xbox. The Xbox engine is upstream's decompilation port, pinned
+and built on this Mac only as a personal build, translated to base-relative
+ARM64 and run on a native iOS host. On the physical iPad it reaches its menu
+and loads The Pillar of Autumn; on the Mac it also plays a system link match.
+An iPad match waits on the iPad's Local Network permission. Details, evidence
+and the update routine: [XBOX-ENGINE.md](XBOX-ENGINE.md). The iPad now runs this
+build (development scene for Halo PC, as before).
+
 **Icon, stability and loading (2026-09-30).** New orbital-arc app icon (Chris's
 pick). Renderer traps other than unknown texture formats now degrade and log
 once instead of crashing. Shaders and pipelines compile in the background and

@@ -13,7 +13,7 @@ ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 WORK="$ROOT/ref/xbox-build"
 LLVM=${XBOX_LLVM_BIN:-/opt/homebrew/opt/llvm/bin}
 LOCK="$ROOT/config/xbox-engine.lock.json"
-REV=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['revision'])" "$LOCK")
+REV=${XBOX_REV:-}; [ -n "$REV" ] || REV=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['revision'])" "$LOCK")
 URL=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['url'])" "$LOCK")
 mkdir -p "$WORK/out" "$WORK/vol"
 

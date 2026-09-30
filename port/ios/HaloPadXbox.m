@@ -95,6 +95,9 @@ static BOOL xbox_has_maps(void)
 	import_panel.hidden = YES;
 	pad.hidden = NO;
 	[NSFileManager.defaultManager createDirectoryAtPath:xbox_saves() withIntermediateDirectories:YES attributes:nil error:nil];
+	/* development on a device: XG_FRAME_DUMP_DOCUMENTS=1 saves frames to Documents/xbox-frame.ppm */
+	if (getenv("XG_FRAME_DUMP_DOCUMENTS"))
+		setenv("XG_FRAME_DUMP", [xbox_root().stringByDeletingLastPathComponent stringByAppendingPathComponent:@"xbox-frame.ppm"].fileSystemRepresentation, 1);
 	if (xg_ios_start(image.fileSystemRepresentation, xbox_data().fileSystemRepresentation, xbox_saves().fileSystemRepresentation))
 		[self showProblem:@"The Xbox game could not start. Share the diagnostic log from Settings > HaloPad if this keeps happening."];
 }

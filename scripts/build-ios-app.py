@@ -90,6 +90,8 @@ def package(exe, out, work, target=TARGET, identity=None, provisioning=None):
         'UIApplicationSceneManifest': {'UIApplicationSupportsMultipleScenes': False},
         # the player's Halo folder is copied into Documents (Files app, Finder) or picked from a folder
         'UIFileSharingEnabled': True, 'LSSupportsOpeningDocumentsInPlace': True,
+        # Halo Xbox's system link finds and joins games on the local network
+        'NSLocalNetworkUsageDescription': 'HaloPad finds and joins Halo games on your local network.',
     }
     if 'simulator' not in target:
         info['UIRequiredDeviceCapabilities'] = ['arm64', 'metal']
