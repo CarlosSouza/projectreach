@@ -1,0 +1,104 @@
+#!/bin/sh
+# Builds the Xbox engine's iOS test app (port/xbox/xg_app_ios.m) and, for the
+# Simulator, installs and launches it with the Mac's extracted game data.
+#
+#   scripts/xbox/build-ios.sh [--device] [--launch UDID] [--identity NAME --profile FILE]
+#
+# A personal build: the app bundles the translated engine and must never be
+# shared (docs/XBOX-ENGINE.md).
+set -eu
+ROOT=$(cd "$(dirname "$0")/../.." && pwd)
+TARGET=arm64-apple-ios17.4-simulator
+SDK=iphonesimulator
+LAUNCH=""
+IDENTITY="-"
+PROFILE=""
+while [ $# -gt 0 ]; do
+	case "$1" in
+	--device) TARGET=arm64-apple-ios17.4; SDK=iphoneos ;;
+	--launch) LAUNCH=$2; shift ;;
+	--identity) IDENTITY=$2; shift ;;
+	--profile) PROFILE=$2; shift ;;
+	*) echo "unknown option $1" >&2; exit 2 ;;
+	esac
+	shift
+done
+"$ROOT/scripts/xbox/prepare.sh"
+WORK="$ROOT/ref/xbox-build"
+ENGINE="$WORK/vol/engine"
+OUT="$WORK/out"
+INC="$WORK/ndk/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include"
+OBJ="$OUT/obj-$SDK"
+APP="$OUT/$SDK/HaloPadXbox.app"
+SYSROOT=$(xcrun --sdk $SDK --show-sdk-path)
+CC="xcrun --sdk $SDK clang -target $TARGET -isysroot $SYSROOT"
+CFLAGS="-O2 -g -Wall -Wno-unused-function -DGLES_SILENCE_DEPRECATION -fobjc-arc -I$ROOT/port/xbox -I$OUT -I/opt/homebrew/include"
+mkdir -p "$OBJ" "$APP"
+for f in xg_memory xg_thread xg_syscall xg_gl xg_posix; do
+	$CC $CFLAGS -I"$INC" -c "$ROOT/port/xbox/$f.c" -o "$OBJ/$f.o"
+done
+$CC $CFLAGS -I"$INC" -c "$OUT/xg_gl_gen.c" -o "$OBJ/xg_gl_gen.o"
+for f in xg_ios xg_app_ios; do
+	$CC $CFLAGS -c "$ROOT/port/xbox/$f.m" -o "$OBJ/$f.o"
+done
+for f in posix_files posix_net; do
+	$CC -O2 -w -include "$ROOT/port/xbox/xg_darwin_compat.h" -I"$ROOT/port/xbox/compat" -I"$ENGINE/port/linux/src" \
+		-c "$ENGINE/port/linux/src/$f.c" -o "$OBJ/upstream_$f.o"
+done
+$CC -c "$ROOT/port/xbox/xg_runtime.s" -o "$OBJ/xg_runtime.o"
+[ "$OBJ/guest.o" -nt "$OUT/guest.s" ] || $CC -c "$OUT/guest.s" -o "$OBJ/guest.o"
+$CC -o "$APP/HaloPadXbox" "$OBJ"/*.o -framework UIKit -framework QuartzCore -framework OpenGLES \
+	-framework GameController -framework AudioToolbox -framework AVFoundation -framework Foundation -framework CoreFoundation
+cp "$OUT/halo_guest.elf" "$APP/halo_guest.elf"
+PLATFORM=iPhoneSimulator
+[ "$SDK" = iphoneos ] && PLATFORM=iPhoneOS
+cat > "$APP/Info.plist" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleIdentifier</key><string>dev.halopad.HaloPad.xbox-test</string>
+<key>CFBundleName</key><string>HaloPad Xbox</string>
+<key>CFBundleExecutable</key><string>HaloPadXbox</string>
+<key>CFBundlePackageType</key><string>APPL</string>
+<key>CFBundleShortVersionString</key><string>0.1</string>
+<key>CFBundleVersion</key><string>1</string>
+<key>CFBundleSupportedPlatforms</key><array><string>$PLATFORM</string></array>
+<key>MinimumOSVersion</key><string>17.4</string>
+<key>UIDeviceFamily</key><array><integer>1</integer><integer>2</integer></array>
+<key>UIRequiresFullScreen</key><true/>
+<key>UILaunchScreen</key><dict/>
+<key>UIStatusBarHidden</key><true/>
+<key>UISupportedInterfaceOrientations</key><array><string>UIInterfaceOrientationLandscapeLeft</string><string>UIInterfaceOrientationLandscapeRight</string></array>
+<key>UISupportedInterfaceOrientations~ipad</key><array><string>UIInterfaceOrientationLandscapeLeft</string><string>UIInterfaceOrientationLandscapeRight</string></array>
+<key>GCSupportsControllerUserInteraction</key><true/>
+<key>UIApplicationSceneManifest</key><dict><key>UIApplicationSupportsMultipleScenes</key><false/></dict>
+<key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+<key>CFBundleDisplayName</key><string>HaloPad Xbox</string>
+</dict></plist>
+EOF
+cat > "$OUT/xbox.entitlements" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>com.apple.developer.kernel.extended-virtual-addressing</key><true/>
+<key>com.apple.developer.kernel.increased-memory-limit</key><true/>
+</dict></plist>
+EOF
+[ -z "$PROFILE" ] || cp "$PROFILE" "$APP/embedded.mobileprovision"
+if [ "$SDK" = iphoneos ]; then
+	codesign --force --sign "$IDENTITY" --entitlements "$OUT/xbox.entitlements" --timestamp=none "$APP"
+else
+	# the Simulator refuses ad-hoc apps that claim restricted entitlements (and
+	# runs on the Mac's kernel, where the memory reservation needs none)
+	codesign --force --sign - --timestamp=none "$APP"
+fi
+echo "built $APP"
+if [ -n "$LAUNCH" ]; then
+	xcrun simctl boot "$LAUNCH" 2>/dev/null || true
+	xcrun simctl bootstatus "$LAUNCH" -b >/dev/null
+	xcrun simctl install "$LAUNCH" "$APP"
+	SIMCTL_CHILD_XG_DATA="$WORK/data" SIMCTL_CHILD_XG_SAVE="$WORK/save-ios" \
+	SIMCTL_CHILD_XG_FRAME_DUMP="$WORK/ios-frame.ppm" SIMCTL_CHILD_XG_FRAME_DUMP_SECONDS=4 SIMCTL_CHILD_XG_GL_CHECK="${XG_GL_CHECK:-}" \
+		xcrun simctl launch --terminate-running-process --stdout="$WORK/ios-stdout.txt" --stderr="$WORK/ios-stderr.txt" \
+		"$LAUNCH" dev.halopad.HaloPad.xbox-test
+fi

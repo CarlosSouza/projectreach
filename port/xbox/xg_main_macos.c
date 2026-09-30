@@ -16,6 +16,8 @@
 #include <sys/stat.h>
 #include <time.h>
 
+extern char **environ;
+
 struct xg_paths xg_paths;
 
 static void *read_file(const char *path, size_t *size)
@@ -39,39 +41,11 @@ static void *read_file(const char *path, size_t *size)
 	return data;
 }
 
-/* argv and the environment, copied into guest memory */
-static uint32_t make_boot(const char **environment, int count, int argc, char **argv)
-{
-	uint32_t boot = xg_map(0x10000, PROT_READ | PROT_WRITE);
-	uint32_t *words = G(uint32_t *, boot);
-	uint32_t argv_list = boot + 32, environment_list = argv_list + 4 * 16, strings = environment_list + 4 * 64;
-	int index;
-	for (index = 0; index < argc && index < 15; index++)
-	{
-		strcpy(G(char *, strings), argv[index]);
-		G(uint32_t *, argv_list)[index] = strings;
-		strings += (uint32_t)strlen(argv[index]) + 1;
-	}
-	G(uint32_t *, argv_list)[index] = 0;
-	for (index = 0; index < count && index < 63; index++)
-	{
-		strcpy(G(char *, strings), environment[index]);
-		G(uint32_t *, environment_list)[index] = strings;
-		strings += (uint32_t)strlen(environment[index]) + 1;
-	}
-	G(uint32_t *, environment_list)[index] = 0;
-	words[0] = (uint32_t)(argc < 15 ? argc : 15);
-	words[1] = argv_list;
-	words[2] = environment_list;
-	words[3] = XG_PAGE;
-	return boot;
-}
-
 int main(int argc, char **argv)
 {
 	const char *image_path = NULL, *angle = getenv("XG_ANGLE_DIR");
 	char buffers[6][1100];
-	const char *environment[8];
+	const char *environment[48];
 	int count = 0, index, guest_argc = 1;
 	char *guest_argv[16] = { "halo" };
 	size_t size;
@@ -129,13 +103,15 @@ int main(int argc, char **argv)
 	environment[count++] = buffers[3];
 	environment[count++] = buffers[4];
 	environment[count++] = buffers[5];
-	if (getenv("HALO_DISPLAY_WIDTH"))
+	/* upstream's settings can also be given as HALO_* variables
+	 * (port/linux/src/port_config.c); pass those through */
 	{
-		static char width[64];
-		snprintf(width, sizeof(width), "HALO_DISPLAY_WIDTH=%s", getenv("HALO_DISPLAY_WIDTH"));
-		environment[count++] = width;
+		char **entry;
+		for (entry = environ; *entry && count < 47; entry++)
+			if (!strncmp(*entry, "HALO_", 5) && strncmp(*entry, "HALO_DATA_ROOT=", 15) && strncmp(*entry, "HALO_SAVE_ROOT=", 15))
+				environment[count++] = *entry;
 	}
-	boot = make_boot(environment, count, guest_argc, guest_argv);
+	boot = xg_make_boot(environment, count, guest_argc, guest_argv);
 
 	stack = xg_map(16u * 1024u * 1024u, PROT_READ | PROT_WRITE);
 	if (!boot || !stack)

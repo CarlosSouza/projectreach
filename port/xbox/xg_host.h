@@ -42,6 +42,9 @@ uint64_t xg_call_on(uintptr_t stack_top, uint32_t fn, uint64_t a, uint64_t b, ui
  * guest stack and a guest struct pthread the first time */
 uint32_t xg_enter(uint32_t fn, uint32_t a, uint32_t b, uint32_t c, uint32_t d);
 int xg_start_game(uint32_t boot);
+/* argv and the environment copied into guest memory: the struct
+ * halo_guest_boot that __guest_start takes */
+uint32_t xg_make_boot(const char **environment, int count, int argc, char **argv);
 
 /* xg_memory.c */
 int xg_memory_initialize(void);

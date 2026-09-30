@@ -94,50 +94,13 @@ int xh_host_sdl_gl_make_current(uint32_t window, uint32_t context)
 }
 
 int xh_host_sdl_gl_set_swap_interval(int interval) { return SDL_GL_SetSwapInterval(interval); }
-/* XG_FRAME_DUMP=<path>: every XG_FRAME_DUMP_SECONDS (default 5), write the
- * frame about to be shown to <path> as a PPM image (testing without
- * capturing the rest of the screen) */
-static void frame_dump(uint32_t window)
-{
-	static const char *path;
-	static Uint64 next;
-	static int checked;
-	static void (*read_pixels)(GLint, GLint, GLsizei, GLsizei, GLenum, GLenum, void *);
-	int width = 0, height = 0, row;
-	unsigned char *pixels;
-	FILE *file;
-	if (!checked)
-	{
-		checked = 1;
-		path = getenv("XG_FRAME_DUMP");
-		read_pixels = (void *)SDL_GL_GetProcAddress("glReadPixels");
-	}
-	if (!path || !read_pixels || SDL_GetTicks() < next)
-		return;
-	next = SDL_GetTicks() + 1000u * (getenv("XG_FRAME_DUMP_SECONDS") ? (unsigned)atoi(getenv("XG_FRAME_DUMP_SECONDS")) : 5u);
-	SDL_GetWindowSizeInPixels(handle_get(window), &width, &height);
-	pixels = malloc((size_t)width * height * 4);
-	if (!pixels)
-		return;
-	read_pixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
-	file = fopen(path, "wb");
-	if (file)
-	{
-		fprintf(file, "P6\n%d %d\n255\n", width, height);
-		for (row = 0; row < height; row++)
-		{
-			int column;
-			for (column = 0; column < width; column++)
-				fwrite(pixels + ((size_t)row * width + column) * 4, 1, 3, file);
-		}
-		fclose(file);
-	}
-	free(pixels);
-}
+void xg_gl_frame_dump(int width, int height);
 
 int xh_host_sdl_gl_swap_window(uint32_t window)
 {
-	frame_dump(window);
+	int width = 0, height = 0;
+	SDL_GetWindowSizeInPixels(handle_get(window), &width, &height);
+	xg_gl_frame_dump(width, height);
 	return SDL_GL_SwapWindow(handle_get(window));
 }
 int xh_host_sdl_poll_event(uint32_t event) { return SDL_PollEvent(G(SDL_Event *, event)); }
@@ -221,113 +184,7 @@ int xh_host_sdl_put_audio_stream_data(uint32_t stream, uint32_t data, int length
 
 int xh_host_sdl_resume_audio_stream_device(uint32_t stream) { return SDL_ResumeAudioStreamDevice(handle_get(stream)); }
 
-/* ---------- OpenGL ES helpers (upstream's host_gl.c) */
+/* ---------- OpenGL ES functions for xg_gl.c and the generated wrappers */
 
-static const GLubyte *(*p_glGetString)(GLenum);
-static const GLubyte *(*p_glGetStringi)(GLenum, GLuint);
-static void (*p_glGetIntegerv)(GLenum, GLint *);
-static void (*p_glBindBuffer)(GLenum, GLuint);
-static void *(*p_glMapBufferRange)(GLenum, GLintptr, GLsizeiptr, GLbitfield);
-static GLboolean (*p_glUnmapBuffer)(GLenum);
-static void (*p_glBufferSubData)(GLenum, GLintptr, GLsizeiptr, const void *);
-static GLsync (*p_glFenceSync)(GLenum, GLbitfield);
-static void (*p_glDeleteSync)(GLsync);
-static GLenum (*p_glClientWaitSync)(GLsync, GLbitfield, GLuint64);
-
-static void helpers_load(void)
-{
-	if (p_glGetString)
-		return;
-	p_glGetString = (void *)SDL_GL_GetProcAddress("glGetString");
-	p_glGetStringi = (void *)SDL_GL_GetProcAddress("glGetStringi");
-	p_glGetIntegerv = (void *)SDL_GL_GetProcAddress("glGetIntegerv");
-	p_glBindBuffer = (void *)SDL_GL_GetProcAddress("glBindBuffer");
-	p_glMapBufferRange = (void *)SDL_GL_GetProcAddress("glMapBufferRange");
-	p_glUnmapBuffer = (void *)SDL_GL_GetProcAddress("glUnmapBuffer");
-	p_glBufferSubData = (void *)SDL_GL_GetProcAddress("glBufferSubData");
-	p_glFenceSync = (void *)SDL_GL_GetProcAddress("glFenceSync");
-	p_glDeleteSync = (void *)SDL_GL_GetProcAddress("glDeleteSync");
-	p_glClientWaitSync = (void *)SDL_GL_GetProcAddress("glClientWaitSync");
-}
-
-void xh_host_gl_get_string(uint32_t name, int index, uint32_t buffer, uint32_t size)
-{
-	helpers_load();
-	copy_out(buffer, size, (const char *)(index >= 0 ? p_glGetStringi(name, (GLuint)index) : p_glGetString(name)));
-}
-
-int xh_host_gl_has_extension(uint32_t name)
-{
-	GLint count = 0, index;
-	helpers_load();
-	p_glGetIntegerv(GL_NUM_EXTENSIONS, &count);
-	for (index = 0; index < count; index++)
-	{
-		const char *extension = (const char *)p_glGetStringi(GL_EXTENSIONS, (GLuint)index);
-		if (extension && !strcmp(extension, G(const char *, name)))
-			return 1;
-	}
-	return 0;
-}
-
-uint32_t xh_host_gl_read_buffer_word(uint32_t buffer, uint32_t offset)
-{
-	uint32_t value = 0;
-	GLint previous = 0;
-	const void *mapping;
-	helpers_load();
-	p_glGetIntegerv(GL_ATOMIC_COUNTER_BUFFER_BINDING, &previous);
-	p_glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, buffer);
-	mapping = p_glMapBufferRange(GL_ATOMIC_COUNTER_BUFFER, offset, sizeof(value), GL_MAP_READ_BIT);
-	if (mapping)
-	{
-		memcpy(&value, mapping, sizeof(value));
-		p_glUnmapBuffer(GL_ATOMIC_COUNTER_BUFFER);
-	}
-	p_glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, (GLuint)previous);
-	return value;
-}
-
-void xh_host_gl_buffer_write(uint32_t target, uint32_t offset, uint32_t size, uint32_t data)
-{
-	void *mapping;
-	helpers_load();
-	mapping = p_glMapBufferRange(target, offset, size, GL_MAP_WRITE_BIT | GL_MAP_UNSYNCHRONIZED_BIT);
-	if (!mapping)
-	{
-		p_glBufferSubData(target, offset, size, G(const void *, data));
-		return;
-	}
-	memcpy(mapping, G(const void *, data), size);
-	p_glUnmapBuffer(target);
-}
-
-#define FENCES 8
-static GLsync fences[FENCES];
-
-void xh_host_gl_fence_frame(uint32_t slot)
-{
-	helpers_load();
-	if (slot >= FENCES)
-		return;
-	if (fences[slot])
-		p_glDeleteSync(fences[slot]);
-	fences[slot] = p_glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
-}
-
-void xh_host_gl_wait_frame(uint32_t slot)
-{
-	helpers_load();
-	if (slot >= FENCES || !fences[slot])
-		return;
-	p_glClientWaitSync(fences[slot], GL_SYNC_FLUSH_COMMANDS_BIT, 1000000000ull);
-	p_glDeleteSync(fences[slot]);
-	fences[slot] = NULL;
-}
-
-/* ---------- paths (upstream asks for Android's storage directories) */
-
-void xh_host_android_path(int which, uint32_t buffer, uint32_t size)
-{
-	copy_out(buffer, size, which ? xg_paths.save_root : xg_paths.data_root);
-}
+void *xg_gl_proc(const char *name) { return (void *)SDL_GL_GetProcAddress(name); }
+GLuint xg_gl_framebuffer(GLuint framebuffer) { return framebuffer; }

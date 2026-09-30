@@ -13,6 +13,7 @@
 #include <errno.h>
 #include <pthread.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/mman.h>
 
 #define GUARD 0x4000u
@@ -109,4 +110,32 @@ int xh_host_thread_create(uint32_t thread, uint32_t stack_size)
 int xg_start_game(uint32_t boot)
 {
 	return start_thread(xg_header->start, boot, 16u * 1024u * 1024u);
+}
+
+uint32_t xg_make_boot(const char **environment, int count, int argc, char **argv)
+{
+	uint32_t boot = xg_map(0x10000, PROT_READ | PROT_WRITE);
+	uint32_t argv_list = boot + 32, environment_list = argv_list + 4 * 16, strings = environment_list + 4 * 64;
+	int index;
+	if (!boot)
+		return 0;
+	for (index = 0; index < argc && index < 15; index++)
+	{
+		strcpy(G(char *, strings), argv[index]);
+		G(uint32_t *, argv_list)[index] = strings;
+		strings += (uint32_t)strlen(argv[index]) + 1;
+	}
+	G(uint32_t *, argv_list)[index] = 0;
+	for (index = 0; index < count && index < 63; index++)
+	{
+		strcpy(G(char *, strings), environment[index]);
+		G(uint32_t *, environment_list)[index] = strings;
+		strings += (uint32_t)strlen(environment[index]) + 1;
+	}
+	G(uint32_t *, environment_list)[index] = 0;
+	G(uint32_t *, boot)[0] = (uint32_t)(argc < 15 ? argc : 15);
+	G(uint32_t *, boot)[1] = argv_list;
+	G(uint32_t *, boot)[2] = environment_list;
+	G(uint32_t *, boot)[3] = XG_PAGE;
+	return boot;
 }
