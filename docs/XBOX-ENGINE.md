@@ -112,18 +112,20 @@ After accepting, rebuild the libraries and HaloPad and install over the existing
 | Guest image | 7.0 MB ELF; .text 2.6 MB, 657,553 instructions, no use of x27/x28, 191 import stubs, all resolved by the host |
 | Mac (M3 Max, ANGLE Metal) | Menu; `map_name levels\a10\a10` loads The Pillar of Autumn; Blood Gulch Slayer with a stand-in machine: 2,100+ ticks, kills, respawns, shield damage, no corrections; in-match first-person frame with HUD. `smoke-mac.py` passes all three |
 | iPad Simulator (iPadOS 26.5) | HaloPad's own app: picker, the Halo Xbox card, disc import into Documents/Halo Xbox (24 maps), menu, touch gamepad drawn. The Halo PC card still starts Custom Edition (its license dialog on a fresh install) |
+| iPad Simulator match | HaloPad (the iOS host) hosts Blood Gulch; a stand-in machine joins from the Mac: 1,469 ticks, 8 hits, in-match first-person frame with the Link button. A white triangle in that frame is not yet explained (the Simulator draws with Apple's software renderer) |
 | Physical iPad Pro 12.9" (6th gen, M2) | Signed with the existing profile (both memory entitlements). Guest memory reserved at `0x7000000000`; OpenGL ES 3.0 on the M2 GPU; 48 kHz audio; menu; The Pillar of Autumn's opening. Backups before each in-place install: `generated/device-backups/ipad-20260930-192030-before-xbox` (Documents + Library, SHA-256 list) and `…-193829-before-xbox-2` |
 | Update routine | Upstream `c68db561` (10 commits newer, including changes to its Android build) builds through the translator and passes the smoke test; the pin was left at `b47f237d` so the installed iPad build matches it |
 
 ## Open items
 
-- **iPad match:** an iPad joining a Mac-hosted game did not find it. iOS allows broadcast only with
-  Apple's restricted multicast entitlement, so the search goes straight to the host's address instead
-  (upstream's `HALO_NET_BROADCAST`); even so nothing arrived. HaloPad has not had the iPad's **Local
-  Network** permission before (the PC game uses internet servers); the builds now declare it, and the
-  iPad may be waiting for Chris to allow it (Settings › Privacy & Security › Local Network › HaloPad).
-- **Join by address:** a small screen to type the host's address (and host for others), since iOS
-  cannot broadcast.
+- **iPad match (needs Chris):** iOS allows broadcast only with Apple's restricted multicast
+  entitlement, so the Xbox screen's **Link** button lists the other devices' addresses (and shows this
+  device's own), which the game searches instead of broadcasting. Even so, an iPad joining a Mac-hosted
+  game found nothing: a plain listener on the Mac's game port received **no packets** from the iPad,
+  while the Mac copy's own search reached it through the same host code. iOS is blocking HaloPad's local
+  network traffic; HaloPad never had the **Local Network** permission (the PC game uses internet
+  servers). The builds now declare it; Chris needs to allow it on the iPad (the prompt, or Settings ›
+  Privacy & Security › Local Network › HaloPad).
 - **Human play on the device:** touch gamepad feel and a Bluetooth controller on the iPad are untested
   by a player.
 - **Mac presentation:** the Mac proof draws in part of its fullscreen window (the iOS host fills the
@@ -132,4 +134,3 @@ After accepting, rebuild the libraries and HaloPad and install over the existing
   start-up; it should be opt-in in the app. UPnP and Discord are stubbed.
 - **Missing on OpenGL ES 3.0:** `glCopyImageSubData` and `glDrawElementsBaseVertex` (upstream falls back);
   Bink movies are skipped, as upstream does.
-

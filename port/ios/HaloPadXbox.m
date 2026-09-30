@@ -10,8 +10,37 @@
  */
 #import <UIKit/UIKit.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
+#include <arpa/inet.h>
+#include <ifaddrs.h>
+#include <net/if.h>
 #include "xg_ios.h"
 #include "xg_xiso.h"
+
+/* system link: iOS lets apps broadcast only with a restricted entitlement, so
+ * the game searches the addresses the player lists instead (upstream's
+ * network.broadcast, read when the game starts) */
+static NSString *const link_key = @"HaloPadXboxLinkAddresses";
+
+static NSString *own_addresses(void)
+{
+	NSMutableArray *found = [NSMutableArray array];
+	struct ifaddrs *list = NULL, *entry;
+	if (getifaddrs(&list) == 0)
+	{
+		for (entry = list; entry; entry = entry->ifa_next)
+		{
+			char text[INET_ADDRSTRLEN];
+			if (!entry->ifa_addr || entry->ifa_addr->sa_family != AF_INET || (entry->ifa_flags & IFF_LOOPBACK) ||
+				!(entry->ifa_flags & IFF_UP) || strncmp(entry->ifa_name, "en", 2))
+				continue;
+			inet_ntop(AF_INET, &((struct sockaddr_in *)entry->ifa_addr)->sin_addr, text, sizeof(text));
+			if (strncmp(text, "169.254.", 8))
+				[found addObject:@(text)];
+		}
+		freeifaddrs(list);
+	}
+	return found.count ? [found componentsJoinedByString:@", "] : @"not on a network";
+}
 
 static NSString *xbox_root(void)
 {
@@ -45,6 +74,7 @@ static BOOL xbox_has_maps(void)
 {
 	UIView *game;
 	XGTouchPad *pad;
+	UIButton *link_button;
 	UIView *import_panel;
 	UILabel *import_status;
 	UIProgressView *import_progress;
@@ -63,7 +93,44 @@ static BOOL xbox_has_maps(void)
 	pad.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
 	pad.hidden = YES;
 	[root addSubview:pad];
+	link_button = [UIButton buttonWithType:UIButtonTypeSystem];
+	[link_button setTitle:@"Link" forState:UIControlStateNormal];
+	[link_button setTitleColor:[UIColor colorWithWhite:1 alpha:0.85] forState:UIControlStateNormal];
+	link_button.titleLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightSemibold];
+	link_button.backgroundColor = [UIColor colorWithWhite:0 alpha:0.28];
+	link_button.layer.cornerRadius = 14;
+	link_button.frame = CGRectMake(20, 16, 60, 32);
+	[link_button addTarget:self action:@selector(showLink) forControlEvents:UIControlEventTouchUpInside];
+	[root addSubview:link_button];
 	self.view = root;
+}
+
+- (void)viewSafeAreaInsetsDidChange
+{
+	[super viewSafeAreaInsetsDidChange];
+	link_button.frame = CGRectMake(self.view.safeAreaInsets.left + 20, self.view.safeAreaInsets.top + 16, 60, 32);
+}
+
+- (void)showLink
+{
+	NSString *saved = [NSUserDefaults.standardUserDefaults stringForKey:link_key] ?: @"";
+	NSString *message = [NSString stringWithFormat:@"To play system link with other iPads, iPhones or computers running this "
+		@"Xbox version, enter their addresses (separated by commas). They enter this device's address: %@.\n\n"
+		@"Changes take effect the next time you open Halo Xbox.", own_addresses()];
+	UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"System Link" message:message
+		preferredStyle:UIAlertControllerStyleAlert];
+	[alert addTextFieldWithConfigurationHandler:^(UITextField *field) {
+		field.text = saved;
+		field.placeholder = @"192.168.1.20, 192.168.1.21";
+		field.keyboardType = UIKeyboardTypeNumbersAndPunctuation;
+		field.autocorrectionType = UITextAutocorrectionTypeNo;
+	}];
+	[alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+	[alert addAction:[UIAlertAction actionWithTitle:@"Save" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+		NSString *text = [alert.textFields.firstObject.text stringByReplacingOccurrencesOfString:@" " withString:@""];
+		[NSUserDefaults.standardUserDefaults setObject:text forKey:link_key];
+	}]];
+	[self presentViewController:alert animated:YES completion:nil];
 }
 
 - (void)viewDidLayoutSubviews
@@ -95,6 +162,11 @@ static BOOL xbox_has_maps(void)
 	import_panel.hidden = YES;
 	pad.hidden = NO;
 	[NSFileManager.defaultManager createDirectoryAtPath:xbox_saves() withIntermediateDirectories:YES attributes:nil error:nil];
+	{
+		NSString *addresses = [NSUserDefaults.standardUserDefaults stringForKey:link_key];
+		if (addresses.length)
+			setenv("HALO_NET_BROADCAST", addresses.UTF8String, 0);
+	}
 	/* development on a device: XG_FRAME_DUMP_DOCUMENTS=1 saves frames to Documents/xbox-frame.ppm */
 	if (getenv("XG_FRAME_DUMP_DOCUMENTS"))
 		setenv("XG_FRAME_DUMP", [xbox_root().stringByDeletingLastPathComponent stringByAppendingPathComponent:@"xbox-frame.ppm"].fileSystemRepresentation, 1);

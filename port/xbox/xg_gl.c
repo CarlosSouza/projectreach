@@ -59,6 +59,10 @@ int xh_host_gl_has_extension(uint32_t name)
 {
 	GLint count = 0, index;
 	helpers_load();
+	/* XG_NO_EXTENSION=<substring>: hide matching extensions (to test the
+	 * renderer's fallbacks, for example the CPU decoding of S3TC textures) */
+	if (getenv("XG_NO_EXTENSION") && strstr(G(const char *, name), getenv("XG_NO_EXTENSION")))
+		return 0;
 	p_glGetIntegerv(GL_NUM_EXTENSIONS, &count);
 	for (index = 0; index < count; index++)
 	{
