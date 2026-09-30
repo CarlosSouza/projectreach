@@ -21,6 +21,7 @@
 #include <dlfcn.h>
 #include <mach/mach_time.h>
 #include <pthread.h>
+#include <math.h>
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -213,12 +214,28 @@ int xh_host_sdl_show_simple_message_box(uint32_t flags, uint32_t title, uint32_t
 	return 1;
 }
 
-/* ---------- gamepads: controllers get small ids, which are also their handles */
+/* ---------- gamepads
+ * Slot 1 is always connected: it is the touch gamepad (xg_touch.m) merged with
+ * the first game controller, so player 1 can use either. More controllers
+ * take slots 2 to 8 (split screen). Slots are the gamepads' ids and handles. */
 
 #define PADS 8
 static __strong GCController *pads[PADS + 1];
 static uint8_t pad_announced[PADS + 1];
 static pthread_mutex_t pad_lock = PTHREAD_MUTEX_INITIALIZER;
+static struct xg_touch_pad touch_pad;
+
+void xg_ios_set_touch_pad(const struct xg_touch_pad *state)
+{
+	pthread_mutex_lock(&pad_lock);
+	touch_pad = *state;
+	pthread_mutex_unlock(&pad_lock);
+}
+
+int xg_ios_controller_connected(void)
+{
+	return pads[1] != nil;
+}
 
 static void pads_refresh(void)
 {
@@ -229,7 +246,8 @@ static void pads_refresh(void)
 		if (pads[index] && ![controllers containsObject:pads[index]])
 		{
 			pads[index] = nil;
-			pad_announced[index] = 0;
+			if (index > 1)
+				pad_announced[index] = 0;
 		}
 	for (GCController *controller in controllers)
 	{
@@ -247,12 +265,14 @@ static void pads_refresh(void)
 	pthread_mutex_unlock(&pad_lock);
 }
 
+static int pad_connected(uint32_t id) { return id == 1 || (id <= PADS && pads[id]); }
+
 int xh_host_sdl_get_gamepads(uint32_t ids, int capacity)
 {
 	int count = 0, index;
 	pads_refresh();
 	for (index = 1; index <= PADS && count < capacity; index++)
-		if (pads[index])
+		if (pad_connected((uint32_t)index))
 		{
 			G(uint32_t *, ids)[count++] = (uint32_t)index;
 			pad_announced[index] = 1;
@@ -260,7 +280,7 @@ int xh_host_sdl_get_gamepads(uint32_t ids, int capacity)
 	return count;
 }
 
-uint32_t xh_host_sdl_open_gamepad(uint32_t id) { return id <= PADS && pads[id] ? id : 0; }
+uint32_t xh_host_sdl_open_gamepad(uint32_t id) { return pad_connected(id) ? id : 0; }
 uint32_t xh_host_sdl_gamepad_from_id(uint32_t id) { return xh_host_sdl_open_gamepad(id); }
 
 static int16_t axis_value(float value)
@@ -269,26 +289,34 @@ static int16_t axis_value(float value)
 	return (int16_t)(scaled < -32768.0f ? -32768.0f : scaled > 32767.0f ? 32767.0f : scaled);
 }
 
+static float stronger(float a, float b) { return fabsf(a) >= fabsf(b) ? a : b; }
+
 int xh_host_sdl_gamepad_axis(uint32_t pad, int axis)
 {
 	GCExtendedGamepad *g = pad <= PADS ? pads[pad].extendedGamepad : nil;
-	if (!g)
-		return 0;
-	switch (axis)
+	float values[6] = { 0 };
+	int index;
+	if (g)
 	{
-	case SDL_GAMEPAD_AXIS_LEFTX: return axis_value(g.leftThumbstick.xAxis.value);
-	case SDL_GAMEPAD_AXIS_LEFTY: return axis_value(-g.leftThumbstick.yAxis.value);
-	case SDL_GAMEPAD_AXIS_RIGHTX: return axis_value(g.rightThumbstick.xAxis.value);
-	case SDL_GAMEPAD_AXIS_RIGHTY: return axis_value(-g.rightThumbstick.yAxis.value);
-	case SDL_GAMEPAD_AXIS_LEFT_TRIGGER: return axis_value(g.leftTrigger.value);
-	case SDL_GAMEPAD_AXIS_RIGHT_TRIGGER: return axis_value(g.rightTrigger.value);
-	default: return 0;
+		values[SDL_GAMEPAD_AXIS_LEFTX] = g.leftThumbstick.xAxis.value;
+		values[SDL_GAMEPAD_AXIS_LEFTY] = -g.leftThumbstick.yAxis.value;
+		values[SDL_GAMEPAD_AXIS_RIGHTX] = g.rightThumbstick.xAxis.value;
+		values[SDL_GAMEPAD_AXIS_RIGHTY] = -g.rightThumbstick.yAxis.value;
+		values[SDL_GAMEPAD_AXIS_LEFT_TRIGGER] = g.leftTrigger.value;
+		values[SDL_GAMEPAD_AXIS_RIGHT_TRIGGER] = g.rightTrigger.value;
 	}
+	if (pad == 1)
+	{
+		pthread_mutex_lock(&pad_lock);
+		for (index = 0; index < 6; index++)
+			values[index] = stronger(values[index], touch_pad.axes[index]);
+		pthread_mutex_unlock(&pad_lock);
+	}
+	return axis >= 0 && axis < 6 ? axis_value(values[axis]) : 0;
 }
 
-int xh_host_sdl_gamepad_button(uint32_t pad, int button)
+static int hardware_button(GCExtendedGamepad *g, int button)
 {
-	GCExtendedGamepad *g = pad <= PADS ? pads[pad].extendedGamepad : nil;
 	if (!g)
 		return 0;
 	switch (button)
@@ -310,6 +338,19 @@ int xh_host_sdl_gamepad_button(uint32_t pad, int button)
 	default: return 0;
 	}
 }
+
+int xh_host_sdl_gamepad_button(uint32_t pad, int button)
+{
+	int pressed = hardware_button(pad <= PADS ? pads[pad].extendedGamepad : nil, button);
+	if (pad == 1 && button >= 0 && button < 32)
+	{
+		pthread_mutex_lock(&pad_lock);
+		pressed |= (int)((touch_pad.buttons >> button) & 1u);
+		pthread_mutex_unlock(&pad_lock);
+	}
+	return pressed;
+}
+
 
 int xh_host_sdl_gamepad_type(uint32_t pad) { (void)pad; return SDL_GAMEPAD_TYPE_XBOXONE; }
 

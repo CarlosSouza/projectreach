@@ -34,11 +34,11 @@ SYSROOT=$(xcrun --sdk $SDK --show-sdk-path)
 CC="xcrun --sdk $SDK clang -target $TARGET -isysroot $SYSROOT"
 CFLAGS="-O2 -g -Wall -Wno-unused-function -DGLES_SILENCE_DEPRECATION -fobjc-arc -I$ROOT/port/xbox -I$OUT -I/opt/homebrew/include"
 mkdir -p "$OBJ" "$APP"
-for f in xg_memory xg_thread xg_syscall xg_gl xg_posix; do
+for f in xg_memory xg_thread xg_syscall xg_gl xg_posix xg_xiso; do
 	$CC $CFLAGS -I"$INC" -c "$ROOT/port/xbox/$f.c" -o "$OBJ/$f.o"
 done
 $CC $CFLAGS -I"$INC" -c "$OUT/xg_gl_gen.c" -o "$OBJ/xg_gl_gen.o"
-for f in xg_ios xg_app_ios; do
+for f in xg_ios xg_touch xg_app_ios; do
 	$CC $CFLAGS -c "$ROOT/port/xbox/$f.m" -o "$OBJ/$f.o"
 done
 for f in posix_files posix_net; do
@@ -47,8 +47,12 @@ for f in posix_files posix_net; do
 done
 $CC -c "$ROOT/port/xbox/xg_runtime.s" -o "$OBJ/xg_runtime.o"
 [ "$OBJ/guest.o" -nt "$OUT/guest.s" ] || $CC -c "$OUT/guest.s" -o "$OBJ/guest.o"
+# the engine as a library for HaloPad's own app (scripts/build-ios-app.py links
+# it with port/ios/HaloPadXbox.m when it exists)
+LIB="$OUT/$SDK/libhalopad-xbox.a"
+xcrun libtool -static -o "$LIB" $(ls "$OBJ"/*.o | grep -v xg_app_ios.o)
 $CC -o "$APP/HaloPadXbox" "$OBJ"/*.o -framework UIKit -framework QuartzCore -framework OpenGLES \
-	-framework GameController -framework AudioToolbox -framework AVFoundation -framework Foundation -framework CoreFoundation
+	-framework GameController -framework AudioToolbox -framework AVFoundation -framework Foundation -framework CoreFoundation -framework CoreGraphics
 cp "$OUT/halo_guest.elf" "$APP/halo_guest.elf"
 PLATFORM=iPhoneSimulator
 [ "$SDK" = iphoneos ] && PLATFORM=iPhoneOS

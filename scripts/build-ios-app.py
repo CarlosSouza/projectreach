@@ -47,6 +47,17 @@ ENTITLEMENTS = {
 }
 BUNDLE_ID = 'dev.halopad.HaloPad'
 STATE = ROOT / 'generated' / 'halopad-disk-ios'
+# the Xbox engine, when it was built on this Mac (scripts/xbox/build-ios.sh; docs/XBOX-ENGINE.md)
+XBOX_OUT = ROOT / 'ref' / 'xbox-build' / 'out'
+
+def xbox_parts(target):
+    """Link inputs for the launch picker and the Xbox engine, or [] without a local engine build."""
+    sdk = 'iphonesimulator' if 'simulator' in target else 'iphoneos'
+    lib = XBOX_OUT / sdk / 'libhalopad-xbox.a'
+    if not lib.exists():
+        return []
+    return [ROOT / 'port' / 'ios' / 'HaloPadXbox.m', lib, '-I', str(ROOT / 'port' / 'xbox'), '-I', '/opt/homebrew/include',
+            '-framework', 'OpenGLES', '-DGLES_SILENCE_DEPRECATION']
 
 
 def compile_icon(app, out, target):
@@ -90,6 +101,10 @@ def package(exe, out, work, target=TARGET, identity=None, provisioning=None):
     data = app / 'data'
     (data / 'modules').mkdir(parents=True)
     shutil.copy2(run_core.IMAGE, data / 'image.bin')
+    guest = XBOX_OUT / 'halo_guest.elf'
+    if xbox_parts(target) and guest.exists():
+        (data / 'xbox').mkdir()
+        shutil.copy2(guest, data / 'xbox' / 'halo_guest.elf')      # upstream's image: this Mac's personal build only
     for m in sorted((run_core.IMAGE.parent / 'modules').iterdir()):
         if (m / 'image.bin').is_file():
             (data / 'modules' / m.name).mkdir()
@@ -160,6 +175,8 @@ def main():
     if stale:
         ap.error(f'VA runtime is stale ({", ".join(sorted(stale))}); rerun scripts/va-model.py --work {work} --llasm <built-llasm> before building')
     extra = [ROOT / 'port' / 'ios' / name for name in ('HaloPadOverlay.m', 'HaloPadImport.m', 'HaloPadPackage.m', 'HaloPadDataIdentity.m')] + ([a.scene.resolve()] if a.scene else [])
+    # the launch picker is a weak reference: builds without the Xbox engine leave it undefined
+    extra += ['-Wl,-U,_HPEngineChooserMake', *xbox_parts(DEVICE_TARGET if a.iphoneos else TARGET)]
     target = DEVICE_TARGET if a.iphoneos else TARGET
     exe, _ = run_core.build(work, target, ROOT / 'port' / 'ios' / 'HaloPadApp.m', extra=extra)
     app = package(exe, work / f'ios-app-{target}', work, target, a.identity, a.profile)

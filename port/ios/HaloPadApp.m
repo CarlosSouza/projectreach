@@ -1682,6 +1682,9 @@ int halopad_host_open_url(const char *url)
 
 /* ---- application and scene ---- */
 
+/* the launch picker (HaloPadXbox.m), present only in builds with the Xbox engine */
+extern UIViewController *HPEngineChooserMake(UIViewController *(^makePC)(void)) __attribute__((weak));
+
 @interface HPSceneDelegate : UIResponder <UIWindowSceneDelegate>
 @property(nonatomic, strong) UIWindow *window;
 @end
@@ -1695,8 +1698,10 @@ int halopad_host_open_url(const char *url)
         ![audio setActive:YES error:&err])
         fprintf(stderr, "HALOPAD APP: audio session: %s\n", err.localizedDescription.UTF8String);
     self.window = [[UIWindow alloc] initWithWindowScene:(UIWindowScene *)scene];
-    game_vc = [HPGameViewController new];
-    self.window.rootViewController = game_vc;
+    if (HPEngineChooserMake)
+        self.window.rootViewController = HPEngineChooserMake(^UIViewController *{ return game_vc = [HPGameViewController new]; });
+    else
+        self.window.rootViewController = game_vc = [HPGameViewController new];
     [self.window makeKeyAndVisible];
     /* landscape, as Halo's desktop is (iPadOS 26 no longer holds apps to Info.plist's list) */
     UIWindowSceneGeometryPreferencesIOS *land = [[UIWindowSceneGeometryPreferencesIOS alloc] initWithInterfaceOrientations:UIInterfaceOrientationMaskLandscape];

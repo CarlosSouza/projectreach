@@ -10,4 +10,20 @@ void xg_ios_view_resized(void);
 /* loads the game image and starts the game on its own thread; 0 on success */
 int xg_ios_start(const char *image_path, const char *data_root, const char *save_root);
 
+/* player 1's touch gamepad (xg_touch.m): axes in SDL order (left x, left y,
+ * right x, right y, left trigger, right trigger; -1..1, y down), buttons as
+ * bits numbered by SDL_GamepadButton */
+struct xg_touch_pad
+{
+	float axes[6];
+	unsigned int buttons;
+};
+void xg_ios_set_touch_pad(const struct xg_touch_pad *state);
+/* nonzero while a game controller is player 1's */
+int xg_ios_controller_connected(void);
+
+/* the Xbox-layout touch gamepad; add it above the game view */
+@interface XGTouchPad : UIView
+@end
+
 #endif
