@@ -1,0 +1,8 @@
+{
+  "schema": 1,
+  "name": "halo-ce-universal",
+  "url": "https://github.com/cybersecurity/halo-ce-universal.git",
+  "revision": "b47f237dc1895d12555d6851f4e063e22de49ade",
+  "pinned": "2026-09-30",
+  "note": "Fetched and built on the player's own Mac only. Never commit its sources, its image or the translation, and never publish a build. See docs/XBOX-ENGINE.md."
+}
