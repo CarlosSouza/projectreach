@@ -3406,3 +3406,43 @@ The full goal remains active; no rendering fix or full campaign acceptance claim
 Final About navigation confirms `bfbac357` without PREVIEW; Done returns to the
 normal edition picker (`build60-paired-settled-picker.png`). The earlier immediate
 relaunch screenshot captures a white startup transition, not the settled app.
+
+## 2026-10-01 — exact terrain inputs and numeric shader replay
+
+**Progress, not a rendering fix:** added opt-in Simulator-only read-only draw
+capture and transform-feedback replay. `build60-draw-inputs-matched/` captures
+VS17 LEQUAL/write and VS41 EQUAL/no-write terrain draws, both 144 indices, complete
+and GL error 0. Indexed position inputs (1,728 bytes each) and projection constants
+are bit-identical. Viewport/depth range match and polygon offset is disabled;
+stencil value masks differ (1/3), whose correctness is not assumed. The visually
+reviewed capture-run screen still shows stripes and pale geometry (2,359 ticks,
+zero scripted shots). Original shaders are neither modified nor relinked by capture.
+
+**Failed approaches recorded:** `build60-draw-inputs/` missed draws by retaining
+the earlier spawn's 1,398-index filter. Selection now uses exact shader bytes and
+depth state, then matches count. First numeric replay (`build60-draw-replay/`)
+returned GL_INVALID_OPERATION and zero outputs because ES3 forbids indexed draws
+during active transform feedback. This was a diagnostic API error, not a driver
+bug. Corrected replay expands all enabled attributes in original index order and
+uses DrawArrays; gl_VertexID-dependent sources are rejected.
+
+**Numeric result:** `build60-draw-replay-expanded/` and the runner-hardened repeat
+`build60-draw-replay-verified/` produce 144 vertices in each pass, GL error 0.
+Coordinates are bit-identical: zero changed vertices and component/NDC-depth
+deltas 0. Replay changes linkage and omits textures, pixel constants and raster
+depth/stencil. It does not establish invariance of the original linked programs
+or a driver defect. Next isolate that pair's raster/depth/stencil state while
+accounting for compiler/linkage perturbation; normal EQUAL remains unchanged.
+Generated game-derived buffers/shaders stay private under ignored `ref/`.
+
+**Verification:** normal rebuilt app passes menu/campaign/scripted-match in
+`build60-draw-normal-regression/` (1,277 ticks / nine shots); campaign opening and
+match frames reviewed, remaining artifacts explicit. 93 Python tests run with
+16 skipped and no failures. Physical SDK syntax passes after adding the existing
+SDL include path to the diagnostic command; no physical installation. Actual
+About displays accepted `bfbac357` without PREVIEW; Done returns to the normal
+edition picker (`build60-draw-final-picker.png`). Rediscovered data-container
+UUID `51CD4A39-C0B5-4754-998C-A8F8EF99A708`; real Xbox saves match the build-60
+update backup byte-for-byte after all probes and final navigation. Latest upstream
+release lookup still reports build 60. No IPA, push, publication or pairing change.
+Goal remains active; full campaign, audio, human multiplayer and hardware remain open.

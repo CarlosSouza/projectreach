@@ -16,6 +16,8 @@ import re
 import subprocess
 import sys
 import time
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from draw_capture import load_draw, compare_clip_positions
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 WORK = ROOT / 'ref/xbox-build'
@@ -74,6 +76,12 @@ def main():
         parser.error('XG_DEPTH_COMPARE must be lequal, always or paired')
     if depth_pair and not args.stationary_match:
         parser.error('paired depth requires --stationary-match')
+    if args.render_diagnostics and os.environ.get('XG_DRAW_REPLAY'):
+        try:
+            for label in ('base', 'equal'):
+                load_draw(pathlib.Path(os.environ['XG_DRAW_REPLAY']) / label)
+        except (OSError, ValueError, KeyError, TypeError) as error:
+            parser.error('Invalid replay input: ' + str(error))
     stamp = datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ')
     out = (args.out or WORK / 'simulator-results' / stamp).resolve()
     out.mkdir(parents=True, exist_ok=True)
@@ -121,6 +129,12 @@ def main():
             env['SIMCTL_CHILD_XG_GL_CHECK'] = os.environ['XG_GL_CHECK']
         if args.render_diagnostics:
             child.update(XG_GL_TRACE=str(folder / 'presentation'), HALO_GPU_STATS='1', HALO_GL_DEBUG='1')
+            if os.environ.get('XG_CAPTURE_SHADER_DIR'):
+                child.update(XG_DRAW_CAPTURE=str(folder / 'draw-capture'),
+                             XG_CAPTURE_SHADER_DIR=os.environ['XG_CAPTURE_SHADER_DIR'])
+            if os.environ.get('XG_DRAW_REPLAY'):
+                child.update(XG_DRAW_REPLAY=os.environ['XG_DRAW_REPLAY'],
+                             XG_DRAW_REPLAY_OUT=str(folder / 'draw-replay'))
             for setting in ('HALO_GPU_TRACE', 'HALO_GPU_TRACE_CONSTANTS'):
                 if os.environ.get(setting):
                     child[setting] = os.environ[setting]
@@ -205,6 +219,24 @@ def main():
         if args.render_diagnostics and os.environ.get('XG_DEPTH_PROBE'):
             row['depth_probe_pass'] = depth_probe_pass(text)
             row['pass'] &= row['depth_probe_pass']
+        if args.render_diagnostics and os.environ.get('XG_CAPTURE_SHADER_DIR'):
+            try:
+                for label in ('base', 'equal'):
+                    load_draw(folder / 'draw-capture' / label)
+                row['draw_capture_complete'] = True
+            except (OSError, ValueError, KeyError, TypeError) as error:
+                row['draw_capture_complete'] = False
+                row['draw_capture_error'] = str(error)
+            row['pass'] &= row['draw_capture_complete']
+        if args.render_diagnostics and os.environ.get('XG_DRAW_REPLAY'):
+            row['draw_replay_complete'] = 'draw replay: pair complete 1' in text
+            try:
+                draw = load_draw(pathlib.Path(os.environ['XG_DRAW_REPLAY']) / 'base')
+                row['clip_comparison'] = compare_clip_positions(folder / 'draw-replay', draw['count'])
+            except (OSError, ValueError, KeyError, TypeError) as error:
+                row['draw_replay_complete'] = False
+                row['draw_replay_error'] = str(error)
+            row['pass'] &= row['draw_replay_complete']
         results[name] = row
         print(name, json.dumps(row), flush=True)
     result = {'engine_revision': manifest['revision'], 'device': args.device, 'results': results,
@@ -216,6 +248,8 @@ def main():
               'depth_probe': bool(args.render_diagnostics and os.environ.get('XG_DEPTH_PROBE')),
               'trace_frame': os.environ.get('HALO_GPU_TRACE') if args.render_diagnostics else None,
               'dump_shaders': bool(args.render_diagnostics and os.environ.get('XG_DUMP_SHADERS')),
+              'draw_capture': bool(args.render_diagnostics and os.environ.get('XG_CAPTURE_SHADER_DIR')),
+              'draw_replay': bool(args.render_diagnostics and os.environ.get('XG_DRAW_REPLAY')),
               'match_mode': 'stationary-render-diagnostic' if args.stationary_match else 'scripted-combat',
               'pass': all(row['pass'] for row in results.values())}
     (out / 'result.json').write_text(json.dumps(result, indent=2) + '\n')

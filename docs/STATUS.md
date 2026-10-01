@@ -32,7 +32,12 @@ but different spawns prevent a matched cross-launch comparison. A same-process
 EQUAL → ALWAYS → EQUAL test now removes and restores the stripes at a fixed
 camera position. Basic asset-free EQUAL redraws pass all 6,728 pixels within and
 across programs; the precise converted-shader/depth-state cause remains open.
-A world draw trace identifies the VS17/VS41 terrain pass pair for exact replay.
+A read-only VS17/VS41 snapshot now proves identical indexed position inputs and
+projection constants for a 144-index terrain pair. Replaying those shaders with
+transform feedback produces bit-identical clip coordinates for all 144 vertices.
+Replay changes linkage and omits pixel/texture state, so this does not prove
+original-program invariance or establish a driver bug. The stripes remain in the
+capture run; raster/depth/stencil state is the next discriminating target.
 Mac smoke runs now
 reject mismatched executable/guest hashes. Candidates
 are labeled **PREVIEW**; the accepted Xbox baseline still says **EXPERIMENTAL**.

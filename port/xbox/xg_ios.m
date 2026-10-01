@@ -335,6 +335,9 @@ static void diagnostic_depth_tick(void)
 void *xg_gl_proc(const char *name)
 {
 #if TARGET_OS_SIMULATOR
+	void *xg_draw_capture_proc(const char *);
+	void *capture = xg_draw_capture_proc(name);
+	if (capture) return capture;
 	const char *comparison = getenv("XG_DEPTH_COMPARE");
 	if (comparison && (!strcmp(comparison, "lequal") || !strcmp(comparison, "always") || !strcmp(comparison, "paired")) &&
 		!strcmp(name, "glDepthFunc"))
@@ -410,6 +413,8 @@ uint32_t xh_host_sdl_gl_create_context(uint32_t window)
 		blit_probe();
 #if TARGET_OS_SIMULATOR
 		depth_probe();
+		void xg_draw_replay(void);
+		xg_draw_replay();
 #endif
 		xg_gl_load();
 	}

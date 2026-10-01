@@ -311,10 +311,56 @@ later disconnects and the final capture is a menu; do not call that final frame
 world gameplay. The helper-lifetime correction above prevents this in later
 stationary runs. Shader files and constants remain private, outside Git.
 
-Next replay this specific shader/depth pair with exact vertex inputs and
-uniforms, distinguishing conversion/state mistakes from a shader-specific
-software-driver precision issue. Do not infer a driver bug from the successful
-basic controls or replace EQUAL with a global tolerance/bypass.
+### Read-only draw capture and numeric replay
+
+`build60-draw-inputs-matched/` captures original VS17 LEQUAL/depth-write and VS41
+EQUAL/no-write draws without relinking or changing their shaders. Both snapshots
+are complete, GL error 0, and contain 144 indices. Expanded position bytes total
+1,728 per pass and have the same SHA-256:
+`f5bd2c45cca3fadcf11e25da05513b6eaa3f77efe265361db44606b483491ade`.
+Their c[0..3], c[58..59], viewport scale/offset and screen offset are also
+bit-identical, as are viewport, depth range and disabled polygon offset.
+Stencil value masks differ (1 versus 3); correctness of that state is not assumed.
+The run reaches 2,359 ticks without scripted shots. Its visually reviewed screen
+still shows terrain stripes and pale geometry: capture did not resolve the defect.
+
+`XG_CAPTURE_SHADER_DIR` selects the exact private VS17/41 sources and enables
+`draw-capture/` only with rendering diagnostics. Buffers are mapped read-only;
+COPY_READ binding is restored. The runner rejects incomplete captures. The first
+attempt, `build60-draw-inputs/`, targeted the earlier 1,398-index count and missed
+the new spawn's draws; its match passed but it produced no valid capture pair.
+Selection now uses exact shader bytes, expected depth state and matching count.
+
+`XG_DRAW_REPLAY=<capture root>` replays actual attribute bytes and vertex-uniform
+bits before guest GL initialization. Transform feedback changes shader linkage;
+pixel constants, textures and depth/stencil rasterization are not replayed.
+This is numeric diagnostic evidence, not full original-pipeline fidelity proof.
+The first replay (`build60-draw-replay/`) incorrectly used indexed draws during
+active transform feedback, yielding GL_INVALID_OPERATION / zero outputs. ES3
+forbids that combination; this was a probe error, not evidence of a driver defect.
+The corrected helper deindexes every enabled attribute in original index order
+and uses DrawArrays. It rejects gl_VertexID-dependent sources.
+
+`build60-draw-replay-expanded/` produces 144 vertices per pass, GL error 0, with
+bit-identical coordinates: zero changed vertices, maximum component and NDC-depth
+deltas both 0. Output length and finite-number checks are now required by the
+runner, alongside the native completion log. The capture and replay modules are
+Simulator-only and inactive without their explicit private diagnostic inputs.
+All generated shaders, constants and buffers stay under ignored `ref/`.
+
+The hardened runner repeats the replay successfully in
+`build60-draw-replay-verified/`, including its required numeric-output checks.
+Normal `build60-draw-normal-regression/` menu/campaign/scripted-match gates also
+pass (1,277 match ticks / nine shots), with campaign and match frames reviewed.
+Python suite: 93 tests run, 16 skipped, no failures. Physical SDK syntax checks
+pass; no hardware install occurred. The real save directory remains byte-identical
+to the build-60 update backup after reinstall, all diagnostics and About navigation.
+Actual About shows `bfbac357` without PREVIEW; Done returns to the normal picker
+(`build60-draw-final-picker.png`). Latest release lookup still reports build 60.
+
+Next isolate original-program raster/depth/stencil state for this exact pair,
+accounting for replay's changed linkage. Do not infer a driver bug from the
+controls or numeric equality, or replace EQUAL with a global tolerance/bypass.
 
 An auxiliary Mac CPU-texture match (`build59-mac-cpu-textures/`) overlapped the
 Simulator match and failed with `WSAEADDRINUSE` before gameplay. It is invalid

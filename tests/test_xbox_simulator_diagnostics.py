@@ -42,6 +42,15 @@ class SimulatorDiagnosticsTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertIn('XG_DEPTH_COMPARE must be', result.stderr)
 
+    def test_missing_replay_rejected_before_simulator_tools(self):
+        with tempfile.TemporaryDirectory() as directory:
+            env = dict(os.environ, XG_DRAW_REPLAY=directory)
+            env.pop('XG_DEPTH_COMPARE', None)
+            result = subprocess.run([sys.executable, str(SCRIPT), '--device', 'unused',
+                                     '--render-diagnostics'], capture_output=True, text=True, env=env)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn('Invalid replay input:', result.stderr)
+
     def test_paired_depth_requires_stationary_match(self):
         result = subprocess.run([sys.executable, str(SCRIPT), '--device', 'unused',
                                  '--case', 'match', '--render-diagnostics'],

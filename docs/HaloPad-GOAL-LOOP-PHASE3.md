@@ -26,8 +26,11 @@ and LEQUAL hypotheses did not resolve them). An EQUAL bypass changes artifacts
 but introduces incorrect occlusion; keep it diagnostic-only. Stationary runs
 still choose different spawns, but a same-process EQUAL → ALWAYS → EQUAL run now
 removes/restores stripes at a fixed view. Basic asset-free equal-depth controls
-pass. Replay the captured VS17/VS41 terrain pair with exact inputs/uniforms to
-separate shader conversion/state from a shader-specific software-driver issue.
+pass. Read-only captures now show exact position/projection identity for a
+144-index VS17/VS41 pair; transform-feedback replay gives identical coordinates.
+It changes linkage and omits pixel/texture state, so original-program invariance
+is not proven. Next isolate raster/depth/stencil state for this pair, keeping
+shader-linkage perturbation explicit. Do not declare a driver bug or relax EQUAL.
 Then sustained movement/look/fire and weapon pickup/swap,
 a later checkpoint and reload.
 Maintain upstream by freezing one candidate per pass, backing up saves, building,
