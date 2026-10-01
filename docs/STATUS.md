@@ -4,6 +4,26 @@ Updated 2026-10-02. **ACTIVE — Simulator-focused Xbox/menu loop.** Physical ac
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE3.md](HaloPad-GOAL-LOOP-PHASE3.md). Earlier engineering history remains in [phase 2](HaloPad-GOAL-LOOP-PHASE2.md).
 
+**Xbox focus-loss follow-up (2026-10-02).** Upstream build 64 deliberately
+sets all ten new-profile level flags to `0x0f`; its summary interprets these as
+The Maw/Legendary. The isolated New001 bytes and creation log match that code.
+No profile rewrite or retail progression claim. A separate UIKit handler test
+reproduces six focus-loss failures before the fix. The Xbox pad now clears live
+and unread touch input on deactivation/activation, refuses inactive or hidden
+presses and requires fresh touches after resume. Sixteen handler checks pass,
+including ordinary short Start taps. Rebuilt integrated executable
+`58111bcb…29f093` loads the copied outdoor a30 checkpoint through normal menus;
+actual Home/resume retains PID 91997 and logs both resets. Fresh RT, Y, Zoom,
+finite look/move and pause/Save and Quit work. This is not OS-held multi-touch,
+hardware controller interruption or physical graphics proof. All 114 real Xbox
+files and PC installation/package/disc bytes remain unchanged; preferences and
+PC registry match the backup. Normal logs/caches change. The ordinary app is
+left at both edition cards; PC still reopens its unaccepted EULA. Frozen build
+64 and ANGLE PREVIEW remain unchanged. 128 Xbox tests, five input guards and
+13 package checks pass (16 package checks skipped), plus 16 native UIKit checks.
+No physical iPad operation, visual fix, IPA, push or publication.
+Evidence: [profile and lifecycle pass](XBOX-SIMULATOR-PASSES.md#upstream-profile-summary-and-xbox-touch-focus-loss-2026-10-02).
+
 **Disc-import follow-up (2026-10-02).** The actual native extractor now bounds
 directory/map sizes and extents, rejects unsafe names/cycles/aliases and invalid
 map headers before copying, and uses unique staging plus exclusive publication.
@@ -14,8 +34,8 @@ Corrected integrated Simulator executable `5ea1369d…5768df9` rejects the malfo
 image, returns to Editions, imports Chris's USA disc through Files, and produces
 24 maps byte-identical to the reference. Fresh New001 creation, Normal a10 opening
 cinematic and cold menu/profile recognition work in isolated folders. The fresh
-profile summary unexpectedly says The Maw/Legendary; its cause and progression
-semantics remain open. Windows reopens the original unaccepted EULA. Ordinary
+profile summary says The Maw/Legendary; the follow-up above explains the deliberate
+upstream unlock flags, not retail completion. Windows reopens the original unaccepted EULA. Ordinary
 launch is left at both edition cards. All 114 existing Xbox files and existing
 PC files are unchanged; normal logs/caches/preferences change. 128 Xbox tests,
 five input guards and 13 package checks pass (16 package checks skipped).

@@ -607,6 +607,8 @@ void xg_ios_set_touch_pad(const struct xg_touch_pad *state)
 void xg_ios_clear_touch_pad(void)
 {
 	pthread_mutex_lock(&pad_lock);
+	if (touch_trace) fprintf(stderr, "[xbox] touch clear live-buttons=%x pending-buttons=%x\n",
+		touch_input.current.buttons, touch_input.pending.buttons);
 	xg_touch_clear(&touch_input);
 	pthread_mutex_unlock(&pad_lock);
 }

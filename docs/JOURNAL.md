@@ -4122,3 +4122,33 @@ change. 128 Xbox tests, five input guards and 13 executed package checks pass
 (16 package checks skipped). No physical operation, visual fix, pin update, IPA,
 push, publication or cleanup. Goal stays active; detailed failed/successful
 attempts and proof boundaries are in [the pass ledger](XBOX-SIMULATOR-PASSES.md#native-disc-import-validation-and-stale-library-gate-2026-10-02).
+
+### 2026-10-02 — upstream profile semantics and Xbox focus-loss reset
+
+Private `profile-lifecycle.BXKtCE` pass resolves the fresh The Maw/Legendary
+summary: all ten saved flags are `0x0f`, matching upstream build 64's explicit
+new-profile all-difficulty unlock and its summary's highest-level logic. No save
+rewrite or retail completion claim. Earlier outside-pod checkpoint proof stands.
+Official remote HEAD readback still matches frozen `c55e4e2b`.
+
+Corrected asset-free actual UIKit-handler fixture reproduces six focus-loss
+failures before the fix. Its first version wrongly relied on control dispatch
+without UIApplication; retain that failed fixture separately. Xbox touch pad
+now clears live/unread input and ownership on deactivate/activate, refuses
+inactive/hidden presses and requires fresh touches. All 16 handler checks pass,
+including short Start taps, normal cancellation and controller hiding/removal.
+This is handler-boundary simultaneous state, not OS-held multi-touch routing.
+
+Rebuilt library/main app `58111bcb…29f093` installed in place only on dedicated
+Simulator. Actual normal-menu copied outdoor a30 checkpoint → RT 60→58 → Home
+→ same-PID 91997 resume → fresh RT 58→57 → Y/Zoom/finite look/move/Start work.
+Both actual lifecycle reset logs appear; Save and Quit completes. Inputs release
+before Home, so no physical-held interruption claim. Empty XG_DATA/SAVE makes
+the first ordinary launch select an empty development path; unset them to
+restore Play Xbox. PC validates files and reopens unchanged unaccepted EULA.
+Final ordinary app is left at both cards. Full audit preserves all real Xbox/PC
+game bytes, preferences and PC registry; only normal logs/caches/system snapshots
+and scene metadata change. 128 Xbox, five input guards, 13 executed package
+checks plus 16 native UIKit checks pass (16 package checks skipped). No physical
+change, visual fix, pin update, IPA, push, publication or cleanup. Goal stays
+active. See [profile/lifecycle pass](XBOX-SIMULATOR-PASSES.md#upstream-profile-summary-and-xbox-touch-focus-loss-2026-10-02).

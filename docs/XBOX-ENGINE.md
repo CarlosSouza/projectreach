@@ -22,9 +22,13 @@ The Simulator-only presentation fix remains narrow: temporarily neutralize textu
 sampler 0 during final presentation, then restore it. Physical rendering is unchanged.
 See [XBOX-SIMULATOR-PASSES.md](XBOX-SIMULATOR-PASSES.md).
 
-Latest local integration: source `9888782` is rebuilt and installed in place on
-the dedicated iPad Simulator, with outgoing apps and data backed up. The picker
-and isolated outdoor Xbox continuation/fire/pistol/scope/Save and Quit work.
+Latest local integration: executable `58111bcb…29f093` is rebuilt and installed
+in place on the dedicated iPad Simulator, with outgoing apps/data backed up.
+The picker and isolated outdoor Xbox continuation/fire/pistol/scope/Save and Quit
+work. Actual Home/resume retains the process and fresh controls work afterward.
+Xbox touch input now clears on focus loss and activation; 16 actual UIKit-handler
+checks cover held/unread cancellation, hidden input and normal short taps.
+This is not OS-held multi-touch or physical-controller interruption proof.
 The normal PC Files import verifies all 78 stock files and reaches its original
 EULA, left unaccepted pending user confirmation; this is not normal PC gameplay
 proof. Real Xbox data/saves are unchanged. Reported physical-iPad shading/focus
@@ -201,6 +205,15 @@ test (`--angle`). Development switches: `XG_FRAME_DUMP=<file.ppm>` saves the gam
 `HALOPAD_CHOOSE` (`pc`/`xbox`) skip or press a picker card, `HALOPAD_XBOX_IMPORT=<image>` imports a disc image,
 `XG_TOUCH_SHOW=1` keeps the touch gamepad up, and upstream's `HALO_*` settings pass through (for example
 its `HALO_NETWORK_TEST` scripted matches). `init.txt` in the data folder holds console commands.
+
+`XG_TOUCH_TRACE=1` also records touch clearing and inactive/active lifecycle
+callbacks. `scripts/test-xbox-touch.py --device <booted-Simulator-UDID>` runs
+asset-free UIKit handlers plus the shared native input buffer without installing,
+opening a window or operating the game. It is not synthetic OS touch routing.
+Unset `XG_DATA` and `XG_SAVE` for the ordinary app; an empty variable is still a
+development override. Upstream build 64 deliberately unlocks all levels and
+difficulties in new profiles, which explains The Maw/Legendary in their summary;
+that summary does not prove completion or describe the current checkpoint.
 
 On a device, back up HaloPad's Documents and Library first, install over the existing app, then either
 pick the disc image in the app (Files) or copy an extracted `maps` folder to Documents/Halo Xbox/maps.

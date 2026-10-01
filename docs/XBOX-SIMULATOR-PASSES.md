@@ -1943,3 +1943,102 @@ cleanup. Goal remains active. Next isolate the fresh-profile summary anomaly,
 keep normal PC license confirmation separate, and resume matched moving-scene
 rendering/reference work. The user's physical shading/focus complaint is still
 unresolved; this pass only establishes safer import/build behavior.
+
+## Upstream profile summary and Xbox touch focus loss (2026-10-02)
+
+**Classification: progress, not goal completion.** Build 64 remains frozen at
+`c55e4e2b9d90550b0e761eb78dfe9d7c74880cb9`; this pass's official upstream HEAD
+readback still matches. No pin update or change to the physical Windows renderer.
+Private evidence: `ref/xbox-build/passes/2026-10-02/profile-lifecycle.BXKtCE/`.
+
+### Resolve the fresh-profile summary without changing saves
+
+The preceding Files-import New001 profile is 512 bytes, SHA-256
+`f41861958cf6f6b7032ca756a43b8a936502e9d64738c9b40ac642b8c2340017`.
+All ten level flags at bytes 28–37 are `0x0f`, with last-played level zero.
+Frozen upstream `saved games/player_profile.c`, `player_profile_new` at line
+397, explicitly logs and unlocks every difficulty of every solo level around
+427. The actual creation log contains that message. Its highest-completed
+routine at 345 chooses level 9/difficulty 3; the interface summary around
+`ui_widget_game_data_input_functions.c:3718` caps highest-plus-one at 9.
+This explains **The Maw / Legendary**. It is intentional development behavior,
+not evidence that the player completed the campaign or a random save mismatch.
+Retain `profile-analysis.json` and the full `fresh-profile-save-before` copy;
+do not zero flags or rewrite existing profiles. The earlier `checkpoint64.sr7KEQ`
+pass already proves a bounded newly reached outside-pod checkpoint; do not
+relabel that gate as missing or repeatedly test it as new progress.
+
+### Held-handler failure and narrow reset
+
+Xbox UIKit input previously clears on cancellation/controller hiding, without
+explicit app-focus handling. Add an asset-free executable using actual
+`XGTouchPad` handlers and the shared `xg_touch_input.h` buffer through a mock host
+boundary. Inert NSObject touch tokens exercise move/look/both triggers/A and
+real UIButton Start/Back handlers; no fabricated UITouch instances, window,
+game data or physical events. First fixture tries `sendActionsForControlEvents`
+without UIApplication, so baseline-held and short-Start checks also fail; this
+does not establish a game defect. Correct the fixture to call the actual private
+handlers on real buttons. Corrected baseline passes those controls but fails
+six lifecycle checks: live/unread clearing, tick replay, inactive refusal, late
+callbacks, neutral activation and old-touch ownership.
+
+`xg_touch.m` now observes UIApplication will-resign-active/did-become-active.
+Both clear ownership, visual/model state and current/unread native input;
+inactive/hidden pads refuse new presses/publication. Resume requires fresh
+touches. Existing active short-tap latching remains. `xg_ios.m` adds only an
+opt-in trace of clearing, not different buffer semantics. New
+`scripts/test-xbox-touch.py --device <UDID>` compiles strict-warning UIKit code
+and spawns it on an explicitly named booted Simulator, with no install/game
+interaction. All **16 checks pass**, including normal cancellation, controller
+hide/removal and exactly-one-poll Start. Handler evidence under
+`generated/xbox-touch-tests/`: initial flawed `20261001T210942Z`, corrected
+six-failure baseline `20261001T211115Z`, fixed `20261001T211242Z`, final rerun
+`20261001T212518Z`. UTC directories fall on October 1; the local pass is October 2.
+These test simultaneous state at the handler boundary, not real OS multi-touch
+routing or physical-controller interruption.
+
+### Actual integrated Home/resume and preservation
+
+Back up outgoing app/library, full Simulator Documents/Library and source
+profile. Rebuild frozen Xbox library and normal PC-entry app with explicit
+ANGLE/Metal PREVIEW; no development scene. Library SHA-256
+`bbd2a75eca70bebc92c6b7813d0b1b2bf9fd55259ed79f63d9b172d1b44696db`;
+guest unchanged `102885c274aa95771be8672a65ba16fa88a52d9f4d3889310072e214aabfdaaa`.
+Installed executable SHA-256
+`58111bcbbd3da23bd47282a11becf3b7c1887e9d6e37c553e884eb1bec29f093`.
+In-place install only on `DF51182F-1878-4A54-9AED-CC4AED86BEAB`, iPadOS 26.5.
+
+Use `play-data/maps` linked to trusted private maps and `play-save` cloned from
+the previous outside-pod checkpoint, not real installation saves. Clear inherited
+bot/network diagnostics and online/UPnP/clipboard join; enable touch SHOW/TRACE.
+Actual picker → Xbox → Campaign → New001 → Halo in progress → Normal loads the
+outdoor checkpoint. RT decreases rifle 60→58. Device Hub Home logs inactive and
+clear at 06:20:55; ordinary foreground launch (without termination) returns the
+same **PID 91997**, with active and clear at 06:21:10. Resumed image retains rifle
+58; fresh RT lowers it to 57. Y switches pistol, Zoom toggles circular 2x,
+finite look changes viewpoint and move produces a short step. Native poll logs
+show fresh look/move/trigger axes and their return to zero. Start opens pause;
+three separately observed down gestures choose Save and Quit; saving finishes
+and the main menu returns. Preserve before-Home and after-Save-Quit images/logs.
+This is a normal Home cycle with inputs released beforehand, **not held touch
+during OS interruption**, sustained two-thumb play, audio interruption quality,
+background-render permission or temporal fidelity acceptance.
+
+The first attempted ordinary launch sets empty `XG_DATA`/`XG_SAVE`, and the card
+says Add Disc: getenv still treats those as development overrides. Terminate
+that test and **unset** both variables; Play Xbox returns without an import.
+Normal PC validates existing files and reopens the original unaccepted EULA;
+do not click Accept or fake product identity. Final ordinary app stays at both
+edition cards with no Xbox overrides, PID 95450. Real Xbox runtime never opens.
+
+Independent full-file SHA/size audit: Documents adds/removes no files; only
+`HaloPad Logs/HaloPad.log` changes. All 114 real Xbox files, PC installation,
+package and both disc/fixture files are unchanged. Preference dictionaries match
+the backup, PC registry bytes unchanged. Library changes Metal caches, system
+SplashBoard snapshots and scene-session metadata; preserve backups rather than
+claiming Library unchanged. 128 Xbox tests, five input guards and 13 executed
+package checks pass; 16 package checks are skipped. Native handler tests are an
+additional 16 passes, not part of Python's 128. Whitespace and repository
+tree/index safety pass. No physical operation, Xbox IPA, push, publication or
+cleanup. Next pursue affected moving-scene/reference rendering and physical
+shading/focus under a coordinated device window; this pass is no visual fix.

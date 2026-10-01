@@ -51,6 +51,7 @@ static const struct touch_button buttons[] =
 	UIButton *start_button, *back_button;
 	struct xg_touch_pad state;
 	CADisplayLink *link;
+	BOOL inactive;
 }
 
 - (instancetype)initWithFrame:(CGRect)frame
@@ -97,7 +98,25 @@ static const struct touch_button buttons[] =
 	back_button = [self smallButton:@"Back" button:SDL_GAMEPAD_BUTTON_BACK];
 	link = [CADisplayLink displayLinkWithTarget:self selector:@selector(tick)];
 	[link addToRunLoop:NSRunLoop.mainRunLoop forMode:NSRunLoopCommonModes];
+	[NSNotificationCenter.defaultCenter addObserver:self selector:@selector(applicationWillResignActive:)
+		name:UIApplicationWillResignActiveNotification object:nil];
+	[NSNotificationCenter.defaultCenter addObserver:self selector:@selector(applicationDidBecomeActive:)
+		name:UIApplicationDidBecomeActiveNotification object:nil];
 	return self;
+}
+
+- (void)applicationWillResignActive:(NSNotification *)notification
+{
+	inactive = YES;
+	[self cancelInput];
+	if (getenv("XG_TOUCH_TRACE")) NSLog(@"HaloPad Xbox: touch lifecycle inactive, input cleared");
+}
+
+- (void)applicationDidBecomeActive:(NSNotification *)notification
+{
+	[self cancelInput];
+	inactive = NO;
+	if (getenv("XG_TOUCH_TRACE")) NSLog(@"HaloPad Xbox: touch lifecycle active, fresh input required");
 }
 
 - (UIButton *)smallButton:(NSString *)title button:(int)button
@@ -116,7 +135,11 @@ static const struct touch_button buttons[] =
 	return view;
 }
 
-- (void)smallDown:(UIButton *)sender { state.buttons |= 1u << sender.tag; [self publish]; }
+- (void)smallDown:(UIButton *)sender
+{
+	if (inactive || self.hidden) return;
+	state.buttons |= 1u << sender.tag; [self publish];
+}
 - (void)smallUp:(UIButton *)sender { state.buttons &= ~(1u << sender.tag); [self publish]; }
 - (void)smallCancel:(UIButton *)sender { [self cancelInput]; }
 
@@ -164,6 +187,7 @@ static const struct touch_button buttons[] =
 
 - (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
 {
+	if (inactive || self.hidden) return;
 	for (UITouch *touch in touches)
 	{
 		CGPoint point = [touch locationInView:self];
@@ -277,6 +301,7 @@ static const struct touch_button buttons[] =
 
 - (void)publish
 {
+	if (inactive || self.hidden) return;
 	/* Publish look on the touch event, not only on the next display tick. */
 	state.axes[2] = (float)fmax(-1.0, fmin(1.0, look_velocity.x / LOOK_SPEED));
 	state.axes[3] = (float)fmax(-1.0, fmin(1.0, look_velocity.y / LOOK_SPEED));

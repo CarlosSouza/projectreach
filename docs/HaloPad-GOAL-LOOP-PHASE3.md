@@ -297,13 +297,29 @@ or saves, and reject stale local-source Xbox archives during app packaging.
 Corrected current-source ANGLE Simulator app verifies actual malformed-image
 rejection → Editions → real USA disc Files import, all 24 map hashes, new-profile
 creation, a10 opening cinematic and cold menu/profile recognition in isolated
-folders. Fresh profile summary The Maw/Legendary needs investigation; this is
-not a progression or compatibility pass. Normal Windows entry still presents
+folders. Follow-up source/byte inspection explains the fresh The Maw/Legendary
+summary: upstream deliberately unlocks every level/difficulty in new profiles.
+This is not a progression or compatibility pass. Normal Windows entry still presents
 the unaccepted EULA. Leave the ordinary app at the edition picker. Existing game
 files are unchanged, but normal logs/caches/preferences are not. The physical
-shading/focus complaint, matched reference comparison, new checkpoint progression
-and coordinated hardware acceptance remain open; do not substitute import/menu
+shading/focus complaint, matched moving-reference comparison, broader checkpoint
+progression and coordinated hardware acceptance remain open; the earlier bounded
+outside-pod checkpoint reload is already proved. Do not substitute import/menu
 results for them. See the latest [pass ledger](XBOX-SIMULATOR-PASSES.md#native-disc-import-validation-and-stale-library-gate-2026-10-02).
+
+2026-10-02 touch lifecycle follow-up: six real-handler failures before the fix,
+16 checks pass after it. Deactivation and activation clear both current/unread
+input and ownership; inactive/hidden presses cannot replay. Rebuild the library
+and integrated app, not just the manifest. Candidate `58111bcb…29f093` loads the
+copied outdoor a30 save through actual menus; Home/resume keeps PID 91997, logs
+both resets, and fresh RT/Y/Zoom/finite look/move/Start work. Save and Quit finishes.
+This is a real normal Home cycle plus asset-free held-handler tests, not physical
+held multi-touch/hardware acceptance. Original Xbox/PC bytes, preferences and
+registry are preserved; normal caches/logs change. Leave the ordinary app at the
+picker without Xbox environment overrides. An empty `XG_DATA` still selects a
+development path; **unset** it and `XG_SAVE` for the ordinary route. No physical
+changes or renderer fix. Next prioritize the affected moving material/reference,
+not repeated imports or already-proved early checkpoint gates.
 
 - The private kit is `ref/handoff/HaloPad-iPad-test/`: an arm64 iPhoneOS `HaloPad.app` and its matching `.halopad.zip`. The original kit stays untouched. The package verifies its 87 files, including 78 stock records.
 - A **copy** of the device app was converted to an ad-hoc Simulator probe under ignored `generated/simulator-probe/`. On this Mac it reaches the main menu on iPad Air 13-inch (M4) and iPhone 17 Pro Simulators. The iPad local LAN match reached first-person play; menu taps and FIRE worked. This probe is not a source-built Simulator binary or physical-device acceptance.
