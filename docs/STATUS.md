@@ -11,16 +11,21 @@ Windows Custom Edition 1.10 from Xbox Combat Evolved, with edition-specific
 multiplayer descriptions, an installed-build panel, accessible text and a safe
 return from disc import. Short Xbox touch taps are latched until the engine polls
 them; short analog swipes and triggers are now retained for one poll as well.
-Upstream build 59 (`8fb1647e`) is the accepted experimental development pin after
-save-backed Mac and Simulator menu/campaign/scripted-match gates. Real touch
-navigation reaches cryo-bay training and exits the tube. Save and Quit followed
-by a cold relaunch reloads the same-build checkpoint. Campaign's black presentation was narrowed to the
+Upstream build 60 (`bfbac357`) is the accepted experimental development pin after
+save-backed Mac and Simulator menu/campaign/scripted-match gates. It adds the
+upstream menu-glyph edge fix. The earlier build-59 real touch pass reached
+cryo-bay training and exited the tube; Save and Quit followed by a cold relaunch
+reloaded its checkpoint. A copied build-59 checkpoint also loads in build 60
+through the normal menus, without modifying real Simulator saves. Campaign's black presentation was narrowed to the
 software blitter inheriting texture-unit/sampler state: neutralizing unit 0 during
 the final blit restores the picture. The normal build now shows the opening
 cinematic; physical rendering and internal texture copies are unchanged. An A/B
 pass reproduced the original failure on the older pin, so it was not newly
 introduced by build 57/58. Full campaign progression, visual artifacts, audio,
-split-screen, human system link and hardware acceptance remain open. Candidates
+split-screen, human system link and hardware acceptance remain open. Artifact
+captures locate the remaining defect before final presentation; uniform-array
+and synchronized-buffer experiments did not resolve it. Mac smoke runs now
+reject mismatched executable/guest hashes. Candidates
 are labeled **PREVIEW**; the accepted Xbox baseline still says **EXPERIMENTAL**.
 No physical iPad changes in this pass. See [XBOX-SIMULATOR-PASSES.md](XBOX-SIMULATOR-PASSES.md).
 

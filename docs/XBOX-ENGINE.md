@@ -1,10 +1,12 @@
 # Xbox engine (second HaloPad engine)
 
 Status, 2026-10-01: **HaloPad offers Windows Custom Edition or Xbox Combat Evolved at launch.**
-The accepted **experimental development pin** is upstream **build 59, `8fb1647e`**.
-Save-backed Mac and iPad Simulator menu/campaign/scripted-match gates pass. Real touch
+The accepted **experimental development pin** is upstream **build 60, `bfbac357`**,
+which includes upstream's menu-glyph edge fix. Save-backed Mac and iPad Simulator
+menu/campaign/scripted-match gates pass. The earlier build-59 real touch pass verified
 navigation, cryo-bay training, tube exit, Save and Quit, and a same-build cold checkpoint
-reload were exercised with isolated saves. This is not full gameplay acceptance:
+reload with isolated saves. A copied build-59 checkpoint also loads through the
+normal build-60 menus. This is not general snapshot compatibility or full gameplay acceptance:
 geometry/texture artifacts, full campaign progression, split-screen, human system link,
 audio quality and physical performance remain open. No physical iPad changes in this pass.
 The Simulator-only presentation fix remains narrow: temporarily neutralize texture unit/
@@ -107,9 +109,9 @@ freeze an exact commit for validation. Do not chase changing HEAD during a pass.
 local build/update workflow, not an in-app executable updater or a scheduled job already installed.
 
 ```sh
-scripts/xbox/update-pin.sh --to build-59 --simulator <dedicated-simulator-UDID>
+scripts/xbox/update-pin.sh --to build-60 --simulator <dedicated-simulator-UDID>
 # Only after all checks and visual review pass:
-scripts/xbox/update-pin.sh --to build-59 --simulator <dedicated-simulator-UDID> --accept
+scripts/xbox/update-pin.sh --to build-60 --simulator <dedicated-simulator-UDID> --accept
 ```
 
 The script lists upstream changes, backs up Mac and selected Simulator Xbox saves, builds the

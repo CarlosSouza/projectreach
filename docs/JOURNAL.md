@@ -3268,3 +3268,56 @@ guards pass. Builds and game inputs stay private. No physical acceptance claimed
 **Next discriminating experiment:** sustained movement and simultaneous look/fire,
 weapon pickup/swap and a later checkpoint reload, then isolate remaining rendering
 artifacts. Same-build reload is not old-snapshot compatibility or full progression.
+
+## 2026-10-01 — build 60, artifact isolation and Mac build identity
+
+**Scope:** continued focused iPad Simulator passes in the existing checkout.
+No physical install, controller pairing change, IPA, push or publication.
+
+**Upstream:** build 60 (`bfbac35761335c28aac7a47bf0c578ea37764810`), released
+04:01 UTC, fixes text-glyph cache edges. Its single source change does not claim
+to fix world geometry. The save-backed update routine accepted this frozen
+experimental pin after all six Mac/Simulator smoke cases passed. Mac match:
+2,101 ticks / 16 shots; Simulator: 685 ticks / four shots. The final picker app
+was rebuilt after acceptance; About shows `bfbac357` without PREVIEW. Xbox still
+says EXPERIMENTAL. Windows still routes to its existing missing-data setup;
+this does not establish Windows gameplay or installer provisioning.
+
+**Rendering:** source/destination diagnostics put cliff striping and pale weapon
+geometry before the final blit. Querying all 192 vertex constants across 122
+programs found no interior uniform-location holes. Replacing unsynchronized
+mapped uploads with BufferSubData still shows the artifacts. Both experiments
+were removed rather than changing production behavior without a demonstrated
+fix. Private evidence is preserved under `build59-geometry-trace/`,
+`build59-uniform-trace/` and `build59-buffer-subdata/` in today's pass folder.
+
+An auxiliary Mac CPU-texture run overlapped a Simulator match, failed with
+`WSAEADDRINUSE`, and is invalid rendering evidence. A serial fresh build-60 run
+with S3TC disabled passes (1,800 ticks / 15 shots); its captured terrain/weapon
+view lacks the obvious Simulator cliff stripes, but timing/viewpoints differ.
+This does not establish a driver bug, matched fidelity or hardware behavior.
+
+**Test safety:** the Mac builder now records executable/guest hashes and the
+exact revision. Smoke checks reject a missing/stale manifest before launch and
+report the binaries' identity rather than the later checkout HEAD. Relative
+evidence paths are made absolute. Five fixture tests cover the guard. The real
+serial build-60 run uses it successfully. Network cases must run serially when
+they share the same host port.
+
+**Save/menu proof:** copied the isolated build-59 New001 save to a new private
+folder, then used the actual picker → Xbox → Campaign → New001 → Pillar of
+Autumn → Normal controls. Build 60 recognizes a game in progress and resumes
+the cryo-bay sequence without the initial ship intro. This is one 59→60
+checkpoint, not universal snapshot compatibility. Evidence:
+`campaign60-compat.Gh2yDp/checkpoint.png`, logs, `build60-about.png` and
+`build60-pc-route.png`. The real Simulator saves match
+`save-backups/20261001-140820-from-8fb1647e/simulator-save` byte-for-byte after
+gates, final installation and manual tests. The app is left on the normal picker,
+with no diagnostic/forced-selection environment.
+
+**Validation:** 73 Python tests, 16 skipped; whitespace and tree/index guards
+pass. Updates and private evidence are detailed in XBOX-SIMULATOR-PASSES.md.
+The broader goal remains active: next isolate texture sampling / vertex output
+with a small reproducible case, then sustained controls, weapon pickup/swap and
+a later checkpoint. Full campaign, audio, human multiplayer and physical
+acceptance remain open. No temporary checkout or private game artifact published.

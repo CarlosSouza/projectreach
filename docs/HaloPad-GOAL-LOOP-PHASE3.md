@@ -10,15 +10,20 @@ upstream build. This pass does not authorize physical installs, an Xbox IPA,
 publication, or a recurring automation. The older physical-device work below is
 historical context, not the next automatic action.
 
-Build 59 (`8fb1647e`) is now the experimental development pin. Mac and Simulator
-menu/campaign/scripted-match checks pass. Real touch navigation, cryo-bay training,
-tube exit and a same-build cold checkpoint reload pass with isolated saves.
+Build 60 (`bfbac357`) is now the experimental development pin, including upstream's
+menu-glyph fix. Mac and Simulator menu/campaign/scripted-match checks pass. The
+earlier build-59 real touch pass verified navigation, cryo-bay training,
+tube exit and a same-build cold checkpoint reload with isolated saves. A copied
+build-59 checkpoint also loads through the normal build-60 menus; real saves
+remain unchanged. Mac smoke tests now verify executable/guest hashes.
 The normal picker remains on the dedicated **HaloPad Xbox iPad** Simulator.
 See [XBOX-SIMULATOR-PASSES.md](XBOX-SIMULATOR-PASSES.md) for the evidence and failed
 approaches. The broader goal remains active; this is not full campaign/hardware acceptance.
 
-Next: sustained movement/look/fire and weapon pickup/swap, a later checkpoint
-and reload, then a small reproducible case for remaining geometry artifacts.
+Next: a small reproducible case for remaining geometry/texture artifacts (already
+present before final presentation; uniform-location and buffer-upload hypotheses
+did not resolve them), then sustained movement/look/fire and weapon pickup/swap,
+a later checkpoint and reload.
 Maintain upstream by freezing one candidate per pass, backing up saves, building,
 testing and visually reviewing it before pin promotion. Keep normal runs free
 of input/render diagnostics and preserve the Windows route and both save domains.

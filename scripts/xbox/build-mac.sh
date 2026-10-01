@@ -24,4 +24,16 @@ done
 clang -c "$ROOT/port/xbox/xg_runtime.s" -o "$OBJ/xg_runtime.o"
 clang -c "$OUT/guest.s" -o "$OBJ/guest.o"
 clang -o "$OUT/halopad-xbox" "$OBJ"/*.o -L/opt/homebrew/lib -lSDL3 -mmacosx-version-min=14.4
+# The translated executable and loaded guest must come from the same build.
+python3 - "$ENGINE" "$OUT" <<'PY'
+import datetime, hashlib, json, pathlib, subprocess, sys
+engine, out = sys.argv[1], pathlib.Path(sys.argv[2])
+manifest = {
+    'revision': subprocess.check_output(['git', '-C', engine, 'rev-parse', 'HEAD'], text=True).strip(),
+    'built': datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d'),
+    'guest_sha256': hashlib.sha256((out / 'halo_guest.elf').read_bytes()).hexdigest(),
+    'executable_sha256': hashlib.sha256((out / 'halopad-xbox').read_bytes()).hexdigest(),
+}
+(out / 'build-mac.json').write_text(json.dumps(manifest, indent=2) + '\n')
+PY
 echo "built $OUT/halopad-xbox"

@@ -16,6 +16,7 @@ Usage: smoke-mac.py [--out DIR]
 """
 import argparse
 import datetime
+import hashlib
 import json
 import os
 import pathlib
@@ -30,7 +31,18 @@ WORK = ROOT / "ref" / "xbox-build"
 EXE = WORK / "out" / "halopad-xbox"
 IMAGE = WORK / "out" / "halo_guest.elf"
 ANGLE = WORK / "angle"
-ENGINE = WORK / "vol" / "engine"
+
+
+def verify_build(exe, image, manifest_path):
+    if not manifest_path.exists():
+        raise ValueError('Xbox Mac build has no manifest; rerun scripts/xbox/build-mac.sh')
+    manifest = json.loads(manifest_path.read_text())
+    for path, key in ((exe, 'executable_sha256'), (image, 'guest_sha256')):
+        if not path.exists() or hashlib.sha256(path.read_bytes()).hexdigest() != manifest.get(key):
+            raise ValueError('Stale Xbox Mac build: executable and guest do not match; rebuild both')
+    if not manifest.get('revision'):
+        raise ValueError('Xbox Mac build manifest has no revision; rebuild')
+    return manifest
 
 
 def lit_fraction(ppm):
@@ -104,8 +116,12 @@ def main():
     parser.add_argument("--seconds", type=int, help="Bounded runtime for a targeted pass")
     parser.add_argument("--render-diagnostics", action="store_true")
     options = parser.parse_args()
+    try:
+        manifest = verify_build(EXE, IMAGE, WORK / 'out/build-mac.json')
+    except (ValueError, OSError) as error:
+        parser.error(str(error))
     stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    out = options.out or WORK / "smoke-results" / stamp
+    out = (options.out or WORK / "smoke-results" / stamp).resolve()
     out.mkdir(parents=True, exist_ok=True)
     results = {}
 
@@ -139,8 +155,8 @@ def main():
             row["pass"] &= len(ticks) >= 10 and row["shots"] >= 2 and address is not None
         results[name] = row
 
-    revision = subprocess.run(["git", "-C", str(ENGINE), "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
-    summary = {"engine_revision": revision, "time": stamp, "results": results,
+    summary = {"engine_revision": manifest['revision'], 'guest_sha256': manifest['guest_sha256'],
+               'executable_sha256': manifest['executable_sha256'], "time": stamp, "results": results,
                "pass": all(item["pass"] for item in results.values())}
     (out / "result.json").write_text(json.dumps(summary, indent=2) + "\n")
     print(json.dumps(summary, indent=2))

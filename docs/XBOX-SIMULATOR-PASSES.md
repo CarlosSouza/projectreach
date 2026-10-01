@@ -4,7 +4,7 @@ Scope: HaloPad's existing checkout, local personal builds, and the dedicated
 **HaloPad Xbox iPad** Simulator (iPadOS 26.5). No physical iPad installation,
 IPA creation, publication, or upstream modifications.
 
-## Build decision
+## Build-59 baseline
 
 Upstream release [build-59](https://github.com/cybersecurity/halo-ce-universal/releases/tag/build-59), commit
 `8fb1647e18a68e164529321bdcbe24557801f23b`, was fetched and built.
@@ -18,8 +18,46 @@ continues to label Xbox **EXPERIMENTAL** after pin acceptance.
 
 Use `XBOX_REV=8fb1647e18a68e164529321bdcbe24557801f23b` on both Xbox and
 HaloPad build commands to reproduce this exact revision independently of a
-future pin. Ordinary builds now use build 59 without an override. The app builder
+future pin. Ordinary builds used build 59 at this stage. The app builder
 checks the revision and guest/library hashes; mixed or rejected outputs fail closed.
+
+## Build-60 follow-up (current pin)
+
+Upstream [build-60](https://github.com/cybersecurity/halo-ce-universal/releases/tag/build-60)
+was released at 04:01 UTC on October 1, commit
+`bfbac35761335c28aac7a47bf0c578ea37764810`. Its single change pads the glyph
+cache to fix text-edge artifacts; it is not a world-geometry fix. After the
+build-59 renderer experiments below, this exact candidate passed the save-backed
+update routine and became the accepted experimental pin. Ordinary builds now
+use build 60 without an override.
+
+Private update evidence: `build60-accept.log`,
+`smoke-results/20261001-140820-bfbac357/` and
+`simulator-results/20261001-140820-bfbac357/` under `ref/xbox-build/` (the log is
+in `passes/2026-10-01/`). All six menu/campaign/scripted-match cases pass:
+Mac 2,101 ticks / 16 shots; Simulator 685 ticks / four shots. No presentation
+probe or rendering override was enabled. The Xbox menu text is visible and
+the Simulator still has world/weapon artifacts. The final app was rebuilt
+after acceptance: its normal About panel shows `bfbac357`, not PREVIEW.
+
+A **copy** of the isolated build-59 New001 profile/checkpoint was loaded through
+the normal build-60 picker → Xbox → Campaign → New001 → Pillar of Autumn →
+Normal path, without a scripted map or forced engine selection. It recognizes
+the game in progress and restores the cryo-bay sequence, not the initial ship
+cinematic. Evidence: `campaign60-compat.Gh2yDp/checkpoint.png` and logs. This is
+one checkpoint across 59→60, not a promise that all old snapshots are compatible.
+The original test save and real Simulator saves remain separate.
+The real Simulator save folder still matches
+`save-backups/20261001-140820-from-8fb1647e/simulator-save` byte-for-byte after
+the gates, final in-place installation and manual copy test. The final Windows
+card still reaches its existing missing-data setup; no Windows gameplay or
+installer provisioning was established. The app is left on the normal picker.
+The Python suite is 73 tests, 16 skipped; tree/index and whitespace checks pass.
+
+The serial Mac CPU-texture comparison (`build60-mac-cpu-textures/`) uses the new
+binary/guest hash guard, confirms S3TC is disabled, and passes (1,800 ticks /
+15 shots). Its captured terrain/weapon view lacks the obvious Simulator cliff
+striping. Different viewpoints/timing still prevent a matched fidelity claim.
 
 ## Completed changes
 
@@ -154,6 +192,42 @@ ship intro. This is the last checkpoint, not a promise to restore the exact
 frame where the player quit. `checkpoint-reloaded.png` and reload logs preserve
 the result. The new-profile screen's Legendary/The Maw completion labels come
 from upstream's debug unlock-all-levels behavior, not completed campaign play.
+
+## Remaining-artifact isolation
+
+Build-59 match diagnostics capture the terrain striping and pale weapon-side
+geometry in the 640x480 source as well as the final drawable. They are not
+introduced by the final presentation copy. The framebuffers are complete and
+later reads/blits report no errors; an initial startup blit error also occurs
+on successful runs and does not identify this defect.
+
+Two temporary host-only experiments were tested, then removed:
+
+- Query every `c[0..191]` vertex-constant location at program setup. Across
+  122 programs, active locations are consecutive and missing elements are
+  trailing only. No interior hole was found to support the suspected constant
+  truncation. The isolated match still runs (1,016 ticks / five shots) with
+  visible artifacts.
+- Replace mapped unsynchronized buffer writes with `glBufferSubData`. The
+  diagnostic path is confirmed in the installed host's log. The match runs
+  (703 ticks / five shots), but terrain striping and pale geometry remain in
+  the source and on screen. This is not an adopted workaround.
+
+Private evidence: `build59-geometry-trace/`, `build59-uniform-trace/` and
+`build59-buffer-subdata/`. The Mac reference is not a matched-view comparison.
+These checks narrow hypotheses; they do not establish an Apple driver bug or
+prove the texture decoder/vertex shader correct.
+
+An auxiliary Mac CPU-texture match (`build59-mac-cpu-textures/`) overlapped the
+Simulator match and failed with `WSAEADDRINUSE` before gameplay. It is invalid
+rendering evidence: network cases must run serially because they use the same
+host port. The subsequent signal does not establish a texture-decoding defect.
+
+The Mac smoke runner now checks a build manifest with executable and guest
+hashes before launch, and reports that manifest's revision rather than whichever
+checkout happens to exist later. Relative evidence paths are resolved to absolute
+paths before being passed to the game. Five asset-free tests cover exact,
+changed-image, changed-executable, missing-manifest and missing-revision cases.
 
 ## Next focused pass
 
