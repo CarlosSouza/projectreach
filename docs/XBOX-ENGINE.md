@@ -1,12 +1,13 @@
 # Xbox engine (second HaloPad engine)
 
 Status, 2026-10-01: **HaloPad offers Windows Custom Edition or Xbox Combat Evolved at launch.**
-The accepted **experimental development pin** is upstream **build 60, `bfbac357`**,
-which includes upstream's menu-glyph edge fix. Save-backed Mac and iPad Simulator
+The accepted **experimental development pin** is upstream **build 61, `f8937c61`**,
+which adds high-resolution HUD textures after build 60's menu-glyph edge fix. Save-backed Mac and iPad Simulator
 menu/campaign/scripted-match gates pass. The earlier build-59 real touch pass verified
 navigation, cryo-bay training, tube exit, Save and Quit, and a same-build cold checkpoint
 reload with isolated saves. A copied build-59 checkpoint also loads through the
-normal build-60 menus. This is not general snapshot compatibility or full gameplay acceptance:
+normal build-60 menus; a copy of that fixture also reloads the cryo-bay in build 61.
+This is not general snapshot compatibility or full gameplay acceptance:
 geometry/texture artifacts, full campaign progression, split-screen, human system link,
 audio quality and physical performance remain open. No physical iPad changes in this pass.
 The Simulator-only presentation fix remains narrow: temporarily neutralize texture unit/
@@ -109,9 +110,9 @@ freeze an exact commit for validation. Do not chase changing HEAD during a pass.
 local build/update workflow, not an in-app executable updater or a scheduled job already installed.
 
 ```sh
-scripts/xbox/update-pin.sh --to build-60 --simulator <dedicated-simulator-UDID>
+scripts/xbox/update-pin.sh --to build-61 --simulator <dedicated-simulator-UDID>
 # Only after all checks and visual review pass:
-scripts/xbox/update-pin.sh --to build-60 --simulator <dedicated-simulator-UDID> --accept
+scripts/xbox/update-pin.sh --to build-61 --simulator <dedicated-simulator-UDID> --accept
 ```
 
 The script lists upstream changes, backs up Mac and selected Simulator Xbox saves, builds the
@@ -129,6 +130,10 @@ The app also copies nonempty Xbox saves to `Documents/Halo Xbox/Save Backups/<pr
 before a changed engine opens them. A failed backup blocks startup. This preserves recovery data,
 **not save-format compatibility**; upstream saves are snapshots. PC saves are not migrated into Xbox
 saves. The **About these builds** panel shows the bundled revision and preview status.
+
+Optional original-Xbox texture-byte diagnostics are revision-specific: build 61
+changes the cache layout, so the runner rejects that diagnostic until its ABI is
+adapted/reviewed. Normal builds, updates and gameplay do not use that reader.
 
 ## Evidence (2026-09-30)
 

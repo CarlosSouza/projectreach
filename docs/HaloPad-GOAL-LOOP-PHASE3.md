@@ -10,11 +10,13 @@ upstream build. This pass does not authorize physical installs, an Xbox IPA,
 publication, or a recurring automation. The older physical-device work below is
 historical context, not the next automatic action.
 
-Build 60 (`bfbac357`) is now the experimental development pin, including upstream's
-menu-glyph fix. Mac and Simulator menu/campaign/scripted-match checks pass. The
+Build 61 (`f8937c61`) is now the experimental development pin, adding upstream's
+high-resolution HUD after build 60's menu-glyph fix. Save-backed candidate and
+acceptance Mac/Simulator menu/campaign/scripted-match checks pass. The
 earlier build-59 real touch pass verified navigation, cryo-bay training,
 tube exit and a same-build cold checkpoint reload with isolated saves. A copied
-build-59 checkpoint also loads through the normal build-60 menus; real saves
+build-59 checkpoint also loads through the normal build-60 menus, and a copy of
+that fixture reloads the cryo-bay through normal build-61 menus; real saves
 remain unchanged. Mac smoke tests now verify executable/guest hashes.
 The normal picker remains on the dedicated **HaloPad Xbox iPad** Simulator.
 See [XBOX-SIMULATOR-PASSES.md](XBOX-SIMULATOR-PASSES.md) for the evidence and failed
@@ -42,10 +44,10 @@ intervening depth changes (54,517 pixels; 21,611 base-changed pixels closer),
 but not incorrect writes. Next correlate original native-linked EQUAL coverage
 with copied live depth/full pixel state to distinguish legitimate occlusion from
 missing visible terrain. Stripes remain; normal depth semantics stay unchanged.
-Upstream build 61 (`f8937c61`, high-resolution HUD textures) appeared during the
-frozen build-60 pass. Next validate it through the save-backed Mac/Simulator
-update gates and visible HUD/menu review before promotion, then resume the
-depth experiment on one frozen pin. Build 60 remains accepted until those gates.
+The diagnostics above are build-60 evidence, not new build-61 proof. Resume the
+depth experiment on the frozen accepted 61 pin. The optional original-byte
+reader refuses its changed cache ABI until adapted/reviewed; normal gameplay
+and update gates do not use that diagnostic.
 The isolated raster probe intentionally uses black textures/default pixel uniforms.
 Do not declare a driver bug or relax EQUAL.
 Then sustained movement/look/fire and weapon pickup/swap,

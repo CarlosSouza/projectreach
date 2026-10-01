@@ -51,7 +51,8 @@ echo "==> upstream changes $PINNED..$TARGET"
 git -C "$ENGINE" log --oneline "$PINNED..$TARGET"
 echo "==> changes to what HaloPad's host depends on"
 git -C "$ENGINE" diff --stat "$PINNED" "$TARGET" -- port/android port/include tools/android_build.py \
-	tools/android_imports.py tools/android_gl_stubs.py tools/android_posix_stubs.py port/linux/src/posix.h | cat
+	tools/android_imports.py tools/android_gl_stubs.py tools/android_posix_stubs.py \
+	tools/embed_assets.py port/linux/src port/linux/game/hud_hires_tags.c source/cache/cache_files.c | cat
 
 STAMP=$(date +%Y%m%d-%H%M%S)
 BACKUP="$WORK/save-backups/$STAMP-from-$(echo "$PINNED" | cut -c1-8)"

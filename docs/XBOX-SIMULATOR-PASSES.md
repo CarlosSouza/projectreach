@@ -21,7 +21,49 @@ HaloPad build commands to reproduce this exact revision independently of a
 future pin. Ordinary builds used build 59 at this stage. The app builder
 checks the revision and guest/library hashes; mixed or rejected outputs fail closed.
 
-## Build-60 follow-up (current pin)
+## Build-61 follow-up (current pin)
+
+Upstream [build 61](https://github.com/cybersecurity/halo-ce-universal/releases/tag/build-61),
+`f8937c6179757774c75f4e7d36de446fabd3dcc8`, published 09:40 UTC on October 1,
+adds high-resolution HUD textures. Source review covers PNG embedding, tag lookup,
+cache fields and sampler changes. The original-byte diagnostic rejects this
+unreviewed cache ABI; normal builds/gameplay are unaffected. The update report
+now includes renderer/cache/HUD/embedder changes, not just Android imports.
+
+Before promotion, `build61-candidate-update.log` and
+`{smoke,simulator}-results/20261001-185807-f8937c61/` pass all six normal cases:
+Mac 2,130 ticks / 16 shots; Simulator 1,324 ticks / 11 shots. Frames reviewed:
+HUD/menu visible, terrain stripes/pale geometry remain. Defaults enable the
+new HUD and logs recognize all 15 campaign/match HUD bitmaps, without a PNG
+decode-failure log. This does not establish every texture's pixel fidelity or
+physical performance. The unaccepted app was correctly labeled PREVIEW.
+
+A copy of the earlier build-60 save fixture (originally the build-59 checkpoint)
+loads through normal picker → Xbox → Campaign → New001 → Pillar of Autumn →
+Normal and restores the cryo-bay/look tutorial, not the ship cinematic. Evidence:
+`campaign61-compat.xCtR9E/checkpoint.png` and logs. The real saves and original
+fixture remain separate; one checkpoint is not all-save compatibility.
+
+After review, `build61-accept.log` and
+`{smoke,simulator}-results/20261001-191048-f8937c61/` repeat all six cases:
+Mac 2,130 ticks / 17 shots; Simulator 1,358 ticks / 11 shots. Reviewed match and
+Simulator menu/campaign frames retain the same stated fidelity limits. The lock
+now accepts exact `f8937c61`; app rebuilt in place without a candidate override.
+Backups `20261001-{185807,191048}-from-bfbac357/simulator-save` match the earlier
+update backup. Final rebuilt-app normal Simulator gates (`build61-final-normal/`)
+pass all three cases (1,348 ticks / nine shots). No physical install, Xbox IPA,
+upstream binary download or publication.
+
+Final accepted-app campaign/match frames reviewed; defects remain. About shows
+accepted `f8937c61` without PREVIEW; Done returns to the normal picker
+(`build61-final-picker.png`). Windows card reaches its existing missing-data
+setup (`build61-windows-setup.png`), not Windows gameplay/license acceptance.
+Real saves in final container `12A61E04-970B-439E-A567-C0AFA5DD5F54` remain
+byte-identical to the acceptance backup after all probes/installs/navigation.
+123 tests run, 16 skipped, no failures; both SDK syntax, shell syntax and
+tree/index safety pass. Latest upstream remains 61 at 10:24 UTC.
+
+## Build-60 follow-up (previous pin)
 
 Upstream [build-60](https://github.com/cybersecurity/halo-ce-universal/releases/tag/build-60)
 was released at 04:01 UTC on October 1, commit
@@ -596,9 +638,9 @@ changed-image, changed-executable, missing-manifest and missing-revision cases.
 
 ## Next focused pass
 
-0. Freeze build 61 (`f8937c61`), review its HUD asset/build changes, and run the
-   save-backed Mac/Simulator update gates plus visible HUD/menu review. Accept
-   only after validation; retain build-60 evidence under its original identity.
+0. Keep accepted build 61 (`f8937c61`) frozen for the next diagnostic pass;
+   retain build-60 evidence under its original identity. Original-byte capture
+   remains unavailable on 61 until its changed cache ABI is reviewed/adapted.
 1. Continue beyond the cryo-bay training to weapon pickup/combat and a later
    checkpoint. Test sustained movement, simultaneous look/fire, weapon switching
    and another cold reload with isolated saves.

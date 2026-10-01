@@ -11,12 +11,13 @@ Windows Custom Edition 1.10 from Xbox Combat Evolved, with edition-specific
 multiplayer descriptions, an installed-build panel, accessible text and a safe
 return from disc import. Short Xbox touch taps are latched until the engine polls
 them; short analog swipes and triggers are now retained for one poll as well.
-Upstream build 60 (`bfbac357`) is the accepted experimental development pin after
+Upstream build 61 (`f8937c61`) is the accepted experimental development pin after
 save-backed Mac and Simulator menu/campaign/scripted-match gates. It adds the
-upstream menu-glyph edge fix. The earlier build-59 real touch pass reached
+upstream high-resolution HUD after build 60's menu-glyph edge fix. The earlier build-59 real touch pass reached
 cryo-bay training and exited the tube; Save and Quit followed by a cold relaunch
 reloaded its checkpoint. A copied build-59 checkpoint also loads in build 60
-through the normal menus, without modifying real Simulator saves. Campaign's black presentation was narrowed to the
+through the normal menus; a copy of that fixture also reloads the cryo-bay in
+61, without modifying real Simulator saves. Campaign's black presentation was narrowed to the
 software blitter inheriting texture-unit/sampler state: neutralizing unit 0 during
 the final blit restores the picture. The normal build now shows the opening
 cinematic; physical rendering and internal texture copies are unchanged. An A/B
@@ -51,25 +52,30 @@ previews do not apply texture swizzles; atlas padding/bands alone are not proof
 of corruption. A follow-up independent decode of the original Xbox bytes now
 matches all 32,768 pixels of the same previously banded 256x128 RGB565 texture.
 This validates its unswizzle/conversion stage, not the game's production of those
-bytes or final sampling. A calibrated, same-frame depth observer now measures
+bytes or final sampling. The build-60 calibrated, same-frame depth observer measures
 54,517 intervening depth changes; 21,611 base-changed pixels become closer.
 All four observations restore without GL errors. This is not proof of bad
 writes: legitimate occlusion remains possible, and the scene still has stripes.
 Next correlate original native-linked EQUAL coverage with copied live depth/full
-pixel state. Normal rendering is unchanged.
+pixel state on the frozen build-61 baseline. These diagnostics have not changed
+normal depth semantics; the upstream HUD update is a separate change.
 Mac smoke runs now
 reject mismatched executable/guest hashes. Candidates
 are labeled **PREVIEW**; the accepted Xbox baseline still says **EXPERIMENTAL**.
 No physical iPad changes in this pass. See [XBOX-SIMULATOR-PASSES.md](XBOX-SIMULATOR-PASSES.md).
 
-At 09:53 UTC the latest upstream changed to [build 61](https://github.com/cybersecurity/halo-ce-universal/releases/tag/build-61)
-(`f8937c61`, high-resolution HUD textures, published 09:40 UTC). Build 60 remains
-the tested accepted pin. Next freeze/validate 61 through the save-backed update
-routine before resuming the depth investigation; do not combine evidence across
-pins. Final normal build-60 Simulator menu/campaign-opening/scripted-match gates
-pass (1,303 ticks / eight shots), 122 tests pass with 16 skips, both SDK syntax
-checks and tree/index safety pass. About/Done returns to the normal picker;
-real Xbox saves remain byte-identical to the update backup.
+[Build 61](https://github.com/cybersecurity/halo-ce-universal/releases/tag/build-61)
+(`f8937c61`, published 09:40 UTC) passed candidate and acceptance runs before
+promotion: all six cases each run, final acceptance Mac 2,130 ticks / 17 shots,
+Simulator 1,358 ticks / 11 shots. Final accepted-app normal Simulator gates also
+pass (1,348 ticks / nine shots). Frames and copied checkpoint reviewed; terrain
+defects remain. Upstream cache/HUD/renderer changes now appear in the update
+dependency report. The optional original-byte reader refuses 61's unreviewed
+cache ABI; normal gameplay/update gates are unaffected. 123 tests pass with 16
+skips, and both SDK syntax checks pass. No physical install, IPA or publication.
+Final About/Done verifies accepted `f8937c61` and returns to the normal picker;
+Windows card reaches its existing missing-data setup, not new Windows gameplay
+acceptance. Real Xbox saves remain byte-identical to the acceptance backup.
 
 **Second engine: Halo Xbox (2026-09-30).** HaloPad now opens with a choice of
 Halo PC or Halo Xbox. The Xbox engine is upstream's decompilation port, pinned

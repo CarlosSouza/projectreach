@@ -3667,3 +3667,68 @@ runner guard allowing that diagnostic only for the reviewed full build-60 SHA,
 with an asset-free rejection fixture for 61/unknown revisions. Review/adjust the
 ABI before enabling original-byte capture on 61; normal update gates do not use
 that diagnostic. Final Python suite after this guard: 123 tests, 16 skipped.
+
+## 2026-10-01 — build-61 candidate, HUD and copied checkpoint
+
+**Prior goal turn: progress.** Calibrated live depth observation established
+same-frame intervening changes, not a causal renderer fix. Upstream released
+build 61 while that frozen pass ran. Latest lookup at this pass's start still
+reports 61 (`f8937c6179757774c75f4e7d36de446fabd3dcc8`). Reviewed the exact new
+HUD sources, bitmap tag lookup, PNG embedding, renderer/sampler changes and
+cache ABI. All fetched code/assets/generated translation remain private under
+ignored ref/. No upstream executable was downloaded.
+
+**Candidate gates before promotion:** normal update without `--accept` backs up
+saves to `save-backups/20261001-185807-from-bfbac357`, compiles 61 locally, and
+passes all six Mac/Simulator menu/campaign-opening/scripted-match cases. Mac
+2,130 ticks / 16 shots; Simulator 1,324 ticks / 11 shots. Evidence under
+`smoke-results/20261001-185807-f8937c61/`,
+`simulator-results/20261001-185807-f8937c61/` and
+`passes/2026-10-01/build61-candidate-update.log`. All captured frames reviewed;
+menu and HUD are visible, but Simulator terrain stripes/pale geometry remain.
+Defaults enable `display.high_res_hud`; campaign/match recognize all 15 HUD
+bitmaps, with no decode-failure log. This is not a universal fidelity/performance
+acceptance. The script restores the build-60 checkout/Mac build afterward;
+installed 61 remains correctly labeled PREVIEW.
+
+**Normal navigation / isolated save:** cold launch without a forced engine/map
+shows both edition cards. About identifies `f8937c61` as an incomplete preview;
+Done returns to picker. Xbox → Campaign (touch A) → copied New001 → Pillar of
+Autumn → Normal recognizes an in-progress game and restores the cryo-bay/look
+tutorial, not the opening ship cinematic. Private evidence:
+`campaign61-compat.xCtR9E/checkpoint.png` and logs. The save is copied from the
+earlier build-60 compatibility fixture (originally a build-59 checkpoint), not
+the real player's directory. One checkpoint is not all-save compatibility.
+Real Simulator saves in rediscovered container
+`8A7EC32F-70B5-45D5-BB07-E366B28F8431` remain byte-identical to the update backup.
+
+**Update report hardening:** its dependency diff previously emphasized Android
+imports and missed the important renderer/cache changes. Expanded that report
+to the platform renderer, HUD tag hook, cache load hook and asset embedder. The
+next acceptance run visibly lists the new cache/HUD/sampler files. Existing
+original-byte diagnostic refuses 61 until its cache ABI is reviewed/adapted.
+`sh -n`, 123 Python tests (16 skipped) and physical SDK syntax pass. A separate
+save-backed `--accept` repeat is running; no promotion claimed here yet.
+
+**Acceptance repeat:** `build61-accept.log` and both result folders at
+`20261001-191048-f8937c61` repeat all six cases successfully: Mac 2,130 ticks /
+17 shots; Simulator 1,358 ticks / 11 shots. Simulator menu/campaign/match and
+Mac match frames reviewed; HUD visible, existing fidelity defects explicit.
+The accepted lock now pins full `f8937c61`. The source checkout is clean at 61.
+App rebuilt/reinstalled without `XBOX_REV` after promotion, evidence
+`docs/artifacts/2026-10-01/G3/ios-app-20261001T101755Z`, private log
+`build61-final-app.log`. Final normal regression (`build61-final-normal/`) passes
+all three Simulator cases (1,348 ticks / nine shots). Goal remains active, not
+full campaign, audio, human multiplayer or hardware acceptance.
+
+**Final readback:** final accepted-app campaign/match frames reviewed; defects
+remain. About shows accepted `f8937c61` without PREVIEW; Done returns to the
+normal edition picker (`build61-final-picker.png`). Windows card still reaches
+the existing missing-data/setup screen (`build61-windows-setup.png`), not Windows
+gameplay or license provisioning. Real Xbox saves in final rediscovered data
+container `12A61E04-970B-439E-A567-C0AFA5DD5F54` match the acceptance backup
+byte-for-byte after all installs/probes/menu navigation. Latest upstream is still
+61 at 10:24 UTC. 123 tests, 16 skips, no failures; both SDK syntax, shell syntax,
+whitespace and tree/index safety pass. No physical change, IPA, push or
+publication. Next resume the native-linked coverage/live-depth experiment on
+the frozen 61 pin, then sustained touch/weapon/later-checkpoint acceptance.
