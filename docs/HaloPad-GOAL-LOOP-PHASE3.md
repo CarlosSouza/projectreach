@@ -185,6 +185,28 @@ physical operation, IPA or publication. This is integration progress, not a
 shading/focus correction. Next continue the authorized PC path when confirmed
 and measure actual fragment LOD/shading in a matched affected moving scene.
 
+The next PC raster pass (`pc-raster-lod.RfwgiV/`) adds only a nullable native draw
+descriptor test hook, with two regressions: 270 native assertions pass on Mac
+and Simulator. Direct mip queries are unsupported on this Simulator, so a
+separately calibrated numeric mip-marker method measures actual sampling in the
+exact encoded ground geometry. Six-footprint asset-free calibration passes 384
+fragments per platform (fractional marker error ≤0.00390625). First live run
+times out and has later combat failures and a clipped draw; preserve it. A
+revised capture matches all four texture payloads, skips zero-coverage draws
+and retains the full gameplay harness with a longer deadline. It exits 0 with
+25 assertions and 30 motion frames. Three independent raster probes cover
+1,427,322 pixels / 5,709,288 stage samples, without changing original color.
+Stage 1/2 mip maxima fall from 4.0117/4.2695 to 0.8008/1.0586 then zero as the
+view points down. Largest clamped derivative-vs-marker residual is 0.0588143
+levels; retain 288 samples above 0.05 near the level-zero transition. No depth/
+occlusion reference or original-driver/physical equivalence is established.
+Visible grain remains. This weakens gross mip-selection failure as an explanation
+for this particular ground material; it does not fix or dismiss physical shading.
+109 Xbox tests and five input guards pass; no app install, save changes, upstream
+promotion or physical operation. Installed PC EULA is still unaccepted. Next
+compare a matched affected original-driver view and its material/lighting/UV/
+sampler behavior, without visual-workaround edits to detail or mip selection.
+
 The earlier build-61 (`f8937c61`) experimental development pin added upstream's
 high-resolution HUD after build 60's menu-glyph fix. Save-backed candidate and
 acceptance Mac/Simulator menu/campaign/scripted-match checks pass. The

@@ -11,6 +11,19 @@
 #define PTROFS_64BIT 1
 #include "llasm_cpu.h"
 #include "../port/runtime/halopad_d3d9_internal.h"
+#include "../port/apple/halopad_metal.h"
+
+extern void (*halopad_d3d9_native_draw_hook)(uint32_t, uint32_t, const hp_pipeline_desc *, const hp_draw_desc *);
+static uint32_t native_draw_calls, native_draw_invalid;
+static void inspect_mip_draw(uint32_t g, uint32_t request, const hp_pipeline_desc *p, const hp_draw_desc *d)
+{
+    (void)request;
+    native_draw_calls++;
+    native_draw_invalid += !g || !p->vs_msl || !p->ps_msl || p->nattr != 3 || p->stride[0] != 28 ||
+        !d->pipeline || !d->vbuf[0] || !d->tex[0] || !d->smp[0] || d->ibuf ||
+        d->prim != 4 || d->start || d->count != 4 || !d->vs_consts || d->vs_len != 4432 ||
+        !d->ps_consts || d->ps_len != 3936;
+}
 
 void *halopad_com_state(const char *iface, uint32_t g);
 void halopad_metal_read_texture(void *target, void *tex, uint32_t level, uint32_t x, uint32_t y, uint32_t w, uint32_t h, void *out, uint32_t pitch);
@@ -414,7 +427,9 @@ int main(void)
             method(device, SetSamplerState, 3, (uint32_t[]){0, 9, mip_cases[mi].min_lod});
             method(device, BeginScene, 0, NULL);
             method(device, Clear, 6, (uint32_t[]){0, 0, 3, 0xFF000000, onebits, 0});
+            halopad_d3d9_native_draw_hook = inspect_mip_draw;
             check("mips: draw textured strip", method(device, 83, 4, (uint32_t[]){5, 2, gfq, 28}), 0);
+            halopad_d3d9_native_draw_hook = NULL;
             method(device, EndScene, 0, NULL);
             method(device, Present, 4, (uint32_t[]){0, 0, 0, 0});
             uint32_t got = halopad_metal_read_pixel(tg, 320, 240), want = mip_cases[mi].want;
@@ -425,6 +440,8 @@ int main(void)
             printf("    mip readback 0x%08x expected 0x%08x\n", got, want);
             check(mip_cases[mi].name, close, 1);
         }
+        check("native draw hook: called once per encoded mip draw", native_draw_calls, 7);
+        check("native draw hook: exact borrowed descriptors", native_draw_invalid, 0);
         /* Validate the readback independently of sampling. On this Simulator,
            Metal's short getBytes selector reads level zero for every mip. */
         res *mips = halopad_com_state("IDirect3DTexture9", tmip);

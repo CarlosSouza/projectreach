@@ -1761,3 +1761,78 @@ unchanged. 109 Xbox tests and five input guards pass. No runtime source change,
 pin promotion, physical-device operation, IPA, publication, push or cleanup.
 Goal remains active: confirmation is needed for this normal PC startup path;
 matched moving-scene fragment LOD/shading and physical-iPad fidelity remain open.
+
+### PC exact-material raster mip sampling (2026-10-02)
+
+Private pass: `ref/xbox-build/passes/2026-10-02/pc-raster-lod.RfwgiV/`.
+The previous turn rebuilt the integrated app and verified both launch routes
+through Xbox continuation and PC import/EULA; it was progress, not a no-progress
+blocker audit. Leave the installed PC EULA unaccepted pending confirmation and
+do not operate the physical iPad shared with BlueWake.
+
+Add a nullable native test hook after the actual D3D9 draw encodes, exposing its
+borrowed pipeline/draw descriptors only during the callback. No new app setting,
+automatic instrumentation, shader/filter change or game-content alteration.
+Two native regressions inspect seven real *UP mip draws: callback count and
+exact bound descriptors. Simulator `…-20261001T200509Z` and Mac
+`…-20261001T201013Z` pass all 270 native assertions with Metal validation.
+
+Direct fragment mip queries require appropriate GPU families per
+[Apple's LOD-query documentation](https://developer.apple.com/documentation/metal/predicting-which-mips-the-gpu-samples-with-level-of-detail-queries).
+An independent native capability probe reports Apple7=false, Mac2=false and
+32-bit-float filtering=false on this Simulator. **Do not use direct query modes.**
+Instead create matching-size/mip-count RGBA16Float textures whose constant red
+value is the mip index. Original trilinear samplers interpolate these markers;
+RGBA32Float output/readback retains the sampled numeric level. An asset-free
+fragment probe calibrates six known footprints, levels 0/1/1.5/2/3/4: all 384
+fragments pass on each of Simulator and Mac, integer levels exact, fractional
+marker error at most 0.00390625. Analytic derivative calculation is exact in
+this simple calibration. This is not a Windows-driver reference.
+
+The private wrapper retains the existing menu/LAN Slayer/audio/motion harness.
+It reuses the **exact encoded indexed geometry, buffers, offsets, base vertex,
+vertex shader, constants, four sampling coordinate expressions and samplers**.
+Independent offscreen probes disable depth/occlusion and blend; they do not
+establish original visibility, draw order, frame timings or physical fidelity.
+Original color is read before/after and must remain byte-identical.
+
+First compilation fails on hp_bound w/h names; correct to width/height, no game
+run from that failed link. First live run `…-20261001T200158Z` exceeds its 180 s
+deadline and fails five later combat/death-associated audio checks plus two
+zero-coverage probes. Its first frame-3150 matching shader draw is fully clipped.
+Preserve that failed source/executable/output; do not declare the whole run passed.
+Revised capture matches **all four raw level-zero texture payloads** against the
+accepted previous material, not shader tokens alone, and tries another exact-
+material draw in the same frame if coverage is zero. Keep all gameplay checks;
+extend only the execution deadline to 360 s. The analysis script initially lacks
+Pillow in the repo venv; use the bundled workspace Python, no package installation.
+
+Corrected `…-20261001T201011Z` exits 0, passes all 25 assertions, includes all 30
+motion frames, and captures frames 3150/3155/3160 at requests 49/35/31. A clipped
+request 41 is explicitly skipped at frame 3150. All four texture identities stay
+the same across the accepted captures; zero projection, trilinear, zero LOD bias/
+minimum/resource LOD. Coverage is 467,322 / 480,000 / 480,000 pixels, with finite
+four-stage results and no original-color changes, including the skipped attempt.
+This is 1,427,322 independent raster pixels, 5,709,288 stage samples.
+
+Marker stage 1/2 maxima at frame 3150 are 4.01171875 / 4.26953125, falling to
+0.80078125 / 1.05859375 at 3155 and zero at 3160 as the view points down. Stage
+zero stays at mip zero; stage three peaks at 0.94921875 then falls to zero.
+Compare against log2 of the maximum x/y texture-coordinate derivative length,
+clamped to each texture's valid mip range. Largest absolute residual is
+0.05881428 levels; 288 stage-two samples at frame 3150 exceed 0.05, all around
+the level-zero transition (y522–535, measured 0.05078125–0.08984375).
+Retain these residuals rather than declaring exact arithmetic equivalence.
+The reviewed fixed-scale contact sheet shows distance-dependent interpolation;
+the original target still shows grainy ground. This argues against a **gross
+mip-selection defect in this sampled PC material**, not against the user's
+physical shading/focus report and not proof of original-driver correctness.
+
+109 Xbox tests, five input guards, whitespace and current-tree/index safety pass.
+Installed binary remains `db16569d…cadd73`; real Documents/Halo Xbox is identical
+to the integration backup. No test processes remain. No install, pin promotion,
+physical operation, IPA, publication, push or cleanup. Goal remains active.
+Next obtain a matched affected original-driver view and compare material/lighting,
+UV interpolation and sampler behavior; do not reduce detail scales or force mip
+levels as a visual workaround. PC EULA confirmation and physical acceptance remain
+separate gates; the diagnostic hook is inactive in normal apps.

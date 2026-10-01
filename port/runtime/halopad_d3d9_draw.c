@@ -449,6 +449,10 @@ static uint8_t metal_prim(uint32_t type)
 /* Native test hook only; normal apps leave this NULL. Readbacks in a hook
    interrupt submission and must not be used as frame-order/performance proof. */
 void (*halopad_d3d9_draw_hook)(uint32_t device, uint32_t request);
+/* Exact encoded draw descriptors for bounded native raster diagnostics. Borrowed
+   objects/constants are valid only during this call; normal apps leave it NULL. */
+void (*halopad_d3d9_native_draw_hook)(uint32_t device, uint32_t request,
+                                    const hp_pipeline_desc *pipeline, const hp_draw_desc *draw);
 static uint32_t draw(device *d, uint32_t type, uint32_t prims, uint32_t start, int32_t base, uint32_t up, uint32_t up_stride,
                      res *ib, uint32_t up_indices, uint32_t up_index32, uint32_t first_index)
 {
@@ -457,7 +461,7 @@ static uint32_t draw(device *d, uint32_t type, uint32_t prims, uint32_t start, i
     if (type == 1) { degraded("point lists: those draws are skipped"); return D3D_OK; }
     uint32_t request = 0;
     int tracing = halopad_d3d9_tracing();
-    if (tracing || halopad_d3d9_draw_hook) {
+    if (tracing || halopad_d3d9_draw_hook || halopad_d3d9_native_draw_hook) {
         static uint32_t n, last_frame;
         if (last_frame != halopad_d3d9_frame) { last_frame = halopad_d3d9_frame; n = 0; }
         request = n++;
@@ -688,6 +692,7 @@ static uint32_t draw(device *d, uint32_t type, uint32_t prims, uint32_t start, i
         dd.count = nverts;
     }
     halopad_metal_draw(d->target, &dd);
+    if (halopad_d3d9_native_draw_hook) halopad_d3d9_native_draw_hook(d->guest, request, &pd, &dd);
     if (halopad_d3d9_draw_hook) halopad_d3d9_draw_hook(d->guest, request);
     return D3D_OK;
 }
