@@ -59,6 +59,44 @@ static void check(const char *what, uint32_t got, uint32_t want)
 void *halopad_d3d9_device_target(uint32_t g);
 void halopad_metal_read_image(void *p, uint32_t *out, uint32_t w, uint32_t h);
 extern void (*halopad_d3d9_present_hook)(uint32_t device);
+extern void (*halopad_d3d9_draw_hook)(uint32_t device, uint32_t request);
+extern uint32_t halopad_d3d9_frame;
+#include "../port/runtime/halopad_d3d9_internal.h"
+void *halopad_com_state(const char *iface, uint32_t g);
+const char *halopad_com_interface(uint32_t g);
+void halopad_metal_read_texture(void *target, void *tex, uint32_t level, uint32_t x, uint32_t y, uint32_t w, uint32_t h, void *out, uint32_t pitch);
+
+static uint32_t capture_draw_frame, captured_draws;
+/* Explicit one-frame component diagnostic. Read the current attachment, not
+   the back buffer: Halo renders the world into a texture before final blit.
+   Each readback commits work and changes submission timing. No ordering claim. */
+static void on_draw(uint32_t g, uint32_t request)
+{
+    if (halopad_d3d9_frame != capture_draw_frame) return;
+    if (request >= 256) { failures++; return; }
+    device *d = halopad_com_state("IDirect3DDevice9", g);
+    res *surface = halopad_com_state("IDirect3DSurface9", d->rt);
+    res *texture = surface->parent ? halopad_com_state(halopad_com_interface(surface->parent), surface->parent) : surface;
+    uint32_t level = surface->parent ? surface->level : 0;
+    uint32_t w = surface->parent ? texture->lw[level] : surface->width;
+    uint32_t h = surface->parent ? texture->lh[level] : surface->height;
+    const char *reg = getenv("HALOPAD_REGISTRY");
+    if (!texture->native || (texture->format != 21 && texture->format != 22) ||
+        !w || !h || w>2048 || h>2048 || !reg || !strrchr(reg, '/')) { failures++; return; }
+    uint32_t *img = malloc((size_t)w*h*4);
+    uint8_t *rgb = malloc((size_t)w*h*3);
+    if (!img || !rgb) { free(img); free(rgb); failures++; return; }
+    halopad_metal_read_texture(d->target, texture->native, level, 0, 0, w, h, img, 4*w);
+    for (uint32_t i=0; i<w*h; i++) { rgb[3*i]=img[i]>>16; rgb[3*i+1]=img[i]>>8; rgb[3*i+2]=img[i]; }
+    char path[1200];
+    snprintf(path, sizeof path, "%.*s/draw-%u-%03u.ppm", (int)(strrchr(reg, '/')-reg), reg, halopad_d3d9_frame, request);
+    FILE *f = fopen(path, "wb");
+    int saved = f && fprintf(f, "P6\n%u %u\n255\n", w, h)>0 && fwrite(rgb, 1, (size_t)w*h*3, f)==(size_t)w*h*3;
+    if (f && fclose(f)) saved=0;
+    free(img); free(rgb);
+    failures += !saved;
+    if (saved) { captured_draws++; printf("HALOPAD DRAW IMAGE frame %u request %u rt %08x vs %08x ps %08x size %ux%u\n", halopad_d3d9_frame, request, d->rt, d->vs, d->ps, w, h); }
+}
 
 static void keyx(uint32_t vk, uint32_t scan, int ext, int down) { hp_input e = {0}; e.kind = HPI_KEY; e.vk = e.side_vk = vk; e.scan = scan; e.extended = ext; e.down = down; halopad_host_post_input(&e); }
 static int shot(uint32_t device, int n)
@@ -346,6 +384,14 @@ int main(void)
     if (!image) return 2;
     const char *motion = getenv("HALOPAD_TEST_CAPTURE_MOTION");
     capture_motion = motion && !strcmp(motion, "1");
+    const char *draw_frame = getenv("HALOPAD_TEST_CAPTURE_DRAWS");
+    if (draw_frame) {
+        char *end;
+        unsigned long frame = strtoul(draw_frame, &end, 10);
+        if (!*draw_frame || *end || frame<1 || frame>QUIT_AFTER) { fprintf(stderr, "HALOPAD_TEST_CAPTURE_DRAWS must be 1..%d\n", QUIT_AFTER); return 2; }
+        capture_draw_frame = (uint32_t)frame;
+        halopad_d3d9_draw_hook = on_draw;
+    }
     setvbuf(stdout, NULL, _IONBF, 0);
     halopad_guest_harness_heap = 0;
     uint32_t top = halopad_guest_init(image, 0x400000);
@@ -483,6 +529,7 @@ int main(void)
     check("  Slayer respawns the player as a new unit", respawn_frame > death_frame && second_unit && second_unit != first_unit, 1);
     check("  no dialog", (uint32_t)dialogs, 0);
     if (capture_motion) check("  captured all 30 consecutive motion frames", motion_frames, 30);
+    if (capture_draw_frame) check("  captured submitted draws in the diagnostic frame", captured_draws>0, 1);
     DeleteFileA_c(str(script_name));
     printf("%s: %d failure(s)\n", failures ? "FAIL" : "PASS", failures);
     return failures != 0;

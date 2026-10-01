@@ -126,6 +126,27 @@ an original reference, rather than repeating the base-floor capture or treating
 more green gameplay assertions as visual acceptance. No iPad install/launch,
 one-app installation or real save changes. Goal active.
 
+The following PC pass localizes that sampled ground appearance to a world
+material, before HUD and final presentation. A bounded test-only draw hook
+captures the current render attachment after each encoded draw in frame 3155:
+93 images match request numbers 0–92; all 21 component checks pass. Readbacks
+interrupt submission, so this is not unmodified ordering or performance proof.
+The first colored ground appears at request 21, using four 2D textures with
+nine/ten mip levels and trilinear, zero-bias sampling. A separate dump-mapping
+run identifies a four-texture ps_1_1 program and its scaled-coordinate vs_1_1
+program; its random spawn differs, so it is not a matched image comparison.
+Both programs agree with the independent arithmetic interpreter over 4,096
+synthetic cases each. This test uses level zero, no projection, and does not
+validate actual raster derivatives, mip contents or original-PC fidelity.
+The old shader-test runner exceeded Metal's inline constant-data limit; using
+a constant buffer fixes that diagnostic failure, not game rendering.
+Ordinary final-source Simulator host checks (19), Mac D3D9 checks (260), Xbox
+Python tests (109), input guards (5) and safety pass. The ordinary two-edition
+picker and real save comparison are intact. No installed app or pin changed.
+Next inspect this material's actual moving-view UV/detail/mip inputs and seek
+a matched original rendering; do not infer that grain alone is a defect or
+change filtering speculatively. Physical shading/focus remains unresolved.
+
 The earlier build-61 (`f8937c61`) experimental development pin added upstream's
 high-resolution HUD after build 60's menu-glyph fix. Save-backed candidate and
 acceptance Mac/Simulator menu/campaign/scripted-match checks pass. The

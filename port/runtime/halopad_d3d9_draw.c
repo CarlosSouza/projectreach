@@ -446,21 +446,29 @@ static uint8_t metal_prim(uint32_t type)
 
 /* Encode one draw. up: vertex data (guest address) and stride for *UP draws, or 0.
    Indices: ib (resource) or up_indices (guest address), or neither. */
+/* Native test hook only; normal apps leave this NULL. Readbacks in a hook
+   interrupt submission and must not be used as frame-order/performance proof. */
+void (*halopad_d3d9_draw_hook)(uint32_t device, uint32_t request);
 static uint32_t draw(device *d, uint32_t type, uint32_t prims, uint32_t start, int32_t base, uint32_t up, uint32_t up_stride,
                      res *ib, uint32_t up_indices, uint32_t up_index32, uint32_t first_index)
 {
     if (!d->in_scene) return D3DERR_INVALIDCALL;
     if (type < 1 || type > 6 || !prims) return D3DERR_INVALIDCALL;
     if (type == 1) { degraded("point lists: those draws are skipped"); return D3D_OK; }
-    if (halopad_d3d9_tracing()) {
+    uint32_t request = 0;
+    int tracing = halopad_d3d9_tracing();
+    if (tracing || halopad_d3d9_draw_hook) {
         static uint32_t n, last_frame;
         if (last_frame != halopad_d3d9_frame) { last_frame = halopad_d3d9_frame; n = 0; }
+        request = n++;
+    }
+    if (tracing) {
         char callers[64];
         halopad_d3d9_trace_callers(callers, sizeof callers);
         const uint32_t *rs = d->rs;
         fprintf(stderr, "HALOPAD DRAW f%u #%u type %u prims %u%s%s vs %08x ps %08x fvf %x rt %08x blend %u %u/%u op %u z %u/%u func %u atest %u/%u ref %u cw %x"
                 " tex %08x %08x %08x %08x vp %u,%u %ux%u from%s\n",
-                halopad_d3d9_frame, n++, type, prims, up ? " UP" : "", ib ? " indexed" : "", d->vs, d->ps, d->fvf, d->rt,
+                halopad_d3d9_frame, request, type, prims, up ? " UP" : "", ib ? " indexed" : "", d->vs, d->ps, d->fvf, d->rt,
                 rs[27], rs[19], rs[20], rs[171], rs[7], rs[14], rs[23], rs[15], rs[25], rs[24] & 0xFF, rs[168],
                 d->texture[0], d->texture[1], d->texture[2], d->texture[3],
                 d->viewport[0], d->viewport[1], d->viewport[2], d->viewport[3], callers);
@@ -680,6 +688,7 @@ static uint32_t draw(device *d, uint32_t type, uint32_t prims, uint32_t start, i
         dd.count = nverts;
     }
     halopad_metal_draw(d->target, &dd);
+    if (halopad_d3d9_draw_hook) halopad_d3d9_draw_hook(d->guest, request);
     return D3D_OK;
 }
 

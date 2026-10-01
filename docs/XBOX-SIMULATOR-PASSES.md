@@ -1545,3 +1545,83 @@ ordinary two-edition picker is restored on the dedicated Simulator without test
 overrides. Full real Xbox-save comparison still matches the audio pass backup.
 No one-app install, pin change, physical mutation, IPA, public artifacts, push,
 release or cleanup. Goal remains active.
+
+### PC Battle Creek ground-material isolation (2026-10-02)
+
+Private pass: `ref/xbox-build/passes/2026-10-02/pc-material.lkWYNE/`.
+This is new localization evidence for the prior grainy-ground case, not a fix
+or a confirmed reproduction of Chris's physical shading/focus report.
+
+Add a native test callback after `halopad_metal_draw`; ordinary apps leave it
+NULL. The existing draw trace and callback share request numbering, and skipped
+requests do not invoke it. Exact `HALOPAD_TEST_CAPTURE_DRAWS=<frame>` opts the
+host component test into one frame, bounded to 1–6400 and at most 256 requests.
+It reads the current texture-backed render attachment, not the back buffer,
+with bounded BGRA dimensions, packed RGB output and checked file writes.
+Failures count; the conditional native assertion requires at least one image.
+A separate analyzer checks all expected filenames, sizes, logged request IDs
+and the complete 93-image sequence. Readbacks commit and wait on pending work,
+changing submission timing. This cannot establish unmodified frame ordering,
+texture lifetime or performance. Production upload/filtering is unchanged.
+
+Simulator `core-arm64-apple-ios17.0-simulator-20261001T182503Z`, fresh LAN-menu
+Battle Creek/Slayer route, passes all 21 checks and retains all 30 motion frames.
+At frame 3155, position is 2.34679008,19.3775997,−0.216702014 and look is
+0.00151171628,0.487706095,−0.873006582. It is another outdoor grass/dirt spawn,
+not the prior pass's exact camera. The cumulative images span requests 0–92,
+including 800x600 world rendering and a 64x64 intermediate. Reviewed contact
+sheet and full-resolution requests 21/92 retain grainy ground before and after
+HUD/presentation. Request 15 first adds a nearly white world base; request 21
+adds colored ground over 454,946 pixels (mean absolute RGB change 157.05574).
+This localizes the appearance to the world-material pass in this instrumented
+frame; the picker/final copy is not where that appearance first enters.
+
+Request 21: VS `010441b0`, PS `01046420`, target `012426d0`, indexed triangle
+list, 23 primitives, viewport 800x600, depth test EQUAL/no depth write. Texture
+stages 0–3 are respectively 512x512 DXT3/10 levels, 256x256 DXT1/9 levels,
+512x512 DXT1/10 levels, 256x256 DXT1/9 levels. All four have min/mag/mip filters
+2/2/2, anisotropy 1, zero bias/minimum/resource LOD, clean managed storage and
+an existing native object. The program actually samples all four stages;
+these are not merely stale bound slots. This proves neither valid mip contents
+nor correct derivative-based level selection while moving.
+
+Existing opt-in shader dumps now log successful guest-ID/file mappings and
+check write/close results. Separate Simulator run `…-20261001T183346Z` passes
+20 checks and records all 30 motion images without per-draw readback. Its
+random spawn is inside the base (21.9461994,13.6329212,−1.35571635); frame 3155
+does not draw PS `01046420`. The same startup shader IDs are created and mapped
+there, so bytecode identities are from this separate run, not captured from
+the exact first run's ground draw. VS `010441b0` maps to a 60-token vs_1_1
+program (SHA256 prefix `376340866658`); PS `01046420` maps to a 40-token ps_1_1
+program (`026e77794dbc`). Sizes and full hashes verify. The vertex program
+scales its coordinates for four stages; the pixel program blends/multiplies
+their colors/alpha with co-issued instructions and RGB doubling. All original
+shader bytes, disassembly and generated diagnostic files remain private.
+
+Reuse `scripts/shader-diff.py`'s independent interpreter and `tools/shader_run.m`
+for these two programs only, 4,096 synthetic cases each, seed 27. The first
+attempt fails Metal validation: the existing runner passes a 4,432-byte vertex
+constant block through `setBytes`, above its 4,096-byte limit. Preserve that
+failed attempt; replace inline constant data with a normal Metal buffer in the
+test runner, not the production renderer. Both shaders then have zero bad
+cases: maximum error 0.0000009536743 (VS), 0.00073337555 (PS), within the existing
+tolerance without relaxation. This is level-zero synthetic sampling with no
+projection, not actual raster/mip/game-reference validation. Do not turn this
+arithmetic result into a visual acceptance claim or disable projection based
+only on programmable vertex-shader use.
+
+Final-source ordinary Mac native D3D9 `…-20261001T184235Z` passes 260 checks.
+Ordinary Simulator host `…-20261001T184331Z` passes 19 checks at 3,630 presents
+and writes only the seven original images: no draw/motion/shader diagnostics.
+Invalid capture-frame values 0, 6401 and nonnumeric input each exit 2 before
+guest initialization. 109 Xbox Python tests, five input guards and whitespace/
+tree/index safety pass. Normal picker is restored (PID 34362) and its screenshot
+reviewed. Full real Xbox-save comparison matches `audio64.U2hPbE/real-save-before`.
+No one-app build/install, upstream pin change, physical operation, IPA,
+publication, push or cleanup. Goal remains active.
+
+Next discriminating pass: inspect the isolated ground material's actual UV/
+detail scaling and mip texels/selection across moving views, with a matched
+original-PC reference if available. A green arithmetic or gameplay test cannot
+replace that comparison. Avoid speculative sharpening, blur, anisotropy or LOD
+workarounds; the physical report's edition/map and original view remain unknown.
