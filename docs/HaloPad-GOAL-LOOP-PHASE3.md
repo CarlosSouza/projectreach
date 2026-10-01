@@ -75,6 +75,17 @@ workaround from that source gap alone. Mac input-posting API link regression
 fixed using same-thread delivery; 264 native input checks pass. This remains
 different from the reported physical scene and continuous moving-view acceptance.
 
+The next PC/Simulator pass found and fixed a separate texture-lifetime defect:
+rewriting a CPU-backed texture before Present incorrectly recoloured an earlier
+draw. The exact regression fails on both Mac and Simulator before the fix and
+passes afterwards, including preservation of unchanged mip levels. Each platform
+passes 260 native D3D9 checks. Basic derivative-based mip filtering passes too.
+Blood Gulch still renders after the fix, but its sampled frames have no managed
+texture updates, so they do not connect this defect to the physical complaint.
+The affected edition/map is still unconfirmed. One-app Simulator compilation
+passes; no install or physical validation. Keep the graphics report open and
+seek a matched moving scene before calling it fixed.
+
 The earlier build-61 (`f8937c61`) experimental development pin added upstream's
 high-resolution HUD after build 60's menu-glyph fix. Save-backed candidate and
 acceptance Mac/Simulator menu/campaign/scripted-match checks pass. The

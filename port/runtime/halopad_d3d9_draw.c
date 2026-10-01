@@ -316,9 +316,17 @@ static void *upload_texture(res *t)
     texture_format(t->format, &mtl, sw, &convert);
     int type = t->ttype ? (int)t->ttype : 2;
     uint32_t faces = type == 3 ? 6 : 1;
-    if (!t->native) t->native = halopad_metal_texture(type, mtl, t->width, t->height, type == 4 ? t->depth : 1, t->levels, sw);
+    int changed = !t->native;
+    for (uint32_t l = 0; l < t->levels; l++) changed |= t->dirty[l];
+    if (!changed) return t->native;
+    /* CPU replaceRegion is immediate, while this frame's encoded draws execute
+       at Present. Keep their old texture immutable, as upload_buffer does.
+       The command buffer retains it. Reupload the complete CPU-backed chain so
+       unchanged levels/faces remain valid in the replacement. */
+    void *old = t->native;
+    t->native = halopad_metal_texture(type, mtl, t->width, t->height, type == 4 ? t->depth : 1, t->levels, sw);
+    halopad_metal_release(old);
     for (uint32_t l = 0; l < t->levels; l++) {
-        if (!t->dirty[l]) continue;
         double upload_t0 = halopad_trace_now();
         if (!t->mem[l]) hp_unsupported("draw", "a texture whose contents live only on the GPU (render target or default pool)");
         uint32_t depth = type == 4 ? t->ld[l] : 1, slice = type == 4 ? t->slice[l] : t->size[l];
@@ -460,8 +468,13 @@ static uint32_t draw(device *d, uint32_t type, uint32_t prims, uint32_t start, i
                 f32(rs[195]), f32(rs[175]), rs[52], rs[28], rs[34], rs[35], rs[174], rs[136]);
         for (int s = 0; s < 16; s++) if (d->texture[s]) {
             const uint32_t *v = d->ss[s];
+            res *t = halopad_com_state(halopad_com_interface(d->texture[s]), d->texture[s]);
+            uint32_t dirty = 0;
+            for (uint32_t l = 0; l < t->levels; l++) if (t->dirty[l]) dirty |= 1u << l;
             fprintf(stderr, "HALOPAD DRAW   sampler %d texture %08x filters %u/%u/%u lod-bias %g/%08x min-lod %u anisotropy %u\n",
                     s, d->texture[s], v[5], v[6], v[7], f32(v[8]), v[8], v[9], v[10]);
+            fprintf(stderr, "HALOPAD DRAW   texture %d type %u format %08x size %ux%ux%u levels %u pool %u resource-lod %u dirty %04x\n",
+                    s, t->ttype, t->format, t->width, t->height, t->depth, t->levels, t->pool, t->lod, dirty);
         }
         if (up) {
             for (uint32_t i = 0; i < (prims <= 2 ? prims + 2 : 1); i++) {

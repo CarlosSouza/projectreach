@@ -378,6 +378,88 @@ int main(void)
         check("  bottom-left quadrant is texel (0,1) blue", halopad_metal_read_pixel(tg, 100, 380), 0xFF0000FF);
         check("  bottom-right quadrant is texel (1,1) yellow", halopad_metal_read_pixel(tg, 540, 380), 0xFFFFFF00);
 
+        /* Real fragment derivatives, not the shader compute-test kernel's level(0).
+           Solid colours per level make wrong mip choice/blending unambiguous. */
+        check("mips: create 8x8 managed four-level texture",
+              method(device, CreateTexture, 8, (uint32_t[]){8, 8, 4, 0, 21, 1, pt, 0}), 0);
+        uint32_t tmip = rd(pt);
+        const uint32_t mip_colors[] = {0xFFFF0000, 0xFF00FF00, 0xFF0000FF, 0xFFFFFFFF};
+        for (uint32_t level = 0; level < 4; level++) {
+            check("mips: lock level", method(tmip, TLockRect, 4, (uint32_t[]){level, lr, 0, 0}), 0);
+            uint32_t edge = 8 >> level;
+            for (uint32_t yy = 0; yy < edge; yy++)
+                for (uint32_t xx = 0; xx < edge; xx++)
+                    memcpy((uint8_t *)halopad_guest_ptr(rd(lr + 4)) + yy * rd(lr) + 4 * xx, mip_colors + level, 4);
+            check("mips: unlock level", method(tmip, TUnlockRect, 1, (uint32_t[]){level}), 0);
+        }
+        method(device, SetTexture, 2, (uint32_t[]){0, tmip});
+        struct { const char *name; float lod; uint32_t filter, min_lod, want; } mip_cases[] = {
+            {"mips: NONE keeps level zero under minification", 2, 0, 0, 0xFFFF0000},
+            {"mips: POINT at LOD 1.25 selects green level one", 1.25f, 1, 0, 0xFF00FF00},
+            {"mips: POINT at LOD 1.75 selects blue level two", 1.75f, 1, 0, 0xFF0000FF},
+            {"mips: LINEAR at LOD 1 selects green", 1, 2, 0, 0xFF00FF00},
+            {"mips: LINEAR at LOD 1.5 blends green and blue", 1.5f, 2, 0, 0xFF008080},
+            {"mips: LINEAR at LOD 2 selects blue", 2, 2, 0, 0xFF0000FF},
+            {"mips: MAXMIPLEVEL 2 clamps a magnified view to blue", -1, 2, 2, 0xFF0000FF},
+        };
+        for (size_t mi = 0; mi < sizeof mip_cases / sizeof mip_cases[0]; mi++) {
+            float u = 640.0f / 8 * exp2f(mip_cases[mi].lod), vv = 480.0f / 8 * exp2f(mip_cases[mi].lod);
+            fq[1].u = fq[3].u = u; fq[2].v = fq[3].v = vv;
+            memcpy(halopad_guest_ptr(gfq), fq, sizeof fq);
+            method(device, SetSamplerState, 3, (uint32_t[]){0, 7, mip_cases[mi].filter});
+            method(device, SetSamplerState, 3, (uint32_t[]){0, 9, mip_cases[mi].min_lod});
+            method(device, BeginScene, 0, NULL);
+            method(device, Clear, 6, (uint32_t[]){0, 0, 3, 0xFF000000, onebits, 0});
+            check("mips: draw textured strip", method(device, 83, 4, (uint32_t[]){5, 2, gfq, 28}), 0);
+            method(device, EndScene, 0, NULL);
+            method(device, Present, 4, (uint32_t[]){0, 0, 0, 0});
+            uint32_t got = halopad_metal_read_pixel(tg, 320, 240), want = mip_cases[mi].want;
+            /* Allow one UNORM rounding unit per channel, including trilinear midpoint. */
+            int close = (got >> 24) == (want >> 24);
+            for (int shift = 0; shift <= 16; shift += 8)
+                close &= abs((int)(got >> shift & 255) - (int)(want >> shift & 255)) <= 1;
+            printf("    mip readback 0x%08x expected 0x%08x\n", got, want);
+            check(mip_cases[mi].name, close, 1);
+        }
+        /* A texture rewritten before Present must not recolour an earlier draw.
+           MAXMIPLEVEL isolates level 2; the other levels must survive the update. */
+        fq[1].u = fq[3].u = fq[2].v = fq[3].v = 1;
+        fq[1].x = fq[3].x = 0;
+        memcpy(halopad_guest_ptr(gfq), fq, sizeof fq);
+        method(device, BeginScene, 0, NULL);
+        method(device, Clear, 6, (uint32_t[]){0, 0, 3, 0xFF000000, onebits, 0});
+        check("texture update: draw old level two on left", method(device, 83, 4, (uint32_t[]){5, 2, gfq, 28}), 0);
+        check("texture update: lock level two before Present", method(tmip, TLockRect, 4, (uint32_t[]){2, lr, 0, 0}), 0);
+        uint32_t yellow = 0xFFFFFF00;
+        for (uint32_t yy = 0; yy < 2; yy++)
+            for (uint32_t xx = 0; xx < 2; xx++)
+                memcpy((uint8_t *)halopad_guest_ptr(rd(lr + 4)) + yy * rd(lr) + 4 * xx, &yellow, 4);
+        method(tmip, TUnlockRect, 1, (uint32_t[]){2});
+        fq[0].x = fq[2].x = 0; fq[1].x = fq[3].x = 1;
+        memcpy(halopad_guest_ptr(gfq), fq, sizeof fq);
+        check("texture update: draw new level two on right", method(device, 83, 4, (uint32_t[]){5, 2, gfq, 28}), 0);
+        method(device, EndScene, 0, NULL);
+        method(device, Present, 4, (uint32_t[]){0, 0, 0, 0});
+        check("texture update: earlier draw stays blue", halopad_metal_read_pixel(tg, 160, 240), 0xFF0000FF);
+        check("texture update: later draw is yellow", halopad_metal_read_pixel(tg, 480, 240), yellow);
+        method(device, BeginScene, 0, NULL);
+        method(device, Clear, 6, (uint32_t[]){0, 0, 3, 0xFF000000, onebits, 0});
+        for (uint32_t level = 0; level < 2; level++) {
+            fq[0].x = fq[2].x = level ? 0 : -1;
+            fq[1].x = fq[3].x = level ? 1 : 0;
+            memcpy(halopad_guest_ptr(gfq), fq, sizeof fq);
+            method(device, SetSamplerState, 3, (uint32_t[]){0, 9, level});
+            method(device, 83, 4, (uint32_t[]){5, 2, gfq, 28});
+        }
+        method(device, EndScene, 0, NULL);
+        method(device, Present, 4, (uint32_t[]){0, 0, 0, 0});
+        check("texture update: unchanged level zero stays red", halopad_metal_read_pixel(tg, 160, 240), mip_colors[0]);
+        check("texture update: unchanged level one stays green", halopad_metal_read_pixel(tg, 480, 240), mip_colors[1]);
+        method(device, SetSamplerState, 3, (uint32_t[]){0, 7, 0});
+        method(device, SetSamplerState, 3, (uint32_t[]){0, 9, 0});
+        method(device, SetTexture, 2, (uint32_t[]){0, t2});
+        method(tmip, TRelease, 0, NULL);
+
         /* ---- fixed function ---- */
         enum { SetFVF = 89, SetTextureStageState = 67, SetTransform = 44, SetMaterial = 49, SetLight = 51, LightEnable = 53 };
         method(device, SetVertexShader, 1, (uint32_t[]){0});

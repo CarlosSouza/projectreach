@@ -864,7 +864,7 @@ acceptance backup. 150 tests, 16 skipped, no failures; both SDK syntax and
 whitespace/tree/index safety pass. Upstream checkout stays clean; no physical
 install, pin promotion, IPA, push or publication. Goal active.
 
-## Next focused pass
+## Historical next-pass plan (build 61; superseded by later passes)
 
 0. Keep accepted build 61 (`f8937c61`) frozen for the next diagnostic pass;
    retain build-60 evidence under its original identity. Original-byte capture
@@ -1290,3 +1290,63 @@ Xbox tests, whitespace and current tree/index safety pass. Existing dedicated
 Simulator saves in container `074F7EDF-452F-46FF-98FB-938B21C0F0B4` still match the
 previous full real-save copy. Upstream/ANGLE checkouts remain clean. No app install,
 physical changes, IPA, public artifact, push or cleanup. Goal remains active.
+
+### PC mip controls and a confirmed texture-lifetime defect (2026-10-02)
+
+Private pass evidence: `ref/xbox-build/passes/2026-10-02/pc-mips.i3W3Ez/`.
+Remote HEAD still matches accepted experimental Xbox build 64, `c55e4e2b`;
+neither guest nor renderer pins change. This pass checks the separate PC D3D9/
+Metal route. Chris's affected physical edition/map remains unconfirmed.
+
+PC Blood Gulch component run on the dedicated iPad Simulator, artifact suffix
+`core-arm64-apple-ios17.0-simulator-20261001T164557Z`, exits 0 with 330 presents,
+the map loaded, no dialog/trap, and a reviewed nonblank first-person frame.
+Like the Mac component test, it starts systems and invokes main via a console
+script, not the normal licensed WinMain entry; no human input/audio. Opt-in draw
+tracing now includes texture dimensions/type/format/mip count/pool/resource LOD;
+the final version also includes the dirty-level mask. Frames 300–301 have 248
+draw requests / 932 bound-resource observations, all sampler bias, minimum LOD
+and resource LOD zero. Mip counts span 1–11. Bound observations include stale/
+unused stages and are not GPU submission counts. No nonzero LOD workaround.
+
+Added native GPU tests with four solid-colour mip levels and actual fragment
+derivatives. NONE, POINT at LOD 1.25/1.75, LINEAR at 1/1.5/2, and MAXMIPLEVEL
+clamping all pass on both platforms. Compute-test kernels' forced level(0) are
+not used. Fractional blending allows one UNORM rounding unit per channel.
+
+Source inspection found that texture `replaceRegion` updates the same shared
+Metal object immediately, although earlier draws execute later at Present.
+The exact two-draw regression reproduces it on both platforms: draw blue on the
+left, change level 2 to yellow, draw right, then Present. **Before the fix the
+left is incorrectly yellow**; the right is correctly yellow. Failures retained:
+Simulator `…-20261001T165027Z`, Mac `…-20261001T165135Z`.
+
+Fix: only when CPU-backed texture data changes, allocate a replacement and
+upload all retained levels/faces, preserving the old object for pending draws.
+Clean textures are reused. Render targets retain their separate GPU path.
+The normal retained-reference command buffer is confirmed in the installed
+Metal SDK header and existing `halopad_metal.m`; no extra synchronization queue
+or per-frame global stall. Full-chain reupload can cost more for partial mip
+updates; optimize only with evidence, without reintroducing the hazard.
+Fixed Simulator `…-20261001T165252Z` and Mac `…-20261001T165514Z` each pass **260
+native D3D9 checks**, including old-blue/new-yellow output and unchanged red/
+green lower mips. Metal validation enabled; no trap/validation error.
+
+Post-fix Simulator Blood Gulch `…-20261001T165357Z` again exits 0 at 330 presents,
+and the frame is reviewed. There are no dirty managed-texture observations in
+frames 300–301 (556 managed bindings). Dirty default-pool observations include
+GPU render targets, not evidence of CPU uploads. Thus this stationary view does
+not establish the texture hazard as the cause of Chris's physical flicker.
+Frames differ in animation timing; no pixel-identical or temporal-fidelity claim.
+The remaining 1,186 ms startup gap reports zero shader/pipeline/texture work.
+
+One-app ANGLE-preview Simulator compilation passes, without installation.
+The rebuilt `HaloPad.app/HaloPad` executable SHA-256 is
+`11693a936c8de081727519601ee9afb42ef2899ba6ee4a653a347b8cbf356b59`;
+this private generated output is mutable, while native run result files retain
+their individual executable identities.
+109 Xbox tests, whitespace/tree/index guards pass. Dedicated real save container
+`074F7EDF-452F-46FF-98FB-938B21C0F0B4` still matches the audio pass's full save copy.
+Upstream remains clean. No physical install, save migration, IPA, push, release
+or cleanup. Next reproduce a moving affected scene/reference and correlate real
+texture updates before claiming the iPad graphics report fixed. Goal active.
