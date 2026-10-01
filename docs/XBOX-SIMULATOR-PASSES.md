@@ -469,6 +469,60 @@ backup. About shows accepted `bfbac357`, no PREVIEW; Done returns to the normal
 picker (`build60-texture-final-picker.png`). Latest upstream release remains
 build 60 at 08:47 UTC. No physical install, IPA, push or publication.
 
+### Original Xbox RGB565 bytes independently decoded (2026-10-01)
+
+`XG_CAPTURE_XBOX_TEXTURES=1` extends the opt-in texture capture with original
+level-0 RGB565 bytes. The runner resolves `texture_buckets` from the exact
+installed ELF after checking its manifest hash. The host reads the arm64_32
+cache ABI using bounded, failure-returning `vm_read_overwrite` calls, validates
+the matching GL object/dimensions/format/physical-window range and copies source
+bytes without calling or writing guest code. The cache ABI is specific to the
+reviewed pinned upstream structure, not a universal decoder interface. TexSubImage
+invalidates these references. Other formats are reported unsupported, not silently
+treated as independently verified. Source reads are Simulator-only.
+
+`scripts/xbox/texture_decode.py` independently constructs Morton addresses from
+coordinate bits and expands RGB565 into pre-swizzle BGRA storage. Rectangular
+fixtures check the layout documented in
+[xemu's reference implementation](https://github.com/xemu-project/xemu/blob/master/hw/xbox/nv2a/pgraph/swizzle.c),
+including 8x32 masks and exhaustive 256x128/128x256 address bijections. The oracle
+does not reuse upstream's mask/spread code. Fixtures also cover primary colors,
+linear row padding, missing/ambiguous cache symbols, malformed captures and an
+actual differing-pixel result. Empty/unsupported-only comparisons cannot pass.
+
+`build60-xbox-source/` passes a 65-second stationary match (1,350 ticks, no shots),
+with complete/error-0 1,086-index captures and exact position identity. Texture
+87 is RGB565, 256x128, swizzled, with 65,536 original bytes: all 32,768 decoded
+pixels match GPU storage and the CPU upload, zero differing pixels. Its storage
+hash `f4f84c68…946bc5f` is identical to the earlier banded texture 83. Thus the
+earlier visual lead is now checked directly, not inferred from another texture.
+The preview and live scene were reviewed; stripes and pale geometry remain.
+
+This rules out the tested texture's unswizzle/RGB565 conversion and upload as
+the source of differing storage bytes. It does not prove the game produced the
+right source bytes, correct UV/sample/shader behavior, other formats, cube faces,
+higher mips or all scene draws. Next inspect intervening live depth writes and
+remaining sampling/shader state; do not relax EQUAL or declare a driver defect.
+The first syntax check used unsupported Simulator `mach_vm.h`; it was replaced
+with the available `vm_read_overwrite` API and a full-width-address assertion
+before building/running the successful capture.
+
+After hardening the symbol-overflow bound and rebuilding/reinstalling,
+`build60-xbox-source-final/` repeats the independent comparison with a different
+128x256 RGB565 texture 73: all 32,768 pixels match, zero differences. Both
+1,080-index snapshots are complete/error 0 with exact position identity;
+1,354 ticks, no scripted shots. Preview and live frame reviewed; artifacts
+remain. This adds actual opposite-orientation evidence, not every texture-format
+acceptance or a corrected scene.
+
+Final hardened app normal gates (`build60-xbox-source-final-normal/`) pass menu,
+campaign opening and scripted match (1,305 ticks / ten shots). Frames reviewed;
+113 Python tests, 16 skipped, no failures; Simulator/physical SDK syntax and
+tree/index safety pass. About/Done verifies accepted `bfbac357` without PREVIEW
+and returns to the normal picker (`build60-xbox-source-final-picker.png`). Real
+Xbox saves remain byte-identical to the update backup. Upstream latest is still
+build 60 at 09:17 UTC. No physical install, IPA, push or publication.
+
 An auxiliary Mac CPU-texture match (`build59-mac-cpu-textures/`) overlapped the
 Simulator match and failed with `WSAEADDRINUSE` before gameplay. It is invalid
 rendering evidence: network cases must run serially because they use the same

@@ -34,9 +34,11 @@ pixels under EQUAL for a larger 1,257-index pair on texture-backed targets, with
 same-program and ALWAYS controls passing. A fixed-view stencil bypass leaves
 stripes. Expanded read-only captures verify the same framebuffer/color/depth
 objects for the paired draws. Level-0 2D readbacks match supported CPU upload
-references byte-for-byte; this does not prove source bitmap decoding or sampling
-correctness. Next compare decoded rectangular textures with an independent
-reference, then inspect intervening depth writes and remaining scene state.
+references byte-for-byte. Independent decoding of captured original RGB565 bytes
+now also matches all 32,768 pixels of the previously banded 256x128 texture.
+This verifies that texture's unswizzle/conversion, not all formats, source-byte
+production or sampling correctness. Next inspect intervening depth writes and
+remaining live sampling/shader state.
 The isolated raster probe intentionally uses black textures/default pixel uniforms.
 Do not declare a driver bug or relax EQUAL.
 Then sustained movement/look/fire and weapon pickup/swap,

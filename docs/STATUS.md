@@ -48,8 +48,11 @@ draws. Opt-in level-0 readbacks now match the CPU upload bytes for every capture
 This excludes upload/storage corruption for those textures, not incorrect Xbox
 decoding, UVs, mipmaps, cube sampling or intervening depth writes. Raw texture
 previews do not apply texture swizzles; atlas padding/bands alone are not proof
-of corruption. Next compare decoded rectangular textures to an independent
-reference and inspect remaining live depth state. Normal rendering is unchanged.
+of corruption. A follow-up independent decode of the original Xbox bytes now
+matches all 32,768 pixels of the same previously banded 256x128 RGB565 texture.
+This validates its unswizzle/conversion stage, not the game's production of those
+bytes or final sampling. Next inspect intervening depth writes and remaining
+live sampling/shader state. Normal rendering is unchanged.
 Mac smoke runs now
 reject mismatched executable/guest hashes. Candidates
 are labeled **PREVIEW**; the accepted Xbox baseline still says **EXPERIMENTAL**.

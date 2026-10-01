@@ -6,10 +6,54 @@
 #import <OpenGLES/ES3/gl.h>
 #include <stdlib.h>
 #include <string.h>
+#include <mach/mach.h>
 #include "xg_host.h"
 
 static NSMutableDictionary *texture_sizes;
 static NSMutableDictionary *texture_uploads;
+static NSMutableDictionary *texture_sources;
+
+/* arm64_32 texture_entry ABI in the pinned upstream xbox_textures.c. Reads
+ * fail closed; never call guest functions or dereference an unchecked node. */
+static NSDictionary *texture_source(GLuint texture, GLsizei width, GLsizei height)
+{
+	const char *setting = getenv("XG_TEXTURE_BUCKETS");
+	if (!setting) return nil;
+	char *end = NULL;
+	uint64_t buckets = strtoull(setting, &end, 16);
+	if (!end || *end || !xg_header || buckets < XG_IMAGE_BASE || buckets > UINT32_MAX || buckets + 4096 * 4 > xg_header->image_end)
+		return @{@"supported":@NO, @"error":@"Invalid texture cache symbol"};
+	_Static_assert(sizeof(vm_address_t) == sizeof(uintptr_t), "Host memory reads require full-width addresses");
+	uint32_t heads[4096]; vm_size_t read = 0;
+	if (vm_read_overwrite(mach_task_self(), G(vm_address_t, buckets), sizeof(heads),
+		(vm_address_t)heads, &read) != KERN_SUCCESS || read != sizeof(heads))
+		return @{@"supported":@NO, @"error":@"Unreadable texture cache"};
+	unsigned int visited = 0;
+	for (int bucket = 0; bucket < 4096; bucket++) for (uint32_t node = heads[bucket]; node;) {
+		uint32_t entry[20]; read = 0;
+		if (++visited > 16384 || node < 0x10000000u || (uint64_t)node + sizeof(entry) > 0xfff00000u ||
+			vm_read_overwrite(mach_task_self(), G(vm_address_t, node), sizeof(entry),
+				(vm_address_t)entry, &read) != KERN_SUCCESS || read != sizeof(entry))
+			return @{@"supported":@NO, @"error":@"Invalid texture cache node"};
+		node = entry[0];
+		if (entry[5] != texture) continue;
+		uint32_t format = entry[7], w = entry[8], h = entry[9], depth = entry[10], linear = entry[13];
+		if (format != 0x05 && format != 0x11) return @{@"supported":@NO, @"format":@(format)};
+		uint64_t pitch = linear ? entry[15] : w * 2ull;
+		uint64_t length = pitch * h, address = entry[16];
+		if (entry[6] != GL_TEXTURE_2D || w != width || h != height || depth != 1 || entry[12] || entry[14] ||
+			((entry[2] >> 8) & 0xff) != format || address != (entry[1] | XG_WINDOW_BASE) ||
+			pitch < w * 2ull || length > 32 * 1024 * 1024 || length > entry[17] ||
+			address < XG_WINDOW_BASE || address + length > (uint64_t)XG_WINDOW_BASE + XG_WINDOW_SIZE)
+			return @{@"supported":@NO, @"error":@"Unsupported texture cache layout"};
+		NSData *bytes = [NSData dataWithBytes:G(void *, address) length:(NSUInteger)length];
+		return @{@"supported":@YES, @"format":@(format), @"width":@(w), @"height":@(h),
+			@"linear":@(linear), @"pitch":@(pitch), @"length":@(length), @"data":@(entry[1]),
+			@"format_word":@(entry[2]), @"size_word":@(entry[3]), @"bytes":bytes};
+	}
+	return @{@"supported":@NO, @"error":@"Texture absent from Xbox cache"};
+}
+
 static void observe_texture_image(GLenum target, GLint level, GLint format, GLsizei width, GLsizei height,
 	GLint border, GLenum pixels, GLenum type, const void *data)
 {
@@ -20,6 +64,11 @@ static void observe_texture_image(GLenum target, GLint level, GLint format, GLsi
 	texture_sizes[@(texture)] = @[@(width), @(height)];
 	if (!texture_uploads) texture_uploads = [NSMutableDictionary dictionary];
 	[texture_uploads removeObjectForKey:@(texture)];
+	NSDictionary *source = texture_source(texture, width, height);
+	if (source) {
+		if (!texture_sources) texture_sources = [NSMutableDictionary dictionary];
+		texture_sources[@(texture)] = source;
+	}
 	GLint unpack[5];
 	const GLenum names[] = { GL_PIXEL_UNPACK_BUFFER_BINDING, GL_UNPACK_ROW_LENGTH, GL_UNPACK_SKIP_ROWS, GL_UNPACK_SKIP_PIXELS, GL_UNPACK_ALIGNMENT };
 	for (int i = 0; i < 5; i++) glGetIntegerv(names[i], &unpack[i]);
@@ -35,6 +84,7 @@ static void observe_texture_update(GLenum target, GLint level, GLint x, GLint y,
 	if (target == GL_TEXTURE_2D && level == 0) {
 		GLint texture = 0; glGetIntegerv(GL_TEXTURE_BINDING_2D, &texture);
 		[texture_uploads removeObjectForKey:@(texture)];
+		[texture_sources removeObjectForKey:@(texture)];
 	}
 }
 
@@ -74,9 +124,21 @@ static NSDictionary *read_texture(GLuint texture, NSString *folder)
 		complete &= [ppm writeToFile:[folder stringByAppendingPathComponent:preview] atomically:YES];
 		if (upload) complete &= [upload writeToFile:[folder stringByAppendingPathComponent:upload_file] atomically:YES];
 	}
-	return @{@"complete":@(complete), @"width":@(width), @"height":@(height), @"file":file, @"preview":preview,
+	NSMutableDictionary *result = [NSMutableDictionary dictionaryWithDictionary:@{@"complete":@(complete), @"width":@(width), @"height":@(height), @"file":file, @"preview":preview,
 		@"framebuffer_status":@(status), @"gl_error":@(error), @"upload_compared":@(upload != nil),
-		@"upload_equal":@([rgba isEqualToData:upload]), @"upload_file":upload ? upload_file : @""};
+		@"upload_equal":@([rgba isEqualToData:upload]), @"upload_file":upload ? upload_file : @""}];
+	if (texture_sources[@(texture)]) {
+		NSMutableDictionary *source = [texture_sources[@(texture)] mutableCopy];
+		NSData *bytes = source[@"bytes"]; [source removeObjectForKey:@"bytes"];
+		if (bytes) {
+			NSString *raw = [NSString stringWithFormat:@"texture-%u.xbox", texture];
+			source[@"file"] = raw;
+			source[@"complete"] = @([bytes writeToFile:[folder stringByAppendingPathComponent:raw] atomically:YES]);
+			result[@"complete"] = @([result[@"complete"] boolValue] && [source[@"complete"] boolValue]);
+		}
+		result[@"xbox_source"] = source;
+	}
+	return result;
 }
 
 static NSData *shader_source(GLuint shader)

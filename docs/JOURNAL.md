@@ -3550,3 +3550,62 @@ update backup byte-for-byte after all reinstalls, probes and navigation. Latest
 upstream lookup at 08:47 UTC still reports build 60, published 04:01 UTC.
 No physical install, IPA, push or publication. Goal remains active; full campaign,
 audio, human multiplayer and hardware gates are separate.
+
+## 2026-10-01 — independent decode closes the rectangular RGB565 lead
+
+**Prior goal turn: progress.** CPU upload/GPU-storage identity narrowed the
+rendering investigation but did not verify the original Xbox decode. This pass
+captures original level-0 RGB565 bytes and compares them with an independent
+coordinate-bit Morton-address / RGB565-expansion oracle. The layout is checked
+against [xemu's documented rectangular layout](https://github.com/xemu-project/xemu/blob/master/hw/xbox/nv2a/pgraph/swizzle.c),
+not a copied/reused upstream mask/spread implementation. Asset-free fixtures
+cover rectangular/degenerate address bijections, primary colors, linear padding,
+malformed sources and actual differing pixels.
+
+**Capture safety:** opt-in `XG_CAPTURE_XBOX_TEXTURES` requires pixel and shader
+capture. The runner derives the cache symbol from the exact installed ELF after
+manifest hash verification. Host reads the reviewed arm64_32 cache ABI through
+bounded, failure-returning VM reads, validates GL object/format/dimensions and
+physical source range, and copies source bytes without guest calls/writes.
+Only RGB565 is independently supported. Cache layout is pinned-source-specific;
+other formats and invalid records are explicit, not universal verification.
+TexSubImage invalidates references; generated textures remain private under ref/.
+An initial Simulator SDK syntax check rejected `mach_vm.h`; switched to supported
+`vm_read_overwrite` plus a full-width-address assertion before the successful
+build. An additional overflowing-symbol bound was added and rebuilt afterward.
+
+**Concrete evidence:** `build60-xbox-source/` passes 65 stationary seconds,
+1,350 ticks, no scripted shots, complete/error-0 1,086-index snapshots, exact
+position identity. Texture 87 is swizzled RGB565, 256x128, 65,536 source bytes;
+all 32,768 independently decoded pixels match upload and GPU storage, zero
+differences. SHA256 `f4f84c68…946bc5f` equals the previously banded texture 83,
+so this is a direct repeat of that lead. Preview and live frame reviewed; terrain
+stripes/pale geometry remain. Normal pre-bound-hardening regression passes all
+three gates (`build60-xbox-source-normal-regression/`, 1,303 ticks / eight shots),
+with campaign-opening and match frames reviewed.
+
+**Boundary / next action:** this verifies the selected texture's unswizzle and
+RGB565 conversion, not the game's production of its source bytes, UV/shader/
+sampling correctness, other formats, cube faces/mips or every scene draw. Next
+inspect intervening live depth writes and remaining sampling/shader state.
+Keep EQUAL unchanged; no renderer/driver-defect claim or normal render change.
+
+**Hardened-build repeat:** `build60-xbox-source-final/` uses the rebuilt/reinstalled
+symbol-bound-hardening source and captures another RGB565 texture, 73 (128x256).
+All 32,768 pixels again match the independent decode, zero differences; complete/
+error-0 1,080-index snapshots, exact positions, 1,354 ticks, no test shots.
+Preview/live scene reviewed; stripes remain. Both rectangular orientations have
+actual evidence, but no universal source-data or scene-fidelity claim.
+
+**Final normal acceptance for this diagnostic change:** installed hardened build
+passes normal menu/campaign-opening/scripted-match gates without render/input
+diagnostic flags (`build60-xbox-source-final-normal/`, 1,305 ticks / ten shots).
+Campaign-opening/match frames reviewed; visual defects remain explicit. 113 Python
+tests run, 16 skipped, no failures; both Simulator capture syntax and physical
+SDK syntax pass. Tree/index safety guards pass. About shows accepted `bfbac357`
+without PREVIEW and Done returns to the normal picker
+(`build60-xbox-source-final-picker.png`). Real save data in rediscovered container
+`5311614A-26EA-48A5-B1A9-58D3B3D8E452` matches the update backup byte-for-byte
+after all probes/reinstalls and final navigation. Upstream latest remains build
+60 at 09:17 UTC. No physical install, IPA, push or publication. Goal remains
+active; full campaign/control/audio/human multiplayer/hardware acceptance is open.

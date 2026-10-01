@@ -18,6 +18,7 @@ import sys
 import time
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from draw_capture import load_draw, compare_clip_positions, validate_raster_input, compare_raster_coverage
+from texture_decode import cache_symbol, compare_captures
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 WORK = ROOT / 'ref/xbox-build'
@@ -88,6 +89,9 @@ def main():
     raster = args.render_diagnostics and bool(os.environ.get('XG_DRAW_RASTER'))
     if args.render_diagnostics and os.environ.get('XG_CAPTURE_TEXTURES') and not os.environ.get('XG_CAPTURE_SHADER_DIR'):
         parser.error('XG_CAPTURE_TEXTURES requires XG_CAPTURE_SHADER_DIR')
+    xbox_textures = args.render_diagnostics and bool(os.environ.get('XG_CAPTURE_XBOX_TEXTURES'))
+    if xbox_textures and not (os.environ.get('XG_CAPTURE_TEXTURES') and os.environ.get('XG_CAPTURE_SHADER_DIR')):
+        parser.error('XG_CAPTURE_XBOX_TEXTURES requires texture pixels and shader capture')
     if raster and os.environ['XG_DRAW_RASTER'] not in ('1', 'renderbuffer', 'texture'):
         parser.error('XG_DRAW_RASTER must be renderbuffer or texture')
     if raster and not os.environ.get('XG_DRAW_REPLAY'):
@@ -112,6 +116,11 @@ def main():
     guest = app / 'data/xbox/halo_guest.elf'
     if hashlib.sha256(guest.read_bytes()).hexdigest() != manifest['guest_sha256']:
         raise SystemExit('Installed guest does not match its build manifest')
+    buckets = None
+    if xbox_textures:
+        llvm = pathlib.Path(os.environ.get('XBOX_LLVM_BIN', '/opt/homebrew/opt/llvm/bin'))
+        symbols = subprocess.check_output([str(llvm / 'llvm-nm'), '--defined-only', str(guest)], text=True)
+        buckets = cache_symbol(symbols)
     results = {}
     address = None
     for interface in ('en0', 'en1'):
@@ -154,6 +163,8 @@ def main():
                     child['XG_CAPTURE_MIN_INDICES'] = os.environ['XG_CAPTURE_MIN_INDICES']
                 if os.environ.get('XG_CAPTURE_TEXTURES'):
                     child['XG_CAPTURE_TEXTURES'] = '1'
+                if buckets is not None:
+                    child['XG_TEXTURE_BUCKETS'] = format(buckets, 'x')
             if os.environ.get('XG_DRAW_REPLAY'):
                 child.update(XG_DRAW_REPLAY=os.environ['XG_DRAW_REPLAY'],
                              XG_DRAW_REPLAY_OUT=str(folder / 'draw-replay'))
@@ -252,6 +263,13 @@ def main():
                 row['draw_capture_complete'] = False
                 row['draw_capture_error'] = str(error)
             row['pass'] &= row['draw_capture_complete']
+        if xbox_textures:
+            try:
+                row['xbox_texture_comparison'] = compare_captures(folder / 'draw-capture')
+                row['pass'] &= row['xbox_texture_comparison']['pass']
+            except (OSError, ValueError, KeyError, TypeError) as error:
+                row['pass'] = False
+                row['xbox_texture_error'] = str(error)
         if args.render_diagnostics and os.environ.get('XG_DRAW_REPLAY'):
             row['draw_replay_complete'] = 'draw replay: pair complete 1' in text
             try:
@@ -282,6 +300,7 @@ def main():
               'dump_shaders': bool(args.render_diagnostics and os.environ.get('XG_DUMP_SHADERS')),
               'draw_capture': bool(args.render_diagnostics and os.environ.get('XG_CAPTURE_SHADER_DIR')),
               'texture_pixels': bool(args.render_diagnostics and os.environ.get('XG_CAPTURE_TEXTURES')),
+              'xbox_texture_source': xbox_textures,
               'draw_replay': bool(args.render_diagnostics and os.environ.get('XG_DRAW_REPLAY')),
               'draw_raster': raster,
               'raster_attachments': ('texture' if os.environ.get('XG_DRAW_RASTER') == 'texture' else 'renderbuffer') if raster else None,
