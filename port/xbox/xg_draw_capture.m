@@ -12,6 +12,10 @@
 static NSMutableDictionary *texture_sizes;
 static NSMutableDictionary *texture_uploads;
 static NSMutableDictionary *texture_sources;
+void xg_capture_depth(NSString *folder, NSString *label);
+static unsigned long presented_frames;
+void xg_draw_capture_present(void) { presented_frames++; }
+unsigned long xg_draw_capture_frame(void) { return presented_frames; }
 
 /* arm64_32 texture_entry ABI in the pinned upstream xbox_textures.c. Reads
  * fail closed; never call guest functions or dereference an unchecked node. */
@@ -190,6 +194,7 @@ static void capture_draw_elements(GLenum mode, GLsizei count, GLenum type, const
 	static GLsizei target_count;
 	static BOOL initialized;
 	static long minimum = 3;
+	int selected_target = -1;
 	if (!initialized) {
 		initialized = YES;
 		programs = [NSMutableDictionary dictionary];
@@ -234,6 +239,8 @@ static void capture_draw_elements(GLenum mode, GLsizei count, GLenum type, const
 		NSString *root = @(getenv("XG_DRAW_CAPTURE"));
 		NSString *folder = [root stringByAppendingPathComponent:target ? @"equal" : @"base"];
 		[NSFileManager.defaultManager createDirectoryAtPath:folder withIntermediateDirectories:YES attributes:nil error:nil];
+		selected_target = target;
+		if (getenv("XG_CAPTURE_DEPTH")) xg_capture_depth(folder, @"before");
 		NSMutableDictionary *buffers = [NSMutableDictionary dictionary], *state = [NSMutableDictionary dictionary];
 		NSMutableArray *attributes = [NSMutableArray array], *uniforms = [NSMutableArray array];
 		BOOL complete = YES;
@@ -242,6 +249,7 @@ static void capture_draw_elements(GLenum mode, GLsizei count, GLenum type, const
 		if (!element) complete = NO;
 		state[@"mode"] = @(mode); state[@"count"] = @(count); state[@"index_type"] = @(type);
 		state[@"program"] = @(program); state[@"captured_at"] = @(NSDate.date.timeIntervalSince1970);
+		state[@"presented_frames"] = @(presented_frames);
 		state[@"index_offset"] = @((uintptr_t)indices); state[@"element_buffer"] = @(element);
 		for (int index = -1; index < 16; index++) {
 			GLint buffer = element;
@@ -366,6 +374,10 @@ static void capture_draw_elements(GLenum mode, GLsizei count, GLenum type, const
 	}
 draw:
 	glDrawElements(mode, count, type, indices);
+	if (selected_target >= 0 && getenv("XG_CAPTURE_DEPTH")) {
+		NSString *folder = [@(getenv("XG_DRAW_CAPTURE")) stringByAppendingPathComponent:selected_target ? @"equal" : @"base"];
+		xg_capture_depth(folder, @"after");
+	}
 }
 
 void *xg_draw_capture_proc(const char *name)

@@ -17,8 +17,8 @@ import subprocess
 import sys
 import time
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-from draw_capture import load_draw, compare_clip_positions, validate_raster_input, compare_raster_coverage
-from texture_decode import cache_symbol, compare_captures
+from draw_capture import load_draw, compare_clip_positions, validate_raster_input, compare_raster_coverage, compare_live_depth
+from texture_decode import cache_symbol, compare_captures, validate_cache_revision
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 WORK = ROOT / 'ref/xbox-build'
@@ -92,6 +92,9 @@ def main():
     xbox_textures = args.render_diagnostics and bool(os.environ.get('XG_CAPTURE_XBOX_TEXTURES'))
     if xbox_textures and not (os.environ.get('XG_CAPTURE_TEXTURES') and os.environ.get('XG_CAPTURE_SHADER_DIR')):
         parser.error('XG_CAPTURE_XBOX_TEXTURES requires texture pixels and shader capture')
+    live_depth = args.render_diagnostics and bool(os.environ.get('XG_CAPTURE_DEPTH'))
+    if live_depth and not os.environ.get('XG_CAPTURE_SHADER_DIR'):
+        parser.error('XG_CAPTURE_DEPTH requires XG_CAPTURE_SHADER_DIR')
     if raster and os.environ['XG_DRAW_RASTER'] not in ('1', 'renderbuffer', 'texture'):
         parser.error('XG_DRAW_RASTER must be renderbuffer or texture')
     if raster and not os.environ.get('XG_DRAW_REPLAY'):
@@ -118,6 +121,7 @@ def main():
         raise SystemExit('Installed guest does not match its build manifest')
     buckets = None
     if xbox_textures:
+        validate_cache_revision(manifest['revision'])
         llvm = pathlib.Path(os.environ.get('XBOX_LLVM_BIN', '/opt/homebrew/opt/llvm/bin'))
         symbols = subprocess.check_output([str(llvm / 'llvm-nm'), '--defined-only', str(guest)], text=True)
         buckets = cache_symbol(symbols)
@@ -163,6 +167,8 @@ def main():
                     child['XG_CAPTURE_MIN_INDICES'] = os.environ['XG_CAPTURE_MIN_INDICES']
                 if os.environ.get('XG_CAPTURE_TEXTURES'):
                     child['XG_CAPTURE_TEXTURES'] = '1'
+                if live_depth:
+                    child['XG_CAPTURE_DEPTH'] = '1'
                 if buckets is not None:
                     child['XG_TEXTURE_BUCKETS'] = format(buckets, 'x')
             if os.environ.get('XG_DRAW_REPLAY'):
@@ -263,6 +269,14 @@ def main():
                 row['draw_capture_complete'] = False
                 row['draw_capture_error'] = str(error)
             row['pass'] &= row['draw_capture_complete']
+        if live_depth:
+            try:
+                row['live_depth_comparison'] = compare_live_depth(folder / 'draw-capture')
+                row['live_depth_complete'] = True
+            except (OSError, ValueError, KeyError, TypeError) as error:
+                row['live_depth_complete'] = False
+                row['live_depth_error'] = str(error)
+            row['pass'] &= row['live_depth_complete']
         if xbox_textures:
             try:
                 row['xbox_texture_comparison'] = compare_captures(folder / 'draw-capture')
@@ -301,6 +315,7 @@ def main():
               'draw_capture': bool(args.render_diagnostics and os.environ.get('XG_CAPTURE_SHADER_DIR')),
               'texture_pixels': bool(args.render_diagnostics and os.environ.get('XG_CAPTURE_TEXTURES')),
               'xbox_texture_source': xbox_textures,
+              'live_depth': live_depth,
               'draw_replay': bool(args.render_diagnostics and os.environ.get('XG_DRAW_REPLAY')),
               'draw_raster': raster,
               'raster_attachments': ('texture' if os.environ.get('XG_DRAW_RASTER') == 'texture' else 'renderbuffer') if raster else None,

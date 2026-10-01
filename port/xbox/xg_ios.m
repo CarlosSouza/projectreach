@@ -446,6 +446,10 @@ int xh_host_sdl_gl_swap_window(uint32_t window)
 			pixel[0], pixel[1], pixel[2]);
 	}
 	frames++;
+#if TARGET_OS_SIMULATOR
+	void xg_draw_capture_present(void);
+	xg_draw_capture_present();
+#endif
 	glBindFramebuffer(GL_READ_FRAMEBUFFER, drawable_framebuffer);
 	xg_gl_frame_dump(drawable_width, drawable_height);
 	glBindRenderbuffer(GL_RENDERBUFFER, drawable_color);

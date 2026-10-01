@@ -6,10 +6,16 @@ import tempfile
 import unittest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / 'scripts/xbox'))
-from texture_decode import cache_symbol, morton_index, decode_rgb565, compare_texture
+from texture_decode import cache_symbol, morton_index, decode_rgb565, compare_texture, validate_cache_revision
 
 
 class TextureDecodeTests(unittest.TestCase):
+    def test_unreviewed_cache_revision_rejected(self):
+        validate_cache_revision('bfbac35761335c28aac7a47bf0c578ea37764810')
+        for revision in ('', 'bfbac357', 'f8937c6179757774c75f4e7d36de446fabd3dcc8'):
+            with self.assertRaisesRegex(ValueError, 'reviewed texture-cache ABI'):
+                validate_cache_revision(revision)
+
     def test_cache_symbol_is_unambiguous_data_address(self):
         self.assertEqual(cache_symbol('0000000088c88010 b texture_buckets\n'), 0x88c88010)
         for symbols in ('', '1234 b texture_buckets', '88c88010 T texture_buckets',

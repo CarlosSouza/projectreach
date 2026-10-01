@@ -37,8 +37,15 @@ objects for the paired draws. Level-0 2D readbacks match supported CPU upload
 references byte-for-byte. Independent decoding of captured original RGB565 bytes
 now also matches all 32,768 pixels of the previously banded 256x128 texture.
 This verifies that texture's unswizzle/conversion, not all formats, source-byte
-production or sampling correctness. Next inspect intervening depth writes and
-remaining live sampling/shader state.
+production or sampling correctness. A calibrated same-frame observer now proves
+intervening depth changes (54,517 pixels; 21,611 base-changed pixels closer),
+but not incorrect writes. Next correlate original native-linked EQUAL coverage
+with copied live depth/full pixel state to distinguish legitimate occlusion from
+missing visible terrain. Stripes remain; normal depth semantics stay unchanged.
+Upstream build 61 (`f8937c61`, high-resolution HUD textures) appeared during the
+frozen build-60 pass. Next validate it through the save-backed Mac/Simulator
+update gates and visible HUD/menu review before promotion, then resume the
+depth experiment on one frozen pin. Build 60 remains accepted until those gates.
 The isolated raster probe intentionally uses black textures/default pixel uniforms.
 Do not declare a driver bug or relax EQUAL.
 Then sustained movement/look/fire and weapon pickup/swap,

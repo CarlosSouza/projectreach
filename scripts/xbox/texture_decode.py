@@ -11,6 +11,13 @@ import pathlib
 import struct
 
 
+def validate_cache_revision(revision):
+    # Build 61 adds hires/override fields. The host reader's 20-word ABI is
+    # reviewed only for this exact build; a matching symbol is not ABI proof.
+    if revision != 'bfbac35761335c28aac7a47bf0c578ea37764810':
+        raise ValueError('Xbox source capture requires a reviewed texture-cache ABI for this revision')
+
+
 def cache_symbol(symbols):
     matches = [line.split() for line in symbols.splitlines()
                if len(line.split()) == 3 and line.split()[2] == 'texture_buckets']

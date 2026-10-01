@@ -3609,3 +3609,61 @@ without PREVIEW and Done returns to the normal picker
 after all probes/reinstalls and final navigation. Upstream latest remains build
 60 at 09:17 UTC. No physical install, IPA, push or publication. Goal remains
 active; full campaign/control/audio/human multiplayer/hardware acceptance is open.
+
+## 2026-10-01 — calibrated same-frame live depth observation
+
+**Prior goal turn: progress.** Independent RGB565 decoding narrowed the texture
+lead; this pass measures the live depth texture before/after selected native
+base/EQUAL draws. Opt-in Simulator-only `XG_CAPTURE_DEPTH` samples into an owned
+RGBA8 target, without writing game depth or relinking game shaders. It restores
+program/VAO, targets, viewport, texture/sampler, enables, color mask and affected
+pack/unpack state. Each snapshot validates the encoding path against an owned
+32F depth texture containing .25/.5/.75/1. The validator requires calibration,
+finite normalized values, matching target/frame, exact positions/projection and
+a measurable base-draw response. These are float32 normalized samples, not raw
+integer D24 storage. Private files remain ignored under ref/.
+
+**Preliminary result:** `build60-live-depth/` measures intervening changes, but
+lacks the subsequently added calibration/frame markers. The hardened validator
+intentionally rejects it; it is not accepted same-frame causal evidence.
+
+**Hardened repeat:** `build60-live-depth-calibrated/` passes 65 stationary seconds,
+1,345 ticks, no scripted shots, complete/error-0 1,320-index captures with exact
+positions/projection. All four depth observations calibrate, capture and restore
+without GL errors, on texture 2 in presentation frame 120. Base draw changes
+163,265 pixels; 54,517 change between base/EQUAL. Of the base-changed pixels,
+21,611 later become closer, none farther; EQUAL writes no depth. Live scene
+reviewed: terrain stripes/pale geometry remain.
+
+**Boundary / next discriminating experiment:** closer surfaces may legitimately
+occlude the terrain; these counts do not prove incorrect writes or a driver bug.
+A changed-depth mask is not complete raster coverage. Correlate original native-
+linked EQUAL coverage with copied live depth and full captured pixel state,
+distinguishing valid occlusion from incorrectly missing visible fragments. Do
+not relax EQUAL. The accepted pin remains build 60 (`bfbac357`); upstream latest
+was still 60 at 09:31 UTC. No physical install, IPA, push or publication.
+
+**Final regression / UI / preservation:** `build60-live-depth-normal-regression/`
+passes normal menu, campaign opening and scripted match (1,303 ticks / eight
+shots), without input/render flags. Frames reviewed; visual defects remain.
+122 tests run, 16 skipped, no failures; Simulator/physical SDK syntax and
+tree/index safety pass. Cold launch, About (accepted `bfbac357`, no PREVIEW) and
+Done return to the normal picker, captured in `build60-live-depth-final-picker.png`.
+Real Xbox saves in rediscovered container `2D21FB1C-C826-4A94-8715-68D38276A18C`
+remain byte-identical to the build-60 update backup after all installs/probes/UI.
+
+**New upstream while testing:** at 09:53 UTC latest is now
+[build 61](https://github.com/cybersecurity/halo-ce-universal/releases/tag/build-61),
+`f8937c6179757774c75f4e7d36de446fabd3dcc8`, published 09:40 UTC, "Add high-res HUD
+textures". Build 60 stays accepted; next pass reviews/freezes 61 and runs the
+save-backed Mac/Simulator update gates plus visible HUD/menu review before
+promotion. Do not mix 60 diagnostic results into 61 acceptance. Goal remains
+active; full campaign/control/audio/human multiplayer/hardware gates stay open.
+
+**Update hazard found during review:** 61 adds `hires` to the texture description
+and `override` to cache entries. The existing optional original-byte reader is
+therefore ABI-specific, even when `texture_buckets` resolves correctly. Added a
+runner guard allowing that diagnostic only for the reviewed full build-60 SHA,
+with an asset-free rejection fixture for 61/unknown revisions. Review/adjust the
+ABI before enabling original-byte capture on 61; normal update gates do not use
+that diagnostic. Final Python suite after this guard: 123 tests, 16 skipped.

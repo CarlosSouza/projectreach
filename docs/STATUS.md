@@ -51,12 +51,25 @@ previews do not apply texture swizzles; atlas padding/bands alone are not proof
 of corruption. A follow-up independent decode of the original Xbox bytes now
 matches all 32,768 pixels of the same previously banded 256x128 RGB565 texture.
 This validates its unswizzle/conversion stage, not the game's production of those
-bytes or final sampling. Next inspect intervening depth writes and remaining
-live sampling/shader state. Normal rendering is unchanged.
+bytes or final sampling. A calibrated, same-frame depth observer now measures
+54,517 intervening depth changes; 21,611 base-changed pixels become closer.
+All four observations restore without GL errors. This is not proof of bad
+writes: legitimate occlusion remains possible, and the scene still has stripes.
+Next correlate original native-linked EQUAL coverage with copied live depth/full
+pixel state. Normal rendering is unchanged.
 Mac smoke runs now
 reject mismatched executable/guest hashes. Candidates
 are labeled **PREVIEW**; the accepted Xbox baseline still says **EXPERIMENTAL**.
 No physical iPad changes in this pass. See [XBOX-SIMULATOR-PASSES.md](XBOX-SIMULATOR-PASSES.md).
+
+At 09:53 UTC the latest upstream changed to [build 61](https://github.com/cybersecurity/halo-ce-universal/releases/tag/build-61)
+(`f8937c61`, high-resolution HUD textures, published 09:40 UTC). Build 60 remains
+the tested accepted pin. Next freeze/validate 61 through the save-backed update
+routine before resuming the depth investigation; do not combine evidence across
+pins. Final normal build-60 Simulator menu/campaign-opening/scripted-match gates
+pass (1,303 ticks / eight shots), 122 tests pass with 16 skips, both SDK syntax
+checks and tree/index safety pass. About/Done returns to the normal picker;
+real Xbox saves remain byte-identical to the update backup.
 
 **Second engine: Halo Xbox (2026-09-30).** HaloPad now opens with a choice of
 Halo PC or Halo Xbox. The Xbox engine is upstream's decompilation port, pinned

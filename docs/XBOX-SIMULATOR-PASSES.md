@@ -523,6 +523,66 @@ and returns to the normal picker (`build60-xbox-source-final-picker.png`). Real
 Xbox saves remain byte-identical to the update backup. Upstream latest is still
 build 60 at 09:17 UTC. No physical install, IPA, push or publication.
 
+### Live paired-draw depth observation (2026-10-01)
+
+`XG_CAPTURE_DEPTH=1`, with shader capture and render diagnostics, observes the
+native depth texture immediately before/after each selected base/EQUAL draw.
+The game texture is sampled, never written: a separate RGBA8 target stores
+normalized float32 sample bits using
+[texelFetch](https://registry.khronos.org/OpenGL-Refpages/es3.0/html/texelFetch.xhtml)
+and [floatBitsToUint](https://registry.khronos.org/OpenGL-Refpages/es3.0/html/floatBitsToInt.xhtml).
+These are sampled normalized values, not a raw integer D24 memory dump. The
+helper restores program, VAO, draw/read targets, renderbuffer, texture/sampler/
+active unit, viewport, color mask, affected enables and pack/unpack state.
+Only owned temporary resources are deleted; no original game shader is relinked.
+Private outputs remain under ignored ref/.
+
+Each snapshot calibrates its sampler/bit-packing path against an owned 32F depth
+texture containing exact binary fractions .25/.5/.75/1. Unsupported targets,
+GL/restore errors, failed calibration, incomplete files, invalid/nonfinite
+samples, different targets or crossed presentation boundaries fail closed.
+The paired draw positions/projection must match, and the base draw must produce
+a measurable depth response. An explicit Simulator presentation counter prevents
+silently pairing stationary geometry from different frames.
+
+The preliminary `build60-live-depth/` capture (before calibration/frame hardening)
+has 1,377 matching indices, complete/error-0 captures, 1,313 ticks, no scripted
+shots. It measures 55,587 base depth changes and 216,494 later changes; 35,098
+base-changed pixels later become closer, none farther. EQUAL writes no depth.
+The live frame still has stripes/pale geometry. This is preliminary observation,
+not a same-frame/calibrated causal proof, and the hardened validator intentionally
+rejects these older files. Later closer surfaces can be legitimate occlusion;
+do not call these writes a renderer bug merely because they occur.
+
+The hardened `build60-live-depth-calibrated/` repeat passes 65 stationary seconds,
+1,345 ticks, no scripted shots and a complete/error-0 1,320-index pair with exact
+positions/projection. All four observations calibrate and restore without GL
+errors, on depth texture 2 in presentation frame 120. The base changes 163,265
+pixels; 54,517 pixels change between draws. Of the base-changed pixels, 21,611
+later become closer, none farther. EQUAL writes no depth. Live frame reviewed:
+stripes/pale geometry remain. This establishes intervening depth changes within
+one frame, not incorrect writes or the cause of the stripes. A changed-depth mask
+is not total raster coverage: fragments equal to existing depth leave no change.
+Next correlate native EQUAL coverage with copied live depth/full pixel state,
+distinguishing legitimate occlusion from missing visible terrain. Keep normal
+depth semantics unchanged.
+
+Final normal regression `build60-live-depth-normal-regression/` passes menu,
+campaign opening and scripted match (1,303 ticks / eight shots); frames reviewed,
+artifacts remain. 122 tests run, 16 skipped, no failures; both SDK syntax and
+tree/index safety pass. About confirms accepted `bfbac357` without PREVIEW; Done
+returns to the picker (`build60-live-depth-final-picker.png`). Rediscovered real
+save container `2D21FB1C-C826-4A94-8715-68D38276A18C` matches the update backup
+byte-for-byte after final navigation. At 09:53 UTC upstream latest is now
+[build 61](https://github.com/cybersecurity/halo-ce-universal/releases/tag/build-61)
+(`f8937c6179757774c75f4e7d36de446fabd3dcc8`, published 09:40 UTC), adding
+high-resolution HUD textures. This appeared during the frozen build-60 pass:
+next validate 61 as a separate save-backed candidate before pin promotion.
+Its new `hires`/`override` cache fields invalidate the optional original-byte
+reader's old ABI. The runner now rejects that diagnostic on unreviewed revisions
+before resolving/passing the cache address (123 tests after the guard, 16 skips).
+Review the new ABI before re-enabling it on 61; normal update gates are unaffected.
+
 An auxiliary Mac CPU-texture match (`build59-mac-cpu-textures/`) overlapped the
 Simulator match and failed with `WSAEADDRINUSE` before gameplay. It is invalid
 rendering evidence: network cases must run serially because they use the same
@@ -536,11 +596,16 @@ changed-image, changed-executable, missing-manifest and missing-revision cases.
 
 ## Next focused pass
 
+0. Freeze build 61 (`f8937c61`), review its HUD asset/build changes, and run the
+   save-backed Mac/Simulator update gates plus visible HUD/menu review. Accept
+   only after validation; retain build-60 evidence under its original identity.
 1. Continue beyond the cryo-bay training to weapon pickup/combat and a later
    checkpoint. Test sustained movement, simultaneous look/fire, weapon switching
    and another cold reload with isolated saves.
-2. Use a small reproducible GL/shader case to narrow remaining geometry and
-   terrain artifacts. Keep diagnostics out of normal player builds. If this
+2. Correlate the original native-linked EQUAL draw's coverage with copied live
+   depth and full captured pixel state. Determine whether closer intervening
+   surfaces legitimately occlude it or visible terrain fails EQUAL. Keep
+   diagnostics out of normal player builds. If this
    proves a remaining software-driver limitation, evaluate a properly built
    Simulator ANGLE/Metal host; do not patch platform tags on Mac binaries.
 3. For the next frozen candidate, repeat menu/campaign/match and visible
