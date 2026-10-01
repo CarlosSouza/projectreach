@@ -198,6 +198,7 @@ static void capture_selected_draw(GLenum mode, GLsizei count, GLenum type, const
 	static BOOL initialized;
 	static long minimum = 3;
 	static long base_skip = 0, base_seen = 0;
+	static NSString *equal_shader;
 	int selected_target = -1;
 	if (!initialized) {
 		initialized = YES;
@@ -207,8 +208,10 @@ static void capture_selected_draw(GLenum mode, GLsizei count, GLenum type, const
 		if (getenv("XG_CAPTURE_BASE_SKIP")) base_skip = strtol(getenv("XG_CAPTURE_BASE_SKIP"), NULL, 10);
 		if (base_skip < 0 || base_skip > 64) base_skip = 0;
 		NSString *folder = @(getenv("XG_CAPTURE_SHADER_DIR") ?: "");
+		equal_shader = @(getenv("XG_CAPTURE_EQUAL_SHADER") ?: "vs041_0.glsl");
+		if (![@[@"vs007_0.glsl", @"vs041_0.glsl"] containsObject:equal_shader]) equal_shader = @"invalid";
 		targets[0] = [NSData dataWithContentsOfFile:[folder stringByAppendingPathComponent:@"vs017_0.glsl"]];
-		targets[1] = [NSData dataWithContentsOfFile:[folder stringByAppendingPathComponent:@"vs041_0.glsl"]];
+		targets[1] = [NSData dataWithContentsOfFile:[folder stringByAppendingPathComponent:equal_shader]];
 		xg_log("draw capture: targets loaded %lu / %lu bytes", (unsigned long)targets[0].length, (unsigned long)targets[1].length);
 	}
 	if (count < minimum || mode != GL_TRIANGLES || (captured[0] && captured[1])) {
@@ -260,6 +263,7 @@ static void capture_selected_draw(GLenum mode, GLsizei count, GLenum type, const
 		state[@"mode"] = @(mode); state[@"count"] = @(count); state[@"index_type"] = @(type);
 		state[@"program"] = @(program); state[@"captured_at"] = @(NSDate.date.timeIntervalSince1970);
 		state[@"base_skip"] = @(base_skip);
+		state[@"equal_shader"] = equal_shader;
 		state[@"presented_frames"] = @(presented_frames);
 		state[@"index_offset"] = @((uintptr_t)indices); state[@"element_buffer"] = @(element);
 		for (int index = -1; index < 16; index++) {

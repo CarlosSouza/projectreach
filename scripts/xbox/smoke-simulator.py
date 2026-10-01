@@ -87,6 +87,12 @@ def main():
         if not os.environ.get('XG_CAPTURE_SHADER_DIR'):
             parser.error('XG_CAPTURE_MIN_INDICES requires XG_CAPTURE_SHADER_DIR')
     raster = args.render_diagnostics and bool(os.environ.get('XG_DRAW_RASTER'))
+    equal_shader = os.environ.get('XG_CAPTURE_EQUAL_SHADER') if args.render_diagnostics else None
+    if equal_shader:
+        if equal_shader not in ('vs007_0.glsl', 'vs041_0.glsl'):
+            parser.error('XG_CAPTURE_EQUAL_SHADER must be vs007_0.glsl or vs041_0.glsl')
+        if not os.environ.get('XG_CAPTURE_SHADER_DIR'):
+            parser.error('XG_CAPTURE_EQUAL_SHADER requires XG_CAPTURE_SHADER_DIR')
     if args.render_diagnostics and os.environ.get('XG_CAPTURE_BASE_SKIP'):
         try:
             skip = int(os.environ['XG_CAPTURE_BASE_SKIP'])
@@ -189,6 +195,8 @@ def main():
                     child['XG_CAPTURE_MIN_INDICES'] = os.environ['XG_CAPTURE_MIN_INDICES']
                 if os.environ.get('XG_CAPTURE_BASE_SKIP'):
                     child['XG_CAPTURE_BASE_SKIP'] = str(skip)
+                if equal_shader:
+                    child['XG_CAPTURE_EQUAL_SHADER'] = equal_shader
                 if os.environ.get('XG_CAPTURE_TEXTURES'):
                     child['XG_CAPTURE_TEXTURES'] = '1'
                 if live_depth:
@@ -359,6 +367,7 @@ def main():
               'draw_capture': bool(args.render_diagnostics and os.environ.get('XG_CAPTURE_SHADER_DIR')),
               'native_pixels': native_pixels,
               'base_skip': os.environ.get('XG_CAPTURE_BASE_SKIP') if args.render_diagnostics else None,
+              'equal_shader': equal_shader,
               'color_trace_frame': color_frame,
               'texture_pixels': bool(args.render_diagnostics and os.environ.get('XG_CAPTURE_TEXTURES')),
               'xbox_texture_source': xbox_textures,

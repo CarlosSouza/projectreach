@@ -131,6 +131,16 @@ class SimulatorDiagnosticsTests(unittest.TestCase):
             self.assertEqual(result.returncode, 2)
             self.assertIn('XG_CAPTURE_BASE_SKIP ' + message, result.stderr)
 
+    def test_equal_shader_validated_before_launch(self):
+        for shader, message in (('../outside.glsl', 'must be vs007_0.glsl or vs041_0.glsl'),
+                                 ('vs007_0.glsl', 'requires XG_CAPTURE_SHADER_DIR')):
+            env = {key: value for key, value in os.environ.items() if not key.startswith('XG_')}
+            env['XG_CAPTURE_EQUAL_SHADER'] = shader
+            result = subprocess.run([sys.executable, str(SCRIPT), '--device', 'unused',
+                                     '--render-diagnostics'], capture_output=True, text=True, env=env)
+            self.assertEqual(result.returncode, 2)
+            self.assertIn('XG_CAPTURE_EQUAL_SHADER ' + message, result.stderr)
+
     def test_color_trace_frame_validated_before_launch(self):
         for frame, message in (('-1', 'must be 0..10000'), ('10001', 'must be 0..10000'),
                                ('bad', 'must be 0..10000'), ('120', 'requires XG_CAPTURE_SHADER_DIR')):

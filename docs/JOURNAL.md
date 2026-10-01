@@ -3831,3 +3831,45 @@ Done returns to the normal picker. Real Xbox save container
 byte-for-byte after final navigation. 140 tests, 16 skipped, no failures;
 both SDK syntax and whitespace/tree/index safety pass. This turn is progress
 through original-draw localization, not a graphics fix or goal completion.
+
+## 2026-10-01 — VS7 coordinate replay passes; native material samples remain inconclusive
+
+Previous turn `03ea061` localized the wall stripes to an original VS7 detail
+draw, not the earlier VS41 material pass. This pass freezes accepted build 61
+and adds a small diagnostic-only equal-shader selector, whitelisted to VS7/VS41
+and validated before launch. Default capture remains VS41. Normal rendering,
+depth semantics, private Xbox inputs and accepted upstream pin are unchanged.
+Source-built Simulator library/app pass; app evidence
+`docs/artifacts/2026-10-01/G3/ios-app-20261001T113653Z`.
+
+Three stationary VS17/VS7 captures have exact position/projection identity and
+passing calibrated same-frame depth controls. The 228-index frame-104 and
+531-index frame-108 pairs repeat/match native live color exactly but have zero
+EQUAL/ALWAYS color response: rejected as inconclusive. The second eligible
+1,686-index frame-103 pair fails exact native repeat/live color by 43 pixels
+each: rejected, not a usable ALWAYS-versus-EQUAL causal comparison. At
+base-written pixels, later closer depth counts are respectively 23,876 / 11,202
+/ 17,649, with zero farther; EQUAL changes no depth. These samples are not
+established as the earlier visibly stripe-producing material.
+
+Private evidence `build61-vs7-live/`, `build61-vs7-first/`,
+`build61-vs7-second/`; strict guard failures deliberately leave their aggregate
+results failed. `build61-vs7-clip/` replays the saved 1,686-index pair on the
+Simulator with transform feedback: all coordinates bit-identical, zero changed
+vertices and zero component/NDC-depth deltas. Replay changes linkage, so this
+does not prove original-program invariance. The simplified raster probe still
+rejects the pixel shader's discard path; no raster proof or guard relaxation.
+
+Next select the actual color-changing striped material and correlate original
+before/after color with its texture/alpha inputs before another native replay.
+Do not confuse shader identity with material/visibility identity. Rendering
+remains defective; Chris's physical-iPad report remains open and was not directly
+observed or changed. This is diagnostic progress, not a graphics fix. Goal active.
+
+Final normal `build61-vs7-normal/`: all three automated cases pass, 1,261 match
+ticks / nine shots, no render/input diagnostics. Campaign/match frames reviewed;
+severe wall banding remains. Actual About/Done confirms accepted `f8937c61`
+without PREVIEW and leaves the normal picker. Real saves in container
+`DA23CE8C-1C94-4472-9788-C9AA87C62AA2` remain byte-identical to the acceptance
+backup. 141 tests, 16 skipped, no failures; both SDK syntax, whitespace and
+tree/index safety pass. No physical install, pin update, IPA, push or publication.

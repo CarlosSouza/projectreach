@@ -67,8 +67,14 @@ This pair does not prove missing visible terrain. A new frame-120 color timeline
 now localizes obvious wall stripes to draw 119: program 84, VS7, EQUAL, 402
 indices. Its before-image has unstriped walls and its after-image has horizontal
 bands. VS7 source matches `vs007_0.glsl`, not the VS41 previously replayed.
-Next capture the matching VS17/VS7 pair with exact positions/projection and
-calibrated live depth; do not generalize VS41 controls to this detail pass.
+VS17/VS7 captures now verify exact indexed positions/projection and calibrated
+live depth. Two sampled batches (228 and 531 indices) have zero native color
+response; a third (1,686 indices) fails exact repeat/live color at 43 pixels.
+All are rejected as full-pixel evidence. The third pair's transform-feedback
+positions match bit-for-bit, with linkage-change limitations intact.
+Next capture the visibly stripe-producing material with original before/after
+color and texture/alpha inputs; do not infer that an arbitrary VS7 batch is the
+defective draw or generalize VS41 controls to this detail pass.
 The later 984-index VS41 native replay failed exact repeat/live-color checks
 and remains rejected. The independent 211-draw timeline passes its own guards.
 Maintain upstream by freezing one candidate per pass, backing up saves, building,

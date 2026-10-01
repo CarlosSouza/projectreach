@@ -749,6 +749,60 @@ so this is **not visual acceptance**. Actual About/Done confirms accepted
 backup. 140 Python tests, 16 skipped, no failures; both SDK syntax, whitespace
 and tree/index safety pass. No physical install, pin update, IPA or publication.
 
+### VS7 capture and coordinate replay (2026-10-01)
+
+The capture runner now accepts `XG_CAPTURE_EQUAL_SHADER=vs007_0.glsl` or
+`vs041_0.glsl`, requires the shader directory, and records the selection.
+The default is still VS41; normal launches enable neither capture nor replay.
+No production shader, depth comparison, texture decoding or upstream pin changes.
+App build/install evidence: `docs/artifacts/2026-10-01/G3/ios-app-20261001T113653Z`;
+private library/app logs are `build61-vs7-library.log` / `build61-vs7-app.log`.
+
+Three stationary captures under the same frozen build 61:
+
+- `build61-vs7-live/`: 228 indices, frame 104. Position/projection identity and
+  depth controls pass; 23,876 base-written pixels have later closer depth, none
+  farther. Native replay repeats and matches the live draw exactly, but both
+  EQUAL and ALWAYS have zero color response. **Inconclusive/rejected.**
+- `build61-vs7-first/`: 531 indices, frame 108. Identity/depth controls pass;
+  11,202 base-written pixels have later closer depth, none farther. Exact repeat
+  and live color, but again zero EQUAL/ALWAYS response. **Inconclusive/rejected.**
+- `build61-vs7-second/`: 1,686 indices, frame 103, one eligible base skipped.
+  Identity/depth controls pass; 17,649 base-written pixels have later closer
+  depth, none farther. Native repeat and actual live color each differ from the
+  cloned EQUAL draw at 43 pixels. **Rejected exact-fidelity control.** Do not
+  interpret its ALWAYS comparison as causal proof of missing visible terrain.
+
+All three EQUAL draws leave depth unchanged. These sampled VS7 materials are
+not established as the previously observed stripe-producing wall draw. A
+shader-name match is not a material/visibility match. The first capture uses
+16x16 textures on units 0/1; that observation and zero response do not alone
+prove why the draw is inactive.
+
+`build61-vs7-clip/` replays the saved 1,686-index pair on the live Simulator
+using transform feedback before guest GL initialization. Menu smoke and replay
+pass: all vertices bit-identical, changed vertices 0, component/depth deltas 0.
+Transform feedback changes shader linkage and does not retain native pixel
+behavior. It is evidence against a simple coordinate mismatch in that replay,
+not original native invariance, a driver-bug finding or a visual fix. No isolated
+raster proof was attempted: this pixel shader's discard path is rejected by the
+existing simplified raster guard. Keep those guards strict.
+
+Next correlate a visibly stripe-producing VS7 draw's original color response
+with its material textures/alpha inputs, then repeat the exact native controls.
+Do not keep sampling arbitrary batches solely because they use the same shader.
+Chris's physical-iPad shading/focus report remains unresolved; this pass has no
+physical observation/install, pin update, IPA or publication.
+
+Final normal `build61-vs7-normal/` regression passes menu, campaign opening and
+scripted match (1,261 ticks / nine shots), with diagnostics disabled. Reviewed
+campaign/match images: severe wall banding remains, so this is not visual
+acceptance. Actual About/Done confirms accepted `f8937c61`, no PREVIEW, and
+returns to the normal Windows/Xbox picker. Real saves in rediscovered container
+`DA23CE8C-1C94-4472-9788-C9AA87C62AA2` match the acceptance backup byte-for-byte.
+141 Python tests, 16 skipped, no failures; both SDK syntax, whitespace and
+tree/index safety pass. Goal active; this pass is diagnostic progress only.
+
 ## Next focused pass
 
 0. Keep accepted build 61 (`f8937c61`) frozen for the next diagnostic pass;
@@ -757,8 +811,9 @@ and tree/index safety pass. No physical install, pin update, IPA or publication.
 1. Continue beyond the cryo-bay training to weapon pickup/combat and a later
    checkpoint. Test sustained movement, simultaneous look/fire, weapon switching
    and another cold reload with isolated saves.
-2. Capture the matching VS17/VS7 batch now localized as stripe-producing draw
-   119 in the frame-120 timeline; VS41 is a different material pass. Retain
+2. Select the visibly stripe-producing VS17/VS7 material localized as draw
+   119 in the frame-120 timeline, not an arbitrary shader-matching batch. Record
+   original before/after color and texture/alpha inputs. VS41 is different. Retain
    the new exact native repeat/live-color and calibrated copied-depth controls.
    Correlate color-response changes with copied live depth. Determine whether closer intervening
    surfaces legitimately occlude it or visible terrain fails EQUAL. Keep

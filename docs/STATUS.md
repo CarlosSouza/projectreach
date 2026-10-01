@@ -66,7 +66,16 @@ later material draw that introduces a visible stripe. A same-frame before/after
 timeline now identifies it: frame 120, draw 119, program 84, VS7 / pixel shader
 `ps_0c014f79`, 402 indices, EQUAL. The wall is unstriped before and striped after
 that draw. All 211 observed indexed/immediate draw pairs validate with GL
-error 0. Next compare this VS17/VS7 pair, not the earlier VS41 material pass.
+error 0. The diagnostic capture can now select VS7 rather than the default
+VS41, with an explicit two-name whitelist. Three VS17/VS7 captures have exact
+indexed position/projection identity and calibrated same-frame depth. However,
+228- and 531-index samples have no measurable native color response, and a
+1,686-index sample differs at 43 pixels in its native repeat/live checks. All
+three full-pixel diagnostics are rejected. Transform-feedback replay of the
+1,686 vertices is bit-identical, but changes linkage and does not establish
+original-program invariance. Next select the visibly stripe-producing material,
+correlating original before/after color with its texture/alpha inputs; a matching
+shader name alone is not sufficient. No rendering fix is claimed.
 A later 984-index VS41 native replay fails exact repeat/live-color checks and
 remains rejected; it does not invalidate the independent read-only timeline.
 Chris's reported physical
