@@ -8,6 +8,7 @@
  * a length byte.
  */
 #include "xg_host.h"
+#include "xg_engine_compat.h"
 
 #include <errno.h>
 #include <netinet/in.h>
@@ -243,9 +244,16 @@ posix_ulong xh_hostposix_resolve_ipv4(uint32_t host) { return posix_resolve_ipv4
 
 /* ---------- UPnP: not wired up yet on Apple platforms */
 
-int xh_hostposix_upnp_forward_udp(unsigned short port, uint32_t address, uint32_t external_port, uint32_t error, int size)
+int xh_hostposix_upnp_forward_udp(unsigned short port,
+#if XG_UPNP_PREFERRED_PORT
+    unsigned short preferred_port,
+#endif
+    uint32_t address, uint32_t external_port, uint32_t error, int size)
 {
 	(void)port; (void)address; (void)external_port;
+#if XG_UPNP_PREFERRED_PORT
+	(void)preferred_port;
+#endif
 	if (error && size > 0)
 		strlcpy(G(char *, error), "UPnP is not available in HaloPad yet", (size_t)size);
 	return 0;
@@ -260,6 +268,8 @@ int xh_hostposix_command_line_argument(int index, uint32_t buffer, posix_ulong s
 posix_ulong xh_hostposix_process_id(void) { return posix_process_id(); }
 int xh_hostposix_register_url_scheme(uint32_t scheme, uint32_t description)
 { (void)scheme; (void)description; return 0; }
+/* Like upstream's Android host, there is no shared desktop-user secret. */
+int xh_hostposix_user_secret(uint32_t secret, int size) { (void)secret; (void)size; return 0; }
 int xh_hostposix_discord_connect(void) { return -1; }
 int xh_hostposix_discord_write(int handle, uint32_t buffer, int length) { (void)handle; (void)buffer; (void)length; return -1; }
 int xh_hostposix_discord_read(int handle, uint32_t buffer, int length) { (void)handle; (void)buffer; (void)length; return -1; }

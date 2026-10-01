@@ -12,7 +12,8 @@ and records stdout/stderr as evidence; it never taps anything in the app.
 Usage: .venv/bin/python scripts/build-ios-app.py [--work RUN_DIR] [--device UDID] [--launch] [--wait S]
        .venv/bin/python scripts/build-ios-app.py --iphoneos [--identity NAME --profile FILE.mobileprovision]
 
---iphoneos builds for a physical iPhone/iPad (arm64-apple-ios17.0) and writes HaloPad.ipa. Halo's
+--iphoneos builds for a physical iPhone/iPad (arm64-apple-ios17.0). PC-only builds also write
+HaloPad.ipa; personal builds with the Xbox engine stop at the signed HaloPad.app. Halo's
 32-bit guest memory is one 4 GiB reservation (port/runtime/halopad_guest.c), so the build asks for
 Apple's extended-virtual-addressing and increased-memory-limit entitlements; the provisioning
 profile must allow them. Without --identity the app is ad-hoc signed and cannot be installed on a
@@ -20,6 +21,7 @@ device; see docs/INSTALL-IPHONE.md.
 """
 import argparse
 import datetime
+import hashlib
 import importlib.util
 import json
 import os
@@ -56,6 +58,16 @@ def xbox_parts(target):
     lib = XBOX_OUT / sdk / 'libhalopad-xbox.a'
     if not lib.exists():
         return []
+    if not (lib.parent / 'build.json').exists():
+        raise ValueError('Xbox library has no build manifest; run scripts/xbox/build-ios.sh')
+    manifest = json.loads((lib.parent / 'build.json').read_text())
+    revision = json.loads((ROOT / 'config' / 'xbox-engine.lock.json').read_text())['revision']
+    expected = os.environ.get('XBOX_REV', revision)
+    if manifest['revision'] != expected:
+        raise ValueError('Xbox library revision differs from the pin; run scripts/xbox/build-ios.sh')
+    for path, key in ((XBOX_OUT / 'halo_guest.elf', 'guest_sha256'), (lib, 'library_sha256')):
+        if hashlib.sha256(path.read_bytes()).hexdigest() != manifest[key]:
+            raise ValueError(f'Stale Xbox build: {path.name}; rebuild the Xbox library')
     return [ROOT / 'port' / 'ios' / 'HaloPadXbox.m', lib, '-I', str(ROOT / 'port' / 'xbox'), '-I', '/opt/homebrew/include',
             '-framework', 'OpenGLES', '-DGLES_SILENCE_DEPRECATION']
 
@@ -107,6 +119,11 @@ def package(exe, out, work, target=TARGET, identity=None, provisioning=None):
     if xbox_parts(target) and guest.exists():
         (data / 'xbox').mkdir()
         shutil.copy2(guest, data / 'xbox' / 'halo_guest.elf')      # upstream's image: this Mac's personal build only
+        sdk = 'iphonesimulator' if 'simulator' in target else 'iphoneos'
+        build = json.loads((XBOX_OUT / sdk / 'build.json').read_text())
+        pin = json.loads((ROOT / 'config/xbox-engine.lock.json').read_text())['revision']
+        build['candidate'] = build['revision'] != pin
+        (data / 'xbox' / 'build.json').write_text(json.dumps(build, indent=2) + '\n')
     for m in sorted((run_core.IMAGE.parent / 'modules').iterdir()):
         if (m / 'image.bin').is_file():
             (data / 'modules' / m.name).mkdir()
@@ -136,6 +153,9 @@ def package(exe, out, work, target=TARGET, identity=None, provisioning=None):
         plistlib.dump(entitlements, f)
     subprocess.run(['codesign', '--force', '--sign', identity or '-', '--entitlements', str(ent), '--timestamp=none', str(app)],
                    check=True, capture_output=True)
+    if xbox_parts(target):
+        print('personal Xbox build: signed app only; no IPA created')
+        return app
     ipa = out / 'HaloPad.ipa'
     payload = out / 'Payload'
     if payload.exists():
@@ -160,7 +180,7 @@ def main():
                     help='launch without the Mac data paths: the app uses its bundle and Documents, as on a device (the import screen when no game folder is there)')
     ap.add_argument('--scene', type=pathlib.Path,
                     help='development only: a C file whose halopad_app_entry replaces the core start (evidence scenes in tests/)')
-    ap.add_argument('--iphoneos', action='store_true', help='build for a physical iPhone/iPad and write HaloPad.ipa')
+    ap.add_argument('--iphoneos', action='store_true', help='build for a physical iPhone/iPad (Xbox personal builds produce an app only)')
     ap.add_argument('--identity', help='codesign identity for --iphoneos, e.g. "Apple Development: Name (TEAMID)"')
     ap.add_argument('--profile', type=pathlib.Path, help='provisioning profile for --iphoneos')
     a = ap.parse_args()

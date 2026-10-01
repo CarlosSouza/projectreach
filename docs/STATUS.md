@@ -1,17 +1,28 @@
 # HaloPad status
 
-Updated 2026-09-29. **ACTIVE — phase 3 device-readiness loop.** G2's Mac/Simulator rows passed earlier; physical acceptance remains open.
+Updated 2026-10-01. **ACTIVE — Simulator-focused Xbox/menu loop.** Physical acceptance remains separate.
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE3.md](HaloPad-GOAL-LOOP-PHASE3.md). Earlier engineering history remains in [phase 2](HaloPad-GOAL-LOOP-PHASE2.md).
 
-## Latest physical-device result
+## Latest engineering and device results
+
+**Current Simulator pass (2026-10-01).** The launch picker now clearly separates
+Windows Custom Edition 1.10 from Xbox Combat Evolved, with edition-specific
+multiplayer descriptions, an installed-build panel, accessible text and a safe
+return from disc import. Short Xbox touch taps are latched until the engine polls
+them. Upstream build 58 (`943abae1`) is the latest candidate built locally;
+the accepted pin remains `b47f237d`. The newer engine runs its menu and a
+scripted Simulator match, but campaign rendering is still black. An A/B
+pass reproduces the campaign failure on the older pin, so it is not newly
+introduced by build 57/58. Candidates are labeled **PREVIEW**, not accepted
+updates. No physical iPad changes in this pass. See [XBOX-SIMULATOR-PASSES.md](XBOX-SIMULATOR-PASSES.md).
 
 **Second engine: Halo Xbox (2026-09-30).** HaloPad now opens with a choice of
 Halo PC or Halo Xbox. The Xbox engine is upstream's decompilation port, pinned
 and built on this Mac only as a personal build, translated to base-relative
 ARM64 and run on a native iOS host. On the physical iPad it reaches its menu
 and loads The Pillar of Autumn; on the Mac it also plays a system link match.
-An iPad match waits on the iPad's Local Network permission. Details, evidence
+An iPad match remains unverified; missing packets did not establish its cause. Details, evidence
 and the update routine: [XBOX-ENGINE.md](XBOX-ENGINE.md). The iPad now runs this
 build (development scene for Halo PC, as before).
 

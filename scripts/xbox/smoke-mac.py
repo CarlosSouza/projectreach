@@ -49,9 +49,9 @@ def lit_fraction(ppm):
     return lit / max(1, total)
 
 
-def scratch(name, init=None):
-    folder = WORK / "smoke" / name
-    folder.mkdir(parents=True, exist_ok=True)
+def scratch(out, name, init=None):
+    folder = out / (name + "-data")
+    folder.mkdir()
     maps = folder / "maps"
     if not maps.exists():
         maps.symlink_to(WORK / "data" / "maps")
@@ -64,7 +64,7 @@ def scratch(name, init=None):
 
 
 def run(name, seconds, env_extra, init=None, during=None, out=None):
-    folder = scratch(name, init)
+    folder = scratch(out, name, init)
     frame = out / f"{name}.ppm"
     log = out / f"{name}.log"
     env = dict(os.environ, XG_FRAME_DUMP=str(frame), XG_FRAME_DUMP_SECONDS="3", HALO_NET_ONLINE="false", **env_extra)
@@ -112,12 +112,12 @@ def main():
                        "lit": round(menu["lit"], 3), "frame": menu["frame"]}
 
     campaign = run("campaign", 35, {}, init="map_name levels\\a10\\a10", out=out)
-    precached = "precaching of map 'a10'" in campaign["debug"]
-    results["campaign"] = {"pass": campaign["alive"] and precached and campaign["lit"] > 0.005 and "signal" not in campaign["log"],
-                           "a10_precached": precached, "lit": round(campaign["lit"], 3), "frame": campaign["frame"]}
+    requested = "starting precaching of map 'a10'" in campaign["debug"]
+    results["campaign"] = {"pass": campaign["alive"] and requested and campaign["lit"] > 0.005 and "signal" not in campaign["log"],
+                           "a10_load_requested": requested, "lit": round(campaign["lit"], 3), "frame": campaign["frame"]}
 
     address = lan_address()
-    bots = lambda: subprocess.Popen([sys.executable, str(ENGINE / "tools" / "system_link_bots.py"), "--host", "127.0.0.1",
+    bots = lambda: subprocess.Popen([sys.executable, str(ROOT / "scripts/xbox/network-bot.py"), "--host", "127.0.0.1",
                                      "--machines", "1", "--first-address", address, "--start", "--seconds", "80"],
                                     stdout=open(out / "bots.log", "w"), stderr=subprocess.STDOUT,
                                     preexec_fn=lambda: time.sleep(8))

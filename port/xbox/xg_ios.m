@@ -15,6 +15,7 @@
 #import <OpenGLES/ES3/gl.h>
 #import <QuartzCore/QuartzCore.h>
 #import <UIKit/UIKit.h>
+#include <TargetConditionals.h>
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_gamepad.h>
 #include <SDL3/SDL_audio.h>
@@ -54,7 +55,9 @@ static pthread_mutex_t layer_lock = PTHREAD_MUTEX_INITIALIZER;
 UIView *xg_ios_make_view(CGRect frame)
 {
 	game_view = [[XGGameView alloc] initWithFrame:frame];
-	game_view.contentScaleFactor = UIScreen.mainScreen.nativeScale;
+	/* Apple's software renderer on the Simulator needs only point resolution.
+	 * Physical devices retain their native pixel resolution. */
+	game_view.contentScaleFactor = TARGET_OS_SIMULATOR ? 1 : UIScreen.mainScreen.nativeScale;
 	game_view.multipleTouchEnabled = YES;
 	game_view.backgroundColor = UIColor.blackColor;
 	game_layer = (CAEAGLLayer *)game_view.layer;
@@ -225,10 +228,13 @@ static __strong GCController *pads[PADS + 1];
 static uint8_t pad_announced[PADS + 1];
 static pthread_mutex_t pad_lock = PTHREAD_MUTEX_INITIALIZER;
 static struct xg_touch_pad touch_pad;
+static uint32_t pending_touch_buttons;
 
 void xg_ios_set_touch_pad(const struct xg_touch_pad *state)
 {
 	pthread_mutex_lock(&pad_lock);
+	/* Keep a quick tap until the game's next poll, even during a slow frame. */
+	pending_touch_buttons |= state->buttons & ~touch_pad.buttons;
 	touch_pad = *state;
 	pthread_mutex_unlock(&pad_lock);
 }
@@ -346,7 +352,8 @@ int xh_host_sdl_gamepad_button(uint32_t pad, int button)
 	if (pad == 1 && button >= 0 && button < 32)
 	{
 		pthread_mutex_lock(&pad_lock);
-		pressed |= (int)((touch_pad.buttons >> button) & 1u);
+		pressed |= (int)(((touch_pad.buttons | pending_touch_buttons) >> button) & 1u);
+		pending_touch_buttons &= ~(1u << button);
 		pthread_mutex_unlock(&pad_lock);
 	}
 	return pressed;

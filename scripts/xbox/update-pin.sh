@@ -2,7 +2,7 @@
 # Moves the Xbox engine's pin to a newer upstream revision, safely
 # (docs/XBOX-ENGINE.md, "Updating the engine").
 #
-#   scripts/xbox/update-pin.sh [--to REV] [--device UDID] [--accept]
+#   scripts/xbox/update-pin.sh [--to REV] [--simulator UDID] [--device UDID] [--accept]
 #
 # 1. fetches upstream and lists what changed since the pin, flagging changes to
 #    the parts HaloPad's host depends on (the Android guest and its imports);
@@ -23,18 +23,24 @@ ENGINE="$WORK/vol/engine"
 LOCK="$ROOT/config/xbox-engine.lock.json"
 TO=origin/main
 DEVICE=""
+SIMULATOR=""
 ACCEPT=0
 while [ $# -gt 0 ]; do
 	case "$1" in
 	--to) TO=$2; shift ;;
 	--device) DEVICE=$2; shift ;;
+	--simulator) SIMULATOR=$2; shift ;;
 	--accept) ACCEPT=1 ;;
 	*) echo "unknown option $1" >&2; exit 2 ;;
 	esac
 	shift
 done
+if [ "$ACCEPT" -eq 1 ] && [ -z "$SIMULATOR" ]; then
+	echo "--accept requires --simulator UDID so an Apple runtime pass gates the update" >&2
+	exit 2
+fi
 PINNED=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['revision'])" "$LOCK")
-"$ROOT/scripts/xbox/prepare.sh" >/dev/null   # mounts the volume and checks out the pin
+XBOX_REV="$PINNED" "$ROOT/scripts/xbox/prepare.sh" >/dev/null   # mounts the volume and checks out the pin
 git -C "$ENGINE" fetch -q origin
 TARGET=$(git -C "$ENGINE" rev-parse "$TO")
 if [ "$TARGET" = "$PINNED" ]; then
@@ -58,7 +64,31 @@ if [ -n "$DEVICE" ]; then
 	xcrun devicectl device copy from --device "$DEVICE" --domain-type appDataContainer \
 		--domain-identifier dev.halopad.HaloPad --source "Documents/Halo Xbox/save" --destination "$BACKUP/device-save" >/dev/null
 fi
+if [ -n "$SIMULATOR" ]; then
+	xcrun simctl boot "$SIMULATOR" 2>/dev/null || true
+	xcrun simctl bootstatus "$SIMULATOR" -b >/dev/null
+	xcrun simctl terminate "$SIMULATOR" dev.halopad.HaloPad 2>/dev/null || true
+	CONTAINER=$(xcrun simctl get_app_container "$SIMULATOR" dev.halopad.HaloPad data 2>/dev/null || true)
+	if [ -n "$CONTAINER" ] && [ -d "$CONTAINER/Documents/Halo Xbox/save" ]; then
+		ditto "$CONTAINER/Documents/Halo Xbox/save" "$BACKUP/simulator-save"
+	fi
+fi
 find "$BACKUP" -type f -exec shasum -a 256 {} + > "$BACKUP.sha256" || true
+
+# Interrupted or rejected candidates return to the pin. Libraries built for
+# a rejected candidate are caught by the app packager's revision check.
+RESTORE=1
+restore_pin() {
+	if [ "$RESTORE" -eq 1 ]; then
+		git -C "$ENGINE" checkout -q "$PINNED"
+		XBOX_REV="$PINNED" "$ROOT/scripts/xbox/build-mac.sh" > "$WORK/update-restore.log" 2>&1 || \
+			echo "rebuilding the pinned engine failed; see $WORK/update-restore.log"
+	fi
+}
+trap restore_pin 0
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
 
 echo "==> building and testing $TARGET"
 git -C "$ENGINE" checkout -q "$TARGET"
@@ -70,6 +100,16 @@ if XBOX_REV="$TARGET" "$ROOT/scripts/xbox/build-mac.sh" > "$WORK/update-build.lo
 else
 	echo "build failed; see $WORK/update-build.log"
 fi
+if [ $RESULT -eq 0 ] && [ -n "$SIMULATOR" ]; then
+	RESULT=1
+	if XBOX_REV="$TARGET" "$ROOT/scripts/xbox/build-ios.sh" > "$WORK/update-simulator-build.log" 2>&1 && \
+		XBOX_REV="$TARGET" "$ROOT/.venv/bin/python" "$ROOT/scripts/build-ios-app.py" --scene "$ROOT/tests/halo_app_scene.c" \
+		--device "$SIMULATOR" --launch --wait 3 >> "$WORK/update-simulator-build.log" 2>&1 && \
+		python3 "$ROOT/scripts/xbox/smoke-simulator.py" --device "$SIMULATOR" \
+		--out "$WORK/simulator-results/$STAMP-$(echo "$TARGET" | cut -c1-8)"; then
+		RESULT=0
+	fi
+fi
 if [ $RESULT -eq 0 ] && [ $ACCEPT -eq 1 ]; then
 	python3 - "$LOCK" "$TARGET" <<'EOF'
 import datetime, json, sys
@@ -79,12 +119,12 @@ lock["revision"] = revision
 lock["pinned"] = datetime.date.today().isoformat()
 open(path, "w").write(json.dumps(lock, indent=2) + "\n")
 EOF
+	RESTORE=0
 	echo "==> pinned $TARGET; rebuild the apps and install over the existing app"
 	exit 0
 fi
-git -C "$ENGINE" checkout -q "$PINNED"
-# put the build outputs back to the pinned engine's
-"$ROOT/scripts/xbox/build-mac.sh" > "$WORK/update-restore.log" 2>&1 || echo "rebuilding the pinned engine failed; see $WORK/update-restore.log"
+restore_pin
+RESTORE=0
 if [ $RESULT -eq 0 ]; then
 	echo "==> $TARGET passed; run again with --accept to pin it (the checkout is back at $PINNED)"
 	exit 0

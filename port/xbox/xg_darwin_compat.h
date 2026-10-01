@@ -15,6 +15,10 @@
 #ifndef SOCK_CLOEXEC
 #define SOCK_CLOEXEC 0
 #endif
+#ifndef SOCK_NONBLOCK
+/* Upstream uses this only for Discord; HaloPad's Discord imports are stubs. */
+#define SOCK_NONBLOCK 0
+#endif
 #ifndef MSG_NOSIGNAL
 #define MSG_NOSIGNAL 0
 #endif

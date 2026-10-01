@@ -1,10 +1,11 @@
 # Xbox engine (second HaloPad engine)
 
-Status, 2026-09-30: **HaloPad offers Halo PC or Halo Xbox at launch.** The Xbox engine reaches its
-menu, loads a campaign level and plays a system link match on the Mac; runs in HaloPad's own app on
-the iPad Simulator (picker, disc import, touch gamepad); and runs on the physical iPad Pro to its menu
-and a campaign level. Open: an iPad-to-iPad or iPad-to-Mac match (needs the iPad's Local Network
-permission, below), human play with touch and a controller on the device, and a join-by-address screen.
+Status, 2026-10-01: **HaloPad offers Windows Custom Edition or Xbox Combat Evolved at launch.**
+The accepted pin remains `b47f237d`; upstream **build 58, `943abae1`**, is a local preview candidate,
+not an accepted update. This pass focuses on the iPad Simulator and does not alter the physical
+iPad. Mac campaign/menu/scripted-match evidence is separate from Simulator acceptance:
+the Simulator menu and scripted match work, but campaign output is black on both the old pin
+and newer candidate. See [XBOX-SIMULATOR-PASSES.md](XBOX-SIMULATOR-PASSES.md).
 
 HaloPad now opens with a choice:
 
@@ -25,9 +26,9 @@ switching means closing HaloPad and opening it again; the picker appears at ever
   translation and the engine library live only under the ignored `ref/xbox-build/`.
 - HaloPad's repository holds only HaloPad's own code: the translator, the host runtime, the picker and
   scripts. A HaloPad build made without the local engine has no picker and behaves as before.
-- A device build of HaloPad that includes the engine (and the `HaloPad.ipa` that
-  `scripts/build-ios-app.py --iphoneos` writes next to it under `generated/`) contains translated
-  upstream code: **it is the builder's alone and is never shared or published.**
+- A device build containing the engine stops at the signed `HaloPad.app`; the app builder
+  **does not create an IPA** for Xbox personal builds. The app contains translated upstream
+  code: **it is the builder's alone and is never shared or published.** PC-only packaging is unchanged.
 - Updates stay **pinned**: moving the pin is a deliberate, tested step (below); saves are backed up first.
 - Upstream's documentation says parts of the decompilation were reconstructed with help from leaked
   Bungie material ([REVIEW-HALO1-DECOMP.md](REVIEW-HALO1-DECOMP.md)). That is why the engine stays a
@@ -97,11 +98,29 @@ pick the disc image in the app (Files) or copy an extracted `maps` folder to Doc
 
 ## Updating the engine
 
-`scripts/xbox/update-pin.sh [--to REV] [--device UDID] [--accept]` lists upstream's changes (flagging the
-parts the host depends on), backs up the Xbox saves (this Mac's and, with `--device`, the device's
-Documents/Halo Xbox/save), builds the candidate, runs `smoke-mac.py`, and moves the pin only with `--accept`
-when every check passes. Without `--accept` it returns the checkout and the build to the pinned engine.
-After accepting, rebuild the libraries and HaloPad and install over the existing app.
+Check upstream releases on a regular maintenance pass (weekly is the proposed cadence), then
+freeze an exact commit for validation. Do not chase changing HEAD during a pass. This is a
+local build/update workflow, not an in-app executable updater or a scheduled job already installed.
+
+```sh
+scripts/xbox/update-pin.sh --to build-58 --simulator <dedicated-simulator-UDID>
+# Only after all checks and visual review pass:
+scripts/xbox/update-pin.sh --to build-58 --simulator <dedicated-simulator-UDID> --accept
+```
+
+The script lists upstream changes, backs up Mac and selected Simulator Xbox saves, builds the
+candidate, and runs isolated Mac and Simulator menu/campaign/match tests. `--accept` requires an
+explicit Simulator and all checks passing. `--device UDID` additionally backs up physical-device
+Xbox saves; it does not establish physical gameplay acceptance. On rejection/interruption the
+checkout and Mac build return to the accepted pin. A candidate installed in the Simulator remains
+an explicitly labeled preview; revision/hash checks reject stale libraries during ordinary builds.
+Rebuild and install in place after accepting. Screenshots require human/agent visual review, not
+just a nonblack-pixel check. Build 58 cannot pass this gate until the campaign issue is resolved.
+
+The app also copies nonempty Xbox saves to `Documents/Halo Xbox/Save Backups/<previous-revision>-<time>`
+before a changed engine opens them. A failed backup blocks startup. This preserves recovery data,
+**not save-format compatibility**; upstream saves are snapshots. PC saves are not migrated into Xbox
+saves. The **About these builds** panel shows the bundled revision and preview status.
 
 ## Evidence (2026-09-30)
 
@@ -118,14 +137,14 @@ After accepting, rebuild the libraries and HaloPad and install over the existing
 
 ## Open items
 
-- **iPad match (needs Chris):** iOS allows broadcast only with Apple's restricted multicast
+- **iPad match (separate physical gate):** iOS allows broadcast only with Apple's restricted multicast
   entitlement, so the Xbox screen's **Link** button lists the other devices' addresses (and shows this
   device's own), which the game searches instead of broadcasting. Even so, an iPad joining a Mac-hosted
   game found nothing: a plain listener on the Mac's game port received **no packets** from the iPad,
-  while the Mac copy's own search reached it through the same host code. iOS is blocking HaloPad's local
-  network traffic; HaloPad never had the **Local Network** permission (the PC game uses internet
-  servers). The builds now declare it; Chris needs to allow it on the iPad (the prompt, or Settings ›
-  Privacy & Security › Local Network › HaloPad).
+  while the Mac copy's own search reached it through the same host code. An iOS permission block
+  was a hypothesis, not a demonstrated root cause. Local Network authorization,
+  route/address selection and socket diagnostics still need checking on the physical iPad. The
+  builds declare Local Network usage. Do not infer hardware results from the Simulator host match.
 - **Human play on the device:** touch gamepad feel and a Bluetooth controller on the iPad are untested
   by a player.
 - **Mac presentation:** the Mac proof draws in part of its fullscreen window (the iOS host fills the

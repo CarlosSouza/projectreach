@@ -65,9 +65,43 @@ static BOOL xbox_has_maps(void)
 	return [NSFileManager.defaultManager fileExistsAtPath:[xbox_data() stringByAppendingPathComponent:@"maps/ui.map"]];
 }
 
+static NSDictionary *xbox_build(void)
+{
+	NSData *data = [NSData dataWithContentsOfFile:[NSBundle.mainBundle.bundlePath stringByAppendingPathComponent:@"data/xbox/build.json"]];
+	return data ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : @{};
+}
+
+/* Preserve a copy before a different engine revision opens snapshot saves. */
+static BOOL xbox_backup_saves(NSError **error)
+{
+	/* Test saves must not update the real installation's revision marker. */
+	if (getenv("XG_SAVE"))
+		return YES;
+	NSString *revision = xbox_build()[@"revision"];
+	NSString *previous = [NSUserDefaults.standardUserDefaults stringForKey:@"HaloPadXboxSaveRevision"];
+	if (!revision.length || [revision isEqualToString:previous])
+		return YES;
+	NSFileManager *files = NSFileManager.defaultManager;
+	NSString *saves = xbox_saves();
+	NSArray *contents = [files fileExistsAtPath:saves] ? [files contentsOfDirectoryAtPath:saves error:error] : @[];
+	if (!contents)
+		return NO;
+	if (contents.count)
+	{
+		NSString *backupRoot = [xbox_root() stringByAppendingPathComponent:@"Save Backups"];
+		NSString *name = [NSString stringWithFormat:@"%@-%.0f", previous ?: @"unversioned", NSDate.date.timeIntervalSince1970];
+		if (![files createDirectoryAtPath:backupRoot withIntermediateDirectories:YES attributes:nil error:error] ||
+			![files copyItemAtPath:saves toPath:[backupRoot stringByAppendingPathComponent:name] error:error])
+			return NO;
+	}
+	[NSUserDefaults.standardUserDefaults setObject:revision forKey:@"HaloPadXboxSaveRevision"];
+	return YES;
+}
+
 /* ---------- the Xbox game */
 
 @interface HPXboxViewController : UIViewController <UIDocumentPickerDelegate>
+@property(nonatomic, copy) void (^returnToChooser)(void);
 @end
 
 @implementation HPXboxViewController
@@ -79,6 +113,7 @@ static BOOL xbox_has_maps(void)
 	UILabel *import_status;
 	UIProgressView *import_progress;
 	UIButton *import_button;
+	UIButton *back_button;
 	BOOL started;
 }
 
@@ -89,10 +124,6 @@ static BOOL xbox_has_maps(void)
 	game = xg_ios_make_view(root.bounds);
 	game.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
 	[root addSubview:game];
-	pad = [[XGTouchPad alloc] initWithFrame:root.bounds];
-	pad.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-	pad.hidden = YES;
-	[root addSubview:pad];
 	link_button = [UIButton buttonWithType:UIButtonTypeSystem];
 	[link_button setTitle:@"Link" forState:UIControlStateNormal];
 	[link_button setTitleColor:[UIColor colorWithWhite:1 alpha:0.85] forState:UIControlStateNormal];
@@ -158,9 +189,24 @@ static BOOL xbox_has_maps(void)
 - (void)startGame
 {
 	NSString *image = [NSBundle.mainBundle.bundlePath stringByAppendingPathComponent:@"data/xbox/halo_guest.elf"];
+	NSError *error = nil;
+	if (!xbox_backup_saves(&error))
+	{
+		[self showProblem:[@"Your saves could not be backed up before this update. " stringByAppendingString:error.localizedDescription ?: @""]];
+		return;
+	}
 	started = YES;
+	back_button.hidden = YES;
+	link_button.hidden = NO;
 	import_panel.hidden = YES;
-	pad.hidden = NO;
+	/* The pad manages its own controller visibility. Create it only for the
+	 * running game, so it cannot reappear or keep polling on the import screen. */
+	if (!pad)
+	{
+		pad = [[XGTouchPad alloc] initWithFrame:self.view.bounds];
+		pad.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+		[self.view insertSubview:pad belowSubview:link_button];
+	}
 	[NSFileManager.defaultManager createDirectoryAtPath:xbox_saves() withIntermediateDirectories:YES attributes:nil error:nil];
 	{
 		NSString *addresses = [NSUserDefaults.standardUserDefaults stringForKey:link_key];
@@ -214,14 +260,32 @@ static BOOL xbox_has_maps(void)
 	stack.translatesAutoresizingMaskIntoConstraints = NO;
 	[import_panel addSubview:stack];
 	[self.view addSubview:import_panel];
+	back_button = [UIButton buttonWithType:UIButtonTypeSystem];
+	[back_button setTitle:@"‹ Editions" forState:UIControlStateNormal];
+	back_button.translatesAutoresizingMaskIntoConstraints = NO;
+	back_button.hidden = !self.returnToChooser;
+	[back_button addTarget:self action:@selector(backToChooser) forControlEvents:UIControlEventTouchUpInside];
+	[self.view addSubview:back_button];
+	link_button.hidden = YES;
 	[NSLayoutConstraint activateConstraints:@[
+		[back_button.leadingAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.leadingAnchor constant:20],
+		[back_button.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:8],
+		[back_button.heightAnchor constraintGreaterThanOrEqualToConstant:44],
 		[import_panel.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
 		[import_panel.centerYAnchor constraintEqualToAnchor:self.view.centerYAnchor],
-		[import_panel.widthAnchor constraintEqualToConstant:520],
+		[import_panel.widthAnchor constraintLessThanOrEqualToConstant:520],
+		[import_panel.leadingAnchor constraintGreaterThanOrEqualToAnchor:self.view.safeAreaLayoutGuide.leadingAnchor constant:20],
+		[import_panel.trailingAnchor constraintLessThanOrEqualToAnchor:self.view.safeAreaLayoutGuide.trailingAnchor constant:-20],
 		[stack.topAnchor constraintEqualToAnchor:import_panel.topAnchor constant:28],
 		[stack.bottomAnchor constraintEqualToAnchor:import_panel.bottomAnchor constant:-28],
 		[stack.leadingAnchor constraintEqualToAnchor:import_panel.leadingAnchor constant:28],
 		[stack.trailingAnchor constraintEqualToAnchor:import_panel.trailingAnchor constant:-28]]];
+}
+
+- (void)backToChooser
+{
+	if (!started && import_button.enabled && self.returnToChooser)
+		self.returnToChooser();
 }
 
 - (void)pick
@@ -252,6 +316,7 @@ static void import_progress_update(double fraction, void *context)
 	if (!url)
 		return;
 	import_button.enabled = NO;
+	back_button.enabled = NO;
 	import_progress.hidden = NO;
 	import_status.text = @"Copying the maps from your disc…";
 	dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
@@ -270,6 +335,7 @@ static void import_progress_update(double fraction, void *context)
 				return;
 			}
 			self->import_button.enabled = YES;
+			self->back_button.enabled = YES;
 			self->import_progress.hidden = YES;
 			self->import_status.text = message;
 		});
@@ -288,30 +354,49 @@ static void import_progress_update(double fraction, void *context)
 @end
 
 @implementation HPEngineChooser
+{
+	UIStackView *cards;
+	BOOL choosing;
+}
 
-- (UIButton *)cardWithTitle:(NSString *)title subtitle:(NSString *)subtitle action:(SEL)action
+- (UIButton *)cardWithTitle:(NSString *)title subtitle:(NSString *)subtitle symbol:(NSString *)symbol action:(SEL)action
 {
 	UIButtonConfiguration *configuration = [UIButtonConfiguration filledButtonConfiguration];
 	UIButton *button;
 	configuration.title = title;
 	configuration.subtitle = subtitle;
-	configuration.titleAlignment = UIButtonConfigurationTitleAlignmentCenter;
-	configuration.baseBackgroundColor = [UIColor colorWithWhite:0.12 alpha:1];
+	configuration.titleAlignment = UIButtonConfigurationTitleAlignmentLeading;
+	configuration.baseBackgroundColor = [UIColor colorWithRed:0.065 green:0.105 blue:0.15 alpha:1];
 	configuration.baseForegroundColor = UIColor.whiteColor;
+	configuration.image = [UIImage systemImageNamed:symbol withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:32 weight:UIImageSymbolWeightRegular]];
+	configuration.imagePlacement = NSDirectionalRectEdgeTop;
+	configuration.imagePadding = 22;
+	configuration.titlePadding = 12;
 	configuration.cornerStyle = UIButtonConfigurationCornerStyleLarge;
 	configuration.contentInsets = NSDirectionalEdgeInsetsMake(28, 24, 28, 24);
 	configuration.titleTextAttributesTransformer = ^NSDictionary *(NSDictionary *in) {
 		NSMutableDictionary *out = [in mutableCopy];
-		out[NSFontAttributeName] = [UIFont systemFontOfSize:28 weight:UIFontWeightBold];
+		out[NSFontAttributeName] = [UIFont preferredFontForTextStyle:UIFontTextStyleTitle1];
 		return out;
 	};
 	configuration.subtitleTextAttributesTransformer = ^NSDictionary *(NSDictionary *in) {
 		NSMutableDictionary *out = [in mutableCopy];
-		out[NSFontAttributeName] = [UIFont systemFontOfSize:15];
-		out[NSForegroundColorAttributeName] = [UIColor colorWithWhite:0.75 alpha:1];
+		out[NSFontAttributeName] = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
+		out[NSForegroundColorAttributeName] = [UIColor colorWithWhite:0.85 alpha:1];
 		return out;
 	};
 	button = [UIButton buttonWithConfiguration:configuration primaryAction:nil];
+	button.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeading;
+	button.titleLabel.numberOfLines = 0;
+	button.subtitleLabel.numberOfLines = 0;
+	button.titleLabel.adjustsFontForContentSizeCategory = YES;
+	button.subtitleLabel.adjustsFontForContentSizeCategory = YES;
+	button.layer.borderWidth = 1;
+	button.layer.borderColor = [UIColor colorWithRed:0.19 green:0.31 blue:0.42 alpha:1].CGColor;
+	button.accessibilityLabel = title;
+	button.accessibilityValue = subtitle;
+	button.accessibilityHint = @"Opens this edition of Halo";
+	button.accessibilityIdentifier = action == @selector(choosePC) ? @"engine.pc" : @"engine.xbox";
 	[button addTarget:self action:action forControlEvents:UIControlEventTouchUpInside];
 	return button;
 }
@@ -319,38 +404,79 @@ static void import_progress_update(double fraction, void *context)
 - (void)loadView
 {
 	UIView *root = [UIView new];
-	UILabel *title = [UILabel new], *note = [UILabel new];
-	UIStackView *cards, *stack;
-	root.backgroundColor = UIColor.blackColor;
-	title.text = @"Choose your Halo";
-	title.font = [UIFont systemFontOfSize:34 weight:UIFontWeightBold];
+	UILabel *brand = [UILabel new], *title = [UILabel new], *note = [UILabel new];
+	UIStackView *stack;
+	root.backgroundColor = [UIColor colorWithRed:0.015 green:0.03 blue:0.05 alpha:1];
+	brand.text = @"HALOPAD";
+	brand.font = [UIFont systemFontOfSize:15 weight:UIFontWeightSemibold];
+	brand.textColor = [UIColor colorWithRed:0.55 green:0.77 blue:0.94 alpha:1];
+	brand.textAlignment = NSTextAlignmentCenter;
+	title.text = @"Choose an edition";
+	title.font = [UIFont preferredFontForTextStyle:UIFontTextStyleLargeTitle];
+	title.adjustsFontForContentSizeCategory = YES;
+	title.numberOfLines = 0;
 	title.textColor = UIColor.whiteColor;
 	title.textAlignment = NSTextAlignmentCenter;
 	cards = [[UIStackView alloc] initWithArrangedSubviews:@[
-		[self cardWithTitle:@"Halo PC" subtitle:@"Custom Edition\nOnline on community servers" action:@selector(choosePC)],
-		[self cardWithTitle:@"Halo Xbox" subtitle:@"The Xbox game\nCampaign, split-screen, system link" action:@selector(chooseXbox)] ]];
+		[self cardWithTitle:@"Halo Custom Edition" subtitle:@"WINDOWS • 1.10\nMultiplayer on PC community servers\n\nPlay Custom Edition →" symbol:@"desktopcomputer" action:@selector(choosePC)],
+		[self cardWithTitle:@"Halo: Combat Evolved" subtitle:[NSString stringWithFormat:@"%@\nCampaign · split-screen · system link\n\n%@ →", [xbox_build()[@"candidate"] boolValue] ? @"XBOX • PREVIEW" : @"XBOX", xbox_has_maps() ? @"Play Xbox" : @"Add your Xbox disc"] symbol:@"gamecontroller" action:@selector(chooseXbox)] ]];
 	cards.axis = UILayoutConstraintAxisHorizontal;
 	cards.spacing = 24;
 	cards.distribution = UIStackViewDistributionFillEqually;
-	note.text = @"The two versions cannot play online together. To switch later, close HaloPad and open it again.";
+	note.text = @"Each edition has its own saves and multiplayer. Reopen HaloPad to switch editions.";
 	note.numberOfLines = 0;
 	note.textAlignment = NSTextAlignmentCenter;
-	note.textColor = [UIColor colorWithWhite:0.6 alpha:1];
-	note.font = [UIFont systemFontOfSize:14];
-	stack = [[UIStackView alloc] initWithArrangedSubviews:@[ title, cards, note ]];
+	note.textColor = [UIColor colorWithWhite:0.75 alpha:1];
+	note.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
+	note.adjustsFontForContentSizeCategory = YES;
+	UIButton *builds = [UIButton buttonWithType:UIButtonTypeSystem];
+	[builds setTitle:@"About these builds" forState:UIControlStateNormal];
+	builds.titleLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
+	builds.titleLabel.adjustsFontForContentSizeCategory = YES;
+	[builds setTitleColor:brand.textColor forState:UIControlStateNormal];
+	[builds.heightAnchor constraintGreaterThanOrEqualToConstant:44].active = YES;
+	[builds addTarget:self action:@selector(showBuilds) forControlEvents:UIControlEventTouchUpInside];
+	builds.accessibilityIdentifier = @"engine.builds";
+	stack = [[UIStackView alloc] initWithArrangedSubviews:@[ brand, title, cards, note, builds ]];
 	stack.axis = UILayoutConstraintAxisVertical;
-	stack.spacing = 28;
+	stack.spacing = 24;
+	[stack setCustomSpacing:8 afterView:brand];
+	[stack setCustomSpacing:4 afterView:note];
 	stack.translatesAutoresizingMaskIntoConstraints = NO;
-	[root addSubview:stack];
+	UIScrollView *scroll = [UIScrollView new];
+	UIView *content = [UIView new];
+	scroll.translatesAutoresizingMaskIntoConstraints = NO;
+	content.translatesAutoresizingMaskIntoConstraints = NO;
+	[root addSubview:scroll];
+	[scroll addSubview:content];
+	[content addSubview:stack];
 	[NSLayoutConstraint activateConstraints:@[
-		[stack.centerXAnchor constraintEqualToAnchor:root.centerXAnchor],
-		[stack.centerYAnchor constraintEqualToAnchor:root.centerYAnchor],
-		[stack.widthAnchor constraintLessThanOrEqualToConstant:760],
+		[scroll.leadingAnchor constraintEqualToAnchor:root.safeAreaLayoutGuide.leadingAnchor],
+		[scroll.trailingAnchor constraintEqualToAnchor:root.safeAreaLayoutGuide.trailingAnchor],
+		[scroll.topAnchor constraintEqualToAnchor:root.safeAreaLayoutGuide.topAnchor],
+		[scroll.bottomAnchor constraintEqualToAnchor:root.safeAreaLayoutGuide.bottomAnchor],
+		[content.leadingAnchor constraintEqualToAnchor:scroll.contentLayoutGuide.leadingAnchor],
+		[content.trailingAnchor constraintEqualToAnchor:scroll.contentLayoutGuide.trailingAnchor],
+		[content.topAnchor constraintEqualToAnchor:scroll.contentLayoutGuide.topAnchor],
+		[content.bottomAnchor constraintEqualToAnchor:scroll.contentLayoutGuide.bottomAnchor],
+		[content.widthAnchor constraintEqualToAnchor:scroll.frameLayoutGuide.widthAnchor],
+		[content.heightAnchor constraintGreaterThanOrEqualToAnchor:scroll.frameLayoutGuide.heightAnchor],
+		[stack.centerXAnchor constraintEqualToAnchor:content.centerXAnchor],
+		[stack.centerYAnchor constraintEqualToAnchor:content.centerYAnchor],
+		[stack.topAnchor constraintGreaterThanOrEqualToAnchor:content.topAnchor constant:24],
+		[stack.bottomAnchor constraintLessThanOrEqualToAnchor:content.bottomAnchor constant:-24],
+		[stack.widthAnchor constraintLessThanOrEqualToConstant:960],
 		[stack.leadingAnchor constraintGreaterThanOrEqualToAnchor:root.safeAreaLayoutGuide.leadingAnchor constant:24],
 		[stack.trailingAnchor constraintLessThanOrEqualToAnchor:root.safeAreaLayoutGuide.trailingAnchor constant:-24]]];
+	NSLayoutConstraint *height = [content.heightAnchor constraintEqualToAnchor:scroll.frameLayoutGuide.heightAnchor];
+	height.priority = UILayoutPriorityDefaultLow;
+	height.active = YES;
 	self.view = root;
+	NSLayoutConstraint *width = [stack.widthAnchor constraintEqualToAnchor:root.safeAreaLayoutGuide.widthAnchor constant:-64];
+	width.priority = UILayoutPriorityDefaultHigh;
+	width.active = YES;
 	/* development: HALOPAD_CHOOSE=pc or xbox presses that card once the picker is up */
-	if (getenv("HALOPAD_CHOOSE"))
+	if (getenv("HALOPAD_CHOOSE") && (!strcmp(getenv("HALOPAD_CHOOSE"), "pc") || !strcmp(getenv("HALOPAD_CHOOSE"), "xbox")))
 	{
 		UIButton *card = cards.arrangedSubviews[strcmp(getenv("HALOPAD_CHOOSE"), "xbox") ? 0 : 1];
 		dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
@@ -359,15 +485,44 @@ static void import_progress_update(double fraction, void *context)
 	}
 }
 
+- (void)viewDidLayoutSubviews
+{
+	[super viewDidLayoutSubviews];
+	BOOL narrow = self.view.bounds.size.width < 650 || UIContentSizeCategoryIsAccessibilityCategory(self.traitCollection.preferredContentSizeCategory);
+	cards.axis = narrow ? UILayoutConstraintAxisVertical : UILayoutConstraintAxisHorizontal;
+}
+
+- (void)showBuilds
+{
+	NSDictionary *build = xbox_build();
+	NSString *revision = build[@"revision"] ?: @"unknown";
+	NSString *message = [NSString stringWithFormat:@"Windows: Halo Custom Edition 1.10.\n\nXbox: halo-ce-universal %@ (built %@).%@\n\nUpdates are validated on the Mac and iPad Simulator before the accepted pin moves. Saves are backed up when the engine changes.", [revision substringToIndex:MIN((NSUInteger)8, revision.length)], build[@"built"] ?: @"locally", [build[@"candidate"] boolValue] ? @"\nPreview candidate; validation is incomplete." : @""];
+	UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Installed builds" message:message preferredStyle:UIAlertControllerStyleAlert];
+	[alert addAction:[UIAlertAction actionWithTitle:@"Done" style:UIAlertActionStyleCancel handler:nil]];
+	[self presentViewController:alert animated:YES completion:nil];
+}
+
 - (void)show:(UIViewController *)controller
 {
+	if (choosing || !controller)
+		return;
+	choosing = YES;
 	UIWindow *window = self.view.window;
 	[NSUserDefaults.standardUserDefaults setObject:[controller isKindOfClass:HPXboxViewController.class] ? @"xbox" : @"pc" forKey:@"HaloPadLastEngine"];
 	window.rootViewController = controller;
 }
 
 - (void)choosePC { [self show:self.makePC()]; }
-- (void)chooseXbox { [self show:[HPXboxViewController new]]; }
+- (void)chooseXbox
+{
+	HPXboxViewController *controller = [HPXboxViewController new];
+	__weak UIWindow *window = self.view.window;
+	controller.returnToChooser = ^{
+		self->choosing = NO;
+		window.rootViewController = self;
+	};
+	[self show:controller];
+}
 - (BOOL)prefersStatusBarHidden { return YES; }
 - (UIInterfaceOrientationMask)supportedInterfaceOrientations { return UIInterfaceOrientationMaskLandscape; }
 @end

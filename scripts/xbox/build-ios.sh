@@ -51,6 +51,18 @@ $CC -c "$ROOT/port/xbox/xg_runtime.s" -o "$OBJ/xg_runtime.o"
 # it with port/ios/HaloPadXbox.m when it exists)
 LIB="$OUT/$SDK/libhalopad-xbox.a"
 xcrun libtool -static -o "$LIB" $(ls "$OBJ"/*.o | grep -v xg_app_ios.o)
+# Keep the library tied to its exact guest image; app packaging checks this.
+python3 - "$ENGINE" "$OUT" "$SDK" <<'PY'
+import datetime, hashlib, json, pathlib, subprocess, sys
+engine, out, sdk = sys.argv[1], pathlib.Path(sys.argv[2]), sys.argv[3]
+manifest = {
+    'revision': subprocess.check_output(['git', '-C', engine, 'rev-parse', 'HEAD'], text=True).strip(),
+    'built': datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d'),
+    'guest_sha256': hashlib.sha256((out / 'halo_guest.elf').read_bytes()).hexdigest(),
+    'library_sha256': hashlib.sha256((out / sdk / 'libhalopad-xbox.a').read_bytes()).hexdigest(),
+}
+(out / sdk / 'build.json').write_text(json.dumps(manifest, indent=2) + '\n')
+PY
 $CC -o "$APP/HaloPadXbox" "$OBJ"/*.o -framework UIKit -framework QuartzCore -framework OpenGLES \
 	-framework GameController -framework AudioToolbox -framework AVFoundation -framework Foundation -framework CoreFoundation -framework CoreGraphics
 cp "$OUT/halo_guest.elf" "$APP/halo_guest.elf"
