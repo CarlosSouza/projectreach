@@ -1,9 +1,13 @@
 # Xbox engine (second HaloPad engine)
 
-Status, 2026-10-01: **HaloPad offers Windows Custom Edition or Xbox Combat Evolved at launch.**
-The accepted **experimental development pin** is upstream **build 61, `f8937c61`**,
-which adds high-resolution HUD textures after build 60's menu-glyph edge fix. Save-backed Mac and iPad Simulator
-menu/campaign/scripted-match gates pass. The earlier build-59 real touch pass verified
+Status, 2026-10-02: **HaloPad offers Windows Custom Edition or Xbox Combat Evolved at launch.**
+The accepted **experimental development pin** is upstream **build 64, `c55e4e2b`**,
+which expands the high-resolution HUD/scopes and fixes meter alpha and flat menu fills.
+Save-backed candidate and acceptance Mac/ANGLE iPad Simulator menu/a10/scripted-match
+gates pass. A copied build-61 a30 checkpoint loads through normal menus; actual
+fire, pistol swap, 2x Zoom, Save and Quit and fresh-process pod reload work.
+ANGLE/Metal remains an independently pinned opt-in Simulator PREVIEW, not the
+default or physical-device renderer. The earlier build-59 real touch pass verified
 navigation, cryo-bay training, tube exit, Save and Quit, and a same-build cold checkpoint
 reload with isolated saves. A copied build-59 checkpoint also loads through the
 normal build-60 menus; a copy of that fixture also reloads the cryo-bay in build 61.
@@ -181,9 +185,9 @@ freeze an exact commit for validation. Do not chase changing HEAD during a pass.
 local build/update workflow, not an in-app executable updater or a scheduled job already installed.
 
 ```sh
-scripts/xbox/update-pin.sh --to build-61 --simulator <dedicated-simulator-UDID>
+scripts/xbox/update-pin.sh --to c55e4e2b9d90550b0e761eb78dfe9d7c74880cb9 --simulator <dedicated-simulator-UDID>
 # Only after all checks and visual review pass:
-scripts/xbox/update-pin.sh --to build-61 --simulator <dedicated-simulator-UDID> --accept
+scripts/xbox/update-pin.sh --to c55e4e2b9d90550b0e761eb78dfe9d7c74880cb9 --simulator <dedicated-simulator-UDID> --accept
 ```
 
 The script lists upstream changes, backs up Mac and selected Simulator Xbox saves, builds the
@@ -202,8 +206,8 @@ before a changed engine opens them. A failed backup blocks startup. This preserv
 **not save-format compatibility**; upstream saves are snapshots. PC saves are not migrated into Xbox
 saves. The **About these builds** panel shows the bundled revision and preview status.
 
-Optional original-Xbox texture-byte diagnostics are revision-specific: build 61
-changes the cache layout, so the runner rejects that diagnostic until its ABI is
+Optional original-Xbox texture-byte diagnostics are revision-specific: builds 61
+and 64 change the cache layout, so the runner rejects that diagnostic until its ABI is
 adapted/reviewed. Normal builds, updates and gameplay do not use that reader.
 
 ## Evidence (2026-09-30)

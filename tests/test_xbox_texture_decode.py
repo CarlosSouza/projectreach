@@ -12,7 +12,8 @@ from texture_decode import cache_symbol, morton_index, decode_rgb565, compare_te
 class TextureDecodeTests(unittest.TestCase):
     def test_unreviewed_cache_revision_rejected(self):
         validate_cache_revision('bfbac35761335c28aac7a47bf0c578ea37764810')
-        for revision in ('', 'bfbac357', 'f8937c6179757774c75f4e7d36de446fabd3dcc8'):
+        for revision in ('', 'bfbac357', 'f8937c6179757774c75f4e7d36de446fabd3dcc8',
+                         'c55e4e2b9d90550b0e761eb78dfe9d7c74880cb9'):
             with self.assertRaisesRegex(ValueError, 'reviewed texture-cache ABI'):
                 validate_cache_revision(revision)
 

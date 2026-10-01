@@ -1053,3 +1053,74 @@ Next save-backed candidate update must test clean embedding/translation/build,
 memory, scopes/meters/pause backgrounds, normal menu/checkpoint reload and
 rendered motion. Keep the tested guest/renderer frozen until candidate gates
 pass; newest commit is not installed or promoted by this pass. Goal stays active.
+
+## 2026-10-01/02 — upstream build 64 candidate and normal HUD/checkpoint review
+
+Frozen candidate `c55e4e2b9d90550b0e761eb78dfe9d7c74880cb9` (upstream tag
+`build-64`), four commits after the accepted build 61. Private evidence:
+`ref/xbox-build/passes/2026-10-01/upstream-c55.foFBTU/`. Saved the outgoing
+ANGLE/build-61 app and the candidate app separately for in-place rollback.
+Full real-save copy verified before the candidate update. The update routine
+also backs up Mac/Simulator saves at `save-backups/20261001-233228-from-f8937c61`.
+Read-only review covers embedded assets, CRC-guarded substitutions, coverage-alpha
+shader keys and the newly changed texture-description ABI. Keep the original
+Xbox texture-cache byte reader disabled; an explicit build-64 regression case
+now verifies rejection of that unreviewed ABI. No speculative normal-depth fix.
+
+Candidate rebuild succeeds: 684,271 translated instructions, 192 imports,
+98 GLES imports. Mac menu/campaign/match pass (last match tick 2,102, 16 shots).
+Simulator normal menu 30 seconds, a10 60 seconds and scripted-match 65 seconds
+pass (1,536 ticks, 12 shots). Campaign has no scripted input or rendering
+diagnostics. ANGLE/native-swizzle identity is verified. Reviewed campaign and
+Blood Gulch captures retain restored colors and lack the pronounced earlier
+bands in these sampled views. Source-build configuration/link warnings and the
+existing startup GL blit `0x502` are not hidden by the passing gates.
+
+Normal candidate process 82876 uses a full separate copy of the build-61 a30
+checkpoint, no init/bot/forced edition. Actual picker → Campaign → New001 → Halo
+(game in progress) → Normal restores first-person pod play. Actual RT taps reduce
+rifle 60→58; Y swaps to the pistol; Zoom reaches its circular 2x scope. Radar,
+ammo, health/shield meters and pause panel draw in the reviewed samples. Save and
+Quit shows Saving last checkpoint and returns to the main menu. Fresh process
+98213 takes the same normal menu path and restores the pod with rifle 60, not
+the unsaved shots/pistol. This narrow fixture result is not general snapshot
+compatibility, a newly reached checkpoint or full campaign progression. The
+copied save hash starts at `384c0c0aab8eb4e0dd4cc4951d6e60f34bd6441128d43a441f8ab7aded657a28`,
+becomes `ed2fc0da61363e30b069f82ee3cb51b4378a11d627d1a9266a638d444f23b8d7`
+on first candidate load (unchanged by Save and Quit), then
+`569b949ecaa03a3ae76d4e6b59addfcf41de89da0076342cd307f267ec2a0103` on cold load.
+The real-save container is not this fixture.
+
+HUD logging maps 34/69 menu bitmaps and 69/69 a30 bitmaps. `top` reports 145M
+MEM/RSIZE in menu and 172M in the pod; separate `ps` RSS samples are 377,200 and
+419,120 KiB. These different metrics are not interchangeable, not a same-scene
+build-61 comparison, and not physical iPad memory acceptance. `vmmap` itself
+fails with signal 10; no usable physical-footprint result from it, and no guest
+crash inferred from that diagnostic failure. Sniper ladder/fringes, sustained
+human controls, temporal fidelity and audio remain unverified. Physical iPad
+Windows/Metal shading/focus report remains open; these Xbox Simulator samples
+do not fix or diagnose it.
+
+Guarded acceptance rerun backs up saves again at
+`save-backups/20261002-000148-from-f8937c61`. Mac menu/a10/match and Simulator
+menu/a10/match all pass again (Simulator 1,530 ticks / 12 shots). Accepted
+experimental guest pin moves to build 64, dated 2026-10-02; ANGLE source pin and
+opt-in PREVIEW remain unchanged. Rebuilt the default Apple library against the
+same guest hash `102885c274aa95771be8672a65ba16fa88a52d9f4d3889310072e214aabfdaaa`
+without installing it or claiming that backend's known rendering defects fixed.
+Separate 90-second a30 scripted rendering diagnostic passes with ANGLE identity,
+lit fraction 0.935 and presentation captures. Reviewed final outdoor valley
+image draws terrain, trees, ring and updated HUD without the earlier pronounced
+bands. This automated motion sample is not sustained human input or temporal
+fidelity acceptance. Ordinary accepted-pin app packaging/launch and final save
+readback are checked separately below.
+
+Accepted-pin one-app rebuild installs in place on the dedicated Simulator;
+ordinary launch shows both editions. About reports `c55e4e2b` and incomplete
+validation, Done returns both choices. Private accepted app copy and picker
+capture retained; no test environment overrides on the final launch. Real saves
+in rediscovered container `A7EB6FDF-9D71-4EEE-8003-EC060348128D` match both the
+pre-pass full copy and original `20261001-191048-from-bfbac357` acceptance backup
+byte-for-byte. Upstream and ANGLE checkouts remain clean. 103 Xbox unit tests,
+whitespace and tree/index safety pass. No physical installs, IPA, publication,
+push or cleanup. The broader goal remains active.

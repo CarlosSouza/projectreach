@@ -18,7 +18,7 @@ candidate's native-swizzle override passes on this Mac/iPadOS 26.5. Reviewed
 rebuilt campaign/match images restore colors and lack the pronounced bands.
 Normal menu/campaign/scripted-match gates pass (1,530 ticks / 12 shots). This is
 an observed improvement, not complete visual acceptance or proof about the
-physical Windows edition. Apple remains the default; no guest pin promotion.
+physical Windows edition. Apple remains the default; the comparison held guest 61 frozen.
 Copied identical checkpoints now provide the same untouched cryo-bay camera:
 Apple has large black floor polygons; the preview draws that floor. Both render
 at 640x480. NPC/prompt timing differs; no pixel-synchronized driver claim.
@@ -37,15 +37,20 @@ and moving-image stability. Do not substitute bot screenshots for those gates.
 Keep the accepted Apple app available for in-place rollback and all real saves
 untouched. Physical iPad shading/focus investigation stays a separate gate.
 
-Next upstream candidate (live check 2026-10-01): `c55e4e2b9d90550b0e761eb78dfe9d7c74880cb9`,
-four commits after 61. Broader HUD/scopes, CRC guards, meter coverage-alpha and
-widescreen flat menu fills. Source estimates potential HUD textures rising from
-about 63 MB to 225 MB with mips (subset used); texture-description ABI changes.
-Build and measure one save-backed candidate, test scopes/meters/pause background,
-normal checkpoint reload and a10/a30/match before promotion. Keep Apple and ANGLE
-pins independent; do not chase a moving HEAD or enable the old cache-byte reader.
+Accepted experimental update, 2026-10-02: build 64,
+`c55e4e2b9d90550b0e761eb78dfe9d7c74880cb9`, four commits after 61. Candidate and
+acceptance source-built Mac/ANGLE Simulator menu/a10/scripted-match sets pass.
+Normal copied build-61 a30 checkpoint, RT fire, Y pistol swap, circular 2x scope,
+pause panel, Save and Quit and fresh-process pod reload verified. `top` menu/pod
+snapshots 145M/172M are not physical footprint or a same-scene old/new comparison;
+`vmmap` failed. CRC-guarded expanded HUD and meter-alpha ABI reviewed; the old
+cache-byte diagnostic remains fail-closed with an explicit new-pin test.
+Next check moving views and sniper ladder/meter fringes, sustained human controls,
+new checkpoint progression and physical memory/audio/fidelity under a separately
+coordinated device window. Keep Apple and ANGLE pins independent and PREVIEW
+visible; do not chase moving HEAD. Preserve outgoing app and both save backups.
 
-Build 61 (`f8937c61`) is now the experimental development pin, adding upstream's
+The earlier build-61 (`f8937c61`) experimental development pin added upstream's
 high-resolution HUD after build 60's menu-glyph fix. Save-backed candidate and
 acceptance Mac/Simulator menu/campaign/scripted-match checks pass. The
 earlier build-59 real touch pass verified navigation, cryo-bay training,

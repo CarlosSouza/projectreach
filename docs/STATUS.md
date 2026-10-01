@@ -1,10 +1,10 @@
 # HaloPad status
 
-Updated 2026-10-01. **ACTIVE — Simulator-focused Xbox/menu loop.** Physical acceptance remains separate.
+Updated 2026-10-02. **ACTIVE — Simulator-focused Xbox/menu loop.** Physical acceptance remains separate.
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE3.md](HaloPad-GOAL-LOOP-PHASE3.md). Earlier engineering history remains in [phase 2](HaloPad-GOAL-LOOP-PHASE2.md).
 
-**Latest renderer comparison (2026-10-01).** A correctly source-built,
+**Renderer comparison at build 61 (2026-10-01).** A correctly source-built,
 separately pinned ANGLE/Metal Simulator preview now runs the same Xbox build 61.
 Its first scenes remove the pronounced horizontal wall bands but reverse red
 and blue. An asset-free sampling test reproduces that: ANGLE's Simulator default
@@ -14,7 +14,7 @@ alone enables that feature. The rebuilt campaign and Blood Gulch images have
 restored colors and no pronounced cliff bands in the reviewed views. Normal
 menu/campaign/scripted-match checks pass (1,530 ticks, 12 shots), not full visual
 acceptance or a matched-camera driver diagnosis. Apple remains the default;
-the Xbox guest pin and physical Windows/Metal rendering are unchanged. The
+that comparison held the Xbox guest fixed; physical Windows/Metal rendering is unchanged. The
 physical iPad's reported shading/focus instability is still open. A follow-up
 loads identical copied cryo-bay checkpoints through normal menus: Apple shows
 large black floor polygons; the preview draws that floor in the untouched view.
@@ -35,11 +35,20 @@ new checkpoint progression and moving-image checks before adopting the
 candidate more broadly. See the pass ledger for failed first attempts and
 source/probe provenance. No physical install, IPA or publication.
 
-**Upstream update queued:** live 2026-10-01 check finds four newer commits through
-`c55e4e2` (expanded HUD/scopes, meter alpha and widescreen flat menu fills).
-Build 61 remains the tested pin. The next save-backed candidate needs additional
-HUD/memory checks and texture-ABI review before promotion; none of those changes
-is evidence of a physical Windows-rendering fix.
+**Accepted experimental upstream update (2026-10-02): build 64, `c55e4e2b`.**
+Frozen four-commit update adds expanded HUD/scopes, meter alpha and widescreen
+flat menu fills. Candidate and guarded acceptance rerun both pass source-built
+Mac and ANGLE Simulator menu/a10/scripted-match gates (acceptance 1,530 match
+ticks, 12 shots). A copied build-61 a30 checkpoint loads through normal menus;
+RT fire, Y pistol swap, circular 2x Zoom and pause/Save and Quit work. A fresh
+process recognizes Halo in progress and restores the pod checkpoint with rifle
+60. Real saves remain separate, and the outgoing app/save backups are retained.
+The unreviewed texture-cache byte diagnostic remains rejected by an explicit
+build-64 test. Menu/pod `top` snapshots are 145M/172M, not physical footprint,
+build-61 memory comparison or iPad acceptance; `vmmap` failed. ANGLE remains an
+independently pinned opt-in PREVIEW; Apple remains default. Sniper fringe/meter
+coverage, sustained human motion, new checkpoint progression, temporal fidelity
+and physical Windows shading/focus remain open. No physical install or IPA.
 
 ## Latest engineering and device results
 

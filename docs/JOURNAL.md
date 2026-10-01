@@ -4008,3 +4008,27 @@ and another texture-description ABI change. Recorded as next save-backed candida
 not installed/promoted. Keep physical iPad shading/focus report separate and open.
 Goal active: next candidate build/memory/HUD/save checks, then sustained human
 controls, genuinely new checkpoint progression and moving-image review.
+
+### 2026-10-01/02 — build 64 update, HUD and cross-pin pod reload
+
+Frozen upstream `c55e4e2b` / build 64, reviewed its expanded HUD, CRC guards,
+coverage-alpha shader fields and flat menu fills. Candidate Mac/ANGLE Simulator
+menu/a10/scripted-match pass; guarded acceptance rerun passes again (Simulator
+1,530 ticks, 12 shots). Save-backed pin now build 64, experimental only. Both
+Apple-default and opt-in ANGLE libraries rebuilt against the exact new guest;
+renderer pins remain independent. Outgoing/candidate app copies retained.
+Explicit unit fixture keeps old texture-cache byte diagnostics rejected for
+the changed ABI. 103 Xbox unit tests pass.
+
+Normal menus load a copy of the build-61 Halo/a30 checkpoint. Actual RT reduces
+rifle 60→58, Y switches to pistol, Zoom draws a circular 2x scope, pause panel
+and Save and Quit work. Cold process recognizes Halo in progress and restores
+pod with rifle 60; not the unsaved shots/pistol. Narrow snapshot fixture result,
+not new progression or general save compatibility. Real saves remain separate.
+`top` menu/pod samples 145M/172M; ps RSS is a different metric. `vmmap` failed,
+so no physical-footprint result. A separate 90-second scripted a30 diagnostic
+passes, lit 0.935, with outdoor terrain/tree/ring/HUD sample reviewed. No full
+temporal, sniper-meter, audio, human-control or hardware acceptance. Existing
+startup blit and source-build warnings recorded. Physical Windows/Metal
+shading/focus remains open; no device install, IPA, push or publication. Goal
+active. Evidence under private `upstream-c55.foFBTU` pass root.
