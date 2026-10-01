@@ -56,15 +56,18 @@ static void capture_draw_elements(GLenum mode, GLsizei count, GLenum type, const
 	static BOOL captured[2];
 	static GLsizei target_count;
 	static BOOL initialized;
+	static long minimum = 3;
 	if (!initialized) {
 		initialized = YES;
 		programs = [NSMutableDictionary dictionary];
+		if (getenv("XG_CAPTURE_MIN_INDICES")) minimum = strtol(getenv("XG_CAPTURE_MIN_INDICES"), NULL, 10);
+		if (minimum < 3 || minimum > 100000) minimum = 3;
 		NSString *folder = @(getenv("XG_CAPTURE_SHADER_DIR") ?: "");
 		targets[0] = [NSData dataWithContentsOfFile:[folder stringByAppendingPathComponent:@"vs017_0.glsl"]];
 		targets[1] = [NSData dataWithContentsOfFile:[folder stringByAppendingPathComponent:@"vs041_0.glsl"]];
 		xg_log("draw capture: targets loaded %lu / %lu bytes", (unsigned long)targets[0].length, (unsigned long)targets[1].length);
 	}
-	if (count < 3 || mode != GL_TRIANGLES || (captured[0] && captured[1])) {
+	if (count < minimum || mode != GL_TRIANGLES || (captured[0] && captured[1])) {
 		glDrawElements(mode, count, type, indices);
 		return;
 	}
@@ -150,6 +153,15 @@ static void capture_draw_elements(GLenum mode, GLsizei count, GLenum type, const
 		glGetFloatv(GL_POLYGON_OFFSET_UNITS, &offset[1]); glGetFloatv(GL_VIEWPORT, viewport);
 		state[@"depth_range_bits"] = float_bits(range, 2); state[@"polygon_offset_bits"] = float_bits(offset, 2);
 		state[@"viewport_bits"] = float_bits(viewport, 4); state[@"polygon_offset_enabled"] = @(glIsEnabled(GL_POLYGON_OFFSET_FILL));
+		for (NSNumber *capability in @[@(GL_DEPTH_TEST), @(GL_STENCIL_TEST), @(GL_CULL_FACE), @(GL_BLEND), @(GL_SCISSOR_TEST)])
+			state[[NSString stringWithFormat:@"enabled-%x", capability.unsignedIntValue]] = @(glIsEnabled(capability.unsignedIntValue));
+		for (NSNumber *attachment in @[@(GL_COLOR_ATTACHMENT0), @(GL_DEPTH_ATTACHMENT)]) {
+			GLint kind = 0, bits = 0;
+			glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER, attachment.unsignedIntValue, GL_FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE, &kind);
+			if (kind != GL_NONE) glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER, attachment.unsignedIntValue,
+				attachment.unsignedIntValue == GL_DEPTH_ATTACHMENT ? GL_FRAMEBUFFER_ATTACHMENT_DEPTH_SIZE : GL_FRAMEBUFFER_ATTACHMENT_RED_SIZE, &bits);
+			state[[NSString stringWithFormat:@"attachment-%x", attachment.unsignedIntValue]] = @{@"type":@(kind), @"bits":@(bits)};
+		}
 		glGetAttachedShaders(program, 8, &shader_count, shaders);
 		for (int i = 0; i < shader_count; i++) {
 			GLint kind = 0; glGetShaderiv(shaders[i], GL_SHADER_TYPE, &kind);

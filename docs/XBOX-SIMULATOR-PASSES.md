@@ -362,6 +362,70 @@ Next isolate original-program raster/depth/stencil state for this exact pair,
 accounting for replay's changed linkage. Do not infer a driver bug from the
 controls or numeric equality, or replace EQUAL with a global tolerance/bypass.
 
+### Depth rasterization beyond transform feedback
+
+`build60-stencil-paired/` compares native stencil → bypass → restored native in
+one stationary match, camera `(85.2, -157.8, 0.6)`, 3,007 ticks, no scripted shots.
+All three source frames were reviewed; stripes and pale geometry remain. The
+temporary stencil toggle was removed from source after the experiment. This
+does not establish that all stencil state is correct. The older guest-state
+trace reports disabled stencil on its terrain draws, but the later native
+capture below observes enabled stencil on both passes: those observations must
+not be generalized across frames. Captures now record actual enable flags and
+attachment type/bit depth, rather than relying only on function/mask values.
+
+`build60-draw-inputs-large/` uses `XG_CAPTURE_MIN_INDICES=1000` to select a larger
+VS17/41 pair rather than the first small draw. Both snapshots contain 1,257
+indices, exact projection identity and 15,084 identical position bytes (SHA-256
+`5c3ff898384ea4c6ab8e6b6ff6c9dfab094996dbda1a3e1cb3d31415173aaeb2`).
+The actual stencil test is enabled for this pair. Its visually reviewed match
+still shows stripes and pale geometry (2,411 ticks, no scripted shots).
+
+`XG_DRAW_RASTER=renderbuffer|texture` extends private replay to a 640x480 RGBA8 /
+DEPTH24_STENCIL8 target. It links the captured, unmodified vertex and fragment
+sources **without transform feedback**, and draws original indexed buffer
+layouts. Base LEQUAL writes depth; a same-linked-program EQUAL redraw controls
+the baseline; then VS41 EQUAL uses that depth. An ALWAYS reference reuses the
+same VS41 program. Defined black 2D/cube textures keep fragment sampling complete;
+pixel uniforms retain defaults, stencil/blend/cull/scissor/offset are disabled.
+This isolates depth, **not** original scene/texture fidelity or all game state.
+Unsupported viewport/depth ranges, incomplete outputs, empty coverage and
+fragment sources using discard/FragDepth fail closed.
+
+The first small pair (`build60-draw-raster/`) covers 3,785 pixels with no EQUAL
+loss. Larger preliminary texture/renderbuffer runs also preserve all 145,994
+base pixels under EQUAL. However, their ALWAYS reference used another linked
+program and incomplete textures; texture coverage differed unexpectedly. Those
+ALWAYS counts are not reliable driver-defect evidence. The hardened
+`build60-draw-raster-defined-texture/` repeat reuses each control program and
+binds complete black textures: 145,994 base/EQUAL pixels, zero same-program
+missing pixels, zero EQUAL missing pixels, zero ALWAYS coverage differences,
+GL error 0. Numeric coordinates remain bit-identical for all 1,257 vertices.
+This is a passing concrete shader/depth case; the live scene defect remains.
+The hardened renderbuffer repeat (`build60-draw-raster-defined-renderbuffer/`)
+produces exactly the same coverage counts and zero losses/differences.
+
+`build60-draw-state-verified/` verifies the expanded live metadata on another
+1,755-index pair (1,201 ticks, no scripted shots): actual color/depth attachments
+are textures with 8 red / 24 depth bits; depth, stencil, scissor and culling are
+enabled; base blend is disabled and second-pass blend enabled. Both captures are
+complete with GL error 0 and exact position/projection identity. The reviewed
+screen still has stripes and pale geometry. These are observations for that
+pair, not assumptions about all draws or a complete scene replay.
+
+Final normal regression (`build60-raster-normal-regression/`) passes menu,
+campaign opening and scripted match (1,235 ticks / nine shots), with frames
+reviewed. 99 Python tests run, 16 skipped, no failures; physical SDK syntax and
+tree/index safety guards pass. The pre-existing frame-0 GL error remains in normal
+logs, so no wholly error-free-renderer claim is made. Real Xbox saves still match
+the build-60 update backup byte-for-byte. About/Done verifies accepted `bfbac357`
+and returns to the normal picker (`build60-raster-final-picker.png`). No physical
+install, IPA or publication; the broader goal remains active.
+
+Next inspect intervening depth writes and full draw/texture state in the live
+striped scene. Neither basic nor captured-program controls justify a general
+EQUAL bypass or a software-driver diagnosis.
+
 An auxiliary Mac CPU-texture match (`build59-mac-cpu-textures/`) overlapped the
 Simulator match and failed with `WSAEADDRINUSE` before gameplay. It is invalid
 rendering evidence: network cases must run serially because they use the same

@@ -7,7 +7,7 @@ import tempfile
 import unittest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / 'scripts/xbox'))
-from draw_capture import load_draw, position_bytes, compare_clip_positions
+from draw_capture import load_draw, position_bytes, compare_clip_positions, validate_raster_input, compare_raster_coverage
 
 
 class DrawCaptureTests(unittest.TestCase):
@@ -94,6 +94,38 @@ class DrawCaptureTests(unittest.TestCase):
             (self.folder / (label + '-position.bin')).write_bytes(struct.pack('<4f', 1, 2, float('nan'), 4))
         with self.assertRaisesRegex(ValueError, 'Nonfinite'):
             compare_clip_positions(self.folder, 1)
+
+    def test_raster_requires_supported_capture_layout(self):
+        draw = {'viewport_bits': list(struct.unpack('<4I', struct.pack('<4f', 0, 0, 640, 480))),
+                'depth_range_bits': [0, 0x3f800000]}
+        validate_raster_input(draw)
+        for field in ('viewport_bits', 'depth_range_bits'):
+            changed = dict(draw, **{field: [0] * len(draw[field])})
+            with self.assertRaises(ValueError):
+                validate_raster_input(changed)
+
+    def raster_fixture(self, masks):
+        for label, covered in masks.items():
+            data = bytearray(b'\xff\x00\xff\xff' * (640 * 480))
+            for index in covered:
+                data[index*4:index*4+4] = b'\x00\x00\x00\xff'
+            (self.folder / (label + '.rgba')).write_bytes(data)
+
+    def test_raster_reports_missing_equal_pixels_without_blessing_them(self):
+        self.raster_fixture({'base': [0, 1, 2], 'base-control': [0, 1, 2],
+                             'equal': [0], 'equal-coverage': [0, 1, 2, 3]})
+        self.assertEqual(compare_raster_coverage(self.folder), {
+            'base_covered': 3, 'same_program_missing': 0, 'equal_covered': 1,
+            'equal_missing': 2, 'coverage_missing': 0, 'coverage_extra': 1})
+
+    def test_raster_rejects_empty_or_truncated_evidence(self):
+        masks = {label: [] for label in ('base', 'base-control', 'equal', 'equal-coverage')}
+        self.raster_fixture(masks)
+        with self.assertRaisesRegex(ValueError, 'no visible coverage'):
+            compare_raster_coverage(self.folder)
+        (self.folder / 'equal.rgba').write_bytes(b'short')
+        with self.assertRaisesRegex(ValueError, 'Incomplete'):
+            compare_raster_coverage(self.folder)
 
 
 if __name__ == '__main__':

@@ -51,6 +51,33 @@ class SimulatorDiagnosticsTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertIn('Invalid replay input:', result.stderr)
 
+    def test_raster_requires_replay_before_simulator_tools(self):
+        env = dict(os.environ, XG_DRAW_RASTER='1')
+        env.pop('XG_DRAW_REPLAY', None)
+        env.pop('XG_DEPTH_COMPARE', None)
+        result = subprocess.run([sys.executable, str(SCRIPT), '--device', 'unused',
+                                 '--render-diagnostics'], capture_output=True, text=True, env=env)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn('XG_DRAW_RASTER requires XG_DRAW_REPLAY', result.stderr)
+
+    def test_unknown_raster_attachment_rejected_before_launch(self):
+        env = dict(os.environ, XG_DRAW_RASTER='typo')
+        env.pop('XG_DEPTH_COMPARE', None)
+        result = subprocess.run([sys.executable, str(SCRIPT), '--device', 'unused',
+                                 '--render-diagnostics'], capture_output=True, text=True, env=env)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn('XG_DRAW_RASTER must be', result.stderr)
+
+    def test_capture_minimum_requires_valid_bounds_and_shader_sources(self):
+        for minimum in ('typo', '2', '100001', '1000'):
+            env = dict(os.environ, XG_CAPTURE_MIN_INDICES=minimum)
+            for key in ('XG_DEPTH_COMPARE', 'XG_CAPTURE_SHADER_DIR'):
+                env.pop(key, None)
+            result = subprocess.run([sys.executable, str(SCRIPT), '--device', 'unused',
+                                     '--render-diagnostics'], capture_output=True, text=True, env=env)
+            self.assertEqual(result.returncode, 2)
+            self.assertIn('XG_CAPTURE_MIN_INDICES', result.stderr)
+
     def test_paired_depth_requires_stationary_match(self):
         result = subprocess.run([sys.executable, str(SCRIPT), '--device', 'unused',
                                  '--case', 'match', '--render-diagnostics'],

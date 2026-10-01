@@ -72,3 +72,27 @@ def compare_clip_positions(folder, count):
             'changed_vertices': sum(data[0][i:i+16] != data[1][i:i+16] for i in range(0, count * 16, 16)),
             'max_component_delta': max(abs(a - b) for a, b in zip(*values)),
             'max_ndc_depth_delta': max(depth_delta, default=0)}
+
+
+def validate_raster_input(draw):
+    expected = list(struct.unpack('<4I', struct.pack('<4f', 0, 0, 640, 480)))
+    if draw['viewport_bits'] != expected or draw['depth_range_bits'] != [0, 0x3f800000]:
+        raise ValueError('Raster probe requires the captured 640x480 / depth 0..1 layout')
+
+
+def compare_raster_coverage(folder):
+    """Depth coverage only; the magenta clear color is not game/texture fidelity."""
+    masks = {}
+    for label in ('base', 'base-control', 'equal', 'equal-coverage'):
+        blob = (pathlib.Path(folder) / (label + '.rgba')).read_bytes()
+        if len(blob) != 640 * 480 * 4:
+            raise ValueError('Incomplete raster output')
+        masks[label] = {index // 4 for index in range(0, len(blob), 4)
+                        if blob[index:index+3] != b'\xff\x00\xff'}
+    base = masks['base']
+    if not base or not masks['equal-coverage']:
+        raise ValueError('Raster probe has no visible coverage')
+    return {'base_covered': len(base), 'same_program_missing': len(base - masks['base-control']),
+            'equal_covered': len(masks['equal']), 'equal_missing': len(base - masks['equal']),
+            'coverage_missing': len(base - masks['equal-coverage']),
+            'coverage_extra': len(masks['equal-coverage'] - base)}

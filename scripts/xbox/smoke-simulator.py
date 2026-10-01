@@ -17,7 +17,7 @@ import subprocess
 import sys
 import time
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-from draw_capture import load_draw, compare_clip_positions
+from draw_capture import load_draw, compare_clip_positions, validate_raster_input, compare_raster_coverage
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 WORK = ROOT / 'ref/xbox-build'
@@ -76,10 +76,26 @@ def main():
         parser.error('XG_DEPTH_COMPARE must be lequal, always or paired')
     if depth_pair and not args.stationary_match:
         parser.error('paired depth requires --stationary-match')
+    if args.render_diagnostics and os.environ.get('XG_CAPTURE_MIN_INDICES'):
+        try:
+            minimum = int(os.environ['XG_CAPTURE_MIN_INDICES'])
+            if minimum < 3 or minimum > 100000:
+                raise ValueError()
+        except ValueError:
+            parser.error('XG_CAPTURE_MIN_INDICES must be 3..100000')
+        if not os.environ.get('XG_CAPTURE_SHADER_DIR'):
+            parser.error('XG_CAPTURE_MIN_INDICES requires XG_CAPTURE_SHADER_DIR')
+    raster = args.render_diagnostics and bool(os.environ.get('XG_DRAW_RASTER'))
+    if raster and os.environ['XG_DRAW_RASTER'] not in ('1', 'renderbuffer', 'texture'):
+        parser.error('XG_DRAW_RASTER must be renderbuffer or texture')
+    if raster and not os.environ.get('XG_DRAW_REPLAY'):
+        parser.error('XG_DRAW_RASTER requires XG_DRAW_REPLAY')
     if args.render_diagnostics and os.environ.get('XG_DRAW_REPLAY'):
         try:
             for label in ('base', 'equal'):
-                load_draw(pathlib.Path(os.environ['XG_DRAW_REPLAY']) / label)
+                draw = load_draw(pathlib.Path(os.environ['XG_DRAW_REPLAY']) / label)
+                if raster:
+                    validate_raster_input(draw)
         except (OSError, ValueError, KeyError, TypeError) as error:
             parser.error('Invalid replay input: ' + str(error))
     stamp = datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ')
@@ -132,9 +148,13 @@ def main():
             if os.environ.get('XG_CAPTURE_SHADER_DIR'):
                 child.update(XG_DRAW_CAPTURE=str(folder / 'draw-capture'),
                              XG_CAPTURE_SHADER_DIR=os.environ['XG_CAPTURE_SHADER_DIR'])
+                if os.environ.get('XG_CAPTURE_MIN_INDICES'):
+                    child['XG_CAPTURE_MIN_INDICES'] = os.environ['XG_CAPTURE_MIN_INDICES']
             if os.environ.get('XG_DRAW_REPLAY'):
                 child.update(XG_DRAW_REPLAY=os.environ['XG_DRAW_REPLAY'],
                              XG_DRAW_REPLAY_OUT=str(folder / 'draw-replay'))
+                if raster:
+                    child['XG_DRAW_RASTER'] = os.environ['XG_DRAW_RASTER']
             for setting in ('HALO_GPU_TRACE', 'HALO_GPU_TRACE_CONSTANTS'):
                 if os.environ.get(setting):
                     child[setting] = os.environ[setting]
@@ -237,6 +257,14 @@ def main():
                 row['draw_replay_complete'] = False
                 row['draw_replay_error'] = str(error)
             row['pass'] &= row['draw_replay_complete']
+            if raster:
+                row['draw_raster_complete'] = 'draw raster: pair complete 1 error 0x0' in text
+                try:
+                    row['raster_comparison'] = compare_raster_coverage(folder / 'draw-replay')
+                except (OSError, ValueError) as error:
+                    row['draw_raster_complete'] = False
+                    row['draw_raster_error'] = str(error)
+                row['pass'] &= row['draw_raster_complete']
         results[name] = row
         print(name, json.dumps(row), flush=True)
     result = {'engine_revision': manifest['revision'], 'device': args.device, 'results': results,
@@ -250,6 +278,8 @@ def main():
               'dump_shaders': bool(args.render_diagnostics and os.environ.get('XG_DUMP_SHADERS')),
               'draw_capture': bool(args.render_diagnostics and os.environ.get('XG_CAPTURE_SHADER_DIR')),
               'draw_replay': bool(args.render_diagnostics and os.environ.get('XG_DRAW_REPLAY')),
+              'draw_raster': raster,
+              'raster_attachments': ('texture' if os.environ.get('XG_DRAW_RASTER') == 'texture' else 'renderbuffer') if raster else None,
               'match_mode': 'stationary-render-diagnostic' if args.stationary_match else 'scripted-combat',
               'pass': all(row['pass'] for row in results.values())}
     (out / 'result.json').write_text(json.dumps(result, indent=2) + '\n')

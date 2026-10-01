@@ -37,7 +37,11 @@ projection constants for a 144-index terrain pair. Replaying those shaders with
 transform feedback produces bit-identical clip coordinates for all 144 vertices.
 Replay changes linkage and omits pixel/texture state, so this does not prove
 original-program invariance or establish a driver bug. The stripes remain in the
-capture run; raster/depth/stencil state is the next discriminating target.
+capture run. A larger 1,257-index pair also has exact position/projection identity.
+Unmodified shader sources and original indexed layouts now pass isolated depth
+rasterization: all 145,994 pixels survive EQUAL on texture-backed targets, with
+passing same-program and ALWAYS controls. Full scene state/intervening depth
+writes remain the next target; a fixed-view stencil bypass did not resolve stripes.
 Mac smoke runs now
 reject mismatched executable/guest hashes. Candidates
 are labeled **PREVIEW**; the accepted Xbox baseline still says **EXPERIMENTAL**.

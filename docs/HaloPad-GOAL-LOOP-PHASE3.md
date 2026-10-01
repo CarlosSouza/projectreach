@@ -29,8 +29,12 @@ removes/restores stripes at a fixed view. Basic asset-free equal-depth controls
 pass. Read-only captures now show exact position/projection identity for a
 144-index VS17/VS41 pair; transform-feedback replay gives identical coordinates.
 It changes linkage and omits pixel/texture state, so original-program invariance
-is not proven. Next isolate raster/depth/stencil state for this pair, keeping
-shader-linkage perturbation explicit. Do not declare a driver bug or relax EQUAL.
+is not proven. Isolated original-indexed rasterization now preserves all 145,994
+pixels under EQUAL for a larger 1,257-index pair on texture-backed targets, with
+same-program and ALWAYS controls passing. A fixed-view stencil bypass leaves
+stripes. Next inspect intervening depth writes and full scene/texture state;
+the isolated probe intentionally uses black textures/default pixel uniforms.
+Do not declare a driver bug or relax EQUAL.
 Then sustained movement/look/fire and weapon pickup/swap,
 a later checkpoint and reload.
 Maintain upstream by freezing one candidate per pass, backing up saves, building,

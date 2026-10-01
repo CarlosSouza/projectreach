@@ -3446,3 +3446,60 @@ UUID `51CD4A39-C0B5-4754-998C-A8F8EF99A708`; real Xbox saves match the build-60
 update backup byte-for-byte after all probes and final navigation. Latest upstream
 release lookup still reports build 60. No IPA, push, publication or pairing change.
 Goal remains active; full campaign, audio, human multiplayer and hardware remain open.
+
+## 2026-10-01 — captured-program depth controls pass; full scene defect remains
+
+**Progress from the prior numeric replay:** isolated rasterization now uses
+unmodified captured vertex/fragment sources, normal linkage without TF, and
+original indexed buffer layouts. A same-program EQUAL redraw controls the base;
+the second program draws EQUAL then ALWAYS without relinking between those two
+draws. Defined black 2D/cube textures remove incomplete sampling ambiguity.
+Targets can use renderbuffers or textures in RGBA8 / DEPTH24_STENCIL8. Pixel
+uniforms stay at defaults; stencil/blend/cull/scissor/offset are disabled. This
+is a depth control, not original scene/texture fidelity.
+
+**Evidence:** the first 144-index pair covers 3,785 pixels with zero EQUAL loss
+(`build60-draw-raster/`). A larger 1,257-index read-only capture has identical
+position bytes and projection constants (`build60-draw-inputs-large/`, 2,411 ticks).
+The hardened `build60-draw-raster-defined-{texture,renderbuffer}/` controls both
+cover 145,994 pixels with zero same-program/EQUAL losses and zero ALWAYS coverage
+differences, GL error 0. All 1,257 numeric clip outputs are also bit-identical.
+The live capture-run frame still shows terrain stripes and pale geometry.
+
+**Do not use the preliminary ALWAYS counts as driver-defect evidence:** the
+earlier large-pair probe used a separately relinked reference and incomplete
+textures, with inconsistent texture-backed ALWAYS coverage. Both ambiguities
+were removed in the hardened repeat. An Objective-C selector/ternary syntax
+error in the first same-program build was repaired; only the rebuilt final
+library/app supplies the hardened evidence. A slow ad-hoc pixel-counter process
+was interrupted and replaced with a read-once inspection; no files were deleted.
+
+**Stencil experiment:** native → bypass → restored native in one stationary
+match (`build60-stencil-paired/`, camera 85.2/-157.8/0.6, 3,007 ticks) leaves
+stripes/pale geometry in all reviewed source frames. Its temporary source toggle
+was removed. Guest trace disabled-stencil values are not universal: native flags
+show stencil enabled for the later captured pairs. `build60-draw-state-verified/`
+captures 1,755 indices per pass, exact positions/projection, GL error 0; actual
+color/depth attachments are textures (8 red / 24 depth bits), with depth, stencil,
+scissor and culling enabled, and blend disabled/enabled for base/second pass.
+Its reviewed match still has artifacts (1,201 ticks, no scripted shots).
+
+**Next discriminating action:** inspect intervening depth writes and full
+draw/texture state in the live striped scene. Passing isolated shader controls
+do not establish original scene correctness or a software-driver defect.
+Normal EQUAL is unchanged; all new capture/raster paths remain opt-in,
+Simulator-only, with private generated data under ignored ref/.
+
+**Final verification:** `build60-raster-normal-regression/` passes normal
+menu/campaign-opening/scripted-match gates (1,235 ticks / nine test shots).
+Opening cinematic and match frames reviewed; remaining terrain artifacts are
+explicit. The frame-0 GL_INVALID_OPERATION diagnostic is also present in both
+earlier normal regression builds; later sampled frames report error 0. No
+claim of a wholly error-free renderer. 99 Python tests run, 16 skipped, no
+failures; physical SDK syntax and tree/index safety guards pass. The rediscovered
+real Simulator save directory (`EAA895CD-7568-4A43-A443-2EB3767DD8B2`) remains
+byte-identical to the build-60 update backup after all reinstalls, probes, normal
+checks and final About navigation. About shows accepted `bfbac357`, no PREVIEW;
+Done returns to the normal picker (`build60-raster-final-picker.png`). Latest
+upstream release is still build 60. No physical install, IPA, push or publication.
+Goal stays active; full campaign/control/audio/human multiplayer/hardware gates remain.
