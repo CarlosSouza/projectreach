@@ -1403,3 +1403,60 @@ physical operation, pin change, IPA, public artifacts, push or cleanup.
 Goal remains active. Next prioritize a matched affected moving scene/reference,
 and the remaining actual Xbox checkpoint/control/physical gates; do not keep
 repeating this now-covered stationary-position cliff pan as hardware proof.
+
+### Newly reached Xbox checkpoint through normal menus (2026-10-02)
+
+Private pass: `ref/xbox-build/passes/2026-10-02/checkpoint64.sr7KEQ/`.
+Installed build-64 ANGLE/Metal preview remains unchanged; no new app install.
+Full APFS-cloned save snapshots isolate the test from the real Simulator saves.
+Source fixture is the accepted pin pass's `upstream-c55.foFBTU/checkpoint/save`;
+`before-save/` preserves it and `after-save-quit/` preserves the first completed
+Save and Quit result before the cold reload.
+
+Actual edition picker → Xbox → Campaign → New001 → Halo (game in progress) →
+Normal resumes inside the escape pod: 60 loaded / 120 reserve, no grenades.
+Finite touch drags on the left movement region advance out of the pod, across
+the crash-site bodies and into the grass; ammunition/grenade pickups are visible.
+The last pre-quit HUD shows 60 loaded / 425 reserve and two grenades. These are
+short CUA drags with input returning to neutral between gestures, not a sustained
+hold or simultaneous two-thumb test. A finite right-region look gesture is also
+used. No `init.txt`, bot, network-test sequence, direct map load or injected guest
+movement is used. `outside-pod.png` retains an intermediate outside view.
+
+Pause → Save and Quit is selected only after observing each menu step. An initial
+batch of three down drags coalesces to one step; subsequent individually observed
+steps reach Save and Quit without activating Revert or Restart. Saving finishes
+and the Xbox main menu is visibly restored before terminating the process.
+The 16,777,216-byte `z/savegame.bin` SHA-256 changes from
+`569b949ecaa03a3ae76d4e6b59addfcf41de89da0076342cd307f267ec2a0103` to
+`ee33ca3d2b22261beb49cdca25972a88a5b662ee5178a97a0a5335631f6d5500`.
+Hash change alone is not the acceptance gate.
+
+Cold launch PID 95137 again uses the actual picker and Campaign/New001/Halo/Normal
+menus. First person restores **outside the pod**, with the valley, nearby bodies
+and medkit visible: 60 loaded / 120 reserve and **one grenade**, full shields and
+health. `cold-resume-outside-pod.png` preserves this actual Simulator frame.
+This is a genuinely later checkpoint than the original inside-pod state; it
+does not restore the subsequent unsaved ammunition/second grenade pickups.
+The live isolated save changes again during continuation to
+`416e8fd8b69e11426a429fa3af4ae18862605eb84537d7be772995bc92dd001b`;
+the pre-cold snapshot remains preserved. The profile card's older Legendary/The
+Maw metadata differs from the recognized Halo/Normal continuation, as in the
+source fixture; no profile-metadata migration or general save-compatibility claim.
+
+This closes bounded early new-checkpoint progression, not campaign completion,
+continuous movement, simultaneous controls, physical performance or graphics
+fidelity. Lighting changes between pod and outdoors are not compared with an
+original reference. Chris's physical iPad shading/focus complaint remains open;
+affected edition/map is still unconfirmed. Next prioritize that matched moving
+scene/reference and sustained controls, not another opening-checkpoint reload.
+Goal remains active; no physical operations, pin change, IPA, push or release.
+
+The second Save and Quit also finishes at the Xbox main menu before restoring
+the ordinary picker with no data/save/test overrides. `after-cold-save-quit/`
+preserves the full final isolated save; its checkpoint hash matches the live
+post-reload hash above. Full recursive comparison confirms the dedicated real
+Simulator save directory still matches `audio64.U2hPbE/real-save-before`.
+109 Xbox Python tests, whitespace and current-tree/index safety guards pass.
+Only evidence/status documentation changes in this pass; private copies and
+screenshots remain ignored. No cleanup or publication.

@@ -96,6 +96,20 @@ or dirty managed texture. This does not reproduce the physical complaint.
 The private one-second movie is a 30-fps frame replay, not measured gameplay
 timing. Normal tests do not capture the sequence. No app install or save changes.
 
+The next Xbox build-64 pass closes the narrow new-checkpoint gap: actual picker,
+Campaign/New001/Halo/Normal menus load an isolated copy inside the escape pod;
+finite forward touch gestures advance outside and collect supplies. Save and
+Quit finishes, then a cold process through those same normal menus restores the
+outside-pod checkpoint with one grenade (not the subsequent 425-round/two-grenade
+inventory). No init script, bot or direct map load. The checkpoint save hash
+changes and before/after snapshots remain private. This proves early checkpoint
+progression only; the short drags do not establish sustained two-thumb controls.
+Real Simulator saves and the physical iPad are untouched. The reported physical
+shading/focus issue remains open, with affected edition/map still unconfirmed.
+Next prioritize a matched affected moving scene/reference and sustained controls;
+do not repeat the now-covered opening-to-outside-pod continuation as full gameplay
+or hardware rendering proof. See the pass ledger for exact evidence.
+
 The earlier build-61 (`f8937c61`) experimental development pin added upstream's
 high-resolution HUD after build 60's menu-glyph fix. Save-backed candidate and
 acceptance Mac/Simulator menu/campaign/scripted-match checks pass. The

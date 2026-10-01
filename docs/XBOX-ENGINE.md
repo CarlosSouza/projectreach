@@ -6,6 +6,10 @@ which expands the high-resolution HUD/scopes and fixes meter alpha and flat menu
 Save-backed candidate and acceptance Mac/ANGLE iPad Simulator menu/a10/scripted-match
 gates pass. A copied build-61 a30 checkpoint loads through normal menus; actual
 fire, pistol swap, 2x Zoom, Save and Quit and fresh-process pod reload work.
+An isolated build-64 normal-menu pass now advances outside the pod using actual
+touch gestures and restores that newly reached checkpoint after Save and Quit
+and a cold launch (one grenade retained). This is bounded early progression,
+not sustained multi-touch, campaign completion or physical graphics acceptance.
 ANGLE/Metal remains an independently pinned opt-in Simulator PREVIEW, not the
 default or physical-device renderer. The earlier build-59 real touch pass verified
 navigation, cryo-bay training, tube exit, Save and Quit, and a same-build cold checkpoint
