@@ -4265,3 +4265,21 @@ preference assertion failure and private comparator-exit handling mistake as
 limits, then enforce current-backup file/registry/key rules. No runtime change,
 physical operation, pin movement, IPA, push, publication or cleanup. Goal active;
 [integration pass](XBOX-SIMULATOR-PASSES.md#latest-source-integrated-simulator-runtime-2026-10-02).
+
+### 2026-10-02 — last-owner release for shared Xbox touch buttons
+
+Reproduce actual-handler failures for duplicate RT/A owners: releasing one
+finger incorrectly clears the other held action. Minimal map-based last-owner
+release fixes both, without changing layout, physical merge or touch buffering.
+Baseline 24 checks fails two (`20261001T232844Z`); fixed 24 passes
+(`20261001T232950Z`). All 143 Xbox Python tests pass. Rebuild separate Simulator
+ANGLE library and normal combined app after preserving outgoing outputs; full
+app/data backup compares before in-place install. Installed executable
+`3a933fea…95e8a`, library `50a549c3…8dae2`. Actual copied outdoor normal-menu
+checkpoint and single RT 60→59 verified. Shared Device Hub switched to a physical
+iPhone display before any game action; select only dedicated Simulator and open
+a separate window for further input. No physical test input. Final ordinary
+picker PID 74408. Real game/save/package bytes and PC registry preserved, only
+last-edition preference/log/snapshots change. Device preview predates fix and
+must rebuild before hardware use. No rendering claim, pin move, Xbox IPA, push,
+publication or cleanup. Goal active; [touch-owner evidence](XBOX-SIMULATOR-PASSES.md#shared-touch-button-ownership-2026-10-02).

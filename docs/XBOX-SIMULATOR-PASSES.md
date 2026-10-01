@@ -2353,3 +2353,46 @@ active. Next sustained controls and affected/reference graphics; request which
 edition/map shows the physical complaint before attributing it to Xbox or PC.
 All 143 Xbox Python tests pass again (19.389 seconds); whitespace and current
 tree/index safety checks pass. Final picker process is verified live at PID 67405.
+
+## Shared touch-button ownership (2026-10-02)
+
+**Classification: progress.** The previous pass verifies current-source app;
+this pass fixes a separate runtime input defect. When two touches own RT or A,
+`touchesEnded` formerly clears the action on either release. Extend the real
+UIKit-handler/inert-token fixture to consume unread pulses before checking
+continued ownership, with concurrent independent move/look and reverse A release
+order. Baseline `generated/xbox-touch-tests/20261001T232844Z`: 24 checks, exactly
+two failures. Remove ended touch from the existing map, then clear the button
+only if no remaining value owns it. Fixed `…/20261001T232950Z`: 24 checks, zero
+failures, including the earlier cancellation/focus/controller cases. This is
+handler-boundary proof, not fabricated OS events or physical multi-touch proof.
+All 143 Xbox Python tests pass in 18.891 seconds. No layout/binding, input-buffer,
+controller-merge, guest pin or renderer change.
+
+Private pass `ref/xbox-build/passes/2026-10-02/touch-owners.y1I8qe/` retains
+outgoing generated/installed app and Simulator library. Stop only dedicated
+Simulator app; preserve full data container and compare bytes before in-place
+installation. Rebuild separate Simulator library and combined normal PC-entry
+app, no development scene; strict signing passes. Candidate and installed app
+SHA-256 `3a933fea134580e424ee7f7ef2028785c811603d55d7f4f5884157289a995e8a`;
+library `50a549c3d119f704030e52721058ba7eeec8a18dbd6e6ce89679a1925fe8dae2`.
+Rediscover changed container UUIDs. Existing iPhoneOS preview is untouched and
+predates this runtime edit; source guards require a normal rebuild, no retagging.
+
+On dedicated Simulator `DF51182F-1878-4A54-9AED-CC4AED86BEAB`, clear bot/network
+flags, use newly copied own save and explicit touch overlay. No forced edition.
+Shared Device Hub main window changed to connecting physical iPhone before UI
+actions; fresh tree prevents stale-index game input. Select only dedicated
+Simulator and open a separate Simulator-only window before continuing.
+Actual picker → Xbox → Campaign → New001 → Halo → Normal restores copied outdoor
+checkpoint; retained `before-fire.png`/`after-fire.png` show single RT 60→59.
+This does not execute the duplicate-owner case through actual OS gestures.
+Restore ordinary picker PID 74408, no test overrides. Audit (`audit.log`, both
+JSON inventories) verifies 196 Documents files, no additions/removals, only log
+change. Real Xbox/PC game/save/package files and PC registry unchanged. Preference
+key set preserved, only `HaloPadLastEngine` changes; OS snapshots differ.
+
+No physical installation/game input, controller pairing, graphics-fix claim,
+pin update, Xbox IPA, push, publication or cleanup. Full sustained controls,
+hardware graphics/audio/controllers, normal PC license acceptance and reported
+physical shading/focus remain open. Goal active, not complete or blocked.

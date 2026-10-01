@@ -4,6 +4,19 @@ Updated 2026-10-02. **ACTIVE — Simulator-focused Xbox/menu loop.** Physical ac
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE3.md](HaloPad-GOAL-LOOP-PHASE3.md). Earlier engineering history remains in [phase 2](HaloPad-GOAL-LOOP-PHASE2.md).
 
+**Touch-owner fix (2026-10-02).** Two fingers sharing RT or A previously lost
+the held action when either finger released. Actual UIKit-handler fixture fails
+two of 24 checks before the minimal last-owner release fix; all 24 pass after,
+including independent move/look, cancellation and controller hiding. All 143
+Xbox Python tests pass. Rebuilt combined app `3a933fea…95e8a` is installed in
+place on the dedicated Simulator after app/full-data backup and byte comparison.
+Actual normal-menu copied outdoor checkpoint and single RT 60→59 verified;
+ordinary picker restored PID 74408. Real Xbox/PC files and registry preserved;
+only last-edition preference/log/system snapshots change. This is not OS-level
+simultaneous gesture, physical-controller or graphics acceptance. Device preview
+predates this fix and needs a normal rebuild before hardware validation. No
+physical operation, pin move or Xbox IPA. [Evidence](XBOX-SIMULATOR-PASSES.md#shared-touch-button-ownership-2026-10-02).
+
 **Latest-source Simulator integration (2026-10-02).** After the device-SDK
 build pass, rebuild the normal one-picker app from `84547a5` and install in place
 only on the dedicated Simulator, after full app/data backup and byte comparison.

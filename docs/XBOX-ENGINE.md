@@ -23,8 +23,14 @@ The Simulator-only presentation fix remains narrow: temporarily neutralize textu
 sampler 0 during final presentation, then restore it. Physical rendering is unchanged.
 See [XBOX-SIMULATOR-PASSES.md](XBOX-SIMULATOR-PASSES.md).
 
-Latest installed local integration: executable `96e8c317…fa652` is rebuilt and installed
+Latest installed local integration: executable `3a933fea…95e8a` is rebuilt and installed
 in place on the dedicated iPad Simulator, with outgoing apps/data backed up.
+The touch-owner follow-up keeps RT/A held until the last owning finger releases;
+24 actual-handler checks pass after two reproduced failures. Normal-menu copied
+outdoor checkpoint and single RT 60→59 verify after rebuilding/installing. Real
+saves remain untouched; final ordinary picker PID 74408. Simultaneous OS gestures
+and physical controls still require acceptance. The device preview must be
+rebuilt normally to include this runtime fix. Earlier integration evidence:
 The post-device-SDK source follow-up verifies picker/About/Done, a copied outdoor
 a30 checkpoint, finite touch look, weapon swap, 2x scope and Save and Quit.
 Normal Windows startup reaches its still-unaccepted EULA. A retained 62-second

@@ -250,8 +250,11 @@ static const struct touch_button buttons[] =
 		NSNumber *button = [button_touches objectForKey:touch];
 		if (button)
 		{
-			[self setButton:button.intValue down:NO];
 			[button_touches removeObjectForKey:touch];
+			/* Multiple fingers may own the same button. Only its last release
+			 * clears the held action and its highlight. */
+			if (![[[button_touches objectEnumerator] allObjects] containsObject:button])
+				[self setButton:button.intValue down:NO];
 		}
 		if (touch == stick_touch)
 		{

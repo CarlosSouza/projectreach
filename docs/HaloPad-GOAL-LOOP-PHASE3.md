@@ -4,7 +4,15 @@ Written 2026-09-29. This is the active loop for the supplied device handoff and 
 
 ## Current priority — 2026-10-01 Simulator / Xbox integration
 
-Current installed Simulator app is now `96e8c317…fa652`, built from `84547a5`.
+Current installed Simulator app is `3a933fea…95e8a`, with the shared RT/A touch
+ownership fix. Two new actual-handler checks fail before the fix; all 24 pass
+after. Rebuild/install after full backup verifies normal-menu copied outdoor
+checkpoint and single RT 60→59. Final ordinary picker PID 74408. Real files and
+PC registry unchanged; last-edition preference changes normally. No physical
+operation or graphics fix. Sustained/multi-touch OS and physical controller
+acceptance remain open; device preview requires rebuilding this runtime source.
+
+Earlier installed Simulator app was `96e8c317…fa652`, built from `84547a5`.
 The post-device-SDK runtime pass preserves the outgoing app/full data and verifies
 actual picker/About/Done, copied normal-menu outdoor a30 continuation, finite
 touch look, pistol/scope and Save and Quit. Ordinary Windows startup reaches

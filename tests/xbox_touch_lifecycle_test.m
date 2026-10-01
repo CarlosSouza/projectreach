@@ -128,6 +128,42 @@ int main(void)
         check("active short Start press survives exactly one poll",
               xg_touch_button(&input, SDL_GAMEPAD_BUTTON_START) == 1 &&
               xg_touch_button(&input, SDL_GAMEPAD_BUTTON_START) == 0);
+
+        /* Shared button ownership: releasing one finger must not release
+         * another held finger or disturb independently owned move/look. */
+        left = token(100, 400); right = token(600, 380);
+        [pad touchesBegan:tokens(@[left, right]) withEvent:nil];
+        left.point = CGPointMake(100, 330);
+        right.point = CGPointMake(645, 380); right.timestamp += .1;
+        [pad touchesMoved:tokens(@[left, right]) withEvent:nil];
+        XGTestTouch *fire1 = token(924, 518), *fire2 = token(924, 518);
+        [pad touchesBegan:tokens(@[fire1]) withEvent:nil];
+        [pad touchesBegan:tokens(@[fire2]) withEvent:nil];
+        check("two fire owners hold RT across polls",
+              xg_touch_axis(&input, 5) == 1 && xg_touch_axis(&input, 5) == 1);
+        [pad touchesEnded:tokens(@[fire1]) withEvent:nil];
+        check("releasing first fire owner keeps second held beyond unread pulse",
+              xg_touch_axis(&input, 5) == 1 && xg_touch_axis(&input, 5) == 1);
+        check("fire release does not release independent move/look",
+              xg_touch_axis(&input, 1) == -1 && xg_touch_axis(&input, 2) > 0);
+        [pad touchesEnded:tokens(@[fire2]) withEvent:nil];
+        check("last fire owner releases RT without unread replay",
+              xg_touch_axis(&input, 5) == 0 && xg_touch_axis(&input, 5) == 0);
+        XGTestTouch *jump1 = token(934, 698), *jump2 = token(934, 698);
+        [pad touchesBegan:tokens(@[jump1]) withEvent:nil];
+        [pad touchesBegan:tokens(@[jump2]) withEvent:nil];
+        check("two jump owners hold A across polls",
+              xg_touch_button(&input, SDL_GAMEPAD_BUTTON_SOUTH) == 1 &&
+              xg_touch_button(&input, SDL_GAMEPAD_BUTTON_SOUTH) == 1);
+        [pad touchesEnded:tokens(@[jump2]) withEvent:nil];
+        check("reverse-order jump release preserves other owner",
+              xg_touch_button(&input, SDL_GAMEPAD_BUTTON_SOUTH) == 1 &&
+              xg_touch_button(&input, SDL_GAMEPAD_BUTTON_SOUTH) == 1);
+        [pad touchesEnded:tokens(@[jump1]) withEvent:nil];
+        check("last jump owner releases A",
+              xg_touch_button(&input, SDL_GAMEPAD_BUTTON_SOUTH) == 0);
+        [pad touchesCancelled:tokens(@[left, right]) withEvent:nil];
+        check("shared-button exercise leaves no current or unread input", neutral());
         printf("%d checks, %d failures\n", checks, failures);
     }
     return failures != 0;
