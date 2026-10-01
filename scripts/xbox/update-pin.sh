@@ -55,11 +55,20 @@ git -C "$ENGINE" diff --stat "$PINNED" "$TARGET" -- port/android port/include to
 	tools/embed_assets.py port/linux/src port/linux/game/hud_hires_tags.c source/cache/cache_files.c | cat
 
 STAMP=$(date +%Y%m%d-%H%M%S)
-BACKUP="$WORK/save-backups/$STAMP-from-$(echo "$PINNED" | cut -c1-8)"
+mkdir -p "$WORK/save-backups"
+BACKUP=$(mktemp -d "$WORK/save-backups/$STAMP-from-$(echo "$PINNED" | cut -c1-8).XXXXXX")
 echo "==> backing up saves to $BACKUP"
-mkdir -p "$BACKUP"
+copy_saves() {
+	ditto "$1" "$2"
+	if ! diff -qr "$1" "$2"; then
+		echo "save backup differs from its source; refusing the update: $2" >&2
+		return 1
+	fi
+}
 for folder in data/save save-ios; do
-	[ -d "$WORK/$folder" ] && ditto "$WORK/$folder" "$BACKUP/mac-$(echo $folder | tr / -)"
+	if [ -d "$WORK/$folder" ]; then
+		copy_saves "$WORK/$folder" "$BACKUP/mac-$(echo "$folder" | tr / -)"
+	fi
 done
 if [ -n "$DEVICE" ]; then
 	xcrun devicectl device copy from --device "$DEVICE" --domain-type appDataContainer \
@@ -69,12 +78,23 @@ if [ -n "$SIMULATOR" ]; then
 	xcrun simctl boot "$SIMULATOR" 2>/dev/null || true
 	xcrun simctl bootstatus "$SIMULATOR" -b >/dev/null
 	xcrun simctl terminate "$SIMULATOR" dev.halopad.HaloPad 2>/dev/null || true
-	CONTAINER=$(xcrun simctl get_app_container "$SIMULATOR" dev.halopad.HaloPad data 2>/dev/null || true)
-	if [ -n "$CONTAINER" ] && [ -d "$CONTAINER/Documents/Halo Xbox/save" ]; then
-		ditto "$CONTAINER/Documents/Halo Xbox/save" "$BACKUP/simulator-save"
+	# Updates require an inspectable existing app, not an assumed empty save set.
+	CONTAINER=$(xcrun simctl get_app_container "$SIMULATOR" dev.halopad.HaloPad data)
+	if [ -z "$CONTAINER" ] || [ ! -d "$CONTAINER" ]; then
+		echo "Simulator app container is unreadable; refusing the update" >&2
+		exit 1
+	fi
+	if [ -d "$CONTAINER/Documents/Halo Xbox/save" ]; then
+		copy_saves "$CONTAINER/Documents/Halo Xbox/save" "$BACKUP/simulator-save"
 	fi
 fi
-find "$BACKUP" -type f -exec shasum -a 256 {} + > "$BACKUP.sha256" || true
+if ! find "$BACKUP" -type f -exec shasum -a 256 {} + > "$BACKUP.sha256"; then
+	echo "save backup checksum failed; refusing the update: $BACKUP" >&2
+	exit 1
+fi
+if [ -s "$BACKUP.sha256" ]; then
+	shasum -a 256 -c "$BACKUP.sha256"
+fi
 
 # Interrupted or rejected candidates return to the pin. Libraries built for
 # a rejected candidate are caught by the app packager's revision check.

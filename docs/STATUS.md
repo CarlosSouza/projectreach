@@ -4,6 +4,23 @@ Updated 2026-10-02. **ACTIVE — Simulator-focused Xbox/menu loop.** Physical ac
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE3.md](HaloPad-GOAL-LOOP-PHASE3.md). Earlier engineering history remains in [phase 2](HaloPad-GOAL-LOOP-PHASE2.md).
 
+**Update-backup follow-up (2026-10-02).** The maintenance routine no longer
+ignores checksum failure, reuses a second-resolution backup folder, trusts an
+uncompared save copy or assumes an unreadable Simulator container has no saves.
+Each attempt gets a unique folder; Mac/Simulator copies must match their source,
+and checksum creation/readback must succeed before a candidate build. Frozen
+baseline fails five of nine controlled shell tests; fixed source passes all
+nine, including empty saves, refusal before candidate actions and gated pin
+acceptance/rollback. Git/build/device boundaries are inert, not real promotion.
+A backup-only execution against the actual Mac/dedicated Simulator saves verifies
+121 file checksums. Final ordinary app PID 25509 shows both cards; app/guest/
+library/pin unchanged. Game/disc/package bytes, preferences and PC registry remain
+preserved; only ordinary log/system snapshots change against the retained backup.
+All 137 Xbox Python tests pass. No upstream promotion, app build/install,
+physical operation, visual fix, IPA, push, publication or cleanup. Backups do not
+establish upstream save compatibility or atomic copies of a running game.
+Evidence: [maintenance backup pass](XBOX-SIMULATOR-PASSES.md#update-routine-save-backup-failure-gates-2026-10-02).
+
 **Launch-path follow-up (2026-10-02).** Empty `XG_DATA`/`XG_SAVE` no longer
 select an empty development path or skip revision-change save backups. Nonempty
 development paths remain supported. New asset-free native helper fixture

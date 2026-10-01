@@ -261,6 +261,19 @@ just a nonblack-pixel check. An accepted pin is the repeatable development basel
 not full progression/fidelity or physical-device acceptance. The Xbox card continues to
 say **EXPERIMENTAL** even after a candidate's regression gates pass.
 
+Each attempt now uses a unique save-backup directory. Mac and Simulator copies
+must compare byte-for-byte with their source folders, and checksum creation and
+readback must succeed before the candidate build starts. Failed or empty
+Simulator container lookup refuses the update; install HaloPad on the selected
+dedicated Simulator before using this maintenance command. An inspected app
+with no saves is valid. Stop games before maintenance: directory comparison is
+not an atomic snapshot of a concurrently writing game. The optional physical
+copy has destination checksums, not independent source/readback or compatibility
+proof; use it only in a coordinated device window.
+`python3 -m unittest discover -s tests -p 'test_xbox_update_pin.py'` exercises
+the real shell control flow with inert Git/build/device boundaries and synthetic
+save copies, not an actual upstream promotion.
+
 The app also copies nonempty Xbox saves to `Documents/Halo Xbox/Save Backups/<previous-revision>-<time>`
 before a changed engine opens them. A failed backup blocks startup. This preserves recovery data,
 **not save-format compatibility**; upstream saves are snapshots. PC saves are not migrated into Xbox

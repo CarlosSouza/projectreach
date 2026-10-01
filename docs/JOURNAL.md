@@ -4198,3 +4198,26 @@ Final ordinary picker PID 8646. Real Xbox runtime never opens saves; full audit
 preserves game bytes, preferences and PC registry. Logs/system snapshots/scene
 metadata change. No physical operation, graphics fix, pin update, IPA, push,
 publication or cleanup. Goal active; [full evidence](XBOX-SIMULATOR-PASSES.md#empty-launch-overrides-and-revision-backup-regression-2026-10-02).
+
+### 2026-10-02 — fail-closed maintenance save backups
+
+Private `update-backups.Z0EiBQ` pass reproduces four maintenance gaps: ignored
+checksum failure, accepted corrupted copy, swallowed/empty Simulator container
+lookup and reused same-second backup. A frozen HEAD script fails five of nine
+independent controlled tests; fixed source passes all nine. One earlier rerun
+spans a source edit and is explicitly excluded; later subcases are split to
+avoid a baseline promotion contaminating the following case. Unique mktemp
+folders, real byte/directory comparisons and required checksum creation/readback
+now gate candidate actions. Inert Git/build/device boundaries test orchestration,
+not actual compiler/smoke acceptance or upstream promotion. Empty saves remain
+valid only after successful container inspection.
+
+Execute only the backup block against actual own Mac and dedicated Simulator
+save folders: 121 checksums verify in retained `save-backups/…072643…jZyQEJ`.
+No fetch/build/pin acceptance. Ordinary picker restored, PID 25509, executable
+still `e594a1f9…15feed`; guest/library/pin unchanged. Retained full-file audit
+preserves real game/disc/package bytes, preferences and PC registry, with normal
+log/system snapshot changes. All 137 Xbox Python tests pass. No physical operation,
+installation, graphics fix, IPA, push, publication or cleanup. Stop games during
+maintenance; directory comparison is not atomic snapshot or save-format proof.
+Goal active; [maintenance evidence](XBOX-SIMULATOR-PASSES.md#update-routine-save-backup-failure-gates-2026-10-02).

@@ -50,6 +50,18 @@ registry remain unchanged. Existing 128 Xbox, five input-guard, 13 package and
 16 UIKit checks pass (16 package checks skipped). No renderer/pin/physical change.
 See the launch-path pass ledger; graphics and broader hardware gates remain open.
 
+The latest maintenance pass hardens save backup before candidate actions:
+unique attempt folders, byte/directory comparison of Mac/Simulator copies,
+required checksum generation/readback and refused unknown/empty container
+lookup. Frozen baseline fails five of nine controlled tests; fixed source passes
+all nine (inert Git/build/device boundaries, not real promotion). Backup-only
+execution on actual own saves verifies 121 files; app restored at ordinary
+picker PID 25509, app/guest/library/pin and real game bytes unchanged. All 137
+Xbox Python tests pass. This does not establish save-format compatibility,
+atomic copying of live writes, physical fidelity or a newer pin. No app build/
+install, physical operation, graphics change, IPA or publication. Keep the wider
+rendering/controls/hardware gates open; do not repeat backup checks as gameplay.
+
 Accepted experimental update, 2026-10-02: build 64,
 `c55e4e2b9d90550b0e761eb78dfe9d7c74880cb9`, four commits after 61. Candidate and
 acceptance source-built Mac/ANGLE Simulator menu/a10/scripted-match sets pass.

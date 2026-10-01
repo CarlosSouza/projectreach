@@ -2172,3 +2172,61 @@ and whitespace guards pass. No physical operation, renderer fix, Xbox IPA, push,
 publication or cleanup. Goal remains active. Next matched affected rendering
 and sustained controls; coordinated physical fidelity/audio/controller acceptance
 and normal PC license path still require their own evidence.
+
+## Update routine save-backup failure gates (2026-10-02)
+
+**Classification: progress, not graphics fix or goal completion.** Previous
+turn implements and verifies the empty launch-path correction. This pass covers
+the goal's repeatable, save-backed pin-update routine; no actual newer pin is
+fetched, compiled, installed or accepted. Private evidence:
+`ref/xbox-build/passes/2026-10-02/update-backups.Z0EiBQ/`.
+
+`update-pin.sh` previously ignores a failed checksum command, uses a reusable
+second-resolution backup name, never compares copied files with their source,
+and silently assumes a failed Simulator app-container query has no saves.
+Now use unique mktemp directories, byte/directory comparison after Mac/Simulator
+copy, required checksum generation and verification, and refusal for failed,
+empty or nonexistent app-container lookup. An inspectable installed app with no
+saves remains valid. Physical copies retain destination checksums only; no
+independent hardware source/readback guarantee is added.
+
+New `tests/test_xbox_update_pin.py` executes the actual shell script in synthetic
+folders. Git, build/smoke and device commands are inert; real ditto/diff/checksum
+operations copy fixture save bytes. Separate injected checksum failure, corrupted
+copy and failed/empty container lookups must refuse candidate actions and leave
+the fake pin unchanged. Two attempts at the same mocked second retain distinct
+backup directories. Existing candidate-build rejection/rollback, explicit
+Simulator requirement and acceptance-after-all-gates checks remain. The latter
+prove protocol ordering, not actual compiler/device acceptance.
+
+Frozen original script SHA-256 `68c62868…15552b` matches HEAD's original file.
+Final baseline runs nine independent tests and fails five: checksum, copy,
+failed/empty container and same-second reuse. Fixed suite passes all nine;
+full Xbox Python suite passes **137 tests**. Earlier seven-test run finds four
+gaps; an attempted log rerun spans a source edit and is preserved as
+`mixed-source-rerun.log` but excluded. An intermediate container subcase reuses
+the fake promoted pin, so final failure cases are separate fixtures. Retain
+`frozen-baseline-nine.log` and `final-xbox-tests.log` as authoritative comparisons.
+Shell syntax, whitespace and tree/index safety pass.
+
+Private `backup-only.sh` executes the production backup section without fetch,
+preparation, candidate build/smoke or acceptance. Actual Mac `data/save`,
+`save-ios` and the dedicated Simulator save folders copy and compare successfully;
+all **121 file checksums** verify. The final empty-container refusal is refined
+after this positive-path run; independent controlled tests cover it. Retained
+backup: `ref/xbox-build/save-backups/20261002-072643-from-c55e4e2b.jZyQEJ/`
+and its sibling checksum receipt. Keep it private and do not delete caches/saves.
+Directory comparison is not a point-in-time snapshot of a concurrently writing
+game. Stop games before maintenance; this is not snapshot compatibility proof.
+
+Only dedicated Simulator `DF51182F-1878-4A54-9AED-CC4AED86BEAB` is used.
+The backup block terminates its picker app before inspecting saves; no real Xbox
+runtime opens. Ordinary launch resumes at PID 25509; actual UI shows both edition
+cards. Installed executable remains `e594a1f9…15feed`, Xbox library
+`bbd2a75e…4696db`, guest `102885c2…fdaaa`, frozen build 64 `c55e4e2b` unchanged.
+Full audit against retained launch-pass Documents/Library backup preserves all
+real game/disc/package bytes, preferences and PC registry; only ordinary log and
+system snapshots change. Source upstream checkout has no tracked edits.
+No app build/install, physical operation, visual fix, Xbox IPA, push, publication
+or cleanup. Next pursue affected/reference rendering and sustained controls;
+physical graphics/audio/controller and normal PC license gates remain separate.
