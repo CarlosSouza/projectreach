@@ -15,6 +15,7 @@ static NSMutableDictionary *texture_sources;
 void xg_capture_depth(NSString *folder, NSString *label);
 void xg_capture_native_pixels(NSString *folder, GLenum mode, GLsizei count, GLenum type, const void *indices);
 void xg_capture_native_after(NSString *folder);
+NSData *xg_read_native_color(GLint source, GLenum *error);
 static unsigned long presented_frames;
 void xg_draw_capture_present(void) { presented_frames++; }
 unsigned long xg_draw_capture_frame(void) { return presented_frames; }
@@ -188,7 +189,7 @@ static NSData *buffer_bytes(GLuint buffer)
 	return data;
 }
 
-static void capture_draw_elements(GLenum mode, GLsizei count, GLenum type, const void *indices)
+static void capture_selected_draw(GLenum mode, GLsizei count, GLenum type, const void *indices)
 {
 	static NSMutableDictionary *programs;
 	static NSData *targets[2];
@@ -196,12 +197,15 @@ static void capture_draw_elements(GLenum mode, GLsizei count, GLenum type, const
 	static GLsizei target_count;
 	static BOOL initialized;
 	static long minimum = 3;
+	static long base_skip = 0, base_seen = 0;
 	int selected_target = -1;
 	if (!initialized) {
 		initialized = YES;
 		programs = [NSMutableDictionary dictionary];
 		if (getenv("XG_CAPTURE_MIN_INDICES")) minimum = strtol(getenv("XG_CAPTURE_MIN_INDICES"), NULL, 10);
 		if (minimum < 3 || minimum > 100000) minimum = 3;
+		if (getenv("XG_CAPTURE_BASE_SKIP")) base_skip = strtol(getenv("XG_CAPTURE_BASE_SKIP"), NULL, 10);
+		if (base_skip < 0 || base_skip > 64) base_skip = 0;
 		NSString *folder = @(getenv("XG_CAPTURE_SHADER_DIR") ?: "");
 		targets[0] = [NSData dataWithContentsOfFile:[folder stringByAppendingPathComponent:@"vs017_0.glsl"]];
 		targets[1] = [NSData dataWithContentsOfFile:[folder stringByAppendingPathComponent:@"vs041_0.glsl"]];
@@ -237,6 +241,10 @@ static void capture_draw_elements(GLenum mode, GLsizei count, GLenum type, const
 	glGetIntegerv(GL_DEPTH_WRITEMASK, &depth_write);
 	if ((!target && (depth_function != GL_LEQUAL || !depth_write)) ||
 		(target && (!captured[0] || count != target_count || depth_function != GL_EQUAL || depth_write))) goto draw;
+	if (!target) {
+		xg_log("draw capture: base candidate %ld count %d frame %lu", base_seen, count, presented_frames);
+		if (base_seen++ < base_skip) goto draw;
+	}
 	@autoreleasepool {
 		NSString *root = @(getenv("XG_DRAW_CAPTURE"));
 		NSString *folder = [root stringByAppendingPathComponent:target ? @"equal" : @"base"];
@@ -251,6 +259,7 @@ static void capture_draw_elements(GLenum mode, GLsizei count, GLenum type, const
 		if (!element) complete = NO;
 		state[@"mode"] = @(mode); state[@"count"] = @(count); state[@"index_type"] = @(type);
 		state[@"program"] = @(program); state[@"captured_at"] = @(NSDate.date.timeIntervalSince1970);
+		state[@"base_skip"] = @(base_skip);
 		state[@"presented_frames"] = @(presented_frames);
 		state[@"index_offset"] = @((uintptr_t)indices); state[@"element_buffer"] = @(element);
 		for (int index = -1; index < 16; index++) {
@@ -385,10 +394,67 @@ draw:
 	}
 }
 
+/* One-frame color timeline, independent of which paired draw was selected.
+ * Observe both indexed and immediate draws. No shader/target state mutation. */
+static NSString *trace_color(NSString *key, GLenum mode, GLsizei count)
+{
+	const char *setting = getenv("XG_TRACE_COLOR_FRAME");
+	if (!setting || presented_frames != strtoul(setting, NULL, 10)) return nil;
+	GLint viewport[4], framebuffer = 0, program = 0, depth_function = 0;
+	glGetIntegerv(GL_VIEWPORT, viewport); glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &framebuffer);
+	if (!framebuffer || viewport[0] || viewport[1] || viewport[2] != 640 || viewport[3] != 480) return nil;
+	static unsigned long serial;
+	BOOL after = key != nil;
+	if (!key) key = [NSString stringWithFormat:@"%04lu", serial++];
+	NSString *folder = [@(getenv("XG_DRAW_CAPTURE")) stringByAppendingPathComponent:@"color-trace"];
+	[NSFileManager.defaultManager createDirectoryAtPath:folder withIntermediateDirectories:YES attributes:nil error:nil];
+	if (serial > 1024) {
+		[@"Color trace exceeded 1024 draws" writeToFile:[folder stringByAppendingPathComponent:@"overflow.txt"]
+			atomically:YES encoding:NSUTF8StringEncoding error:nil];
+		return nil;
+	}
+	glGetIntegerv(GL_CURRENT_PROGRAM, &program); glGetIntegerv(GL_DEPTH_FUNC, &depth_function);
+	NSString *phase = after ? @"after" : @"before";
+	NSString *label = [key stringByAppendingFormat:@"-%@", phase];
+	GLenum error = GL_NO_ERROR;
+	NSData *pixels = xg_read_native_color(framebuffer, &error);
+	BOOL complete = pixels && [pixels writeToFile:[folder stringByAppendingPathComponent:[label stringByAppendingString:@".rgba"]] atomically:YES];
+	GLuint shaders[8]; GLsizei shader_count = 0;
+	glGetAttachedShaders(program, 8, &shader_count, shaders);
+	for (int i = 0; i < shader_count; i++) {
+		GLint kind = 0; glGetShaderiv(shaders[i], GL_SHADER_TYPE, &kind);
+		NSString *name = [NSString stringWithFormat:@"program-%d-%@.glsl", program, kind == GL_VERTEX_SHADER ? @"vertex" : @"fragment"];
+		NSString *path = [folder stringByAppendingPathComponent:name];
+		if (![NSFileManager.defaultManager fileExistsAtPath:path]) complete &= [shader_source(shaders[i]) writeToFile:path atomically:YES];
+	}
+	GLenum final_error = glGetError();
+	NSDictionary *record = @{@"complete":@(complete && !error && !final_error), @"gl_error":@(error ?: final_error),
+		@"framebuffer":@(framebuffer), @"program":@(program), @"depth_function":@(depth_function),
+		@"mode":@(mode), @"count":@(count), @"width":@640, @"height":@480, @"presented_frames":@(presented_frames)};
+	[[NSJSONSerialization dataWithJSONObject:record options:NSJSONWritingPrettyPrinted error:nil]
+		writeToFile:[folder stringByAppendingPathComponent:[label stringByAppendingString:@".json"]] atomically:YES];
+	return key;
+}
+
+static void capture_draw_elements(GLenum mode, GLsizei count, GLenum type, const void *indices)
+{
+	NSString *key = trace_color(nil, mode, count);
+	capture_selected_draw(mode, count, type, indices);
+	if (key) trace_color(key, mode, count);
+}
+
+static void capture_draw_arrays(GLenum mode, GLint first, GLsizei count)
+{
+	NSString *key = trace_color(nil, mode, count);
+	glDrawArrays(mode, first, count);
+	if (key) trace_color(key, mode, count);
+}
+
 void *xg_draw_capture_proc(const char *name)
 {
 	if (!getenv("XG_DRAW_CAPTURE") || !getenv("XG_CAPTURE_SHADER_DIR")) return NULL;
 	if (!strcmp(name, "glDrawElements")) return capture_draw_elements;
+	if (getenv("XG_TRACE_COLOR_FRAME") && !strcmp(name, "glDrawArrays")) return capture_draw_arrays;
 	if (getenv("XG_CAPTURE_TEXTURES") && !strcmp(name, "glTexImage2D")) return observe_texture_image;
 	if (getenv("XG_CAPTURE_TEXTURES") && !strcmp(name, "glTexSubImage2D")) return observe_texture_update;
 	return NULL;

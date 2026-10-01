@@ -697,6 +697,58 @@ remain byte-identical to the acceptance backup. 132 Python tests, 16 skipped,
 no failures; both SDK syntax and tree/index safety pass. No physical install,
 IPA, upstream pin change, push or publication.
 
+### One-frame draw timeline localizes wall stripes (2026-10-01)
+
+`XG_CAPTURE_BASE_SKIP` selects a later eligible base batch (0..64); the normal
+default remains the first. The runner validates and canonicalizes its value.
+`XG_TRACE_COLOR_FRAME` records original before/after color for indexed and
+immediate native GL draws in one selected presentation frame. It reuses the
+state-restoring color reader, records original program sources and draw state,
+and never draws, relinks, changes uniforms or changes the game target. Viewport
+filter is 640x480 at origin; overflow beyond 1,024 draws fails closed. It observes
+draws, not every clear/blit command. Metadata/state/frame changes, GL errors,
+missing sources, unpaired captures and short files reject the timeline. Normal
+player launches do not enable these flags.
+
+`build61-color-timeline/` retains exact pin 61 and runs 90 stationary seconds,
+2,015 ticks, no scripted shots. Its second eligible VS17/VS41 pair has 984
+indices in frame 101 and complete/error-0 depth snapshots with exact input and
+projection identity. However native EQUAL-repeat differs at 682 pixels and
+actual live color at 9,932: **that native replay is rejected**, and the aggregate
+diagnostic reports failure. Do not use its ALWAYS comparison as causal proof.
+
+Independently, all **211** frame-120 original before/after draw pairs pass the
+timeline validator, with unchanged recorded state, GL error 0 and framebuffer
+3 throughout. Reviewed an RGB-only contact sheet and full-resolution stage
+images; normal RGBA previews misleadingly show transparent early alpha-writing
+passes, so RGB review does not composite against a white background.
+
+The obvious horizontal bands on the rear walls first appear in the inspected
+before/after pair **0119**: program 84, GL_TRIANGLES, 402 indices, GL_EQUAL.
+Its pre-draw walls are unstriped; its post-draw walls have the bands. The draw
+changes 51,756 color pixels; that count is not a count of bad pixels. Exact
+original source matches `vs007_0.glsl` / `ps_0c014f79.glsl` in the existing
+shader dump. The earlier 984-index VS41 material pass textures the ground
+(draw 0080), not this stripe-producing detail pass. This changes the next
+experiment: capture the corresponding **VS17/VS7** batch, preserving original
+indices, position/projection constants, pixel state and calibrated live depth.
+Prior VS41 invariance/replay controls do not prove VS7 invariance.
+
+Private evidence: `match/color-contact-rgb.png`, `match/color-stages.png`, and
+all original binary/JSON/source captures under `match/draw-capture/color-trace/`.
+This localizes the symptom's draw; it does not prove why that draw is wrong or
+establish a driver bug. Remaining pale/missing geometry and reported physical
+focus/shading instability are still open. Normal depth semantics are unchanged.
+
+Final normal `build61-color-normal/` automated gates pass all three cases,
+1,254 match ticks / ten shots, with diagnostics disabled. Campaign/match screens
+reviewed: the match image still has severe missing terrain exposing background,
+so this is **not visual acceptance**. Actual About/Done confirms accepted
+`f8937c61` without PREVIEW and leaves the normal picker. Real saves in container
+`1A5AEFF0-09B3-47DB-94BD-D8C371C56AEC` remain byte-identical to the acceptance
+backup. 140 Python tests, 16 skipped, no failures; both SDK syntax, whitespace
+and tree/index safety pass. No physical install, pin update, IPA or publication.
+
 ## Next focused pass
 
 0. Keep accepted build 61 (`f8937c61`) frozen for the next diagnostic pass;
@@ -705,7 +757,8 @@ IPA, upstream pin change, push or publication.
 1. Continue beyond the cryo-bay training to weapon pickup/combat and a later
    checkpoint. Test sustained movement, simultaneous look/fire, weapon switching
    and another cold reload with isolated saves.
-2. Target the later material draw that introduces a visible stripe, retaining
+2. Capture the matching VS17/VS7 batch now localized as stripe-producing draw
+   119 in the frame-120 timeline; VS41 is a different material pass. Retain
    the new exact native repeat/live-color and calibrated copied-depth controls.
    Correlate color-response changes with copied live depth. Determine whether closer intervening
    surfaces legitimately occlude it or visible terrain fails EQUAL. Keep

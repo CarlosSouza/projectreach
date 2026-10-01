@@ -62,7 +62,14 @@ calibrated 1,944-index pair matches both its repeated replay and the real draw
 byte-for-byte; copied live depth also matches. All 24,262 base-written pixels
 with ALWAYS-only color response have later closer depth; none have unchanged
 depth. This pair does not establish missing visible terrain. Next target the
-later material draw that introduces a visible stripe. Chris's reported physical
+later material draw that introduces a visible stripe. A same-frame before/after
+timeline now identifies it: frame 120, draw 119, program 84, VS7 / pixel shader
+`ps_0c014f79`, 402 indices, EQUAL. The wall is unstriped before and striped after
+that draw. All 211 observed indexed/immediate draw pairs validate with GL
+error 0. Next compare this VS17/VS7 pair, not the earlier VS41 material pass.
+A later 984-index VS41 native replay fails exact repeat/live-color checks and
+remains rejected; it does not invalidate the independent read-only timeline.
+Chris's reported physical
 iPad shading/focus instability remains open and was not directly observed here.
 These diagnostics have not changed
 normal depth semantics; the upstream HUD update is a separate change.

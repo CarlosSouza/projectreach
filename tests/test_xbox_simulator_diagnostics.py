@@ -121,6 +121,26 @@ class SimulatorDiagnosticsTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertIn('XG_CAPTURE_NATIVE_PIXELS requires XG_CAPTURE_DEPTH', result.stderr)
 
+    def test_base_skip_validated_before_launch(self):
+        for skip, message in (('-1', 'must be 0..64'), ('65', 'must be 0..64'),
+                              ('no', 'must be 0..64'), ('1', 'requires XG_CAPTURE_SHADER_DIR')):
+            env = {key: value for key, value in os.environ.items() if not key.startswith('XG_')}
+            env['XG_CAPTURE_BASE_SKIP'] = skip
+            result = subprocess.run([sys.executable, str(SCRIPT), '--device', 'unused',
+                                     '--render-diagnostics'], capture_output=True, text=True, env=env)
+            self.assertEqual(result.returncode, 2)
+            self.assertIn('XG_CAPTURE_BASE_SKIP ' + message, result.stderr)
+
+    def test_color_trace_frame_validated_before_launch(self):
+        for frame, message in (('-1', 'must be 0..10000'), ('10001', 'must be 0..10000'),
+                               ('bad', 'must be 0..10000'), ('120', 'requires XG_CAPTURE_SHADER_DIR')):
+            env = {key: value for key, value in os.environ.items() if not key.startswith('XG_')}
+            env['XG_TRACE_COLOR_FRAME'] = frame
+            result = subprocess.run([sys.executable, str(SCRIPT), '--device', 'unused',
+                                     '--render-diagnostics'], capture_output=True, text=True, env=env)
+            self.assertEqual(result.returncode, 2)
+            self.assertIn('XG_TRACE_COLOR_FRAME ' + message, result.stderr)
+
     def test_depth_probe_requires_two_distinct_complete_controls(self):
         same = 'depth probe: same-program covered 6728 failed 0 error 0x0\n'
         other = 'depth probe: separate-program covered 6728 failed 0 error 0x0\n'

@@ -63,8 +63,14 @@ The calibrated 1,944-index pair repeats and matches the actual live draw exactly
 copied depth also matches. ALWAYS-only color response at base-written pixels
 occurs only where later depth became closer (24,262 pixels), never where it was
 unchanged. Color differences alone include overdraw and are not missing coverage.
-This pair does not prove missing visible terrain. Next target a later material
-draw that actually introduces a visible stripe, retaining these strict controls.
+This pair does not prove missing visible terrain. A new frame-120 color timeline
+now localizes obvious wall stripes to draw 119: program 84, VS7, EQUAL, 402
+indices. Its before-image has unstriped walls and its after-image has horizontal
+bands. VS7 source matches `vs007_0.glsl`, not the VS41 previously replayed.
+Next capture the matching VS17/VS7 pair with exact positions/projection and
+calibrated live depth; do not generalize VS41 controls to this detail pass.
+The later 984-index VS41 native replay failed exact repeat/live-color checks
+and remains rejected. The independent 211-draw timeline passes its own guards.
 Maintain upstream by freezing one candidate per pass, backing up saves, building,
 testing and visually reviewing it before pin promotion. Keep normal runs free
 of input/render diagnostics and preserve the Windows route and both save domains.

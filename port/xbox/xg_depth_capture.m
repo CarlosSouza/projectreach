@@ -11,7 +11,7 @@ unsigned long xg_draw_capture_frame(void);
 void xg_capture_depth(NSString *folder, NSString *label);
 
 /* Read color without changing the draw, pixel-pack buffer or pack layout. */
-static NSData *native_color(GLint source, GLenum *error)
+NSData *xg_read_native_color(GLint source, GLenum *error)
 {
 	GLint read = 0, pack[5];
 	const GLenum names[] = { GL_PIXEL_PACK_BUFFER_BINDING, GL_PACK_ALIGNMENT, GL_PACK_ROW_LENGTH, GL_PACK_SKIP_ROWS, GL_PACK_SKIP_PIXELS };
@@ -82,7 +82,7 @@ void xg_capture_native_pixels(NSString *folder, GLenum mode, GLsizei count, GLen
 		GLint current = 0; glGetQueryiv(query.unsignedIntValue, GL_CURRENT_QUERY, &current);
 		if (current) goto restore_native;
 	}
-	before = native_color(draw, &error);
+	before = xg_read_native_color(draw, &error);
 	if (!before || error) goto restore_native;
 	glGenFramebuffers(1, &target); glBindFramebuffer(GL_DRAW_FRAMEBUFFER, target);
 	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
@@ -103,14 +103,14 @@ void xg_capture_native_pixels(NSString *folder, GLenum mode, GLsizei count, GLen
 			GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT, GL_NEAREST);
 		if (scissor) glEnable(GL_SCISSOR_TEST);
 		if (!pass) {
-			NSData *initial = native_color(target, &error);
+			NSData *initial = xg_read_native_color(target, &error);
 			copied = initial && [initial isEqualToData:before] && !error;
 			if (!copied) { complete = NO; break; }
 			xg_capture_depth(folder, @"native-copy");
 		}
 		glDepthFunc(pass == 1 ? GL_ALWAYS : function);
 		glDrawElements(mode, count, type, indices);
-		NSData *pixels = native_color(target, &error);
+		NSData *pixels = xg_read_native_color(target, &error);
 		NSString *name = @[ @"native-equal.rgba", @"native-always.rgba", @"native-repeat.rgba" ][pass];
 		complete &= pixels && !error && [pixels writeToFile:[folder stringByAppendingPathComponent:name] atomically:YES];
 		if (!complete) break;
@@ -138,7 +138,7 @@ void xg_capture_native_after(NSString *folder)
 {
 	GLint draw = 0; glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &draw);
 	GLenum error = GL_NO_ERROR;
-	NSData *pixels = native_color(draw, &error);
+	NSData *pixels = xg_read_native_color(draw, &error);
 	BOOL okay = pixels && [pixels writeToFile:[folder stringByAppendingPathComponent:@"native-live.rgba"] atomically:YES];
 	NSDictionary *record = @{@"complete":@(okay && !error), @"gl_error":@(error), @"framebuffer":@(draw),
 		@"presented_frames":@(xg_draw_capture_frame())};

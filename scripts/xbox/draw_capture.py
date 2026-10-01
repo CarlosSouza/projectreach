@@ -236,3 +236,37 @@ def compare_native_pixels(folder):
             'always_only_at_base_later_closer': len(always_only & closer),
             'always_only_at_base_depth_unchanged': len(always_only & unchanged),
             'repeat_equal': True, 'live_equal': True}
+
+
+def compare_color_trace(folder, frame):
+    """Validate a one-frame draw timeline; changes are not artifact labels."""
+    folder = pathlib.Path(folder)
+    files = sorted(folder.glob('*-before.json'))
+    if not files or len(files) > 1024 or (folder / 'overflow.txt').exists():
+        raise ValueError('Empty or excessive color trace')
+    if len(list(folder.glob('*-after.json'))) != len(files):
+        raise ValueError('Unpaired color trace')
+    result = []
+    for serial, file in enumerate(files):
+        key = f'{serial:04d}'
+        if file.name != key + '-before.json':
+            raise ValueError('Noncontiguous color trace')
+        rows = [json.loads((folder / (key + '-' + phase + '.json')).read_text()) for phase in ('before', 'after')]
+        for row in rows:
+            if any(not isinstance(row.get(name), int) or row[name] <= 0 for name in ('framebuffer', 'program', 'count')):
+                raise ValueError('Invalid color trace draw identifiers')
+            if (not row.get('complete') or row.get('gl_error') != 0 or row.get('width') != 640 or row.get('height') != 480 or
+                    not row.get('framebuffer') or not row.get('program') or row.get('presented_frames') != frame):
+                raise ValueError('Incomplete or crossed-frame color trace')
+            for stage in ('vertex', 'fragment'):
+                if not (folder / f"program-{row['program']}-{stage}.glsl").read_bytes():
+                    raise ValueError('Missing color trace program source')
+        if rows[0] != rows[1]:
+            raise ValueError('Color trace draw state changed')
+        data = [(folder / (key + '-' + phase + '.rgba')).read_bytes() for phase in ('before', 'after')]
+        if any(len(blob) != 640 * 480 * 4 for blob in data):
+            raise ValueError('Truncated color trace')
+        changed = [i // 4 for i in range(0, len(data[0]), 4) if data[0][i:i+4] != data[1][i:i+4]]
+        result.append({'key': key, 'program': rows[0]['program'], 'count': rows[0]['count'],
+                       'mode': rows[0]['mode'], 'depth_function': rows[0]['depth_function'], 'changed': len(changed)})
+    return {'presented_frames': frame, 'draws': result}

@@ -3786,3 +3786,48 @@ Final real-save container `509882A5-2652-4667-A5B0-EAB43C24BFE7` matches
 no failures; Simulator and physical SDK syntax pass. No physical install,
 pin update, IPA, push or publication. Goal active; this turn is diagnostic
 progress, not a rendering fix or completion.
+
+## 2026-10-01 — Original draw timeline finds the stripe-producing detail pass
+
+Previous turn was progress (`f73a23c`): calibrated native pixel/depth replay,
+with visual defects explicitly open. This pass freezes accepted 61 again.
+Added bounded base-batch skip and a one-frame original color timeline, recording
+indexed and immediate GL draws without changing render state/shaders/uniforms.
+The runner validates/canonicalizes frame/skip options; timeline guards cover
+metadata, unchanged state, same frame, shader sources, complete file lengths,
+paired/contiguous records and overflow. Reused the existing state-restoring
+color readback rather than adding another renderer.
+
+App source build/install log `build61-color-trace-app.log`, evidence
+`docs/artifacts/2026-10-01/G3/ios-app-20261001T111331Z`. Private diagnostic
+`build61-color-timeline/`: 90 seconds, 2,015 ticks, no scripted shots. Selected
+second eligible 984-index VS17/VS41 pair in frame 101. Depth controls and exact
+positions/projection pass, but native clone repeat differs at 682 pixels and
+live color at 9,932. **Rejected native replay; aggregate diagnostic fails.**
+Do not describe that as a successful full-pixel replay or adopt an EQUAL bypass.
+
+Independent original timeline: all 211 before/after draw pairs in presentation
+frame 120 pass its validator, GL error 0, framebuffer 3, unchanged recorded
+state. Reviewed RGB contact sheet and full-resolution stages; disable alpha
+compositing for inspection, since early scene passes intentionally modify alpha.
+Draw **119** changes the rear walls from unstriped to obvious horizontal bands:
+program 84, 402 indices, GL_TRIANGLES, GL_EQUAL. Exact captured sources match
+VS7 (`vs007_0.glsl`) and `ps_0c014f79.glsl`. It changes 51,756 color pixels, not
+51,756 proven defective pixels. The selected VS41 draw 80 textures ground;
+the actual stripe-producing detail pass is later and uses VS7.
+
+Next capture the corresponding VS17/VS7 geometry/constants/pixel state and
+calibrated depth, with exact native repeat/live controls where valid. Earlier
+VS41 controls cannot establish VS7 invariance. This is symptom localization,
+not a driver-bug finding or a visual fix. Goal active; physical-iPad report
+remains open, with no physical changes, pin promotion, IPA or publication.
+
+Final normal `build61-color-normal/`: automated menu/campaign/match gates pass,
+1,254 ticks / ten shots, diagnostics disabled. Campaign and match screens
+reviewed; severe missing terrain/background exposure remains, so do not call
+this visual acceptance. About confirms accepted `f8937c61` without PREVIEW;
+Done returns to the normal picker. Real Xbox save container
+`1A5AEFF0-09B3-47DB-94BD-D8C371C56AEC` matches the acceptance backup
+byte-for-byte after final navigation. 140 tests, 16 skipped, no failures;
+both SDK syntax and whitespace/tree/index safety pass. This turn is progress
+through original-draw localization, not a graphics fix or goal completion.
