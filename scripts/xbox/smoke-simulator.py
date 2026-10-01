@@ -17,7 +17,7 @@ import subprocess
 import sys
 import time
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-from draw_capture import load_draw, compare_clip_positions, validate_raster_input, compare_raster_coverage, compare_live_depth
+from draw_capture import load_draw, compare_clip_positions, validate_raster_input, compare_raster_coverage, compare_live_depth, compare_native_pixels
 from texture_decode import cache_symbol, compare_captures, validate_cache_revision
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -95,6 +95,9 @@ def main():
     live_depth = args.render_diagnostics and bool(os.environ.get('XG_CAPTURE_DEPTH'))
     if live_depth and not os.environ.get('XG_CAPTURE_SHADER_DIR'):
         parser.error('XG_CAPTURE_DEPTH requires XG_CAPTURE_SHADER_DIR')
+    native_pixels = args.render_diagnostics and bool(os.environ.get('XG_CAPTURE_NATIVE_PIXELS'))
+    if native_pixels and not live_depth:
+        parser.error('XG_CAPTURE_NATIVE_PIXELS requires XG_CAPTURE_DEPTH')
     if raster and os.environ['XG_DRAW_RASTER'] not in ('1', 'renderbuffer', 'texture'):
         parser.error('XG_DRAW_RASTER must be renderbuffer or texture')
     if raster and not os.environ.get('XG_DRAW_REPLAY'):
@@ -169,6 +172,8 @@ def main():
                     child['XG_CAPTURE_TEXTURES'] = '1'
                 if live_depth:
                     child['XG_CAPTURE_DEPTH'] = '1'
+                if native_pixels:
+                    child['XG_CAPTURE_NATIVE_PIXELS'] = '1'
                 if buckets is not None:
                     child['XG_TEXTURE_BUCKETS'] = format(buckets, 'x')
             if os.environ.get('XG_DRAW_REPLAY'):
@@ -284,6 +289,14 @@ def main():
             except (OSError, ValueError, KeyError, TypeError) as error:
                 row['pass'] = False
                 row['xbox_texture_error'] = str(error)
+        if native_pixels:
+            try:
+                row['native_pixel_comparison'] = compare_native_pixels(folder / 'draw-capture')
+                row['native_pixels_complete'] = True
+            except (OSError, ValueError, KeyError, TypeError) as error:
+                row['native_pixels_complete'] = False
+                row['native_pixels_error'] = str(error)
+            row['pass'] &= row['native_pixels_complete']
         if args.render_diagnostics and os.environ.get('XG_DRAW_REPLAY'):
             row['draw_replay_complete'] = 'draw replay: pair complete 1' in text
             try:
@@ -313,6 +326,7 @@ def main():
               'trace_frame': os.environ.get('HALO_GPU_TRACE') if args.render_diagnostics else None,
               'dump_shaders': bool(args.render_diagnostics and os.environ.get('XG_DUMP_SHADERS')),
               'draw_capture': bool(args.render_diagnostics and os.environ.get('XG_CAPTURE_SHADER_DIR')),
+              'native_pixels': native_pixels,
               'texture_pixels': bool(args.render_diagnostics and os.environ.get('XG_CAPTURE_TEXTURES')),
               'xbox_texture_source': xbox_textures,
               'live_depth': live_depth,

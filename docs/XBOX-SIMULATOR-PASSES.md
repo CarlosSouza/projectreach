@@ -636,6 +636,67 @@ checkout happens to exist later. Relative evidence paths are resolved to absolut
 paths before being passed to the game. Five asset-free tests cover exact,
 changed-image, changed-executable, missing-manifest and missing-revision cases.
 
+### Original native-linked pixel/depth replay on build 61 (2026-10-01)
+
+The frozen accepted `f8937c61` pass adds `XG_CAPTURE_NATIVE_PIXELS=1` to
+render diagnostics, requiring shader capture and calibrated depth observation.
+Immediately before the selected EQUAL draw, it copies live RGBA8 color and
+D24S8 depth/stencil into owned, same-format texture-backed targets using
+[GL framebuffer blit](https://registry.khronos.org/OpenGL-Refpages/es3.0/html/glBlitFramebuffer.xhtml).
+It retains the actual linked program, VAO/index stream, all uniforms, textures,
+samplers, viewport, blending, masks, stencil and raster state. EQUAL, ALWAYS and
+EQUAL-repeat each start from a fresh copy. Only owned targets are drawn into;
+the normal game draw still runs with its original depth function. Saved target,
+texture/unpack, depth-function, scissor and readback state are restored.
+Active queries, unsupported layouts/formats, GL/restore errors and missing
+files fail closed. No original shader is relinked.
+
+The first renderbuffer-backed experiment (`build61-native-pixels/`) is
+**rejected**: the replay repeats exactly but differs from actual live color at
+1,161 pixels by one/two channel steps. Its identical color-response masks do
+not satisfy exact pixel-fidelity acceptance. The next texture-backed run
+(`build61-native-textures/`) captures no qualifying pair at the 1,000-index
+threshold in its different spawn; also rejected, not a rendering regression.
+
+`build61-native-calibrated/` uses a 144-index minimum and captures a larger
+1,944-index pair. All captures are complete/error 0 with exact position/projection
+identity, depth texture 2, presentation frame 96. The private depth copy is
+independently sampled/calibrated and matches the original pre-EQUAL depth
+byte-for-byte. Native EQUAL matches EQUAL-repeat and the actual live draw
+byte-for-byte. Stationary match completes 65 seconds, 1,091 ticks, no scripted
+shots; original private frames reviewed. Stripes/pale or missing surfaces persist.
+
+The base changes 60,763 depth samples; 176,212 samples change before EQUAL,
+including 24,262 base-written pixels becoming closer. EQUAL writes no depth.
+Native EQUAL changes color at 36,501 pixels; ALWAYS at 61,643. There are 27,701
+color-value differences, including 2,559 at unchanged base depth. Those are
+**not** all missing responses: ignoring depth changes ordering among overlapping
+triangles too. Direct response-set comparison finds 25,142 ALWAYS-only pixels;
+24,262 are at base-written pixels with later closer depth, **zero** at base-written
+pixels with unchanged depth. Preview shows ALWAYS painting a large hidden rock
+surface across nearer structures. The 880 remaining ALWAYS-only pixels had no
+measurable base depth change; that mask is not full raster coverage.
+
+This pair does not prove missing visible terrain, nor that all intervening
+occlusion is correct. It closes the original-linkage/full-pixel replay gap for
+this draw and supplies a control for the next, stripe-producing material draw.
+The strict validator distinguishes changed color values from newly visible
+responses; synthetic tests do not establish game/driver acceptance.
+
+Chris's contemporaneous report of physical-iPad graphics/shading coming in and
+out of focus remains an unresolved gate. No direct physical observation or
+installation occurred here. Simulator menu/save success is not visual parity
+with Windows or physical gameplay acceptance.
+
+Final normal `build61-native-normal/` regression passes menu, campaign opening
+and scripted match (1,180 ticks / nine shots), with render/input diagnostics
+disabled; campaign/match screens reviewed and defects remain. About confirms
+accepted `f8937c61` without PREVIEW; Done returns to the normal edition picker.
+Real Xbox saves in rediscovered container `509882A5-2652-4667-A5B0-EAB43C24BFE7`
+remain byte-identical to the acceptance backup. 132 Python tests, 16 skipped,
+no failures; both SDK syntax and tree/index safety pass. No physical install,
+IPA, upstream pin change, push or publication.
+
 ## Next focused pass
 
 0. Keep accepted build 61 (`f8937c61`) frozen for the next diagnostic pass;
@@ -644,8 +705,9 @@ changed-image, changed-executable, missing-manifest and missing-revision cases.
 1. Continue beyond the cryo-bay training to weapon pickup/combat and a later
    checkpoint. Test sustained movement, simultaneous look/fire, weapon switching
    and another cold reload with isolated saves.
-2. Correlate the original native-linked EQUAL draw's coverage with copied live
-   depth and full captured pixel state. Determine whether closer intervening
+2. Target the later material draw that introduces a visible stripe, retaining
+   the new exact native repeat/live-color and calibrated copied-depth controls.
+   Correlate color-response changes with copied live depth. Determine whether closer intervening
    surfaces legitimately occlude it or visible terrain fails EQUAL. Keep
    diagnostics out of normal player builds. If this
    proves a remaining software-driver limitation, evaluate a properly built

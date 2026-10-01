@@ -13,6 +13,8 @@ static NSMutableDictionary *texture_sizes;
 static NSMutableDictionary *texture_uploads;
 static NSMutableDictionary *texture_sources;
 void xg_capture_depth(NSString *folder, NSString *label);
+void xg_capture_native_pixels(NSString *folder, GLenum mode, GLsizei count, GLenum type, const void *indices);
+void xg_capture_native_after(NSString *folder);
 static unsigned long presented_frames;
 void xg_draw_capture_present(void) { presented_frames++; }
 unsigned long xg_draw_capture_frame(void) { return presented_frames; }
@@ -371,9 +373,12 @@ static void capture_draw_elements(GLenum mode, GLsizei count, GLenum type, const
 		captured[target] = YES;
 		if (!target) target_count = count;
 		xg_log("draw capture: %s program %d count %d complete %d error 0x%x", target ? "equal" : "base", program, count, complete, error);
+		if (target && getenv("XG_CAPTURE_NATIVE_PIXELS")) xg_capture_native_pixels(folder, mode, count, type, indices);
 	}
 draw:
 	glDrawElements(mode, count, type, indices);
+	if (selected_target == 1 && getenv("XG_CAPTURE_NATIVE_PIXELS"))
+		xg_capture_native_after([@(getenv("XG_DRAW_CAPTURE")) stringByAppendingPathComponent:@"equal"]);
 	if (selected_target >= 0 && getenv("XG_CAPTURE_DEPTH")) {
 		NSString *folder = [@(getenv("XG_DRAW_CAPTURE")) stringByAppendingPathComponent:selected_target ? @"equal" : @"base"];
 		xg_capture_depth(folder, @"after");

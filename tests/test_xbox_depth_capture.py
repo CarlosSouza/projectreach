@@ -5,9 +5,10 @@ import struct
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / 'scripts/xbox'))
-from draw_capture import read_depth, compare_depth_snapshots
+from draw_capture import read_depth, compare_depth_snapshots, compare_native_pixels
 
 
 class DepthCaptureTests(unittest.TestCase):
@@ -90,3 +91,98 @@ class DepthCaptureTests(unittest.TestCase):
         (self.folder / 'base/depth-before.json').write_text(json.dumps(record))
         with self.assertRaisesRegex(ValueError, 'Depth path'):
             read_depth(self.folder / 'base', 'before')
+
+
+class NativePixelTests(unittest.TestCase):
+    write = DepthCaptureTests.write
+    responsive = DepthCaptureTests.responsive
+
+    def setUp(self):
+        DepthCaptureTests.setUp(self)
+        self.responsive()
+        self.write('equal', 'native-copy', struct.pack('<f', .5) + self.blank[4:])
+        self.native = dict(complete=True, color_copy_equal=True, framebuffer_status=0x8cd5,
+                           gl_error=0, restore_error=0, framebuffer=3, depth_texture=2,
+                           program=7, vao=8, presented_frames=20, width=640, height=480,
+                           depth_bits=24, stencil_bits=8)
+        self.live = dict(complete=True, gl_error=0, framebuffer=3, presented_frames=20)
+        self.pixels = b'\x00' * (640 * 480 * 4)
+        for label in ('before', 'equal', 'repeat', 'live'):
+            self.image(label, self.pixels)
+        self.image('always', b'\xff\x00\x00\xff' + self.pixels[4:])
+        self.records()
+        self.addCleanup(mock.patch.stopall)
+        mock.patch('draw_capture.compare_live_depth', return_value={'presented_frames': 20}).start()
+        mock.patch('draw_capture.load_draw', return_value=dict(program=7, presented_frames=20,
+                                                              framebuffer={'draw': 3})).start()
+
+    def records(self):
+        for name, record in (('native-pixels', self.native), ('native-live', self.live)):
+            (self.folder / 'equal' / (name + '.json')).write_text(json.dumps(record))
+
+    def image(self, label, data):
+        (self.folder / 'equal' / ('native-' + label + '.rgba')).write_bytes(data)
+
+    def test_native_response_with_unchanged_base_depth(self):
+        result = compare_native_pixels(self.folder)
+        self.assertEqual(result['equal_always_color_different'], 1)
+        self.assertEqual(result['different_at_base_depth_unchanged'], 1)
+        self.assertEqual(result['different_at_base_later_closer'], 0)
+        self.assertEqual(result['always_only_at_base_depth_unchanged'], 1)
+        self.assertTrue(result['live_equal'])
+
+    def test_native_difference_at_later_closer_depth(self):
+        self.write('equal', 'before', struct.pack('<f', .25) + self.blank[4:])
+        self.write('equal', 'native-copy', struct.pack('<f', .25) + self.blank[4:])
+        result = compare_native_pixels(self.folder)
+        self.assertEqual(result['different_at_base_later_closer'], 1)
+        self.assertEqual(result['different_at_base_depth_unchanged'], 0)
+        self.assertEqual(result['always_only_at_base_later_closer'], 1)
+
+    def test_color_difference_is_not_a_missing_response(self):
+        red = b'\x80\x00\x00\xff' + self.pixels[4:]
+        for label in ('equal', 'repeat', 'live'):
+            self.image(label, red)
+        result = compare_native_pixels(self.folder)
+        self.assertEqual(result['equal_always_color_different'], 1)
+        self.assertEqual(result['always_only_color_response'], 0)
+
+    def test_native_depth_copy_mismatch_rejected(self):
+        self.write('equal', 'native-copy', self.blank)
+        with self.assertRaisesRegex(ValueError, 'cloned depth'):
+            compare_native_pixels(self.folder)
+
+    def test_native_repeat_and_live_mismatch_rejected(self):
+        for label in ('repeat', 'live'):
+            self.image(label, b'\xff' * len(self.pixels))
+            with self.assertRaisesRegex(ValueError, 'repeat/live'):
+                compare_native_pixels(self.folder)
+            self.image(label, self.pixels)
+
+    def test_native_empty_response_and_truncation_rejected(self):
+        self.image('always', self.pixels)
+        with self.assertRaisesRegex(ValueError, 'no measurable'):
+            compare_native_pixels(self.folder)
+        self.image('always', b'short')
+        with self.assertRaisesRegex(ValueError, 'Truncated'):
+            compare_native_pixels(self.folder)
+
+    def test_native_metadata_fails_closed(self):
+        for key, value in (('complete', False), ('color_copy_equal', False), ('gl_error', 0x502),
+                           ('restore_error', 0x502), ('depth_bits', 32), ('stencil_bits', 0)):
+            old = self.native[key]
+            self.native[key] = value
+            self.records()
+            with self.assertRaisesRegex(ValueError, 'Incomplete or unsupported'):
+                compare_native_pixels(self.folder)
+            self.native[key] = old
+
+    def test_native_frame_and_target_rejected(self):
+        for key, value, message in (('program', 99, 'program/target'), ('depth_texture', 9, 'program/target'),
+                                     ('presented_frames', 21, 'presentation boundary')):
+            old = self.native[key]
+            self.native[key] = value
+            self.records()
+            with self.assertRaisesRegex(ValueError, message):
+                compare_native_pixels(self.folder)
+            self.native[key] = old

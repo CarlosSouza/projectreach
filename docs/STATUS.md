@@ -56,8 +56,15 @@ bytes or final sampling. The build-60 calibrated, same-frame depth observer meas
 54,517 intervening depth changes; 21,611 base-changed pixels become closer.
 All four observations restore without GL errors. This is not proof of bad
 writes: legitimate occlusion remains possible, and the scene still has stripes.
-Next correlate original native-linked EQUAL coverage with copied live depth/full
-pixel state on the frozen build-61 baseline. These diagnostics have not changed
+Build-61 full native pixel replay now retains the original program/VAO, uniforms,
+textures, blending and stencil state on private texture-backed targets. A
+calibrated 1,944-index pair matches both its repeated replay and the real draw
+byte-for-byte; copied live depth also matches. All 24,262 base-written pixels
+with ALWAYS-only color response have later closer depth; none have unchanged
+depth. This pair does not establish missing visible terrain. Next target the
+later material draw that introduces a visible stripe. Chris's reported physical
+iPad shading/focus instability remains open and was not directly observed here.
+These diagnostics have not changed
 normal depth semantics; the upstream HUD update is a separate change.
 Mac smoke runs now
 reject mismatched executable/guest hashes. Candidates

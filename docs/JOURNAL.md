@@ -3732,3 +3732,57 @@ byte-for-byte after all installs/probes/menu navigation. Latest upstream is stil
 whitespace and tree/index safety pass. No physical change, IPA, push or
 publication. Next resume the native-linked coverage/live-depth experiment on
 the frozen 61 pin, then sustained touch/weapon/later-checkpoint acceptance.
+
+## 2026-10-01 — Frozen build-61 native pixel replay
+
+Previous goal turn was progress: accepted 61, save-backed gates and local
+commit `ac40a2f`. This pass retains that exact pin and the dedicated Simulator.
+Chris's new physical-iPad report of focus/shading instability is a visual gate,
+not directly observed here. No physical changes or publication are authorized.
+
+Added opt-in native framebuffer replay in `xg_depth_capture.m`, gated through
+the existing draw-capture runner. Original linked program/VAO/uniforms/textures/
+samplers/blend/stencil/raster state are retained; live color/depth/stencil are
+copied to owned texture-backed targets. EQUAL/ALWAYS/EQUAL-repeat cannot write
+game targets. A calibrated sample of the copied depth must match live depth,
+and native repeat/actual live color must match exactly. Metadata, frame,
+program/target, response and file-layout failures reject the diagnostic.
+Normal depth semantics remain unchanged.
+
+First Objective-C syntax attempt rejected an ARC goto crossing an object
+initialization; moved it before the guard. First synthetic test inheritance
+duplicated a conflicting fixture test; made native cases independent. Both
+repaired before final tests. First live renderbuffer clone is rejected on
+1,161 small channel-value differences versus real color despite exact repeat.
+Changed private target storage to textures, matching the game's attachment
+kind. Next run captured no qualifying >=1,000-index pair at its different
+spawn, correctly rejected. Final >=144 threshold captures a 1,944-index pair;
+position/projection identity and all GL/calibration/restoration controls pass.
+
+Private evidence: `ref/xbox-build/passes/2026-10-01/build61-native-calibrated/`;
+library/app logs have the same prefix, app evidence
+`docs/artifacts/2026-10-01/G3/ios-app-20261001T105149Z`.
+65-second stationary match, 1,091 ticks, zero scripted shots. Presentation
+frame 96; original depth texture 2, cloned depth 136. Calibrated copied depth
+and native EQUAL/repeat/live color are byte-identical. Base changes 60,763
+depth samples; later depth changes 176,212, including 24,262 closer base-written
+pixels. EQUAL has no depth changes. EQUAL color response 36,501; ALWAYS 61,643.
+Full color difference 27,701 is not missing coverage. ALWAYS-only response
+25,142: 24,262 at base-written/later-closer locations and zero at unchanged
+base depth; 880 outside the changed-depth mask. Reviewed original native
+EQUAL/ALWAYS and final gameplay images. ALWAYS overdraws a large hidden surface;
+normal scene still striped/pale. This pair does not prove incorrect EQUAL.
+
+Next target the material draw that actually introduces a visible stripe,
+retaining exact native replay/copied-depth controls. Do not adopt ALWAYS,
+declare a driver bug, or equate test/menu/save gates with visual correctness.
+
+Final normal regression `build61-native-normal/`: all three cases pass, 1,180
+match ticks / nine shots, no render/input diagnostic flags. Campaign/match
+screens reviewed; graphics still defective. Actual About/Done navigation
+confirms accepted `f8937c61` without PREVIEW and leaves the normal picker.
+Final real-save container `509882A5-2652-4667-A5B0-EAB43C24BFE7` matches
+`20261001-191048-from-bfbac357/simulator-save` byte-for-byte. 132 tests, 16 skips,
+no failures; Simulator and physical SDK syntax pass. No physical install,
+pin update, IPA, push or publication. Goal active; this turn is diagnostic
+progress, not a rendering fix or completion.

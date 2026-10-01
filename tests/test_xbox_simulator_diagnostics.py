@@ -113,6 +113,14 @@ class SimulatorDiagnosticsTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertIn('paired depth requires --stationary-match', result.stderr)
 
+    def test_native_pixels_require_live_depth_before_launch(self):
+        env = {key: value for key, value in os.environ.items() if not key.startswith('XG_')}
+        env['XG_CAPTURE_NATIVE_PIXELS'] = '1'
+        result = subprocess.run([sys.executable, str(SCRIPT), '--device', 'unused',
+                                 '--render-diagnostics'], capture_output=True, text=True, env=env)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn('XG_CAPTURE_NATIVE_PIXELS requires XG_CAPTURE_DEPTH', result.stderr)
+
     def test_depth_probe_requires_two_distinct_complete_controls(self):
         same = 'depth probe: same-program covered 6728 failed 0 error 0x0\n'
         other = 'depth probe: separate-program covered 6728 failed 0 error 0x0\n'

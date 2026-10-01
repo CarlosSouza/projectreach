@@ -180,3 +180,59 @@ def compare_live_depth(folder):
     if result['presented_frames'] != draws[0]['presented_frames']:
         raise ValueError('Depth observations do not match the captured draw frame')
     return result
+
+
+def compare_native_pixels(folder):
+    """Full native color response, not a coverage mask or an occlusion verdict."""
+    folder = pathlib.Path(folder)
+    depth = compare_live_depth(folder)
+    draw = load_draw(folder / 'equal')
+    record = json.loads((folder / 'equal/native-pixels.json').read_text())
+    live = json.loads((folder / 'equal/native-live.json').read_text())
+    if (not record.get('complete') or not record.get('color_copy_equal') or
+            record.get('gl_error') != 0 or record.get('restore_error') != 0 or
+            record.get('framebuffer_status') != 0x8cd5 or record.get('width') != 640 or record.get('height') != 480 or
+            record.get('depth_bits') != 24 or record.get('stencil_bits') != 8 or
+            not live.get('complete') or live.get('gl_error') != 0):
+        raise ValueError('Incomplete or unsupported native pixel observation')
+    depth_record = read_depth(folder / 'equal', 'before')[0]
+    copied_depth = read_depth(folder / 'equal', 'native-copy')
+    if (copied_depth[0].get('presented_frames') != depth['presented_frames'] or
+            copied_depth[1] != read_depth(folder / 'equal', 'before')[1]):
+        raise ValueError('Native cloned depth differs from live depth')
+    if (record.get('program') != draw['program'] or record.get('framebuffer') != draw['framebuffer']['draw'] or
+            live.get('framebuffer') != record['framebuffer'] or record.get('depth_texture') != depth_record['texture']):
+        raise ValueError('Native pixel program/target differs from captured draw')
+    if any(row.get('presented_frames') != depth['presented_frames'] for row in (record, live, draw)):
+        raise ValueError('Native pixels cross a presentation boundary')
+    blobs = {}
+    for label in ('before', 'equal', 'always', 'repeat', 'live'):
+        data = (folder / 'equal' / ('native-' + label + '.rgba')).read_bytes()
+        if len(data) != 640 * 480 * 4:
+            raise ValueError('Truncated native pixel observation')
+        blobs[label] = data
+    if blobs['equal'] != blobs['repeat'] or blobs['equal'] != blobs['live']:
+        raise ValueError('Native clone repeat/live color mismatch')
+    def changed(a, b):
+        return {i // 4 for i in range(0, len(a), 4) if a[i:i+4] != b[i:i+4]}
+    response = changed(blobs['before'], blobs['always'])
+    if not response:
+        raise ValueError('Native ALWAYS draw has no measurable color response')
+    difference = changed(blobs['equal'], blobs['always'])
+    equal_response = changed(blobs['before'], blobs['equal'])
+    always_only = response - equal_response
+    before, after, later = [read_depth(folder / label, phase)[2] for label, phase in
+                            (('base', 'before'), ('base', 'after'), ('equal', 'before'))]
+    base_changed = {i for i, (a, b) in enumerate(zip(before, after)) if a != b}
+    closer = {i for i in base_changed if later[i] < after[i]}
+    unchanged = {i for i in base_changed if later[i] == after[i]}
+    return {'pixels': 640 * 480, 'presented_frames': depth['presented_frames'],
+            'equal_color_changed': len(equal_response),
+            'always_color_changed': len(response), 'equal_always_color_different': len(difference),
+            'different_at_base_changed': len(difference & base_changed),
+            'different_at_base_later_closer': len(difference & closer),
+            'different_at_base_depth_unchanged': len(difference & unchanged),
+            'always_only_color_response': len(always_only),
+            'always_only_at_base_later_closer': len(always_only & closer),
+            'always_only_at_base_depth_unchanged': len(always_only & unchanged),
+            'repeat_equal': True, 'live_equal': True}

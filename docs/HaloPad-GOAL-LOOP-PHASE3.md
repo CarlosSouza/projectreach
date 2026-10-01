@@ -52,6 +52,19 @@ The isolated raster probe intentionally uses black textures/default pixel unifor
 Do not declare a driver bug or relax EQUAL.
 Then sustained movement/look/fire and weapon pickup/swap,
 a later checkpoint and reload.
+Chris's follow-up explicitly reports shading/focus instability on the physical
+iPad. It remains an unresolved visual-acceptance gate, not a reason to equate a
+menu, checkpoint, or smoke-test pass with a correct image. This pass continues
+on the dedicated Simulator; no physical installation or direct observation of
+that report is claimed.
+Build-61 native pixel replay now copies live color/depth/stencil into owned
+texture-backed targets, retaining the original linked program and pixel state.
+The calibrated 1,944-index pair repeats and matches the actual live draw exactly;
+copied depth also matches. ALWAYS-only color response at base-written pixels
+occurs only where later depth became closer (24,262 pixels), never where it was
+unchanged. Color differences alone include overdraw and are not missing coverage.
+This pair does not prove missing visible terrain. Next target a later material
+draw that actually introduces a visible stripe, retaining these strict controls.
 Maintain upstream by freezing one candidate per pass, backing up saves, building,
 testing and visually reviewing it before pin promotion. Keep normal runs free
 of input/render diagnostics and preserve the Windows route and both save domains.
