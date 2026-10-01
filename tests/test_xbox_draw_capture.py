@@ -66,6 +66,57 @@ class DrawCaptureTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             position_bytes(self.load())
 
+    def texture_fixture(self):
+        image = {'complete': True, 'gl_error': 0, 'framebuffer_status': 0x8cd5,
+                 'width': 2, 'height': 1, 'file': 'texture.rgba'}
+        self.draw['texture_units'] = [{'texture-de1': {'level0': image}}]
+        (self.folder / 'texture.rgba').write_bytes(b'\x00' * 8)
+        return image
+
+    def test_complete_texture_readback(self):
+        self.texture_fixture()
+        self.load()
+
+    def test_incomplete_or_truncated_texture_readback(self):
+        image = self.texture_fixture()
+        image['complete'] = False
+        with self.assertRaisesRegex(ValueError, 'Incomplete texture'):
+            self.load()
+        image['complete'] = True
+        (self.folder / 'texture.rgba').write_bytes(b'short')
+        with self.assertRaisesRegex(ValueError, 'Truncated texture'):
+            self.load()
+
+    def test_texture_path_and_dimensions_rejected(self):
+        image = self.texture_fixture()
+        image['file'] = '../texture.rgba'
+        with self.assertRaisesRegex(ValueError, 'Texture path'):
+            self.load()
+        image.update(file='texture.rgba', width=0)
+        with self.assertRaisesRegex(ValueError, 'Unsupported texture dimensions'):
+            self.load()
+
+    def test_texture_upload_comparison_verified_from_bytes(self):
+        image = self.texture_fixture()
+        image.update(upload_compared=True, upload_equal=True, upload_file='upload.rgba')
+        (self.folder / 'upload.rgba').write_bytes(b'\x00' * 8)
+        self.load()
+        image['upload_equal'] = False
+        with self.assertRaisesRegex(ValueError, 'Invalid texture upload comparison'):
+            self.load()
+        (self.folder / 'upload.rgba').write_bytes(b'\xff' * 8)
+        self.load()
+
+    def test_incomplete_or_outside_upload_comparison_rejected(self):
+        image = self.texture_fixture()
+        image.update(upload_compared=True, upload_equal=False, upload_file='upload.rgba')
+        (self.folder / 'upload.rgba').write_bytes(b'short')
+        with self.assertRaisesRegex(ValueError, 'Invalid texture upload comparison'):
+            self.load()
+        image['upload_file'] = '../upload.rgba'
+        with self.assertRaisesRegex(ValueError, 'Upload path'):
+            self.load()
+
     def test_identical_clip_positions(self):
         positions = struct.pack('<4f', 1, 2, 3, 4)
         for label in ('base', 'equal'):

@@ -8,6 +8,77 @@
 #include <string.h>
 #include "xg_host.h"
 
+static NSMutableDictionary *texture_sizes;
+static NSMutableDictionary *texture_uploads;
+static void observe_texture_image(GLenum target, GLint level, GLint format, GLsizei width, GLsizei height,
+	GLint border, GLenum pixels, GLenum type, const void *data)
+{
+	glTexImage2D(target, level, format, width, height, border, pixels, type, data);
+	if (target != GL_TEXTURE_2D || level != 0) return;
+	GLint texture = 0; glGetIntegerv(GL_TEXTURE_BINDING_2D, &texture);
+	if (!texture_sizes) texture_sizes = [NSMutableDictionary dictionary];
+	texture_sizes[@(texture)] = @[@(width), @(height)];
+	if (!texture_uploads) texture_uploads = [NSMutableDictionary dictionary];
+	[texture_uploads removeObjectForKey:@(texture)];
+	GLint unpack[5];
+	const GLenum names[] = { GL_PIXEL_UNPACK_BUFFER_BINDING, GL_UNPACK_ROW_LENGTH, GL_UNPACK_SKIP_ROWS, GL_UNPACK_SKIP_PIXELS, GL_UNPACK_ALIGNMENT };
+	for (int i = 0; i < 5; i++) glGetIntegerv(names[i], &unpack[i]);
+	if (data && pixels == GL_RGBA && type == GL_UNSIGNED_BYTE && width > 0 && height > 0 && width <= 4096 && height <= 4096 &&
+		!unpack[0] && !unpack[1] && !unpack[2] && !unpack[3] && unpack[4] > 0 && ((width * 4) % unpack[4]) == 0)
+		texture_uploads[@(texture)] = [NSData dataWithBytes:data length:(NSUInteger)width * height * 4];
+}
+
+static void observe_texture_update(GLenum target, GLint level, GLint x, GLint y, GLsizei width, GLsizei height,
+	GLenum format, GLenum type, const void *data)
+{
+	glTexSubImage2D(target, level, x, y, width, height, format, type, data);
+	if (target == GL_TEXTURE_2D && level == 0) {
+		GLint texture = 0; glGetIntegerv(GL_TEXTURE_BINDING_2D, &texture);
+		[texture_uploads removeObjectForKey:@(texture)];
+	}
+}
+
+/* Read a separate FBO, never draw into or change the captured texture. */
+static NSDictionary *read_texture(GLuint texture, NSString *folder)
+{
+	NSArray *size = texture_sizes[@(texture)];
+	GLsizei width = [size[0] intValue], height = [size[1] intValue];
+	if (!size || width <= 0 || height <= 0 || width > 4096 || height > 4096)
+		return @{@"complete":@NO, @"error":@"Missing or unsupported texture dimensions"};
+	GLint read = 0, pack[5];
+	const GLenum names[] = { GL_PIXEL_PACK_BUFFER_BINDING, GL_PACK_ALIGNMENT, GL_PACK_ROW_LENGTH, GL_PACK_SKIP_ROWS, GL_PACK_SKIP_PIXELS };
+	glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &read);
+	for (int i = 0; i < 5; i++) glGetIntegerv(names[i], &pack[i]);
+	GLuint framebuffer = 0; glGenFramebuffers(1, &framebuffer); glBindFramebuffer(GL_READ_FRAMEBUFFER, framebuffer);
+	glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
+	GLenum status = glCheckFramebufferStatus(GL_READ_FRAMEBUFFER);
+	NSMutableData *rgba = [NSMutableData dataWithLength:(NSUInteger)width * height * 4];
+	if (status == GL_FRAMEBUFFER_COMPLETE) {
+		glBindBuffer(GL_PIXEL_PACK_BUFFER, 0); glPixelStorei(GL_PACK_ALIGNMENT, 1);
+		for (int i = 2; i < 5; i++) glPixelStorei(names[i], 0);
+		glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, rgba.mutableBytes);
+	}
+	GLenum error = glGetError();
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, read); glDeleteFramebuffers(1, &framebuffer);
+	glBindBuffer(GL_PIXEL_PACK_BUFFER, pack[0]);
+	for (int i = 1; i < 5; i++) glPixelStorei(names[i], pack[i]);
+	NSString *file = [NSString stringWithFormat:@"texture-%u.rgba", texture], *preview = [NSString stringWithFormat:@"texture-%u.ppm", texture];
+	NSString *upload_file = [NSString stringWithFormat:@"texture-%u.upload.rgba", texture];
+	NSData *upload = texture_uploads[@(texture)];
+	BOOL complete = status == GL_FRAMEBUFFER_COMPLETE && error == GL_NO_ERROR;
+	if (complete) {
+		complete = [rgba writeToFile:[folder stringByAppendingPathComponent:file] atomically:YES];
+		NSMutableData *ppm = [NSMutableData dataWithData:[[NSString stringWithFormat:@"P6\n%d %d\n255\n", width, height] dataUsingEncoding:NSASCIIStringEncoding]];
+		const unsigned char *bytes = rgba.bytes;
+		for (NSUInteger i = 0; i < (NSUInteger)width * height; i++) [ppm appendBytes:bytes + i * 4 length:3];
+		complete &= [ppm writeToFile:[folder stringByAppendingPathComponent:preview] atomically:YES];
+		if (upload) complete &= [upload writeToFile:[folder stringByAppendingPathComponent:upload_file] atomically:YES];
+	}
+	return @{@"complete":@(complete), @"width":@(width), @"height":@(height), @"file":file, @"preview":preview,
+		@"framebuffer_status":@(status), @"gl_error":@(error), @"upload_compared":@(upload != nil),
+		@"upload_equal":@([rgba isEqualToData:upload]), @"upload_file":upload ? upload_file : @""};
+}
+
 static NSData *shader_source(GLuint shader)
 {
 	GLint length = 0;
@@ -153,15 +224,69 @@ static void capture_draw_elements(GLenum mode, GLsizei count, GLenum type, const
 		glGetFloatv(GL_POLYGON_OFFSET_UNITS, &offset[1]); glGetFloatv(GL_VIEWPORT, viewport);
 		state[@"depth_range_bits"] = float_bits(range, 2); state[@"polygon_offset_bits"] = float_bits(offset, 2);
 		state[@"viewport_bits"] = float_bits(viewport, 4); state[@"polygon_offset_enabled"] = @(glIsEnabled(GL_POLYGON_OFFSET_FILL));
+		GLint draw_target = 0, read_target = 0, scissor[4];
+		glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &draw_target); glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &read_target);
+		glGetIntegerv(GL_SCISSOR_BOX, scissor);
+		state[@"framebuffer"] = @{@"draw":@(draw_target), @"read":@(read_target)};
+		state[@"scissor"] = @[@(scissor[0]), @(scissor[1]), @(scissor[2]), @(scissor[3])];
+		for (NSNumber *parameter in @[@(GL_CULL_FACE_MODE), @(GL_FRONT_FACE), @(GL_BLEND_SRC_RGB), @(GL_BLEND_DST_RGB),
+			@(GL_BLEND_SRC_ALPHA), @(GL_BLEND_DST_ALPHA), @(GL_BLEND_EQUATION_RGB), @(GL_BLEND_EQUATION_ALPHA)]) {
+			GLint value = 0; glGetIntegerv(parameter.unsignedIntValue, &value);
+			state[[NSString stringWithFormat:@"gl-%x", parameter.unsignedIntValue]] = @(value);
+		}
 		for (NSNumber *capability in @[@(GL_DEPTH_TEST), @(GL_STENCIL_TEST), @(GL_CULL_FACE), @(GL_BLEND), @(GL_SCISSOR_TEST)])
 			state[[NSString stringWithFormat:@"enabled-%x", capability.unsignedIntValue]] = @(glIsEnabled(capability.unsignedIntValue));
 		for (NSNumber *attachment in @[@(GL_COLOR_ATTACHMENT0), @(GL_DEPTH_ATTACHMENT)]) {
-			GLint kind = 0, bits = 0;
+			GLint kind = 0, bits = 0, object = 0;
 			glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER, attachment.unsignedIntValue, GL_FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE, &kind);
-			if (kind != GL_NONE) glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER, attachment.unsignedIntValue,
-				attachment.unsignedIntValue == GL_DEPTH_ATTACHMENT ? GL_FRAMEBUFFER_ATTACHMENT_DEPTH_SIZE : GL_FRAMEBUFFER_ATTACHMENT_RED_SIZE, &bits);
-			state[[NSString stringWithFormat:@"attachment-%x", attachment.unsignedIntValue]] = @{@"type":@(kind), @"bits":@(bits)};
+			if (kind != GL_NONE) {
+				glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER, attachment.unsignedIntValue,
+					attachment.unsignedIntValue == GL_DEPTH_ATTACHMENT ? GL_FRAMEBUFFER_ATTACHMENT_DEPTH_SIZE : GL_FRAMEBUFFER_ATTACHMENT_RED_SIZE, &bits);
+				glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER, attachment.unsignedIntValue, GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME, &object);
+			}
+			state[[NSString stringWithFormat:@"attachment-%x", attachment.unsignedIntValue]] = @{@"type":@(kind), @"bits":@(bits), @"object":@(object)};
 		}
+		GLint active = 0; glGetIntegerv(GL_ACTIVE_TEXTURE, &active);
+		NSMutableArray *texture_units = [NSMutableArray array];
+		for (int unit = 0; unit < 4; unit++) {
+			glActiveTexture(GL_TEXTURE0 + unit);
+			GLint sampler = 0; glGetIntegerv(GL_SAMPLER_BINDING, &sampler);
+			NSMutableDictionary *record = [NSMutableDictionary dictionaryWithDictionary:@{@"unit":@(unit), @"sampler":@(sampler)}];
+			for (NSNumber *parameter in @[@(GL_TEXTURE_MIN_FILTER), @(GL_TEXTURE_MAG_FILTER), @(GL_TEXTURE_WRAP_S),
+				@(GL_TEXTURE_WRAP_T), @(GL_TEXTURE_WRAP_R), @(GL_TEXTURE_COMPARE_MODE), @(GL_TEXTURE_COMPARE_FUNC)]) {
+				if (!sampler) break;
+				GLint value = 0; glGetSamplerParameteriv(sampler, parameter.unsignedIntValue, &value);
+				record[[NSString stringWithFormat:@"sampler-%x", parameter.unsignedIntValue]] = @(value);
+			}
+			for (NSNumber *parameter in @[@(GL_TEXTURE_MIN_LOD), @(GL_TEXTURE_MAX_LOD)]) {
+				if (!sampler) break;
+				GLfloat value = 0; glGetSamplerParameterfv(sampler, parameter.unsignedIntValue, &value);
+				record[[NSString stringWithFormat:@"sampler-%x-bits", parameter.unsignedIntValue]] = float_bits(&value, 1);
+			}
+			const GLenum targets[] = { GL_TEXTURE_2D, GL_TEXTURE_CUBE_MAP, GL_TEXTURE_3D };
+			const GLenum bindings[] = { GL_TEXTURE_BINDING_2D, GL_TEXTURE_BINDING_CUBE_MAP, GL_TEXTURE_BINDING_3D };
+			for (int target = 0; target < 3; target++) {
+				GLint object = 0; glGetIntegerv(bindings[target], &object);
+				NSMutableDictionary *texture = [NSMutableDictionary dictionaryWithDictionary:@{@"object":@(object)}];
+				if (object) for (NSNumber *parameter in @[@(GL_TEXTURE_BASE_LEVEL), @(GL_TEXTURE_MAX_LEVEL),
+					@(GL_TEXTURE_SWIZZLE_R), @(GL_TEXTURE_SWIZZLE_G), @(GL_TEXTURE_SWIZZLE_B), @(GL_TEXTURE_SWIZZLE_A)]) {
+					GLint value = 0; glGetTexParameteriv(targets[target], parameter.unsignedIntValue, &value);
+					texture[[NSString stringWithFormat:@"gl-%x", parameter.unsignedIntValue]] = @(value);
+				}
+				if (object && targets[target] == GL_TEXTURE_2D && getenv("XG_CAPTURE_TEXTURES")) {
+					NSDictionary *image = read_texture(object, folder);
+					texture[@"level0"] = image;
+					complete &= [image[@"complete"] boolValue];
+				}
+				record[[NSString stringWithFormat:@"texture-%x", targets[target]]] = texture;
+			}
+			char name[16]; snprintf(name, sizeof(name), "tex%d", unit);
+			GLint location = glGetUniformLocation(program, name), assigned = -1;
+			if (location >= 0) glGetUniformiv(program, location, &assigned);
+			record[@"uniform_unit"] = @(assigned);
+			[texture_units addObject:record];
+		}
+		glActiveTexture(active); state[@"active_texture"] = @(active); state[@"texture_units"] = texture_units;
 		glGetAttachedShaders(program, 8, &shader_count, shaders);
 		for (int i = 0; i < shader_count; i++) {
 			GLint kind = 0; glGetShaderiv(shaders[i], GL_SHADER_TYPE, &kind);
@@ -183,6 +308,10 @@ draw:
 
 void *xg_draw_capture_proc(const char *name)
 {
-	return getenv("XG_DRAW_CAPTURE") && getenv("XG_CAPTURE_SHADER_DIR") && !strcmp(name, "glDrawElements") ? capture_draw_elements : NULL;
+	if (!getenv("XG_DRAW_CAPTURE") || !getenv("XG_CAPTURE_SHADER_DIR")) return NULL;
+	if (!strcmp(name, "glDrawElements")) return capture_draw_elements;
+	if (getenv("XG_CAPTURE_TEXTURES") && !strcmp(name, "glTexImage2D")) return observe_texture_image;
+	if (getenv("XG_CAPTURE_TEXTURES") && !strcmp(name, "glTexSubImage2D")) return observe_texture_update;
+	return NULL;
 }
 #endif

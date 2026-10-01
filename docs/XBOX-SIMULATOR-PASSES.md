@@ -422,9 +422,52 @@ the build-60 update backup byte-for-byte. About/Done verifies accepted `bfbac357
 and returns to the normal picker (`build60-raster-final-picker.png`). No physical
 install, IPA or publication; the broader goal remains active.
 
-Next inspect intervening depth writes and full draw/texture state in the live
-striped scene. Neither basic nor captured-program controls justify a general
-EQUAL bypass or a software-driver diagnosis.
+### Live texture state and upload identity (2026-10-01)
+
+Expanded opt-in snapshots record framebuffer/attachment objects, scissor,
+blend/cull modes, four sampler bindings/filter/wrap/LOD values, 2D/cube/3D
+bindings, mip bounds, texture swizzles and program sampler-unit assignments.
+`build60-texture-state/` captures a complete 1,257-index pair with GL error 0
+(1,312 ticks). Both passes use draw/read FBO 3, color texture 1, depth texture 2,
+and scissor 0/0/640/480. No sampled binding aliases those attachment objects.
+This rules out a switched target for this pair, not intervening depth writes.
+
+`XG_CAPTURE_TEXTURES=1` additionally observes 2D level-0 allocations and reads
+their pixels using a separate READ framebuffer, restoring read-target/pack state.
+It requires shader capture and render diagnostics; buffers/previews stay private
+under ignored `ref/`. `build60-texture-pixels/` passes capture validation on a
+1,086-index pair (1,297 ticks), with six reviewed texture previews. Texture 83,
+256x128, has pronounced bands/atlas-like regions. This is a lead, not a decoder
+diagnosis: padding may be legitimate and previews show raw storage without
+applying texture swizzles. It is not the same texture as the later random-spawn
+capture's 128x256 texture 85.
+
+`build60-texture-upload/` adds CPU references for supported tightly packed RGBA8
+uploads, invalidating them after level-0 TexSubImage updates. All supported
+references match readbacks byte-for-byte: base textures 86 (4x4) and 85 (128x256),
+second-pass textures 102 (256x256), 103 (512x512) and 104 (256x256). Every capture
+is complete/error 0; all five unique previews were reviewed. The 1,755-index
+pair has exact position identity and the same framebuffer/attachment/scissor
+values (1,292 ticks). The reviewed live frame still has terrain stripes and
+pale geometry. GPU writes are not tracked by the upload observer; a future
+mismatch alone would not establish a driver bug. Cube faces and higher mips are
+not read. Capturing bound 2D objects also does not mean every object is actively
+sampled by that fragment program.
+
+Next compare Xbox CPU decoding of rectangular textures/lightmap data with an
+independent reference, and inspect intervening depth writes/full scene state.
+Matching upload/storage bytes does not prove decoding, UVs, mipmaps or sampling
+correctness. Neither the texture evidence nor passing depth controls justify a
+general EQUAL bypass or a software-driver diagnosis. Normal rendering remains
+unchanged; these hooks are opt-in and Simulator-only.
+
+Final `build60-texture-normal-regression/` passes normal menu/campaign-opening/
+scripted-match checks (1,347 ticks / 11 shots), with opening and match frames
+reviewed. 105 Python tests run, 16 skipped, no failures; physical SDK syntax and
+tree/index safety pass. Real Xbox saves remain byte-identical to the update
+backup. About shows accepted `bfbac357`, no PREVIEW; Done returns to the normal
+picker (`build60-texture-final-picker.png`). Latest upstream release remains
+build 60 at 08:47 UTC. No physical install, IPA, push or publication.
 
 An auxiliary Mac CPU-texture match (`build59-mac-cpu-textures/`) overlapped the
 Simulator match and failed with `WSAEADDRINUSE` before gameplay. It is invalid

@@ -32,8 +32,12 @@ It changes linkage and omits pixel/texture state, so original-program invariance
 is not proven. Isolated original-indexed rasterization now preserves all 145,994
 pixels under EQUAL for a larger 1,257-index pair on texture-backed targets, with
 same-program and ALWAYS controls passing. A fixed-view stencil bypass leaves
-stripes. Next inspect intervening depth writes and full scene/texture state;
-the isolated probe intentionally uses black textures/default pixel uniforms.
+stripes. Expanded read-only captures verify the same framebuffer/color/depth
+objects for the paired draws. Level-0 2D readbacks match supported CPU upload
+references byte-for-byte; this does not prove source bitmap decoding or sampling
+correctness. Next compare decoded rectangular textures with an independent
+reference, then inspect intervening depth writes and remaining scene state.
+The isolated raster probe intentionally uses black textures/default pixel uniforms.
 Do not declare a driver bug or relax EQUAL.
 Then sustained movement/look/fire and weapon pickup/swap,
 a later checkpoint and reload.

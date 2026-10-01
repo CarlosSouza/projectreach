@@ -3503,3 +3503,50 @@ checks and final About navigation. About shows accepted `bfbac357`, no PREVIEW;
 Done returns to the normal picker (`build60-raster-final-picker.png`). Latest
 upstream release is still build 60. No physical install, IPA, push or publication.
 Goal stays active; full campaign/control/audio/human multiplayer/hardware gates remain.
+
+## 2026-10-01 — live texture storage matches CPU uploads
+
+**Progress:** extended Simulator-only, opt-in draw captures with framebuffer and
+attachment identities, sampler/unit/mip/swizzle metadata and optional 2D level-0
+readbacks. A separate READ framebuffer preserves the game texture and restores
+read/pack state. Supported tightly packed RGBA8 uploads are copied for comparison;
+level-0 TexSubImage invalidates the CPU reference. Python validation checks actual
+file lengths and comparison bytes rather than trusting metadata flags. Generated
+game textures/shaders/buffers remain under private ignored ref/.
+
+**Evidence:** `build60-texture-state/` captures 1,257 indices per pass (1,312
+ticks); both draws use read/draw FBO 3, color texture 1 and depth texture 2,
+scissor 0/0/640/480, with no sampled attachment alias. This excludes a switched
+target for that pair, not intervening depth writes. `build60-texture-pixels/`
+captures 1,086 indices (1,297 ticks), with six reviewed level-0 previews. The
+256x128 texture 83 has bands/atlas-like regions, but legitimate padding and raw
+storage swizzles prevent treating appearance alone as decoder proof.
+
+`build60-texture-upload/` captures 1,755 indices (1,292 ticks), exact position
+identity, the same framebuffer/attachment/scissor values, complete captures and
+GL error 0. All five unique supported 2D upload references equal GPU readback
+bytes: base textures 86 (4x4) and 85 (128x256), second-pass 102 (256x256),
+103 (512x512), 104 (256x256). All previews and the live screen were reviewed;
+the screen still has terrain stripes/pale geometry. The later texture 85 is not
+the earlier texture 83: random spawn changes which large draw pair is captured.
+Raw previews do not apply texture swizzles. Cube faces/higher mips are not read,
+and bound 2D objects need not all be sampled. GPU writes are not tracked, so a
+future mismatch alone would not prove upload corruption or a driver bug.
+
+**Next discriminating action:** compare CPU-decoded rectangular Xbox textures or
+lightmap data with an independent reference, and inspect intervening depth
+writes/full scene state. Matching upload/storage bytes does not prove decoding,
+UVs, mip sampling or correct shading. No normal rendering change or EQUAL bypass.
+
+**Final verification:** rebuilt installed app passes normal menu/campaign-opening/
+scripted-match checks without render/input diagnostic flags in
+`build60-texture-normal-regression/` (1,347 ticks / 11 test shots). Campaign opening
+and match frames reviewed; terrain artifacts remain explicit. 105 Python tests,
+16 skipped, no failures; physical SDK syntax and tree/index safety guards pass.
+About shows accepted `bfbac357` without PREVIEW and Done returns to the normal
+picker (`build60-texture-final-picker.png`). Rediscovered real data-container
+UUID `8F069831-9623-40CA-9B02-E1E1FB56030A`; real Xbox saves match the build-60
+update backup byte-for-byte after all reinstalls, probes and navigation. Latest
+upstream lookup at 08:47 UTC still reports build 60, published 04:01 UTC.
+No physical install, IPA, push or publication. Goal remains active; full campaign,
+audio, human multiplayer and hardware gates are separate.

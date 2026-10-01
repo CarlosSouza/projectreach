@@ -41,7 +41,15 @@ capture run. A larger 1,257-index pair also has exact position/projection identi
 Unmodified shader sources and original indexed layouts now pass isolated depth
 rasterization: all 145,994 pixels survive EQUAL on texture-backed targets, with
 passing same-program and ALWAYS controls. Full scene state/intervening depth
-writes remain the next target; a fixed-view stencil bypass did not resolve stripes.
+writes remain a target; a fixed-view stencil bypass did not resolve stripes.
+Expanded live captures verify the same framebuffer/color/depth objects for both
+draws. Opt-in level-0 readbacks now match the CPU upload bytes for every captured
+2D texture with a supported upload reference (1,755-index pair, GL error 0).
+This excludes upload/storage corruption for those textures, not incorrect Xbox
+decoding, UVs, mipmaps, cube sampling or intervening depth writes. Raw texture
+previews do not apply texture swizzles; atlas padding/bands alone are not proof
+of corruption. Next compare decoded rectangular textures to an independent
+reference and inspect remaining live depth state. Normal rendering is unchanged.
 Mac smoke runs now
 reject mismatched executable/guest hashes. Candidates
 are labeled **PREVIEW**; the accepted Xbox baseline still says **EXPERIMENTAL**.

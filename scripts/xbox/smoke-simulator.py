@@ -86,6 +86,8 @@ def main():
         if not os.environ.get('XG_CAPTURE_SHADER_DIR'):
             parser.error('XG_CAPTURE_MIN_INDICES requires XG_CAPTURE_SHADER_DIR')
     raster = args.render_diagnostics and bool(os.environ.get('XG_DRAW_RASTER'))
+    if args.render_diagnostics and os.environ.get('XG_CAPTURE_TEXTURES') and not os.environ.get('XG_CAPTURE_SHADER_DIR'):
+        parser.error('XG_CAPTURE_TEXTURES requires XG_CAPTURE_SHADER_DIR')
     if raster and os.environ['XG_DRAW_RASTER'] not in ('1', 'renderbuffer', 'texture'):
         parser.error('XG_DRAW_RASTER must be renderbuffer or texture')
     if raster and not os.environ.get('XG_DRAW_REPLAY'):
@@ -150,6 +152,8 @@ def main():
                              XG_CAPTURE_SHADER_DIR=os.environ['XG_CAPTURE_SHADER_DIR'])
                 if os.environ.get('XG_CAPTURE_MIN_INDICES'):
                     child['XG_CAPTURE_MIN_INDICES'] = os.environ['XG_CAPTURE_MIN_INDICES']
+                if os.environ.get('XG_CAPTURE_TEXTURES'):
+                    child['XG_CAPTURE_TEXTURES'] = '1'
             if os.environ.get('XG_DRAW_REPLAY'):
                 child.update(XG_DRAW_REPLAY=os.environ['XG_DRAW_REPLAY'],
                              XG_DRAW_REPLAY_OUT=str(folder / 'draw-replay'))
@@ -277,6 +281,7 @@ def main():
               'trace_frame': os.environ.get('HALO_GPU_TRACE') if args.render_diagnostics else None,
               'dump_shaders': bool(args.render_diagnostics and os.environ.get('XG_DUMP_SHADERS')),
               'draw_capture': bool(args.render_diagnostics and os.environ.get('XG_CAPTURE_SHADER_DIR')),
+              'texture_pixels': bool(args.render_diagnostics and os.environ.get('XG_CAPTURE_TEXTURES')),
               'draw_replay': bool(args.render_diagnostics and os.environ.get('XG_DRAW_REPLAY')),
               'draw_raster': raster,
               'raster_attachments': ('texture' if os.environ.get('XG_DRAW_RASTER') == 'texture' else 'renderbuffer') if raster else None,

@@ -78,6 +78,15 @@ class SimulatorDiagnosticsTests(unittest.TestCase):
             self.assertEqual(result.returncode, 2)
             self.assertIn('XG_CAPTURE_MIN_INDICES', result.stderr)
 
+    def test_texture_readback_requires_shader_sources_before_launch(self):
+        env = dict(os.environ, XG_CAPTURE_TEXTURES='1')
+        for key in ('XG_DEPTH_COMPARE', 'XG_CAPTURE_SHADER_DIR', 'XG_CAPTURE_MIN_INDICES'):
+            env.pop(key, None)
+        result = subprocess.run([sys.executable, str(SCRIPT), '--device', 'unused',
+                                 '--render-diagnostics'], capture_output=True, text=True, env=env)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn('XG_CAPTURE_TEXTURES requires XG_CAPTURE_SHADER_DIR', result.stderr)
+
     def test_paired_depth_requires_stationary_match(self):
         result = subprocess.run([sys.executable, str(SCRIPT), '--device', 'unused',
                                  '--case', 'match', '--render-diagnostics'],

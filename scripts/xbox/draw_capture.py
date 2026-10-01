@@ -34,6 +34,28 @@ def load_draw(folder):
     for attribute in draw['attributes']:
         if attribute['enabled'] and attribute['buffer'] not in buffers:
             raise ValueError('Missing attribute buffer')
+    for unit in draw.get('texture_units', []):
+        image = unit.get('texture-de1', {}).get('level0')
+        if image is None:
+            continue
+        if not image.get('complete') or image.get('gl_error') != 0 or image.get('framebuffer_status') != 0x8cd5:
+            raise ValueError('Incomplete texture readback')
+        width, height = image['width'], image['height']
+        if not 0 < width <= 4096 or not 0 < height <= 4096:
+            raise ValueError('Unsupported texture dimensions')
+        file = image['file']
+        if pathlib.Path(file).name != file:
+            raise ValueError('Texture path must be local to capture')
+        pixels = (folder / file).read_bytes()
+        if len(pixels) != width * height * 4:
+            raise ValueError('Truncated texture readback')
+        if image.get('upload_compared'):
+            file = image['upload_file']
+            if pathlib.Path(file).name != file:
+                raise ValueError('Upload path must be local to capture')
+            upload = (folder / file).read_bytes()
+            if len(upload) != len(pixels) or (upload == pixels) != bool(image['upload_equal']):
+                raise ValueError('Invalid texture upload comparison')
     draw['_buffers'] = buffers
     draw['_indices'] = struct.unpack('<' + ('H' if index_size == 2 else 'I') * draw['count'],
                                       elements[draw['index_offset']:end])
