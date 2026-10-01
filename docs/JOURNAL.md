@@ -4032,3 +4032,24 @@ temporal, sniper-meter, audio, human-control or hardware acceptance. Existing
 startup blit and source-build warnings recorded. Physical Windows/Metal
 shading/focus remains open; no device install, IPA, push or publication. Goal
 active. Evidence under private `upstream-c55.foFBTU` pass root.
+
+### 2026-10-02 — a50 night/sniper and moving-image evidence
+
+Added a50 to bounded Simulator smoke and its fail-closed map/case tests.
+90-second scripted rendering diagnostic passes, lit 0.577, ANGLE identity,
+presentation captures and 69/69 HUD. Retained video and sparse/dense contact
+sheet samples show damage flashes, weapon/reload and night terrain; this is
+sampled temporal evidence, not continuous stability or reference acceptance.
+No renderer change. Normal menu new a50 play separately verifies sniper 2x/10x
+scope and night vision. Mostly ground-facing scope views draw ladder/border
+without obvious missing sections; finite look drags do not prove sustained pans.
+
+An initial partial a50 snapshot copied into an a30 profile did not establish
+normal continuation. Actual new-level menu launch followed by Save and Quit
+does: Saving completes, fresh process recognizes Truth and Reconciliation in
+progress and restores its opening checkpoint. Not a newly reached later
+checkpoint or general cross-pin compatibility. Real save directory still
+matches both backups. 103 Xbox tests pass, upstream/ANGLE checkouts clean;
+live remote HEAD remains accepted build 64. Physical iPad shading/focus still
+open. No physical install, IPA, push or publication. Goal active. Private
+evidence: `temporal64.wTBR3I` pass root; recordings have no audio stream.

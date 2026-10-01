@@ -91,13 +91,13 @@ def main():
                         help='Capture before/after presentation and log renderer statistics (slower)')
     parser.add_argument('--stationary-match', action='store_true',
                         help='Rendering diagnostic only: no scripted movement, shooting or gathering')
-    parser.add_argument('--campaign-map', choices=('a10', 'a30'), default='a10',
-                        help='Campaign map (a10: Pillar of Autumn; a30: Halo)')
+    parser.add_argument('--campaign-map', choices=('a10', 'a30', 'a50'), default='a10',
+                        help='Campaign map (a10: Pillar of Autumn; a30: Halo; a50: Truth and Reconciliation)')
     parser.add_argument('--scripted-campaign', action='store_true',
                         help='Rendering diagnostic only: upstream bot movement/look/shoot, not human controls')
     args = parser.parse_args()
     if args.campaign_map != 'a10' and args.case != 'campaign':
-        parser.error('--campaign-map a30 requires --case campaign')
+        parser.error(f'--campaign-map {args.campaign_map} requires --case campaign')
     if args.scripted_campaign and (args.case != 'campaign' or not args.render_diagnostics):
         parser.error('--scripted-campaign requires --case campaign --render-diagnostics')
     if args.stationary_match and (args.case != 'match' or not args.render_diagnostics):

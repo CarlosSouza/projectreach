@@ -47,8 +47,21 @@ The unreviewed texture-cache byte diagnostic remains rejected by an explicit
 build-64 test. Menu/pod `top` snapshots are 145M/172M, not physical footprint,
 build-61 memory comparison or iPad acceptance; `vmmap` failed. ANGLE remains an
 independently pinned opt-in PREVIEW; Apple remains default. Sniper fringe/meter
-coverage, sustained human motion, new checkpoint progression, temporal fidelity
+coverage beyond the sampled scopes, sustained human motion, new checkpoint progression, temporal fidelity
 and physical Windows shading/focus remain open. No physical install or IPA.
+
+**Night/sniper follow-up (2026-10-02).** Build 64 remains frozen; a live remote
+HEAD check still matches `c55e4e2b`. The runner now also accepts a50. A bounded
+90-second scripted a50 rendering diagnostic passes with ANGLE identity,
+presentation captures and all 69 HUD replacements. Video retained; sparse and
+12 fps contact-sheet samples show weapon/reload and shield-damage effects, not
+full continuous-motion acceptance. Actual normal-menu a50 play separately
+verifies 2x/10x scope and night vision. Scope ladder/border have no obvious
+missing sections in the reviewed views, largely aimed at the ground. Save and
+Quit completes; a fresh process recognizes Truth and Reconciliation in progress
+and reloads its opening checkpoint, not a newly reached later checkpoint.
+103 Xbox tests pass; real saves still match both backups. The physical iPad
+shading/focus report remains unresolved; no renderer fix or device install here.
 
 ## Latest engineering and device results
 

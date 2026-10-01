@@ -33,7 +33,7 @@ class SimulatorDiagnosticsTests(unittest.TestCase):
             'HALO_TEST_INPUT': 'bot:7', 'HALO_NETWORK_TEST_SHOOT': '4'})
 
     def test_campaign_init_and_gate_use_requested_map(self):
-        for map_name in ('a10', 'a30'):
+        for map_name in ('a10', 'a30', 'a50'):
             with self.subTest(map_name=map_name):
                 self.assertEqual(smoke.campaign_init(map_name),
                                  'map_name levels\\' + map_name + '\\' + map_name + '\n')
@@ -60,12 +60,13 @@ class SimulatorDiagnosticsTests(unittest.TestCase):
                 self.assertIn('--scripted-campaign requires', result.stderr)
 
     def test_later_campaign_map_requires_targeted_case(self):
-        for args in ([], ['--case', 'menu'], ['--case', 'match']):
-            with self.subTest(args=args):
-                result = subprocess.run([sys.executable, str(SCRIPT), '--device', 'unused',
-                                         '--campaign-map', 'a30', *args], capture_output=True, text=True)
-                self.assertEqual(result.returncode, 2)
-                self.assertIn('--campaign-map a30 requires --case campaign', result.stderr)
+        for map_name in ('a30', 'a50'):
+            for args in ([], ['--case', 'menu'], ['--case', 'match']):
+                with self.subTest(map_name=map_name, args=args):
+                    result = subprocess.run([sys.executable, str(SCRIPT), '--device', 'unused',
+                                             '--campaign-map', map_name, *args], capture_output=True, text=True)
+                    self.assertEqual(result.returncode, 2)
+                    self.assertIn(f'--campaign-map {map_name} requires --case campaign', result.stderr)
 
     def test_unknown_campaign_map_rejected_before_launch(self):
         result = subprocess.run([sys.executable, str(SCRIPT), '--device', 'unused',

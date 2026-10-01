@@ -45,7 +45,16 @@ pause panel, Save and Quit and fresh-process pod reload verified. `top` menu/pod
 snapshots 145M/172M are not physical footprint or a same-scene old/new comparison;
 `vmmap` failed. CRC-guarded expanded HUD and meter-alpha ABI reviewed; the old
 cache-byte diagnostic remains fail-closed with an explicit new-pin test.
-Next check moving views and sniper ladder/meter fringes, sustained human controls,
+The 2026-10-02 a50 follow-up adds a bounded 90-second rendering diagnostic and
+retained video, plus actual normal-menu 2x/10x sniper scope and night vision.
+Sampled ladder/border draw without obvious missing sections; scope aim is mostly
+ground and finite look drags do not establish sustained pans. Normal Save and
+Quit followed by a fresh-process menu path recognizes and restores a50's opening
+checkpoint. A partial mixed-map snapshot fixture did not establish continuation;
+the successful normal new-level save/reload is recorded separately. These are
+not a newly reached later checkpoint or physical rendering acceptance.
+Next check continuous moving views against a reference and scope meter fringes,
+sustained human controls,
 new checkpoint progression and physical memory/audio/fidelity under a separately
 coordinated device window. Keep Apple and ANGLE pins independent and PREVIEW
 visible; do not chase moving HEAD. Preserve outgoing app and both save backups.

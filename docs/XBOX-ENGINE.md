@@ -99,7 +99,8 @@ probe nor smoke results establish correct lighting, full gameplay or hardware
 acceptance. See the pass ledger for actual scene review and remaining defects.
 
 The bounded campaign smoke defaults to Pillar of Autumn/a10 without scripted
-input. For later assets, `--case campaign --campaign-map a30` selects Halo.
+input. For later assets, `--case campaign --campaign-map a30` selects Halo;
+`--campaign-map a50` selects Truth and Reconciliation for night/sniper coverage.
 For a moving-camera diagnostic only:
 
 ```sh

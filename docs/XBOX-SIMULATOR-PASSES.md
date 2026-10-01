@@ -1124,3 +1124,61 @@ pre-pass full copy and original `20261001-191048-from-bfbac357` acceptance backu
 byte-for-byte. Upstream and ANGLE checkouts remain clean. 103 Xbox unit tests,
 whitespace and tree/index safety pass. No physical installs, IPA, publication,
 push or cleanup. The broader goal remains active.
+
+## 2026-10-02 — build 64 a50 recording, sniper scope and normal save/reload
+
+Private evidence: `ref/xbox-build/passes/2026-10-02/temporal64.wTBR3I/`.
+No app rebuild/install or renderer change. Installed guest hash remains
+`102885c274aa95771be8672a65ba16fa88a52d9f4d3889310072e214aabfdaaa`.
+Upstream and independently pinned ANGLE checkouts are clean; live remote HEAD
+still resolves to accepted build 64 / `c55e4e2b`. GitHub web/API reads failed,
+so that freshness check uses `git ls-remote`, not a cached search result.
+
+The smoke runner now accepts a50 alongside a10/a30, with map-specific targeted
+case validation and regression coverage. 90-second `--case campaign
+--campaign-map a50 --scripted-campaign --render-diagnostics` passes: ANGLE
+identity, lit fraction 0.577, requested map and presentation captures, 69/69 HUD
+replacements. No signal report; startup GL blit `0x502` remains, later
+presentation observations report prior/read error 0. `a50-motion.mov` is valid
+152.682-second H.264; it includes picker/loading and post-run Home Screen time,
+not 152 seconds of gameplay. No audio stream. This is primarily upstream bot
+input; a manual Zoom tap near termination also appears in the recording.
+Reviewed sparse frames, a 90–120-second 1 fps contact sheet and a 105–107-second
+12 fps sheet show night terrain, NPC action, fire/reload and shield-damage
+flashes. The final Home Screen follows bounded runner termination, not an
+observed guest crash. No earlier pronounced bands in these sampled views;
+no continuous temporal fidelity, reference match or physical graphics claim.
+
+Separate `sniper/` fixture starts from a full copied a30 profile with only a50
+snapshot/last-solo files replaced. This partial mixed-map fixture did NOT make
+the normal menu recognize a50 continuation. Do not use that as compatibility
+evidence. Instead actual picker → Campaign → New001 → Truth and Reconciliation
+→ Normal starts normal new-level first-person play with four loaded sniper
+rounds, 64 reserve and four grenades, no init/bot/network-test inputs. Actual
+Zoom taps reach 2x then 10x; LB toggles night vision, observed fully green after
+the transition. Reviewed ladder and scope border have no obvious missing
+sections; views are mostly aimed at the ground, not sustained panning or full
+fringe/meter acceptance. `sniper-controls.mov` is valid 273.873-second H.264,
+video only, largely static; this is not a 274-second human-movement gate.
+
+Actual pause → Save and Quit shows Saving last checkpoint and returns to the
+main menu. Fresh process 67566 follows the normal picker/profile path; Truth
+and Reconciliation now says game in progress. Choosing Normal restores its
+opening checkpoint with four loaded rounds, full shield and unzoomed/night
+vision off, not the unsaved scope state. `sniper/cold-reload.png` retained.
+Snapshot hash after saving is
+`6e9fa68842c0c84d2db9117d257a36afd72e7a4a507733a3dd0d1e0753b53065`;
+after cold load it is
+`0ed8c68db8b463fbeb7827dd9851ada50eb1ac234202006a858bd4459ce96fa8`.
+This proves this normal opening-checkpoint fixture path, not reaching a later
+checkpoint, completing the mission or general cross-pin save compatibility.
+
+103 Xbox unit tests pass. Real Simulator save directory in container
+`A7EB6FDF-9D71-4EEE-8003-EC060348128D` remains byte-identical to this pass's full
+pre-test copy and the original acceptance backup. Final launch 79496 has no
+test overrides: both edition choices present, About reports `c55e4e2b` and
+incomplete validation, Done restores both choices. Whitespace and tree/index
+safety pass. No physical
+device change, IPA, push, publication or cleanup. Physical Windows/Metal
+shading/focus report is still open. Next useful fidelity gate needs a continuous
+moving-view/reference comparison, not another static screenshot.
