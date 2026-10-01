@@ -218,6 +218,51 @@ Private evidence: `build59-geometry-trace/`, `build59-uniform-trace/` and
 These checks narrow hypotheses; they do not establish an Apple driver bug or
 prove the texture decoder/vertex shader correct.
 
+### Build-60 sampling and equal-depth probes
+
+Private evidence remains in `ref/xbox-build/passes/2026-10-01/`:
+
+| Isolated match | Ticks / shots | Visual result |
+| --- | --- | --- |
+| `build60-no-anisotropy` | 841 / 6 | Startup confirms anisotropy disabled; cliff stripes remain. |
+| `build60-depth-lequal` | 1,092 / 9 | Confirmed EQUAL calls replaced by LEQUAL; stripes remain. |
+| `build60-depth-always` | 989 / 7 | EQUAL bypass substantially changes the artifacts, with different camera/timing. Not a rendering fix. |
+| `build60-stationary-equal` | 1,205 / 0 | No scripted input/shooting/gathering; fixed camera within this run, visible stripes. |
+| `build60-stationary-always` | 1,281 / 0 | Fixed camera within this run, but a different spawn; some stripes disappear and surfaces draw through others. |
+
+These are visually reviewed 640x480 source captures, not only automated smoke
+passes. Bypassing EQUAL can overdraw hidden surfaces; it must not become the
+normal rendering path. The stationary runs do **not** yet establish a matched
+comparison: logged camera positions differ, `(105.0, -162.2, 0.6)` versus
+`(105.6, -157.6, 0.8)`. Removing automated movement is useful, but does not fix
+the game's randomized spawn selection.
+
+The runner now exposes existing extension hiding with `--render-diagnostics`.
+An opt-in, **Simulator-only** host probe accepts `XG_DEPTH_COMPARE=lequal` or
+`always`; unset, empty and unknown values leave native depth behavior unchanged.
+The runner rejects an unknown diagnostic mode before launch. Normal and physical
+player rendering are unchanged. `--stationary-match` requires both `--case match`
+and `--render-diagnostics`; it records `stationary-render-diagnostic` in the result.
+Its zero-shot result is a rendering check, **not** a combat regression pass. The
+default scripted-combat pass still requires at least two shots. Four asset-free
+tests cover default input settings, stationary settings and invalid options.
+
+Example, with isolated saves and the dedicated Simulator only:
+
+```sh
+XG_DEPTH_COMPARE=always .venv/bin/python scripts/xbox/smoke-simulator.py \
+  --device DF51182F-1878-4A54-9AED-CC4AED86BEAB --case match --seconds 65 \
+  --render-diagnostics --stationary-match --out ref/xbox-build/passes/depth-probe
+```
+
+Next isolate one repeatable view within the **same process**, or replay one
+captured asset-free draw/depth pair with identical inputs. Upstream already emits
+`invariant gl_Position`, but [GLSL ES 3.00 section 4.6](https://registry.khronos.org/OpenGL/specs/es/3.0/GLSL_ES_Specification_3.00.pdf)
+requires matching operations as well as inputs for cross-program invariance.
+Algebraically equivalent vertex programs alone do not establish a driver bug.
+Keep shader conversion, depth/bias state and the software renderer as separate
+hypotheses until that reproduction exists. Do not globally relax depth checks.
+
 An auxiliary Mac CPU-texture match (`build59-mac-cpu-textures/`) overlapped the
 Simulator match and failed with `WSAEADDRINUSE` before gameplay. It is invalid
 rendering evidence: network cases must run serially because they use the same

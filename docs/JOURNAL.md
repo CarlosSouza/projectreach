@@ -3321,3 +3321,43 @@ The broader goal remains active: next isolate texture sampling / vertex output
 with a small reproducible case, then sustained controls, weapon pickup/swap and
 a later checkpoint. Full campaign, audio, human multiplayer and physical
 acceptance remain open. No temporary checkout or private game artifact published.
+
+## 2026-10-01 — build-60 sampling/depth diagnostic pass
+
+**Scope:** stayed on the dedicated HaloPad Xbox iPad Simulator. Authenticated
+upstream release lookup still reports build 60, `bfbac357`; kept that frozen
+experimental pin. No physical install, IPA, controller pairing change or push.
+
+**Findings:** disabling anisotropy leaves cliff stripes (841 ticks / six shots).
+Replacing EQUAL with LEQUAL also leaves stripes (1,092 / nine). Replacing EQUAL
+with ALWAYS changes artifacts (989 / seven), but bypasses occlusion and is not
+a player workaround. All modes were confirmed by startup/function logs and
+their source captures were visually reviewed. Evidence: `build60-no-anisotropy`,
+`build60-depth-lequal`, `build60-depth-always` in today's private pass folder.
+
+**Better comparison tooling:** `--stationary-match` disables scripted movement,
+shooting and automated gathering, requires an explicit match rendering diagnostic,
+and labels its result separately from combat acceptance. Default combat still
+requires shots. The EQUAL and ALWAYS stationary runs pass their rendering checks
+(1,205 and 1,281 ticks, zero shots), with steady camera positions within each run.
+However, positions differ between launches because spawns vary. ALWAYS exposes
+hidden surfaces; these frames are not matched fidelity or driver-defect proof.
+See `build60-stationary-{equal,always}`. The opt-in depth hook is Simulator-only,
+accepts only lequal/always, and leaves normal/physical depth behavior unchanged.
+Existing extension hiding is exposed only in rendering diagnostics.
+
+**Verification:** final rebuilt normal app passes menu, a10 campaign load and
+scripted match (1,108 ticks / six shots), under `build60-depth-normal-regression`.
+77 Python tests pass, 16 skipped; physical SDK syntax, whitespace and tree/index
+guards pass. Actual About navigation shows installed `bfbac357`, built today,
+without PREVIEW. Done returns to the edition picker; final screenshot is
+`build60-depth-final-picker.png`. App is left there without forced selection or
+diagnostic environment. Rediscovered the new data-container UUID; real Xbox saves
+still match `save-backups/20261001-140820-from-8fb1647e/simulator-save` byte-for-byte
+after all probes, reinstall, normal gates and About navigation.
+
+**Next discriminating experiment:** use a same-process fixed view or an identical
+draw/depth pair to separate shader conversion, depth/bias state and software-driver
+behavior. Do not globally weaken depth checks. Then sustained controls, weapon
+pickup/swap and a later checkpoint. Goal remains active; full campaign, audio,
+human multiplayer and physical acceptance are still unverified.

@@ -24,7 +24,11 @@ pass reproduced the original failure on the older pin, so it was not newly
 introduced by build 57/58. Full campaign progression, visual artifacts, audio,
 split-screen, human system link and hardware acceptance remain open. Artifact
 captures locate the remaining defect before final presentation; uniform-array
-and synchronized-buffer experiments did not resolve it. Mac smoke runs now
+and synchronized-buffer experiments did not resolve it. Disabling anisotropy
+and changing equal-depth passes to LEQUAL also leave stripes. An ALWAYS-depth
+diagnostic changes artifacts but draws hidden surfaces; it is not adopted for
+normal rendering. New stationary diagnostic runs stop scripted movement/shooting,
+but different spawns still prevent a matched cross-launch comparison. Mac smoke runs now
 reject mismatched executable/guest hashes. Candidates
 are labeled **PREVIEW**; the accepted Xbox baseline still says **EXPERIMENTAL**.
 No physical iPad changes in this pass. See [XBOX-SIMULATOR-PASSES.md](XBOX-SIMULATOR-PASSES.md).

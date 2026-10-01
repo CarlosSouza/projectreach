@@ -184,9 +184,32 @@ static void presentation_blit(GLint x0, GLint y0, GLint x1, GLint y1,
 }
 #endif
 
+#if TARGET_OS_SIMULATOR
+/* Isolated A/B only: distinguish failed equal-depth passes from sampling.
+ * Never a normal player workaround; relaxed comparisons alter occlusion. */
+static void diagnostic_depth_func(GLenum function)
+{
+	static int mode = -1, reported;
+	if (mode < 0) {
+		const char *value = getenv("XG_DEPTH_COMPARE");
+		mode = value && !strcmp(value, "always") ? 2 : 1;
+		xg_log("depth comparison diagnostic: %s", mode == 2 ? "EQUAL to ALWAYS" : "EQUAL to LEQUAL");
+	}
+	if (function == GL_EQUAL) {
+		if (!reported++) xg_log("depth comparison diagnostic: replaced an EQUAL call");
+		function = mode == 2 ? GL_ALWAYS : GL_LEQUAL;
+	}
+	glDepthFunc(function);
+}
+#endif
+
 void *xg_gl_proc(const char *name)
 {
 #if TARGET_OS_SIMULATOR
+	const char *comparison = getenv("XG_DEPTH_COMPARE");
+	if (comparison && (!strcmp(comparison, "lequal") || !strcmp(comparison, "always")) &&
+		!strcmp(name, "glDepthFunc"))
+		return diagnostic_depth_func;
 	/* Raw path is retained only for isolated diagnostic A/Bs. */
 	if (!getenv("XG_PRESENT_RAW_BLIT") && !strcmp(name, "glBlitFramebuffer"))
 		return presentation_blit;

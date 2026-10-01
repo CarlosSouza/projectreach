@@ -21,8 +21,11 @@ See [XBOX-SIMULATOR-PASSES.md](XBOX-SIMULATOR-PASSES.md) for the evidence and fa
 approaches. The broader goal remains active; this is not full campaign/hardware acceptance.
 
 Next: a small reproducible case for remaining geometry/texture artifacts (already
-present before final presentation; uniform-location and buffer-upload hypotheses
-did not resolve them), then sustained movement/look/fire and weapon pickup/swap,
+present before final presentation; uniform-location, buffer-upload, anisotropy
+and LEQUAL hypotheses did not resolve them). An EQUAL bypass changes artifacts
+but introduces incorrect occlusion; keep it diagnostic-only. Stationary runs
+still choose different spawns, so use a same-process view or identical draw/depth
+pair before attributing the cause. Then sustained movement/look/fire and weapon pickup/swap,
 a later checkpoint and reload.
 Maintain upstream by freezing one candidate per pass, backing up saves, building,
 testing and visually reviewing it before pin promotion. Keep normal runs free

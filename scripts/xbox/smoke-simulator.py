@@ -22,6 +22,12 @@ WORK = ROOT / 'ref/xbox-build'
 BUNDLE = 'dev.halopad.HaloPad'
 
 
+def match_environment(stationary=False):
+    return {'HALO_NETWORK_TEST': 'host:bloodgulch', 'HALO_NETWORK_TEST_START': '8',
+            'HALO_TEST_INPUT': '' if stationary else 'bot:7',
+            'HALO_NETWORK_TEST_SHOOT': '0' if stationary else '4'}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--device', required=True, help='Dedicated Simulator UDID')
@@ -30,7 +36,13 @@ def main():
     parser.add_argument('--seconds', type=int, help='Override the bounded runtime for a targeted pass')
     parser.add_argument('--render-diagnostics', action='store_true',
                         help='Capture before/after presentation and log renderer statistics (slower)')
+    parser.add_argument('--stationary-match', action='store_true',
+                        help='Rendering diagnostic only: no scripted movement, shooting or gathering')
     args = parser.parse_args()
+    if args.stationary_match and (args.case != 'match' or not args.render_diagnostics):
+        parser.error('--stationary-match requires --case match --render-diagnostics')
+    if args.render_diagnostics and os.environ.get('XG_DEPTH_COMPARE', '') not in ('', 'lequal', 'always'):
+        parser.error('XG_DEPTH_COMPARE must be lequal or always')
     stamp = datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ')
     out = (args.out or WORK / 'simulator-results' / stamp).resolve()
     out.mkdir(parents=True, exist_ok=True)
@@ -67,8 +79,7 @@ def main():
                  'XG_DATA': str(folder), 'XG_SAVE': str(folder / 'save'), 'XG_TOUCH_SHOW': '1',
                  'XG_FRAME_DUMP': str(frame), 'XG_FRAME_DUMP_SECONDS': '10'}
         if name == 'match':
-            child.update(HALO_NETWORK_TEST='host:bloodgulch', HALO_NETWORK_TEST_START='8',
-                         HALO_TEST_INPUT='bot:7', HALO_NETWORK_TEST_SHOOT='4')
+            child.update(match_environment(args.stationary_match))
         env.update({'SIMCTL_CHILD_' + k: v for k, v in child.items()})
         if os.environ.get('XG_GL_CHECK'):
             env['SIMCTL_CHILD_XG_GL_CHECK'] = os.environ['XG_GL_CHECK']
@@ -78,6 +89,10 @@ def main():
                 child['XG_BLIT_PROBE'] = os.environ['XG_BLIT_PROBE']
             if os.environ.get('XG_PRESENT_RAW_BLIT'):
                 child['XG_PRESENT_RAW_BLIT'] = os.environ['XG_PRESENT_RAW_BLIT']
+            if os.environ.get('XG_NO_EXTENSION'):
+                child['XG_NO_EXTENSION'] = os.environ['XG_NO_EXTENSION']
+            if os.environ.get('XG_DEPTH_COMPARE'):
+                child['XG_DEPTH_COMPARE'] = os.environ['XG_DEPTH_COMPARE']
             env.update({'SIMCTL_CHILD_' + k: v for k, v in child.items()})
         subprocess.run(['xcrun', 'simctl', 'launch', '--terminate-running-process',
                         '--stdout=' + str(log), '--stderr=' + str(error), args.device, BUNDLE],
@@ -118,7 +133,7 @@ def main():
         if name == 'match':
             ticks = re.findall(r'network test: tick (\d+)', text)
             row.update(last_tick=int(ticks[-1]) if ticks else 0, shots=text.count('shoots player'))
-            row['pass'] &= len(ticks) >= 10 and row['shots'] >= 2
+            row['pass'] &= len(ticks) >= 10 and (args.stationary_match or row['shots'] >= 2)
         if args.render_diagnostics:
             row['presentation_captured'] = all((folder / ('presentation.' + part + '.ppm')).exists()
                                                for part in ('source', 'destination'))
@@ -129,6 +144,9 @@ def main():
               'render_diagnostics': args.render_diagnostics,
               'blit_probe': bool(args.render_diagnostics and os.environ.get('XG_BLIT_PROBE')),
               'raw_present_blit': bool(args.render_diagnostics and os.environ.get('XG_PRESENT_RAW_BLIT')),
+              'hidden_extension': os.environ.get('XG_NO_EXTENSION') if args.render_diagnostics else None,
+              'depth_compare': os.environ.get('XG_DEPTH_COMPARE') if args.render_diagnostics else None,
+              'match_mode': 'stationary-render-diagnostic' if args.stationary_match else 'scripted-combat',
               'pass': all(row['pass'] for row in results.values())}
     (out / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
     return 0 if result['pass'] else 1
