@@ -159,6 +159,104 @@ static void blit_probe(void)
 }
 
 #if TARGET_OS_SIMULATOR
+/* Asset-free depth control before guest GL state exists. The same invariant
+ * position is linked with and without an active varying. This distinguishes a
+ * basic EQUAL failure from the game's converted shaders/depth state. */
+static void depth_probe(void)
+{
+	if (!getenv("XG_DEPTH_PROBE")) return;
+	const char *sources[] = {
+		"#version 300 es\nprecision highp float;\nlayout(location=0) in vec4 p; out vec2 v; invariant gl_Position;\nvoid main(){gl_Position=p;v=p.xy;}\n",
+		"#version 300 es\nprecision highp float;\nuniform vec4 color;out vec4 c;void main(){c=color;}\n",
+		"#version 300 es\nprecision highp float;\nin vec2 v;uniform vec4 color;out vec4 c;void main(){c=color+vec4(v.x*0.01,0,0,0);}\n"
+	};
+	GLuint shaders[3] = { 0 }, programs[2] = { 0 }, texture = 0, depth = 0, framebuffer = 0, vao = 0, buffer = 0;
+	GLint viewport[4];
+	glGetIntegerv(GL_VIEWPORT, viewport);
+	for (int i = 0; i < 3; i++) {
+		GLint okay = 0;
+		shaders[i] = glCreateShader(i ? GL_FRAGMENT_SHADER : GL_VERTEX_SHADER);
+		glShaderSource(shaders[i], 1, &sources[i], NULL);
+		glCompileShader(shaders[i]);
+		glGetShaderiv(shaders[i], GL_COMPILE_STATUS, &okay);
+		if (!okay) { xg_log("depth probe: shader %d failed", i); goto cleanup; }
+	}
+	for (int i = 0; i < 2; i++) {
+		GLint okay = 0;
+		programs[i] = glCreateProgram();
+		glAttachShader(programs[i], shaders[0]);
+		glAttachShader(programs[i], shaders[i + 1]);
+		glLinkProgram(programs[i]);
+		glGetProgramiv(programs[i], GL_LINK_STATUS, &okay);
+		if (!okay) { xg_log("depth probe: program %d failed", i); goto cleanup; }
+	}
+	glGenTextures(1, &texture);
+	glBindTexture(GL_TEXTURE_2D, texture);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 128, 128, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+	glGenRenderbuffers(1, &depth);
+	glBindRenderbuffer(GL_RENDERBUFFER, depth);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, 128, 128);
+	glGenFramebuffers(1, &framebuffer);
+	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, depth);
+	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+	if (status != GL_FRAMEBUFFER_COMPLETE) { xg_log("depth probe: framebuffer 0x%x", status); goto cleanup; }
+	const GLfloat vertices[] = { -.9f,-.9f,-.7f,1, 1.8f,-1.8f,.8f,2, 0,3.6f,3.2f,4 };
+	glGenVertexArrays(1, &vao);
+	glBindVertexArray(vao);
+	glGenBuffers(1, &buffer);
+	glBindBuffer(GL_ARRAY_BUFFER, buffer);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, NULL);
+	glViewport(0, 0, 128, 128);
+	glEnable(GL_DEPTH_TEST);
+	unsigned char base[128 * 128 * 4], second[128 * 128 * 4];
+	for (int i = 0; i < 2; i++) {
+		glDepthMask(GL_TRUE);
+		glClearColor(0, 0, 0, 1);
+		glClearDepthf(1);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glDepthFunc(GL_LEQUAL);
+		glUseProgram(programs[0]);
+		glUniform4f(glGetUniformLocation(programs[0], "color"), 1, .125f, 0, 1);
+		glDrawArrays(GL_TRIANGLES, 0, 3);
+		glReadPixels(0, 0, 128, 128, GL_RGBA, GL_UNSIGNED_BYTE, base);
+		glDepthMask(GL_FALSE);
+		glDepthFunc(GL_EQUAL);
+		glUseProgram(programs[i]);
+		glUniform4f(glGetUniformLocation(programs[i], "color"), 0, 0, 1, 1);
+		glDrawArrays(GL_TRIANGLES, 0, 3);
+		glReadPixels(0, 0, 128, 128, GL_RGBA, GL_UNSIGNED_BYTE, second);
+		int covered = 0, failed = 0;
+		for (int p = 0; p < 128 * 128; p++) if (base[p * 4] > 200) {
+			covered++;
+			if (second[p * 4 + 2] < 200) failed++;
+		}
+		xg_log("depth probe: %s covered %d failed %d error 0x%x", i ? "separate-program" : "same-program", covered, failed, glGetError());
+	}
+cleanup:
+	glUseProgram(0);
+	glBindVertexArray(0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindTexture(GL_TEXTURE_2D, 0);
+	glBindRenderbuffer(GL_RENDERBUFFER, drawable_color);
+	glBindFramebuffer(GL_FRAMEBUFFER, drawable_framebuffer);
+	glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+	glDepthFunc(GL_LESS);
+	glDepthMask(GL_TRUE);
+	glDisable(GL_DEPTH_TEST);
+	glClearColor(0, 0, 0, 0);
+	glDeleteBuffers(1, &buffer);
+	glDeleteVertexArrays(1, &vao);
+	glDeleteFramebuffers(1, &framebuffer);
+	glDeleteRenderbuffers(1, &depth);
+	glDeleteTextures(1, &texture);
+	for (int i = 0; i < 2; i++) if (programs[i]) glDeleteProgram(programs[i]);
+	for (int i = 0; i < 3; i++) if (shaders[i]) glDeleteShader(shaders[i]);
+}
+
 /* Apple's software blitter is sensitive to texture-unit/sampler state, although ES
  * blits must ignore it. A campaign source was visible while the drawable was
  * black. Neutralizing unit 0 alone restores it; blend/cull/program A/Bs did not.
@@ -187,19 +285,50 @@ static void presentation_blit(GLint x0, GLint y0, GLint x1, GLint y1,
 #if TARGET_OS_SIMULATOR
 /* Isolated A/B only: distinguish failed equal-depth passes from sampling.
  * Never a normal player workaround; relaxed comparisons alter occlusion. */
+static int diagnostic_depth_mode = -1;
+static GLenum diagnostic_requested_depth = GL_LESS;
 static void diagnostic_depth_func(GLenum function)
 {
-	static int mode = -1, reported;
-	if (mode < 0) {
+	static int reported;
+	diagnostic_requested_depth = function;
+	if (diagnostic_depth_mode < 0) {
 		const char *value = getenv("XG_DEPTH_COMPARE");
-		mode = value && !strcmp(value, "always") ? 2 : 1;
-		xg_log("depth comparison diagnostic: %s", mode == 2 ? "EQUAL to ALWAYS" : "EQUAL to LEQUAL");
+		diagnostic_depth_mode = value && !strcmp(value, "paired") ? 0 :
+			value && !strcmp(value, "always") ? 2 : 1;
+		xg_log("depth comparison diagnostic: %s", diagnostic_depth_mode == 0 ? "paired, native EQUAL" :
+			diagnostic_depth_mode == 2 ? "EQUAL to ALWAYS" : "EQUAL to LEQUAL");
 	}
-	if (function == GL_EQUAL) {
+	if (function == GL_EQUAL && diagnostic_depth_mode) {
 		if (!reported++) xg_log("depth comparison diagnostic: replaced an EQUAL call");
-		function = mode == 2 ? GL_ALWAYS : GL_LEQUAL;
+		function = diagnostic_depth_mode == 2 ? GL_ALWAYS : GL_LEQUAL;
 	}
 	glDepthFunc(function);
+}
+
+/* Switch only between complete frames, reapplying the guest's requested state
+ * even if its renderer caches GL_EQUAL and does not issue it again. The runner
+ * owns this private control file; normal runs never read it. */
+static void diagnostic_depth_tick(void)
+{
+	const char *mode = getenv("XG_DEPTH_COMPARE"), *prefix = getenv("XG_GL_TRACE");
+	static CFTimeInterval next;
+	if (!mode || strcmp(mode, "paired") || !prefix || !*prefix || diagnostic_depth_mode < 0) return;
+	CFTimeInterval now = CACurrentMediaTime();
+	if (now < next) return;
+	next = now + 1;
+	char path[1024], value[32] = { 0 };
+	snprintf(path, sizeof(path), "%s.depth-mode", prefix);
+	FILE *file = fopen(path, "r");
+	if (!file) return;
+	fscanf(file, "%31s", value);
+	fclose(file);
+	if (strcmp(value, "equal") && strcmp(value, "always")) return;
+	int wanted = !strcmp(value, "always") ? 2 : 0;
+	if (wanted != diagnostic_depth_mode) {
+		diagnostic_depth_mode = wanted;
+		xg_log("paired depth mode: %s", value);
+		diagnostic_depth_func(diagnostic_requested_depth);
+	}
 }
 #endif
 
@@ -207,7 +336,7 @@ void *xg_gl_proc(const char *name)
 {
 #if TARGET_OS_SIMULATOR
 	const char *comparison = getenv("XG_DEPTH_COMPARE");
-	if (comparison && (!strcmp(comparison, "lequal") || !strcmp(comparison, "always")) &&
+	if (comparison && (!strcmp(comparison, "lequal") || !strcmp(comparison, "always") || !strcmp(comparison, "paired")) &&
 		!strcmp(name, "glDepthFunc"))
 		return diagnostic_depth_func;
 	/* Raw path is retained only for isolated diagnostic A/Bs. */
@@ -279,6 +408,9 @@ uint32_t xh_host_sdl_gl_create_context(uint32_t window)
 		[EAGLContext setCurrentContext:context];
 		drawable_update();
 		blit_probe();
+#if TARGET_OS_SIMULATOR
+		depth_probe();
+#endif
 		xg_gl_load();
 	}
 	return 2;
@@ -314,6 +446,9 @@ int xh_host_sdl_gl_swap_window(uint32_t window)
 	glBindRenderbuffer(GL_RENDERBUFFER, drawable_color);
 	[context presentRenderbuffer:GL_RENDERBUFFER];
 	drawable_update();
+#if TARGET_OS_SIMULATOR
+	diagnostic_depth_tick();
+#endif
 	return 1;
 }
 

@@ -28,7 +28,12 @@ and synchronized-buffer experiments did not resolve it. Disabling anisotropy
 and changing equal-depth passes to LEQUAL also leave stripes. An ALWAYS-depth
 diagnostic changes artifacts but draws hidden surfaces; it is not adopted for
 normal rendering. New stationary diagnostic runs stop scripted movement/shooting,
-but different spawns still prevent a matched cross-launch comparison. Mac smoke runs now
+but different spawns prevent a matched cross-launch comparison. A same-process
+EQUAL → ALWAYS → EQUAL test now removes and restores the stripes at a fixed
+camera position. Basic asset-free EQUAL redraws pass all 6,728 pixels within and
+across programs; the precise converted-shader/depth-state cause remains open.
+A world draw trace identifies the VS17/VS41 terrain pass pair for exact replay.
+Mac smoke runs now
 reject mismatched executable/guest hashes. Candidates
 are labeled **PREVIEW**; the accepted Xbox baseline still says **EXPERIMENTAL**.
 No physical iPad changes in this pass. See [XBOX-SIMULATOR-PASSES.md](XBOX-SIMULATOR-PASSES.md).

@@ -263,6 +263,59 @@ Algebraically equivalent vertex programs alone do not establish a driver bug.
 Keep shader conversion, depth/bias state and the software renderer as separate
 hypotheses until that reproduction exists. Do not globally relax depth checks.
 
+### Same-process depth reversal and asset-free controls
+
+`build60-depth-paired/` captures native EQUAL → ALWAYS → restored EQUAL in one
+stationary match. Camera position remains `(98.7, -149.7, 0.7)` throughout.
+Cliff stripes disappear during the bypass and return on restoration; the base
+also shows incorrect surface overdraw during the bypass. All three source
+captures were visually reviewed. The run reaches 3,365 ticks with zero shots;
+this is a rendering experiment, not combat acceptance. This narrows the defect
+to depth-dependent multipass drawing without establishing its precise cause.
+
+`XG_DEPTH_COMPARE=paired` requires `--stationary-match` and rendering diagnostics.
+The runner changes a private `presentation.depth-mode` control file. The host
+reads it only in this Simulator diagnostic, between complete frames, and
+reapplies the requested depth function even if upstream caches GL_EQUAL.
+Each phase waits at least 18 seconds, requires a confirmed mode switch and fresh
+source/destination PPMs. Complete PPM payload lengths are checked before either
+snapshot is saved. Missing, stale or partial captures fail the pass. The local
+helper now remains connected for the whole stationary experiment, not a fixed
+70 seconds. Normal player and physical-device depth behavior stay unchanged.
+
+`XG_DEPTH_PROBE=1` adds two **asset-free** controls before the guest has GL state:
+a slanted perspective triangle in RGBA8 / DEPTH24_STENCIL8 is drawn, then
+redrawn with EQUAL within one program and across separate linked programs.
+The latter share invariant position code but differ in active varying use.
+Both controls cover 6,728 pixels with zero failed pixels and GL error 0.
+Evidence: `build60-depth-controls/`. This disproves a general EQUAL failure,
+not every precision/invariance failure involving the game's converted shaders.
+
+The hardened runner and probe were repeated together in
+`build60-depth-paired-verified/`: 2,890 ticks, all three complete captures,
+both controls passing, camera fixed at `(84.9, -161.7, 0.7)`. The same stripe
+removal/restoration is visible in that run's separately reviewed images.
+Eight asset-free runner tests now cover default/stationary settings, invalid
+modes, pair prerequisites, both probe results and stale/missing/partial PPMs.
+
+`XG_DUMP_SHADERS=1`, `HALO_GPU_TRACE=<frame>` and
+`HALO_GPU_TRACE_CONSTANTS=1` expose upstream's existing private shader/draw
+diagnostics only with `--render-diagnostics`. Frame 240 in
+`build60-depth-draw-trace/` identifies terrain VS17 draws with depth writes and
+LEQUAL, followed by VS41 EQUAL draws without depth writes; an observed pair has
+matching 1,398-index counts and printed c[0..3] values. Their GLSL has the same
+dot-based position expressions, with different surrounding instructions/order.
+This is a concrete replay target, **not** proof of identical complete inputs.
+The trace is valid world-frame evidence, but its original 70-second helper
+later disconnects and the final capture is a menu; do not call that final frame
+world gameplay. The helper-lifetime correction above prevents this in later
+stationary runs. Shader files and constants remain private, outside Git.
+
+Next replay this specific shader/depth pair with exact vertex inputs and
+uniforms, distinguishing conversion/state mistakes from a shader-specific
+software-driver precision issue. Do not infer a driver bug from the successful
+basic controls or replace EQUAL with a global tolerance/bypass.
+
 An auxiliary Mac CPU-texture match (`build59-mac-cpu-textures/`) overlapped the
 Simulator match and failed with `WSAEADDRINUSE` before gameplay. It is invalid
 rendering evidence: network cases must run serially because they use the same

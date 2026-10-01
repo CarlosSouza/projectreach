@@ -24,8 +24,11 @@ Next: a small reproducible case for remaining geometry/texture artifacts (alread
 present before final presentation; uniform-location, buffer-upload, anisotropy
 and LEQUAL hypotheses did not resolve them). An EQUAL bypass changes artifacts
 but introduces incorrect occlusion; keep it diagnostic-only. Stationary runs
-still choose different spawns, so use a same-process view or identical draw/depth
-pair before attributing the cause. Then sustained movement/look/fire and weapon pickup/swap,
+still choose different spawns, but a same-process EQUAL → ALWAYS → EQUAL run now
+removes/restores stripes at a fixed view. Basic asset-free equal-depth controls
+pass. Replay the captured VS17/VS41 terrain pair with exact inputs/uniforms to
+separate shader conversion/state from a shader-specific software-driver issue.
+Then sustained movement/look/fire and weapon pickup/swap,
 a later checkpoint and reload.
 Maintain upstream by freezing one candidate per pass, backing up saves, building,
 testing and visually reviewing it before pin promotion. Keep normal runs free

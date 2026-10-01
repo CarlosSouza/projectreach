@@ -28,6 +28,34 @@ def match_environment(stationary=False):
             'HALO_NETWORK_TEST_SHOOT': '0' if stationary else '4'}
 
 
+def depth_probe_pass(text):
+    probes = re.findall(r'depth probe: (same-program|separate-program) covered (\d+) failed (\d+) error 0x([0-9a-f]+)', text)
+    return (len(probes) == 2 and {row[0] for row in probes} == {'same-program', 'separate-program'} and
+            all(int(covered) > 0 and int(failed) == 0 and int(error, 16) == 0
+                for _, covered, failed, error in probes))
+
+
+def capture_depth_phase(folder, label, started):
+    """Copy a complete, fresh PPM pair; never bless an in-progress trace write."""
+    frames = []
+    try:
+        for part in ('source', 'destination'):
+            path = folder / ('presentation.' + part + '.ppm')
+            if path.stat().st_mtime <= started + 2:
+                return False
+            data = path.read_bytes()
+            magic, size, maximum, pixels = data.split(b'\n', 3)
+            width, height = map(int, size.split())
+            if magic != b'P6' or maximum != b'255' or width <= 0 or height <= 0 or len(pixels) != width * height * 3:
+                return False
+            frames.append((path, data))
+    except (OSError, ValueError):
+        return False
+    for path, data in frames:
+        (folder / (label + '.' + path.name)).write_bytes(data)
+    return True
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--device', required=True, help='Dedicated Simulator UDID')
@@ -41,8 +69,11 @@ def main():
     args = parser.parse_args()
     if args.stationary_match and (args.case != 'match' or not args.render_diagnostics):
         parser.error('--stationary-match requires --case match --render-diagnostics')
-    if args.render_diagnostics and os.environ.get('XG_DEPTH_COMPARE', '') not in ('', 'lequal', 'always'):
-        parser.error('XG_DEPTH_COMPARE must be lequal or always')
+    depth_pair = args.render_diagnostics and os.environ.get('XG_DEPTH_COMPARE') == 'paired'
+    if args.render_diagnostics and os.environ.get('XG_DEPTH_COMPARE', '') not in ('', 'lequal', 'always', 'paired'):
+        parser.error('XG_DEPTH_COMPARE must be lequal, always or paired')
+    if depth_pair and not args.stationary_match:
+        parser.error('paired depth requires --stationary-match')
     stamp = datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ')
     out = (args.out or WORK / 'simulator-results' / stamp).resolve()
     out.mkdir(parents=True, exist_ok=True)
@@ -74,6 +105,11 @@ def main():
         frame = folder / 'frame.ppm'
         log = folder / 'stdout.log'
         error = folder / 'stderr.log'
+        pair_index, pair_started = 0, None
+        pair_names = ('equal', 'always', 'equal-restored')
+        control = folder / 'presentation.depth-mode'
+        if depth_pair:
+            control.write_text('equal\n')
         env = {k: v for k, v in os.environ.items() if not k.startswith('SIMCTL_CHILD_')}
         child = {'HALOPAD_CHOOSE': 'xbox', 'HALO_NET_ONLINE': 'false',
                  'XG_DATA': str(folder), 'XG_SAVE': str(folder / 'save'), 'XG_TOUCH_SHOW': '1',
@@ -85,8 +121,17 @@ def main():
             env['SIMCTL_CHILD_XG_GL_CHECK'] = os.environ['XG_GL_CHECK']
         if args.render_diagnostics:
             child.update(XG_GL_TRACE=str(folder / 'presentation'), HALO_GPU_STATS='1', HALO_GL_DEBUG='1')
+            for setting in ('HALO_GPU_TRACE', 'HALO_GPU_TRACE_CONSTANTS'):
+                if os.environ.get(setting):
+                    child[setting] = os.environ[setting]
+            if os.environ.get('XG_DUMP_SHADERS'):
+                shaders = folder / 'shaders'
+                shaders.mkdir()
+                child['HALO_GPU_DUMP_SHADERS'] = str(shaders)
             if os.environ.get('XG_BLIT_PROBE'):
                 child['XG_BLIT_PROBE'] = os.environ['XG_BLIT_PROBE']
+            if os.environ.get('XG_DEPTH_PROBE'):
+                child['XG_DEPTH_PROBE'] = os.environ['XG_DEPTH_PROBE']
             if os.environ.get('XG_PRESENT_RAW_BLIT'):
                 child['XG_PRESENT_RAW_BLIT'] = os.environ['XG_PRESENT_RAW_BLIT']
             if os.environ.get('XG_NO_EXTENSION'):
@@ -105,11 +150,27 @@ def main():
                 text = log.read_text(errors='replace') if log.exists() else ''
                 if error.exists():
                     text += error.read_text(errors='replace')
+                if depth_pair and pair_index < len(pair_names):
+                    if pair_started is None and 'network test: tick ' in text:
+                        pair_started = time.time()
+                    # Allow a full trace interval after the phase change; reject
+                    # stale frames from the menu or the preceding depth mode.
+                    confirmed = (pair_index == 0 or
+                                 'paired depth mode: ' + ('always' if pair_index == 1 else 'equal') in text)
+                    if (pair_started and time.time() - pair_started >= 18 and confirmed and
+                            capture_depth_phase(folder, pair_names[pair_index], pair_started)):
+                        label = pair_names[pair_index]
+                        print('depth pair captured:', label, flush=True)
+                        pair_index += 1
+                        if pair_index < len(pair_names):
+                            control.write_text(('always' if pair_index == 1 else 'equal') + '\n')
+                            pair_started = time.time()
                 if name == 'match' and address and helper is None and 'network test: hosting' in text:
                     helper_log = (folder / 'bot.log').open('w')
                     helper = subprocess.Popen([sys.executable, str(ROOT / 'scripts/xbox/network-bot.py'),
                                                '--host', '127.0.0.1', '--first-address', address,
-                                               '--machines', '1', '--start', '--seconds', '70'],
+                                               '--machines', '1', '--start', '--seconds',
+                                               str(max(70, seconds + 5) if args.stationary_match else 70)],
                                               stdout=helper_log, stderr=subprocess.STDOUT)
                 time.sleep(1)
             subprocess.run(['xcrun', 'simctl', 'io', args.device, 'screenshot', str(folder / 'screen.png')],
@@ -138,6 +199,12 @@ def main():
             row['presentation_captured'] = all((folder / ('presentation.' + part + '.ppm')).exists()
                                                for part in ('source', 'destination'))
             row['pass'] &= row['presentation_captured']
+        if depth_pair:
+            row['depth_pair_complete'] = pair_index == len(pair_names)
+            row['pass'] &= row['depth_pair_complete']
+        if args.render_diagnostics and os.environ.get('XG_DEPTH_PROBE'):
+            row['depth_probe_pass'] = depth_probe_pass(text)
+            row['pass'] &= row['depth_probe_pass']
         results[name] = row
         print(name, json.dumps(row), flush=True)
     result = {'engine_revision': manifest['revision'], 'device': args.device, 'results': results,
@@ -146,6 +213,9 @@ def main():
               'raw_present_blit': bool(args.render_diagnostics and os.environ.get('XG_PRESENT_RAW_BLIT')),
               'hidden_extension': os.environ.get('XG_NO_EXTENSION') if args.render_diagnostics else None,
               'depth_compare': os.environ.get('XG_DEPTH_COMPARE') if args.render_diagnostics else None,
+              'depth_probe': bool(args.render_diagnostics and os.environ.get('XG_DEPTH_PROBE')),
+              'trace_frame': os.environ.get('HALO_GPU_TRACE') if args.render_diagnostics else None,
+              'dump_shaders': bool(args.render_diagnostics and os.environ.get('XG_DUMP_SHADERS')),
               'match_mode': 'stationary-render-diagnostic' if args.stationary_match else 'scripted-combat',
               'pass': all(row['pass'] for row in results.values())}
     (out / 'result.json').write_text(json.dumps(result, indent=2) + '\n')

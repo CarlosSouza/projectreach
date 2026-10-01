@@ -3361,3 +3361,48 @@ draw/depth pair to separate shader conversion, depth/bias state and software-dri
 behavior. Do not globally weaken depth checks. Then sustained controls, weapon
 pickup/swap and a later checkpoint. Goal remains active; full campaign, audio,
 human multiplayer and physical acceptance are still unverified.
+
+## 2026-10-01 — reversible depth reproduction, not a bypass fix
+
+**Progress:** replaced different-spawn comparisons with native EQUAL → ALWAYS
+→ restored EQUAL captures in one stationary match. In `build60-depth-paired/`,
+the camera stays `(98.7, -149.7, 0.7)`; stripes disappear during the bypass and
+return after restoration. The bypass also overdraws hidden base surfaces.
+Visually reviewed all three source images. Result: 3,365 ticks, zero shots;
+rendering evidence only, not combat or an adopted workaround.
+
+**Control:** an asset-free 128x128 perspective triangle in RGBA8 /
+DEPTH24_STENCIL8 redraws correctly with EQUAL within one program and across
+linked programs sharing invariant position code but different active varyings.
+Both cover 6,728 pixels, zero failures, GL error 0 (`build60-depth-controls/`).
+A general equal-depth failure is disproven; a shader-specific driver issue,
+conversion error or state mismatch remains possible.
+
+The hardened runner checks complete, fresh PPM payloads and confirmed switches,
+and keeps the stationary helper alive for the full experiment. Its repeated
+`build60-depth-paired-verified/` run passes all three captures and both controls:
+2,890 ticks, camera fixed at `(84.9, -161.7, 0.7)`. Visually reviewed the same
+stripe removal/restoration. Missing, stale, partial and incomplete control
+results are covered by fixture tests. All modes remain opt-in and Simulator-only.
+
+**Concrete next target:** upstream's existing frame-240 draw trace and shader
+dump (`build60-depth-draw-trace/`) identify VS17 LEQUAL/depth-write and VS41
+EQUAL/no-write terrain passes with matching 1,398-index counts and printed
+c[0..3] values. These GLSL position calculations share dot expressions but
+differ in surrounding instructions/order. This does not prove identical full
+inputs. Replay the exact vertices, uniforms and state before attributing the
+bug or changing conversion. The original trace helper expires after 70 seconds;
+its later menu screenshot is not world-rendering proof. Subsequent stationary
+helpers now cover the entire run. Generated shaders/constants stay private.
+
+**Normal verification:** rebuilt the personal Simulator app. All normal
+menu/campaign/scripted-match gates pass (`build60-paired-normal-regression/`):
+1,176 match ticks / eight test shots. 81 Python tests pass, 16 skipped; physical
+SDK syntax, whitespace and current tree/index safety guards pass. Real Xbox
+saves still match the build-60 update backup byte-for-byte after reinstall and
+all probes. Upstream lookup still reports build 60; the accepted pin remains
+`bfbac357`. No physical install, IPA, pairing change, push or publication.
+The full goal remains active; no rendering fix or full campaign acceptance claimed.
+Final About navigation confirms `bfbac357` without PREVIEW; Done returns to the
+normal edition picker (`build60-paired-settled-picker.png`). The earlier immediate
+relaunch screenshot captures a white startup transition, not the settled app.
