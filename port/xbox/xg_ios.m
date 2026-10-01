@@ -1,18 +1,23 @@
 /*
  * xg_ios.m: the Xbox engine's platform services on iOS and iPadOS, without
- * SDL: the host half of upstream's guest_sdl.c on UIKit, OpenGL ES (Apple's
- * OpenGL ES 3.0), the GameController framework and Core Audio.
+ * SDL: the host half of upstream's guest_sdl.c on UIKit, OpenGL ES (Apple by
+ * default; opt-in Simulator ANGLE/Metal), GameController and Core Audio.
  *
  * The game runs on a thread of its own (xg_ios_start); the view is made on
- * the main thread by the app. iOS has no default framebuffer, so the game's
- * framebuffer 0 is a framebuffer with the view's layer as its colour
- * buffer (xg_gl_framebuffer).
+ * the main thread by the app. EAGL maps framebuffer 0 to the layer-backed
+ * colour buffer (xg_gl_framebuffer); EGL owns its own default framebuffer.
  */
 #import <AudioToolbox/AudioToolbox.h>
 #import <AVFoundation/AVFoundation.h>
 #import <GameController/GameController.h>
+#if XG_USE_ANGLE
+#include <EGL/egl.h>
+#include <EGL/eglext.h>
+#include <GLES3/gl3.h>
+#else
 #import <OpenGLES/EAGL.h>
 #import <OpenGLES/ES3/gl.h>
+#endif
 #import <QuartzCore/QuartzCore.h>
 #import <UIKit/UIKit.h>
 #include <TargetConditionals.h>
@@ -29,6 +34,9 @@
 #include <sys/stat.h>
 #include "xg_host.h"
 #include "xg_ios.h"
+#if XG_USE_ANGLE && !TARGET_OS_SIMULATOR
+#error The ANGLE renderer candidate is Simulator-only
+#endif
 
 void xg_gl_load(void);
 void xg_gl_frame_dump(int width, int height);
@@ -41,12 +49,25 @@ struct xg_paths xg_paths;
 @end
 
 @implementation XGGameView
-+ (Class)layerClass { return [CAEAGLLayer class]; }
++ (Class)layerClass {
+#if XG_USE_ANGLE
+    return [CAMetalLayer class];
+#else
+    return [CAEAGLLayer class];
+#endif
+}
 @end
 
 static XGGameView *game_view;
+#if XG_USE_ANGLE
+static CAMetalLayer *game_layer;
+static EGLDisplay angle_display = EGL_NO_DISPLAY;
+static EGLContext angle_context = EGL_NO_CONTEXT;
+static EGLSurface angle_surface = EGL_NO_SURFACE;
+#else
 static CAEAGLLayer *game_layer;
 static EAGLContext *context;
+#endif
 static GLuint drawable_framebuffer, drawable_color;
 static GLint drawable_width, drawable_height;
 static CGSize layer_pixels;
@@ -60,10 +81,14 @@ UIView *xg_ios_make_view(CGRect frame)
 	game_view.contentScaleFactor = TARGET_OS_SIMULATOR ? 1 : UIScreen.mainScreen.nativeScale;
 	game_view.multipleTouchEnabled = YES;
 	game_view.backgroundColor = UIColor.blackColor;
-	game_layer = (CAEAGLLayer *)game_view.layer;
+	game_layer = (id)game_view.layer;
 	game_layer.opaque = YES;
+#if XG_USE_ANGLE
+    game_layer.framebufferOnly = NO;
+#else
 	game_layer.drawableProperties = @{ kEAGLDrawablePropertyRetainedBacking: @NO,
 		kEAGLDrawablePropertyColorFormat: kEAGLColorFormatRGBA8 };
+#endif
 	xg_ios_view_resized();
 	return game_view;
 }
@@ -75,6 +100,9 @@ void xg_ios_view_resized(void)
 	CGFloat scale = game_view.contentScaleFactor;
 	pthread_mutex_lock(&layer_lock);
 	layer_pixels = CGSizeMake(size.width * scale, size.height * scale);
+#if XG_USE_ANGLE
+    game_layer.drawableSize = layer_pixels;
+#endif
 	pthread_mutex_unlock(&layer_lock);
 }
 
@@ -84,6 +112,11 @@ static void drawable_update(void)
 	pthread_mutex_lock(&layer_lock);
 	pixels = layer_pixels;
 	pthread_mutex_unlock(&layer_lock);
+#if XG_USE_ANGLE
+    /* EGL owns the window's default framebuffer. Do not emulate it with an
+     * EAGL renderbuffer or mix APIs from two different GL implementations. */
+    drawable_width = (GLint)pixels.width; drawable_height = (GLint)pixels.height;
+#else
 	if (drawable_color && (GLint)pixels.width == drawable_width && (GLint)pixels.height == drawable_height)
 		return;
 	if (!drawable_framebuffer)
@@ -98,6 +131,7 @@ static void drawable_update(void)
 	glGetRenderbufferParameteriv(GL_RENDERBUFFER, GL_RENDERBUFFER_WIDTH, &drawable_width);
 	glGetRenderbufferParameteriv(GL_RENDERBUFFER, GL_RENDERBUFFER_HEIGHT, &drawable_height);
 	xg_log("drawable %dx%d", drawable_width, drawable_height);
+#endif
 }
 
 /* Isolated driver test before the guest has any GL state. No game assets.
@@ -261,6 +295,7 @@ cleanup:
  * blits must ignore it. A campaign source was visible while the drawable was
  * black. Neutralizing unit 0 alone restores it; blend/cull/program A/Bs did not.
  * Only presentation needs this workaround. Restore the game's state afterward. */
+#if !XG_USE_ANGLE
 static void presentation_blit(GLint x0, GLint y0, GLint x1, GLint y1,
 	GLint x2, GLint y2, GLint x3, GLint y3, GLbitfield mask, GLenum filter)
 {
@@ -280,6 +315,7 @@ static void presentation_blit(GLint x0, GLint y0, GLint x1, GLint y1,
 		glActiveTexture((GLenum)active);
 	}
 }
+#endif
 #endif
 
 #if TARGET_OS_SIMULATOR
@@ -343,10 +379,16 @@ void *xg_gl_proc(const char *name)
 		!strcmp(name, "glDepthFunc"))
 		return diagnostic_depth_func;
 	/* Raw path is retained only for isolated diagnostic A/Bs. */
+#if !XG_USE_ANGLE
 	if (!getenv("XG_PRESENT_RAW_BLIT") && !strcmp(name, "glBlitFramebuffer"))
 		return presentation_blit;
 #endif
+#endif
+#if XG_USE_ANGLE
+    return (void *)eglGetProcAddress(name);
+#else
 	return dlsym(RTLD_DEFAULT, name);
+#endif
 }
 GLuint xg_gl_framebuffer(GLuint framebuffer) { return framebuffer ? framebuffer : drawable_framebuffer; }
 
@@ -400,6 +442,41 @@ int xh_host_sdl_gl_set_attribute(int attribute, int value) { (void)attribute; (v
 uint32_t xh_host_sdl_gl_create_context(uint32_t window)
 {
 	(void)window;
+#if XG_USE_ANGLE
+    if (angle_context == EGL_NO_CONTEXT) {
+        /* ANGLE disables sampling swizzles on Simulator by default. Its native
+         * path passes the asset-free probe on this Mac/iPadOS 26.5; without it
+         * the guest's BGRA textures display with red/blue reversed. This remains
+         * an opt-in Simulator candidate, never a physical-device override. */
+        const char *features[] = {"hasTextureSwizzle", NULL};
+        const EGLAttrib attributes[] = {EGL_PLATFORM_ANGLE_TYPE_ANGLE, EGL_PLATFORM_ANGLE_TYPE_METAL_ANGLE,
+            EGL_FEATURE_OVERRIDES_ENABLED_ANGLE, (EGLAttrib)features, EGL_NONE};
+        angle_display = eglGetPlatformDisplay(EGL_PLATFORM_ANGLE_ANGLE, NULL, attributes);
+        EGLint major = 0, minor = 0, count = 0;
+        EGLConfig config;
+        const EGLint config_attributes[] = {EGL_SURFACE_TYPE, EGL_WINDOW_BIT, EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT,
+            EGL_RED_SIZE, 8, EGL_GREEN_SIZE, 8, EGL_BLUE_SIZE, 8, EGL_ALPHA_SIZE, 8, EGL_NONE};
+        const EGLint context_attributes[] = {EGL_CONTEXT_CLIENT_VERSION, 3, EGL_NONE};
+        if (!eglInitialize(angle_display, &major, &minor) ||
+            !eglChooseConfig(angle_display, config_attributes, &config, 1, &count) || count != 1) goto angle_failure;
+        angle_surface = eglCreateWindowSurface(angle_display, config, (__bridge void *)game_layer, NULL);
+        angle_context = eglCreateContext(angle_display, config, EGL_NO_CONTEXT, context_attributes);
+        if (angle_surface == EGL_NO_SURFACE || angle_context == EGL_NO_CONTEXT ||
+            !eglMakeCurrent(angle_display, angle_surface, angle_surface, angle_context)) goto angle_failure;
+        xg_log("ANGLE/Metal Simulator candidate: native texture swizzle enabled");
+        drawable_update(); blit_probe(); depth_probe();
+        void xg_draw_replay(void); xg_draw_replay();
+        xg_gl_load();
+    }
+    return 2;
+angle_failure:
+    snprintf(last_error, sizeof(last_error), "ANGLE/Metal context failed: EGL 0x%x", eglGetError());
+    xg_log("%s", last_error);
+    if (angle_context != EGL_NO_CONTEXT) eglDestroyContext(angle_display, angle_context);
+    if (angle_surface != EGL_NO_SURFACE) eglDestroySurface(angle_display, angle_surface);
+    eglTerminate(angle_display); angle_context = EGL_NO_CONTEXT; angle_surface = EGL_NO_SURFACE;
+    return 0;
+#else
 	if (!context)
 	{
 		context = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES3];
@@ -419,15 +496,27 @@ uint32_t xh_host_sdl_gl_create_context(uint32_t window)
 		xg_gl_load();
 	}
 	return 2;
+#endif
 }
 
 int xh_host_sdl_gl_make_current(uint32_t window, uint32_t handle)
 {
 	(void)window;
+#if XG_USE_ANGLE
+    return eglMakeCurrent(angle_display, handle ? angle_surface : EGL_NO_SURFACE,
+        handle ? angle_surface : EGL_NO_SURFACE, handle ? angle_context : EGL_NO_CONTEXT);
+#else
 	return [EAGLContext setCurrentContext:handle ? context : nil];
+#endif
 }
 
-int xh_host_sdl_gl_set_swap_interval(int interval) { (void)interval; return 1; }
+int xh_host_sdl_gl_set_swap_interval(int interval) {
+#if XG_USE_ANGLE
+    return eglSwapInterval(angle_display, interval);
+#else
+    (void)interval; return 1;
+#endif
+}
 
 int xh_host_sdl_gl_swap_window(uint32_t window)
 {
@@ -452,8 +541,12 @@ int xh_host_sdl_gl_swap_window(uint32_t window)
 #endif
 	glBindFramebuffer(GL_READ_FRAMEBUFFER, drawable_framebuffer);
 	xg_gl_frame_dump(drawable_width, drawable_height);
+#if XG_USE_ANGLE
+    if (!eglSwapBuffers(angle_display, angle_surface)) return 0;
+#else
 	glBindRenderbuffer(GL_RENDERBUFFER, drawable_color);
 	[context presentRenderbuffer:GL_RENDERBUFFER];
+#endif
 	drawable_update();
 #if TARGET_OS_SIMULATOR
 	diagnostic_depth_tick();

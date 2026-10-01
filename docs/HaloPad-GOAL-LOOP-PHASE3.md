@@ -10,6 +10,20 @@ upstream build. This pass does not authorize physical installs, an Xbox IPA,
 publication, or a recurring automation. The older physical-device work below is
 historical context, not the next automatic action.
 
+Latest focused pass: a real Simulator ANGLE/Metal source build is now available
+as `HALOPAD_XBOX_RENDERER=angle-metal`, independently pinned and PREVIEW-labeled.
+The initial backend removes visible wall bands in sampled views but swaps
+texture red/blue. A tiny sampling probe reproduces the missing swizzle; the
+candidate's native-swizzle override passes on this Mac/iPadOS 26.5. Reviewed
+rebuilt campaign/match images restore colors and lack the pronounced bands.
+Normal menu/campaign/scripted-match gates pass (1,530 ticks / 12 shots). This is
+an observed improvement, not complete visual acceptance or proof about the
+physical Windows edition. Apple remains the default; no guest pin promotion.
+Next use a copied checkpoint/fixed scene to compare renderer images and motion,
+then verify touch, cold reload and a later campaign scene on the candidate.
+Keep the accepted Apple app available for in-place rollback and all real saves
+untouched. Physical iPad shading/focus investigation stays a separate gate.
+
 Build 61 (`f8937c61`) is now the experimental development pin, adding upstream's
 high-resolution HUD after build 60's menu-glyph fix. Save-backed candidate and
 acceptance Mac/Simulator menu/campaign/scripted-match checks pass. The
@@ -22,7 +36,7 @@ The normal picker remains on the dedicated **HaloPad Xbox iPad** Simulator.
 See [XBOX-SIMULATOR-PASSES.md](XBOX-SIMULATOR-PASSES.md) for the evidence and failed
 approaches. The broader goal remains active; this is not full campaign/hardware acceptance.
 
-Next: a small reproducible case for remaining geometry/texture artifacts (already
+Earlier Apple-backend investigation: a small reproducible case for remaining geometry/texture artifacts (already
 present before final presentation; uniform-location, buffer-upload, anisotropy
 and LEQUAL hypotheses did not resolve them). An EQUAL bypass changes artifacts
 but introduces incorrect occlusion; keep it diagnostic-only. Stationary runs

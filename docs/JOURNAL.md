@@ -3923,3 +3923,36 @@ returns to the normal Windows/Xbox picker. Real saves in rediscovered container
 safety pass. Upstream checkout clean. No physical install, pin promotion, IPA,
 push or publication. Goal remains active with graphics/audio/controllers and
 broader campaign/hardware acceptance still open.
+
+## 2026-10-01 — Source-built Simulator Metal preview improves sampled scenes
+
+Changed the experiment from repeated Apple depth probes to a proper ANGLE/Metal
+Simulator build. Reuses official WebKit ANGLE source lists, independently pinned
+at `a1fb7ce122d0cd99f7d6cc82775f02565e266ece` / ANGLE `eb725ace1839`, compiled
+with the actual Simulator SDK. Source remains outside GitHub; no upstream edits.
+Opt-in renderer has its own archive/manifest and EGL/CAMetalLayer path. Apple
+and physical defaults and Xbox guest pin 61 remain unchanged. Packaging verifies
+renderer/source/hashes, refuses physical ANGLE and marks the build PREVIEW.
+
+Initial real match images lack the pronounced horizontal wall bands but swap
+red/blue. Asset-free tests isolate that: equal-depth and swizzle-independent
+blits pass, texture sampling silently ignores R/B swizzle. ANGLE explicitly
+disables the native swizzle feature on Simulator. Enabling it through EGL passes
+the sampling control on this Mac/iPadOS 26.5; confined to the optional preview.
+Rebuilt menu/campaign/scripted-match gates pass (1,530 ticks / 12 shots), and
+reviewed images restore colors without pronounced cliff bands. A 45-second
+stationary follow-up passes (933 ticks / zero shots) and shows the same sampled
+improvement. Unmatched viewpoints, broader motion, later campaign, audio and
+hardware remain unaccepted. Retain the one startup GL blit error as an open lead.
+The first cold menu's black dump failed honestly; later capture passes with a
+30-second ANGLE-only allowance, not a relaxed image gate.
+
+Evidence `ios-app-20261001T130852Z` and private `build61-angle-swizzle*` pass
+folders. Final picker/About/Done verified with Xbox PREVIEW, real saves unchanged
+byte-for-byte in rediscovered `6363645B-5CB1-48F7-A108-B6E3D2810148`.
+Accepted Apple app preserved privately for rollback; scratch ANGLE dependency
+retained for rebuilding. 157 tests / 16 skipped, both Apple SDK syntax and ANGLE
+Simulator syntax pass; physical ANGLE explicitly rejected. No physical iPad
+changes, IPA, pin promotion, push or publication. Goal active; next fixed copied
+checkpoint/motion comparison and normal controls/reload. Chris's physical
+Windows/Metal shading/focus report is not resolved by these Xbox Simulator tests.

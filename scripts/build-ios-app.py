@@ -52,15 +52,31 @@ STATE = ROOT / 'generated' / 'halopad-disk-ios'
 # the Xbox engine, when it was built on this Mac (scripts/xbox/build-ios.sh; docs/XBOX-ENGINE.md)
 XBOX_OUT = ROOT / 'ref' / 'xbox-build' / 'out'
 
+def xbox_build_folder(target):
+    renderer = os.environ.get('HALOPAD_XBOX_RENDERER', 'apple-gles')
+    if renderer not in ('apple-gles', 'angle-metal'):
+        raise ValueError('Unknown HALOPAD_XBOX_RENDERER')
+    sdk = 'iphonesimulator' if 'simulator' in target else 'iphoneos'
+    if renderer == 'angle-metal' and sdk != 'iphonesimulator':
+        raise ValueError('ANGLE candidate is Simulator-only')
+    return XBOX_OUT / ('iphonesimulator-angle' if renderer == 'angle-metal' else sdk)
+
+
 def xbox_parts(target):
     """Link inputs for the launch picker and the Xbox engine, or [] without a local engine build."""
-    sdk = 'iphonesimulator' if 'simulator' in target else 'iphoneos'
-    lib = XBOX_OUT / sdk / 'libhalopad-xbox.a'
+    lib = xbox_build_folder(target) / 'libhalopad-xbox.a'
     if not lib.exists():
+        if os.environ.get('HALOPAD_XBOX_RENDERER') == 'angle-metal':
+            raise ValueError('ANGLE candidate library is missing; build it before packaging')
         return []
     if not (lib.parent / 'build.json').exists():
         raise ValueError('Xbox library has no build manifest; run scripts/xbox/build-ios.sh')
     manifest = json.loads((lib.parent / 'build.json').read_text())
+    renderer = os.environ.get('HALOPAD_XBOX_RENDERER', 'apple-gles')
+    if manifest.get('renderer', 'apple-gles') != renderer:
+        raise ValueError('Xbox library renderer differs from the requested renderer')
+    if renderer == 'angle-metal' and manifest.get('angle_source') != json.loads((ROOT / 'config/xbox-angle.lock.json').read_text()):
+        raise ValueError('ANGLE library source differs from the renderer pin')
     revision = json.loads((ROOT / 'config' / 'xbox-engine.lock.json').read_text())['revision']
     expected = os.environ.get('XBOX_REV', revision)
     if manifest['revision'] != expected:
@@ -68,8 +84,9 @@ def xbox_parts(target):
     for path, key in ((XBOX_OUT / 'halo_guest.elf', 'guest_sha256'), (lib, 'library_sha256')):
         if hashlib.sha256(path.read_bytes()).hexdigest() != manifest[key]:
             raise ValueError(f'Stale Xbox build: {path.name}; rebuild the Xbox library')
+    graphics = ['-lc++', '-lz', '-framework', 'Metal', '-framework', 'IOSurface'] if renderer == 'angle-metal' else ['-framework', 'OpenGLES']
     return [ROOT / 'port' / 'ios' / 'HaloPadXbox.m', lib, '-I', str(ROOT / 'port' / 'xbox'), '-I', '/opt/homebrew/include',
-            '-framework', 'OpenGLES', '-DGLES_SILENCE_DEPRECATION']
+            *graphics, '-DGLES_SILENCE_DEPRECATION']
 
 
 def compile_icon(app, out, target):
@@ -119,10 +136,9 @@ def package(exe, out, work, target=TARGET, identity=None, provisioning=None):
     if xbox_parts(target) and guest.exists():
         (data / 'xbox').mkdir()
         shutil.copy2(guest, data / 'xbox' / 'halo_guest.elf')      # upstream's image: this Mac's personal build only
-        sdk = 'iphonesimulator' if 'simulator' in target else 'iphoneos'
-        build = json.loads((XBOX_OUT / sdk / 'build.json').read_text())
+        build = json.loads((xbox_build_folder(target) / 'build.json').read_text())
         pin = json.loads((ROOT / 'config/xbox-engine.lock.json').read_text())['revision']
-        build['candidate'] = build['revision'] != pin
+        build['candidate'] = build['revision'] != pin or build.get('renderer') == 'angle-metal'
         (data / 'xbox' / 'build.json').write_text(json.dumps(build, indent=2) + '\n')
     for m in sorted((run_core.IMAGE.parent / 'modules').iterdir()):
         if (m / 'image.bin').is_file():

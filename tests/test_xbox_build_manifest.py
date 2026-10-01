@@ -73,6 +73,51 @@ class XboxManifestTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'no build manifest'):
             builder.xbox_parts(builder.TARGET)
 
+    def angle_fixture(self):
+        self.lib = self.out / 'iphonesimulator-angle/libhalopad-xbox.a'
+        self.lib.parent.mkdir()
+        self.lib.write_bytes(b'fixture library, not game code')
+        self.manifest['renderer'] = 'angle-metal'
+        self.manifest['angle_source'] = json.loads((ROOT / 'config/xbox-angle.lock.json').read_text())
+        self.save_manifest()
+        patch.dict(os.environ, {'HALOPAD_XBOX_RENDERER': 'angle-metal'}).start()
+
+    def test_angle_links_only_requested_renderer(self):
+        self.angle_fixture()
+        parts = builder.xbox_parts(builder.TARGET)
+        self.assertIn(self.lib, parts)
+        self.assertIn('Metal', parts)
+        self.assertNotIn('OpenGLES', parts)
+
+    def test_angle_rejects_physical_device(self):
+        self.angle_fixture()
+        with self.assertRaisesRegex(ValueError, 'Simulator-only'):
+            builder.xbox_parts(builder.DEVICE_TARGET)
+
+    def test_unknown_renderer_rejected(self):
+        with patch.dict(os.environ, {'HALOPAD_XBOX_RENDERER': 'unknown'}):
+            with self.assertRaisesRegex(ValueError, 'Unknown'):
+                builder.xbox_parts(builder.TARGET)
+
+    def test_missing_angle_does_not_silently_build_pc_only(self):
+        with patch.dict(os.environ, {'HALOPAD_XBOX_RENDERER': 'angle-metal'}):
+            with self.assertRaisesRegex(ValueError, 'library is missing'):
+                builder.xbox_parts(builder.TARGET)
+
+    def test_wrong_angle_source_rejected(self):
+        self.angle_fixture()
+        self.manifest['angle_source']['revision'] = 'different'
+        self.save_manifest()
+        with self.assertRaisesRegex(ValueError, 'source differs'):
+            builder.xbox_parts(builder.TARGET)
+
+    def test_wrong_renderer_manifest_rejected(self):
+        self.angle_fixture()
+        self.manifest['renderer'] = 'apple-gles'
+        self.save_manifest()
+        with self.assertRaisesRegex(ValueError, 'renderer differs'):
+            builder.xbox_parts(builder.TARGET)
+
 
 if __name__ == '__main__':
     unittest.main()

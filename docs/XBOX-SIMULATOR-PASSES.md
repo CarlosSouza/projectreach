@@ -888,3 +888,71 @@ install, pin promotion, IPA, push or publication. Goal active.
 Maintenance policy: check releases regularly (proposed weekly), freeze one
 candidate per pass, back up saves, build, test, review frames, then accept.
 No automatic upstream executable downloads and no recurring job were created.
+
+### Real Simulator ANGLE/Metal candidate and texture-swizzle control (2026-10-01)
+
+Changed the experiment after the original Apple material observer: build a real
+Simulator backend, not a retagged Mac library. Xbox guest remains accepted build
+61, `f8937c6179757774c75f4e7d36de446fabd3dcc8`; no pin promotion. New optional
+`HALOPAD_XBOX_RENDERER=angle-metal` uses EGL/CAMetalLayer and does not link
+Apple OpenGLES. Apple/physical defaults remain unchanged. The combined archive
+and manifest have a separate `iphonesimulator-angle` directory. Packaging refuses
+missing/stale/mismatched candidate inputs or a physical target, and always labels
+this renderer PREVIEW, independently of guest revision.
+
+Source: sparse official WebKit checkout, revision
+`a1fb7ce122d0cd99f7d6cc82775f02565e266ece`, vendored ANGLE `eb725ace1839`,
+position 28912. No edits to either third-party checkout. The small wrapper uses
+WebKit's maintained compiler/GLES/Metal source lists (342 objects) with the actual
+iPhoneSimulator SDK 27.0. Standalone probe platform readback is IOSSIMULATOR.
+Live renderer is `ANGLE Metal Renderer: Apple iOS simulator GPU` on iPadOS 26.5.
+See [XBOX-ENGINE.md](XBOX-ENGINE.md) for the reproducible source-build/probe commands.
+
+Private evidence root: `ref/xbox-build/passes/2026-10-01/`:
+
+| Run | Automated result | Reviewed image / limits |
+|---|---|---|
+| `build61-angle-normal` | Menu fails black ten-second dump; campaign and match pass (1,536 ticks / 12 shots) | Fifteen-second menu screenshot is visible. Match lacks pronounced wall bands but terrain is blue / sky orange; not accepted. |
+| `build61-angle-menu30` | Menu, renderer and presentation gates pass | Later dumps contain the menu. Preserve initial failure; allow 30 seconds for cold ANGLE menu capture, with image gate unchanged. |
+| `build61-angle-stationary` | 45 seconds, 930 ticks / zero shots; presentation passes | Bands absent in reviewed view, but red/blue reversal remains. |
+| `build61-angle-final` | All normal cases pass, 1,530 ticks / 12 shots | Still the uncorrected-color backend. Automated pass is not visual acceptance. |
+| `build61-angle-swizzle` | All normal cases pass, 1,530 ticks / 12 shots | Reviewed menu/campaign/match: restored colors, no pronounced cliff bands in sampled views. |
+| `build61-angle-swizzle-stationary` | 45 seconds, 933 ticks / zero shots; renderer/presentation gates pass | Wide base/cliff view has restored colors and lacks pronounced horizontal bands. Not a matched cross-backend camera or full motion acceptance. |
+
+The asset-free `tests/xbox_angle_probe.m` now distinguishes depth, blit and texture
+sampling. Both equal-depth controls cover 1,352 pixels with zero failures / GL
+error 0. Blitting red texture storage stays `(204,26,13,255)` with sampling swizzle
+off/on: final blit is not the channel-swap cause. Sampling that texture should
+become `(13,26,204,255)` when R/B swizzle is enabled. Default ANGLE returns the
+original red value instead, without a GL error; the probe correctly exits 6.
+Upstream `DisplayMtl` explicitly disables `hasTextureSwizzle` on Simulator.
+An EGL enabled-feature override passes all controls on this Mac/runtime, including
+the expected blue sample. The opt-in engine candidate enables this one feature;
+the source pin records it. Final probe links the same archive used by the app and
+exits 0 (`angle-probe-final.log`). No global color postprocess or relaxed depth.
+
+GL-call checks retain one startup `0x502` after `glBlitFramebuffer`. Subsequent
+logged source/destination reads have prior/read error 0 and complete targets.
+Do not call this a completely error-free backend; the startup blit remains to be
+localized. Shader compilation/cold loading and unmatched scene timing also
+remain limits. The synthetic sampling failure is established; it does not prove
+the precise Apple wall-band cause or any physical Windows/Metal defect.
+
+Final app evidence: `docs/artifacts/2026-10-01/G3/ios-app-20261001T130852Z`.
+The dedicated HaloPad Xbox iPad Simulator remains on its ordinary launch picker,
+with Xbox **PREVIEW**. Actual About identifies `f8937c61` with validation incomplete;
+Done returns to both edition controls. Real saves in rediscovered container
+`6363645B-5CB1-48F7-A108-B6E3D2810148` match the existing acceptance backup
+byte-for-byte. Accepted Apple app is preserved at private
+`angle-apple-reference/HaloPad.app` under this pass root for in-place rollback.
+Temporary ANGLE dependency checkout/build remains outside GitHub at
+`/Users/chrissotraidis/.codex/scratch/halopad-angle-xdZB6j/`; retained for rebuilds,
+not an isolated HaloPad branch or a published artifact.
+
+157 tests, 16 skipped, no failures. Apple Simulator/physical and ANGLE Simulator
+syntax checks pass; ANGLE physical build rejects before guest preparation.
+Tree/index safety and whitespace checks pass. No physical install, pairing
+change, IPA, push, publication or recurring job. Goal stays active. Next compare
+an isolated copied checkpoint/fixed scene and motion, verify touch/cold reload
+and later assets, then decide whether to adopt the renderer. Physical iPad
+shading/focus instability remains a separate unresolved acceptance gate.

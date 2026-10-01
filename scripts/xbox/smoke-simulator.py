@@ -38,6 +38,14 @@ def depth_probe_pass(text):
                 for _, covered, failed, error in probes))
 
 
+def renderer_matches(text, renderer):
+    if 'OpenGL ES 3.0' not in text:
+        return False
+    if renderer == 'angle-metal':
+        return 'ANGLE Metal Renderer:' in text
+    return renderer == 'apple-gles' and 'ANGLE ' not in text
+
+
 def capture_depth_phase(folder, label, started):
     """Copy a complete, fresh PPM pair; never bless an in-progress trace write."""
     frames = []
@@ -173,7 +181,10 @@ def main():
         if result.stdout.strip():
             address = result.stdout.strip()
             break
-    for name, seconds in (('menu', 15), ('campaign', 60), ('match', 65)):
+    # The cold ANGLE shader build can leave the ten-second dump on loading.
+    # Allow a later dump; retain every image/progression gate unchanged.
+    menu_seconds = 30 if manifest.get('renderer') == 'angle-metal' else 15
+    for name, seconds in (('menu', menu_seconds), ('campaign', 60), ('match', 65)):
         if args.case and name != args.case:
             continue
         seconds = args.seconds or seconds
@@ -294,8 +305,9 @@ def main():
         debug = (folder / 'debug.txt').read_text(errors='replace') if (folder / 'debug.txt').exists() else ''
         pixels = frame.read_bytes().split(b'\n', 3)[-1] if frame.exists() else b''
         lit = sum(sum(pixels[i:i+3]) > 45 for i in range(0, len(pixels), 300)) / max(1, len(pixels) / 300)
-        okay = 'OpenGL ES 3.0' in text and lit > 0.005 and '[xbox] signal' not in text
-        row = {'pass': okay, 'lit': round(lit, 3)}
+        renderer_ok = renderer_matches(text, manifest.get('renderer', 'apple-gles'))
+        okay = renderer_ok and lit > 0.005 and '[xbox] signal' not in text
+        row = {'pass': okay, 'lit': round(lit, 3), 'renderer_matches': renderer_ok, 'seconds': seconds}
         if name == 'campaign':
             row['a10_load_requested'] = "starting precaching of map 'a10'" in debug
             row['pass'] &= row['a10_load_requested']
@@ -372,7 +384,7 @@ def main():
                 row['pass'] &= row['draw_raster_complete']
         results[name] = row
         print(name, json.dumps(row), flush=True)
-    result = {'engine_revision': manifest['revision'], 'device': args.device, 'results': results,
+    result = {'engine_revision': manifest['revision'], 'renderer': manifest.get('renderer', 'apple-gles'), 'device': args.device, 'results': results,
               'render_diagnostics': args.render_diagnostics,
               'blit_probe': bool(args.render_diagnostics and os.environ.get('XG_BLIT_PROBE')),
               'raw_present_blit': bool(args.render_diagnostics and os.environ.get('XG_PRESENT_RAW_BLIT')),

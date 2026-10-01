@@ -41,6 +41,59 @@ switching means closing HaloPad and opening it again; the picker appears at ever
   Bungie material ([REVIEW-HALO1-DECOMP.md](REVIEW-HALO1-DECOMP.md)). That is why the engine stays a
   personal build, and why this document is not a rights clearance.
 
+## Opt-in Simulator renderer comparison
+
+Apple OpenGL ES remains the default; physical-device rendering is unchanged.
+`HALOPAD_XBOX_RENDERER=angle-metal` builds a **Simulator-only preview** from the
+separately pinned [WebKit ANGLE source](https://github.com/WebKit/WebKit/tree/a1fb7ce122d0cd99f7d6cc82775f02565e266ece/Source/ThirdParty/ANGLE).
+[config/xbox-angle.lock.json](../config/xbox-angle.lock.json) records both source
+revisions and the enabled feature. This is independent of the Xbox guest pin.
+Do not retag a macOS ANGLE library as a Simulator library.
+
+Fetch the source into scratch, not another project checkout in `GitHub`:
+
+```sh
+angle_work=$(mktemp -d /tmp/halopad-angle.XXXXXX)
+git clone --filter=blob:none --depth=1 --no-checkout https://github.com/WebKit/WebKit.git "$angle_work/WebKit"
+git -C "$angle_work/WebKit" fetch --depth=1 origin a1fb7ce122d0cd99f7d6cc82775f02565e266ece
+git -C "$angle_work/WebKit" sparse-checkout init --cone
+git -C "$angle_work/WebKit" sparse-checkout set Source/ThirdParty/ANGLE
+git -C "$angle_work/WebKit" checkout --detach a1fb7ce122d0cd99f7d6cc82775f02565e266ece
+export XBOX_ANGLE_SOURCE="$angle_work/WebKit/Source/ThirdParty/ANGLE"
+HALOPAD_XBOX_RENDERER=angle-metal scripts/xbox/build-ios.sh
+```
+
+The small CMake wrapper reuses upstream source lists and builds with the actual
+Simulator SDK. Source revision/dirty-tree guards run before guest preparation.
+The archive/manifest live under ignored `ref/xbox-build/out/iphonesimulator-angle/`,
+leaving the default library untouched. Package with the same renderer setting
+using the normal `scripts/build-ios-app.py` workflow; it refuses a physical
+target, missing candidate library, mismatched renderer/source or stale hashes.
+The picker identifies this renderer build as PREVIEW even with the accepted guest
+pin. Preserve the previous app and actual saves before an in-place installation.
+
+Run the asset-free probe before accepting this backend on another Simulator:
+
+```sh
+xcrun --sdk iphonesimulator clang -target arm64-apple-ios17.0-simulator \
+  -fobjc-arc -I"$XBOX_ANGLE_SOURCE/include" tests/xbox_angle_probe.m \
+  ref/xbox-build/out/angle-simulator/libhalopad-angle.a -lc++ -lz \
+  -framework Foundation -framework CoreGraphics -framework IOSurface \
+  -framework QuartzCore -framework Metal -o "$angle_work/angle-probe"
+SIMCTL_CHILD_HALOPAD_ANGLE_NATIVE_SWIZZLE=1 xcrun simctl spawn SIMULATOR_UDID "$angle_work/angle-probe"
+```
+
+It tests equal-depth coverage, swizzle-independent blitting and swizzled texture
+sampling. The unmodified ANGLE Simulator default fails the last test here:
+it deliberately disables `hasTextureSwizzle` in
+[DisplayMtl](https://github.com/WebKit/WebKit/blob/a1fb7ce122d0cd99f7d6cc82775f02565e266ece/Source/ThirdParty/ANGLE/src/libANGLE/renderer/metal/DisplayMtl.mm).
+The native-feature override passes on this Mac/iPadOS 26.5 and is confined to this
+opt-in candidate; it is not a general driver fix or a physical-device override.
+The smoke runner verifies the logged renderer against its manifest, allows a
+30-second cold ANGLE menu capture, and retains image/progression gates. Neither
+probe nor smoke results establish correct lighting, full gameplay or hardware
+acceptance. See the pass ledger for actual scene review and remaining defects.
+
 ## How it works
 
 Upstream's Android build compiles the game as **arm64_32** (AArch64 instructions, 32-bit pointers,

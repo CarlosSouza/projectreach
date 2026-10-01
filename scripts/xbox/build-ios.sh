@@ -23,6 +23,18 @@ while [ $# -gt 0 ]; do
 	esac
 	shift
 done
+RENDERER=${HALOPAD_XBOX_RENDERER:-apple-gles}
+case "$RENDERER" in
+apple-gles) ;;
+angle-metal)
+    [ "$SDK" = iphonesimulator ] || { echo "ANGLE candidate is Simulator-only" >&2; exit 2; }
+    [ -n "${XBOX_ANGLE_SOURCE:-}" ] || { echo "XBOX_ANGLE_SOURCE is required for ANGLE" >&2; exit 2; }
+    ANGLE_REV=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['revision'])" "$ROOT/config/xbox-angle.lock.json")
+    [ "$(git -C "$XBOX_ANGLE_SOURCE" rev-parse HEAD)" = "$ANGLE_REV" ] || { echo "ANGLE source differs from the renderer pin" >&2; exit 2; }
+    [ -z "$(git -C "$XBOX_ANGLE_SOURCE" status --porcelain --untracked-files=no)" ] || { echo "Preserve ANGLE source edits before building" >&2; exit 2; }
+    ;;
+*) echo "Unknown HALOPAD_XBOX_RENDERER" >&2; exit 2 ;;
+esac
 "$ROOT/scripts/xbox/prepare.sh"
 WORK="$ROOT/ref/xbox-build"
 ENGINE="$WORK/vol/engine"
@@ -30,9 +42,24 @@ OUT="$WORK/out"
 INC="$WORK/ndk/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include"
 OBJ="$OUT/obj-$SDK"
 APP="$OUT/$SDK/HaloPadXbox.app"
+BUILD_SDK=$SDK
+ANGLE_LIB=""
+ANGLE_FLAGS=""
+if [ "$RENDERER" = angle-metal ]; then
+    BUILD_SDK=iphonesimulator-angle
+    OBJ="$OUT/obj-$BUILD_SDK"
+    APP="$OUT/$BUILD_SDK/HaloPadXbox.app"
+    cmake -S "$ROOT/scripts/xbox/angle" -B "$OUT/angle-simulator" -G Ninja \
+        -DANGLE_SOURCE_DIR="$XBOX_ANGLE_SOURCE" -DCMAKE_SYSTEM_NAME=iOS \
+        -DCMAKE_OSX_SYSROOT=iphonesimulator -DCMAKE_OSX_ARCHITECTURES=arm64 \
+        -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 -DCMAKE_BUILD_TYPE=Release
+    cmake --build "$OUT/angle-simulator" --parallel 12
+    ANGLE_LIB="$OUT/angle-simulator/libhalopad-angle.a"
+    ANGLE_FLAGS="-DXG_USE_ANGLE=1 -I$XBOX_ANGLE_SOURCE/include"
+fi
 SYSROOT=$(xcrun --sdk $SDK --show-sdk-path)
 CC="xcrun --sdk $SDK clang -target $TARGET -isysroot $SYSROOT"
-CFLAGS="-O2 -g -Wall -Wno-unused-function -DGLES_SILENCE_DEPRECATION -fobjc-arc -I$ROOT/port/xbox -I$OUT -I/opt/homebrew/include"
+CFLAGS="-O2 -g -Wall -Wno-unused-function -DGLES_SILENCE_DEPRECATION -fobjc-arc -I$ROOT/port/xbox -I$OUT -I/opt/homebrew/include $ANGLE_FLAGS"
 mkdir -p "$OBJ" "$APP"
 for f in xg_memory xg_thread xg_syscall xg_gl xg_posix xg_xiso; do
 	$CC $CFLAGS -I"$INC" -c "$ROOT/port/xbox/$f.c" -o "$OBJ/$f.o"
@@ -49,10 +76,10 @@ $CC -c "$ROOT/port/xbox/xg_runtime.s" -o "$OBJ/xg_runtime.o"
 [ "$OBJ/guest.o" -nt "$OUT/guest.s" ] || $CC -c "$OUT/guest.s" -o "$OBJ/guest.o"
 # the engine as a library for HaloPad's own app (scripts/build-ios-app.py links
 # it with port/ios/HaloPadXbox.m when it exists)
-LIB="$OUT/$SDK/libhalopad-xbox.a"
-xcrun libtool -static -o "$LIB" $(ls "$OBJ"/*.o | grep -v xg_app_ios.o)
+LIB="$OUT/$BUILD_SDK/libhalopad-xbox.a"
+xcrun libtool -static -o "$LIB" $(ls "$OBJ"/*.o | grep -v xg_app_ios.o) $ANGLE_LIB
 # Keep the library tied to its exact guest image; app packaging checks this.
-python3 - "$ENGINE" "$OUT" "$SDK" <<'PY'
+python3 - "$ENGINE" "$OUT" "$BUILD_SDK" "$RENDERER" "$ROOT/config/xbox-angle.lock.json" <<'PY'
 import datetime, hashlib, json, pathlib, subprocess, sys
 engine, out, sdk = sys.argv[1], pathlib.Path(sys.argv[2]), sys.argv[3]
 manifest = {
@@ -60,10 +87,15 @@ manifest = {
     'built': datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d'),
     'guest_sha256': hashlib.sha256((out / 'halo_guest.elf').read_bytes()).hexdigest(),
     'library_sha256': hashlib.sha256((out / sdk / 'libhalopad-xbox.a').read_bytes()).hexdigest(),
+    'renderer': sys.argv[4],
 }
+if sys.argv[4] == 'angle-metal':
+    manifest['angle_source'] = json.loads(pathlib.Path(sys.argv[5]).read_text())
 (out / sdk / 'build.json').write_text(json.dumps(manifest, indent=2) + '\n')
 PY
-$CC -o "$APP/HaloPadXbox" "$OBJ"/*.o -framework UIKit -framework QuartzCore -framework OpenGLES \
+GL_LINK="-framework OpenGLES"
+[ "$RENDERER" != angle-metal ] || GL_LINK="-lc++ -lz -framework Metal -framework IOSurface"
+$CC -o "$APP/HaloPadXbox" "$OBJ"/*.o $ANGLE_LIB -framework UIKit -framework QuartzCore $GL_LINK \
 	-framework GameController -framework AudioToolbox -framework AVFoundation -framework Foundation -framework CoreFoundation -framework CoreGraphics
 cp "$OUT/halo_guest.elf" "$APP/halo_guest.elf"
 PLATFORM=iPhoneSimulator

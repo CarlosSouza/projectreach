@@ -1,0 +1,8 @@
+{
+  "url": "https://github.com/WebKit/WebKit.git",
+  "revision": "a1fb7ce122d0cd99f7d6cc82775f02565e266ece",
+  "source": "Source/ThirdParty/ANGLE",
+  "angle_commit": "eb725ace1839",
+  "status": "simulator-renderer-candidate",
+  "features_enabled": ["hasTextureSwizzle"]
+}

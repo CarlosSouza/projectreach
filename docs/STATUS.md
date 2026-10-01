@@ -4,9 +4,25 @@ Updated 2026-10-01. **ACTIVE — Simulator-focused Xbox/menu loop.** Physical ac
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE3.md](HaloPad-GOAL-LOOP-PHASE3.md). Earlier engineering history remains in [phase 2](HaloPad-GOAL-LOOP-PHASE2.md).
 
+**Latest renderer comparison (2026-10-01).** A correctly source-built,
+separately pinned ANGLE/Metal Simulator preview now runs the same Xbox build 61.
+Its first scenes remove the pronounced horizontal wall bands but reverse red
+and blue. An asset-free sampling test reproduces that: ANGLE's Simulator default
+ignores the guest-required texture swizzle; its native-feature override passes
+sampling, equal-depth and blit controls on this Mac/iPadOS 26.5. The candidate
+alone enables that feature. The rebuilt campaign and Blood Gulch images have
+restored colors and no pronounced cliff bands in the reviewed views. Normal
+menu/campaign/scripted-match checks pass (1,530 ticks, 12 shots), not full visual
+acceptance or a matched-camera driver diagnosis. Apple remains the default;
+the Xbox guest pin and physical Windows/Metal rendering are unchanged. The
+physical iPad's reported shading/focus instability is still open. Continue
+matched scene/motion and copied checkpoint/control checks before adopting the
+candidate more broadly. See the pass ledger for failed first attempts and
+source/probe provenance. No physical install, IPA or publication.
+
 ## Latest engineering and device results
 
-**Current Simulator pass (2026-10-01).** The launch picker now clearly separates
+**Earlier frozen Apple-backend passes (2026-10-01).** The launch picker clearly separates
 Windows Custom Edition 1.10 from Xbox Combat Evolved, with edition-specific
 multiplayer descriptions, an installed-build panel, accessible text and a safe
 return from disc import. Short Xbox touch taps are latched until the engine polls

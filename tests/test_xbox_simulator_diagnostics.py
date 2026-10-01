@@ -16,6 +16,17 @@ spec.loader.exec_module(smoke)
 
 
 class SimulatorDiagnosticsTests(unittest.TestCase):
+    def test_renderer_must_match_manifest(self):
+        apple = 'OpenGL ES 3.0 APPLE on Apple Software Renderer'
+        angle = 'OpenGL ES 3.0 ANGLE on ANGLE Metal Renderer: Apple iOS simulator GPU'
+        self.assertTrue(smoke.renderer_matches(apple, 'apple-gles'))
+        self.assertTrue(smoke.renderer_matches(angle, 'angle-metal'))
+        for text, renderer in [(apple, 'angle-metal'), (angle, 'apple-gles'),
+                               ('OpenGL ES 3.0 ANGLE Vulkan', 'angle-metal'),
+                               ('', 'angle-metal'), (apple, 'unknown')]:
+            with self.subTest(text=text, renderer=renderer):
+                self.assertFalse(smoke.renderer_matches(text, renderer))
+
     def test_default_combat_unchanged(self):
         self.assertEqual(smoke.match_environment(), {
             'HALO_NETWORK_TEST': 'host:bloodgulch', 'HALO_NETWORK_TEST_START': '8',
