@@ -31,6 +31,20 @@ def match_environment(stationary=False):
             'HALO_NETWORK_TEST_SHOOT': '0' if stationary else '4'}
 
 
+def campaign_init(map_name):
+    return f'map_name levels\\{map_name}\\{map_name}\n'
+
+
+def campaign_load_requested(debug, map_name):
+    return f"starting precaching of map '{map_name}'" in debug
+
+
+def campaign_environment(scripted=False):
+    # Override inherited bot/network settings, including for ordinary campaign passes.
+    return {'HALO_NETWORK_TEST': '', 'HALO_NETWORK_TEST_START': '',
+            'HALO_NETWORK_TEST_SHOOT': '0', 'HALO_TEST_INPUT': 'bot:7' if scripted else ''}
+
+
 def depth_probe_pass(text):
     probes = re.findall(r'depth probe: (same-program|separate-program) covered (\d+) failed (\d+) error 0x([0-9a-f]+)', text)
     return (len(probes) == 2 and {row[0] for row in probes} == {'same-program', 'separate-program'} and
@@ -77,7 +91,15 @@ def main():
                         help='Capture before/after presentation and log renderer statistics (slower)')
     parser.add_argument('--stationary-match', action='store_true',
                         help='Rendering diagnostic only: no scripted movement, shooting or gathering')
+    parser.add_argument('--campaign-map', choices=('a10', 'a30'), default='a10',
+                        help='Campaign map (a10: Pillar of Autumn; a30: Halo)')
+    parser.add_argument('--scripted-campaign', action='store_true',
+                        help='Rendering diagnostic only: upstream bot movement/look/shoot, not human controls')
     args = parser.parse_args()
+    if args.campaign_map != 'a10' and args.case != 'campaign':
+        parser.error('--campaign-map a30 requires --case campaign')
+    if args.scripted_campaign and (args.case != 'campaign' or not args.render_diagnostics):
+        parser.error('--scripted-campaign requires --case campaign --render-diagnostics')
     if args.stationary_match and (args.case != 'match' or not args.render_diagnostics):
         parser.error('--stationary-match requires --case match --render-diagnostics')
     depth_pair = args.render_diagnostics and os.environ.get('XG_DEPTH_COMPARE') == 'paired'
@@ -192,7 +214,7 @@ def main():
         folder.mkdir()
         (folder / 'maps').symlink_to(WORK / 'data/maps')
         if name == 'campaign':
-            (folder / 'init.txt').write_text('map_name levels\\a10\\a10\n')
+            (folder / 'init.txt').write_text(campaign_init(args.campaign_map))
         frame = folder / 'frame.ppm'
         log = folder / 'stdout.log'
         error = folder / 'stderr.log'
@@ -203,8 +225,10 @@ def main():
             control.write_text('equal\n')
         env = {k: v for k, v in os.environ.items() if not k.startswith('SIMCTL_CHILD_')}
         child = {'HALOPAD_CHOOSE': 'xbox', 'HALO_NET_ONLINE': 'false',
+                 'HALO_NET_JOIN_FROM_CLIPBOARD': 'false', 'HALO_NET_ALLOW_UPNP': 'false',
                  'XG_DATA': str(folder), 'XG_SAVE': str(folder / 'save'), 'XG_TOUCH_SHOW': '1',
                  'XG_FRAME_DUMP': str(frame), 'XG_FRAME_DUMP_SECONDS': '10'}
+        child.update(campaign_environment(name == 'campaign' and args.scripted_campaign))
         if name == 'match':
             child.update(match_environment(args.stationary_match))
         env.update({'SIMCTL_CHILD_' + k: v for k, v in child.items()})
@@ -309,8 +333,12 @@ def main():
         okay = renderer_ok and lit > 0.005 and '[xbox] signal' not in text
         row = {'pass': okay, 'lit': round(lit, 3), 'renderer_matches': renderer_ok, 'seconds': seconds}
         if name == 'campaign':
-            row['a10_load_requested'] = "starting precaching of map 'a10'" in debug
-            row['pass'] &= row['a10_load_requested']
+            row.update(map=args.campaign_map,
+                       input_mode='scripted-render-diagnostic' if args.scripted_campaign else 'no-scripted-input',
+                       map_load_requested=campaign_load_requested(debug, args.campaign_map))
+            if args.campaign_map == 'a10':
+                row['a10_load_requested'] = row['map_load_requested']
+            row['pass'] &= row['map_load_requested']
         if name == 'match':
             ticks = re.findall(r'network test: tick (\d+)', text)
             row.update(last_tick=int(ticks[-1]) if ticks else 0, shots=text.count('shoots player'))

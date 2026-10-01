@@ -32,6 +32,48 @@ class SimulatorDiagnosticsTests(unittest.TestCase):
             'HALO_NETWORK_TEST': 'host:bloodgulch', 'HALO_NETWORK_TEST_START': '8',
             'HALO_TEST_INPUT': 'bot:7', 'HALO_NETWORK_TEST_SHOOT': '4'})
 
+    def test_campaign_init_and_gate_use_requested_map(self):
+        for map_name in ('a10', 'a30'):
+            with self.subTest(map_name=map_name):
+                self.assertEqual(smoke.campaign_init(map_name),
+                                 'map_name levels\\' + map_name + '\\' + map_name + '\n')
+                self.assertTrue(smoke.campaign_load_requested(
+                    "starting precaching of map '" + map_name + "'", map_name))
+                self.assertFalse(smoke.campaign_load_requested("starting precaching of map 'ui'", map_name))
+        self.assertFalse(smoke.campaign_load_requested("starting precaching of map 'a10'", 'a30'))
+
+    def test_normal_campaign_clears_scripted_input_and_network_test(self):
+        settings = smoke.campaign_environment()
+        self.assertEqual(settings['HALO_TEST_INPUT'], '')
+        self.assertEqual(settings['HALO_NETWORK_TEST'], '')
+        self.assertEqual(settings['HALO_NETWORK_TEST_START'], '')
+        self.assertEqual(settings['HALO_NETWORK_TEST_SHOOT'], '0')
+        self.assertEqual(smoke.campaign_environment(True)['HALO_TEST_INPUT'], 'bot:7')
+
+    def test_scripted_campaign_requires_explicit_diagnostic_case(self):
+        for args in ([], ['--case', 'campaign'], ['--render-diagnostics'],
+                     ['--case', 'match', '--render-diagnostics']):
+            with self.subTest(args=args):
+                result = subprocess.run([sys.executable, str(SCRIPT), '--device', 'unused',
+                                         '--scripted-campaign', *args], capture_output=True, text=True)
+                self.assertEqual(result.returncode, 2)
+                self.assertIn('--scripted-campaign requires', result.stderr)
+
+    def test_later_campaign_map_requires_targeted_case(self):
+        for args in ([], ['--case', 'menu'], ['--case', 'match']):
+            with self.subTest(args=args):
+                result = subprocess.run([sys.executable, str(SCRIPT), '--device', 'unused',
+                                         '--campaign-map', 'a30', *args], capture_output=True, text=True)
+                self.assertEqual(result.returncode, 2)
+                self.assertIn('--campaign-map a30 requires --case campaign', result.stderr)
+
+    def test_unknown_campaign_map_rejected_before_launch(self):
+        result = subprocess.run([sys.executable, str(SCRIPT), '--device', 'unused',
+                                 '--case', 'campaign', '--campaign-map', '../outside'],
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn('invalid choice', result.stderr)
+
     def test_stationary_has_no_scripted_input_or_gathering(self):
         settings = smoke.match_environment(True)
         self.assertEqual(settings['HALO_TEST_INPUT'], '')

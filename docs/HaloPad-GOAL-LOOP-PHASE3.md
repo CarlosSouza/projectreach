@@ -24,10 +24,26 @@ Apple has large black floor polygons; the preview draws that floor. Both render
 at 640x480. NPC/prompt timing differs; no pixel-synchronized driver claim.
 Preview four-direction look, X tube exit, short forward input and Save and Quit
 work through actual touch controls. Fresh-process reload restores the last
-checkpoint inside the tube, not the unsaved exit position. Next verify sustained
-movement/look, simultaneous controls and a later campaign checkpoint.
+checkpoint inside the tube, not the unsaved exit position. A later normal-menu
+Halo/a30 pass now verifies RT fire (60→58), Y pistol swap, Save and Quit and a
+fresh-process pod checkpoint reload. Short drags are not sustained walking.
+A separate 90-second upstream-bot rendering diagnostic reaches the outdoor
+valley with camera/movement/fire; sampled cliffs, trees and ring lack pronounced
+bands. `smoke-simulator.py --campaign-map a30 --scripted-campaign` requires the
+explicit campaign/diagnostic case and labels its result accordingly; ordinary
+campaign/menu runs clear inherited bot/network-test settings. Next verify
+sustained human movement/look, simultaneous controls, a newly reached checkpoint
+and moving-image stability. Do not substitute bot screenshots for those gates.
 Keep the accepted Apple app available for in-place rollback and all real saves
 untouched. Physical iPad shading/focus investigation stays a separate gate.
+
+Next upstream candidate (live check 2026-10-01): `c55e4e2b9d90550b0e761eb78dfe9d7c74880cb9`,
+four commits after 61. Broader HUD/scopes, CRC guards, meter coverage-alpha and
+widescreen flat menu fills. Source estimates potential HUD textures rising from
+about 63 MB to 225 MB with mips (subset used); texture-description ABI changes.
+Build and measure one save-backed candidate, test scopes/meters/pause background,
+normal checkpoint reload and a10/a30/match before promotion. Keep Apple and ANGLE
+pins independent; do not chase a moving HEAD or enable the old cache-byte reader.
 
 Build 61 (`f8937c61`) is now the experimental development pin, adding upstream's
 high-resolution HUD after build 60's menu-glyph fix. Save-backed candidate and

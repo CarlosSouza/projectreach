@@ -94,6 +94,24 @@ The smoke runner verifies the logged renderer against its manifest, allows a
 probe nor smoke results establish correct lighting, full gameplay or hardware
 acceptance. See the pass ledger for actual scene review and remaining defects.
 
+The bounded campaign smoke defaults to Pillar of Autumn/a10 without scripted
+input. For later assets, `--case campaign --campaign-map a30` selects Halo.
+For a moving-camera diagnostic only:
+
+```sh
+.venv/bin/python scripts/xbox/smoke-simulator.py --device SIMULATOR_UDID \
+  --case campaign --campaign-map a30 --scripted-campaign \
+  --render-diagnostics --seconds 90
+```
+
+This uses upstream's `bot:7` for movement/look/fire and fresh isolated saves.
+The result records the requested map and `scripted-render-diagnostic` input
+mode; the load gate checks that actual map, not merely any campaign request.
+It is not normal-menu checkpoint, human-control or campaign-completion proof.
+Scripted campaign input requires both explicit diagnostic flags. Ordinary
+menu/campaign runs override inherited bot/network-test settings with empty
+values. Review the images separately; a lit frame is not visual acceptance.
+
 ## How it works
 
 Upstream's Android build compiles the game as **arm64_32** (AArch64 instructions, 32-bit pointers,

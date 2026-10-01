@@ -3978,3 +3978,33 @@ broader image review. Chris's physical iPad shading/focus report remains open.
 98 Xbox tests, whitespace and tree/index safety pass; upstream and ANGLE source
 checkouts clean. Final picker/About/Done rechecked with PREVIEW, real saves still
 byte-identical. Evidence-only changes, no IPA, push or publication. Goal active.
+
+### 2026-10-01 — later Halo campaign and explicit moving-camera diagnostic
+
+Normal ANGLE PREVIEW picker/Campaign/Halo/a30 flow reaches first-person pod play.
+Actual RT taps reduce rifle 60→58 and Y swaps to the pistol. Short forward drags
+are not sustained walking. Save and Quit completes; a fresh process recognizes
+Halo in progress and restores its pod checkpoint with rifle 60. Separate save
+copy throughout; no claim of later mission progression or unsaved-state restore.
+Private evidence `angle-later-campaign.Yu2u87`, including before/save-quit/cold
+captures and logs. No engine/UI changes or app installation.
+
+Added bounded a10/a30 selection to Simulator smoke and explicitly diagnostic
+campaign bot motion. Requires the targeted campaign plus rendering diagnostic;
+results label the input mode, check the requested map, and ordinary menu/campaign
+passes clear inherited bot/network-test settings. 90-second scripted a30 pass
+reaches outdoor valley views with firing and movement, lit 0.941, renderer and
+presentation captures passing. Reviewed terrain/tree/ring views lack pronounced
+bands; sampled screenshots are not temporal or physical visual acceptance.
+Startup blit error remains open. Normal menu/a10/scripted-match regressions also
+pass (1,530 match ticks / 12 shots). 103 Xbox unit tests, whitespace and safety
+pass. Ordinary two-edition picker restored with PREVIEW; real saves byte-identical
+to backup, upstream/ANGLE source clean. No physical install, IPA, push or release.
+
+Live upstream check finds four new commits through `c55e4e2` (13:21:22 UTC):
+expanded HUD/scopes, meter coverage-alpha, CRC replacement guards and widescreen
+flat menu fills. Read-only patch review identifies increased potential HUD memory
+and another texture-description ABI change. Recorded as next save-backed candidate;
+not installed/promoted. Keep physical iPad shading/focus report separate and open.
+Goal active: next candidate build/memory/HUD/save checks, then sustained human
+controls, genuinely new checkpoint progression and moving-image review.

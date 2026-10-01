@@ -22,10 +22,24 @@ Both use 640x480 guest rendering; NPC/prompt timing differs, so this is not a
 frame-synchronized driver diagnosis. Preview four-direction look, tube exit,
 short forward input, Save and Quit and fresh-process checkpoint reload work
 with isolated saves. Reload returns to the last checkpoint inside the tube,
-not the unsaved exit position. Continue
-sustained motion, later checkpoint and control checks before adopting the
+not the unsaved exit position. A later normal-menu pass now loads Halo/a30 into
+the escape pod: two RT taps reduce rifle ammo 60→58, Y swaps to the pistol, and
+Save and Quit completes. A fresh process identifies Halo as in progress and
+restores its pod checkpoint (rifle 60, not the unsaved shots/pistol). A separate
+90-second, explicitly scripted a30 rendering diagnostic reaches the outdoor
+valley, changes the viewpoint and fires; reviewed terrain/tree/ring images lack
+the pronounced bands. These are sampled views, not temporal or physical visual
+acceptance. The smoke tool now supports a10/a30 and fails closed on accidental
+scripted campaign inputs. Continue sustained human motion, simultaneous controls,
+new checkpoint progression and moving-image checks before adopting the
 candidate more broadly. See the pass ledger for failed first attempts and
 source/probe provenance. No physical install, IPA or publication.
+
+**Upstream update queued:** live 2026-10-01 check finds four newer commits through
+`c55e4e2` (expanded HUD/scopes, meter alpha and widescreen flat menu fills).
+Build 61 remains the tested pin. The next save-backed candidate needs additional
+HUD/memory checks and texture-ABI review before promotion; none of those changes
+is evidence of a physical Windows-rendering fix.
 
 ## Latest engineering and device results
 

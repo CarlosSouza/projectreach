@@ -999,3 +999,57 @@ Final ordinary picker/About/Done verified, build `f8937c61` and incomplete
 validation shown. Both edition choices return. 98 Xbox unit tests pass; whitespace
 and tree/index safety pass. Both third-party source checkouts remain clean. This
 follow-up adds evidence/documentation only; no engine or UI source changes.
+
+## 2026-10-01 — later campaign, fire/swap/reload and bounded scripted coverage
+
+Private evidence: `ref/xbox-build/passes/2026-10-01/angle-later-campaign.Yu2u87/`.
+Same installed ANGLE/native-swizzle PREVIEW, frozen guest `f8937c61`, dedicated
+iPadOS 26.5 Simulator. Full separate copy of `campaign61-compat.xCtR9E/save`,
+read-only maps, ordinary picker/Campaign/New001/Halo/Normal flow. No init script,
+bot, forced edition or injected guest actions in this normal-menu run. First-person
+play reaches the escape pod (`halo-pod-before.png`). Two actual RT taps reduce
+the rifle display 60→58; Y switches to the pistol (064 reserve). Eighteen finite
+forward drags displace the view modestly, not sustained human walking. Actual
+pause menu → Save and Quit shows Saving last checkpoint, then the main menu
+(`after-save-quit.png`). Fresh process PID 64259 (preceding run 60384) follows
+normal menus: Halo explicitly says game in progress, then restores the pod
+checkpoint (`cold-checkpoint.png`), rifle 60, not the unsaved shots/pistol.
+This is a later-map checkpoint restore, not proof of reaching a new checkpoint
+through campaign progression. Copied save hash after initial a30 load/Save and
+Quit is `502640dc2d11ae2ae0f101ce29c1b81d15fb7c1f9dc21ae0647964feb308287c`;
+fresh load changes it to `384c0c0aab8eb4e0dd4cc4951d6e60f34bd6441128d43a441f8ab7aded657a28`.
+
+The smoke runner now supports a10/a30, validates the actually requested map and
+retains the original a10 result field. Explicit `--scripted-campaign` requires
+`--case campaign --render-diagnostics`; ordinary menu/campaign runs clear
+inherited bot/network-test settings. Result input mode distinguishes automation
+from human controls. A separate fresh-save 90-second a30 `bot:7` pass succeeds:
+ANGLE identity, lit fraction 0.941, both presentation captures, no signal report.
+`scripted/campaign/motion-middle.png` and `screen.png` show changed outdoor valley
+views, rifle shots/reload and grenade changes. Cliffs, trees, terrain and ring
+lack the pronounced earlier bands in these sampled views. Initial-map script
+and diagnostic inventory are not the normal pod checkpoint flow; no human-control,
+continuous temporal stability, full mission or audio acceptance. Startup GL
+`0x502` remains; later presentation observations report prior/read error 0.
+
+Normal no-render-diagnostic regression (`normal/`) also passes menu 30 seconds,
+a10 60 seconds and scripted-match 65 seconds / 1,530 ticks / 12 shots. Reviewed
+campaign cinematic and Blood Gulch images retained. Ordinary launch picker
+restored, Xbox PREVIEW, both edition choices present. No app rebuild/install or
+UI/renderer source change in this pass. 103 Xbox unit tests pass, whitespace and
+tree/index safety pass. Real saves in rediscovered container
+`7C9D2071-CFA5-48FE-9723-67DC6DACEA4C` still match the acceptance backup byte-for-byte.
+Both upstream and ANGLE checkouts remain clean; no physical changes, IPA, push
+or publication. Physical iPad shading/focus report remains unresolved.
+
+Live GitHub check found upstream four commits ahead at
+[`c55e4e2b9d90550b0e761eb78dfe9d7c74880cb9`](https://github.com/cybersecurity/halo-ce-universal/commit/c55e4e2b9d90550b0e761eb78dfe9d7c74880cb9),
+committed 2026-10-01 13:21:22 UTC. Read-only comparison: broader high-res HUD and
+sniper assets, CRC-guarded replacement, coverage-alpha meter shaders and flat
+widescreen UI fills. Source estimates up to 69 textures / about 225 MB with mips
+versus 15 / about 63 MB, though only a subset is used at once. This is an upstream
+estimate, not measured HaloPad memory. Texture-description ABI changes again.
+Next save-backed candidate update must test clean embedding/translation/build,
+memory, scopes/meters/pause backgrounds, normal menu/checkpoint reload and
+rendered motion. Keep the tested guest/renderer frozen until candidate gates
+pass; newest commit is not installed or promoted by this pass. Goal stays active.
