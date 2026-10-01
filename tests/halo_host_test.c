@@ -11,7 +11,9 @@
  * respawn as a new unit. WinMain's GameSpy set-up and key string are set as in the other
  * component tests (see tests/halo_connect_test.c). The whole session's sound is pulled from
  * DirectSound's mix at real-time rate and saved as session.wav; the menu music, gunfire and the
- * grenade explosions are checked in it. */
+ * grenade explosions are checked in it. HALOPAD_TEST_CAPTURE_MOTION=1 additionally
+ * retains 30 consecutive downward-pan frames and guest pose metadata. Readback
+ * changes pacing: not human input, normal WinMain, hardware or FPS acceptance. */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -58,18 +60,33 @@ void *halopad_d3d9_device_target(uint32_t g);
 void halopad_metal_read_image(void *p, uint32_t *out, uint32_t w, uint32_t h);
 extern void (*halopad_d3d9_present_hook)(uint32_t device);
 
-static void keyx(uint32_t vk, uint32_t scan, int ext, int down) { hp_input e = {0}; e.kind = HPI_KEY; e.vk = e.side_vk = vk; e.scan = scan; e.extended = ext; e.down = down; halopad_input_event(&e); }
-static void shot(uint32_t device, int n)
+static void keyx(uint32_t vk, uint32_t scan, int ext, int down) { hp_input e = {0}; e.kind = HPI_KEY; e.vk = e.side_vk = vk; e.scan = scan; e.extended = ext; e.down = down; halopad_host_post_input(&e); }
+static int shot(uint32_t device, int n)
 {
     uint32_t w = 800, h = 600, *img = malloc(w * h * 4);
+    if (!img) { failures++; return 0; }
     halopad_metal_read_image(halopad_d3d9_device_target(device), img, w, h);
     const char *reg = getenv("HALOPAD_REGISTRY");
+    if (!reg || !strrchr(reg, '/')) { free(img); failures++; return 0; }
     char path[1200];
     snprintf(path, sizeof path, "%.*s/host-%02d.ppm", (int)(strrchr(reg, '/') - reg), reg, n);
     FILE *f = fopen(path, "wb");
-    fprintf(f, "P6\n%u %u\n255\n", w, h);
-    for (uint32_t i = 0; i < w * h; i++) { uint8_t rgb[3] = {(uint8_t)(img[i] >> 16), (uint8_t)(img[i] >> 8), (uint8_t)img[i]}; fwrite(rgb, 1, 3, f); }
-    fclose(f); free(img);
+    int saved = 0;
+    if (f) {
+        uint8_t *rgb = malloc(w * h * 3);
+        if (rgb) {
+            for (uint32_t i = 0; i < w * h; i++) {
+                rgb[3 * i] = img[i] >> 16; rgb[3 * i + 1] = img[i] >> 8; rgb[3 * i + 2] = img[i];
+            }
+            saved = fprintf(f, "P6\n%u %u\n255\n", w, h) > 0 &&
+                fwrite(rgb, 1, w * h * 3, f) == w * h * 3;
+            free(rgb);
+        }
+        if (fclose(f)) saved = 0;
+    }
+    free(img);
+    failures += !saved;
+    return saved;
 }
 /* The menu route, as keys (100 frames apart; "wait" lets a screen settle). */
 static const char *const route[] = {
@@ -98,10 +115,11 @@ static uint32_t live_objects(void)
     for (uint32_t i = 0; i < u16(ot + 0x20); i++) n += u16(rd(ot + 0x34) + i * 12) != 0;
     return n;
 }
-static void mouse(int dx, int dy) { hp_input e = {0}; e.kind = HPI_MOUSEMOVE; e.x = 400; e.y = 300; e.dx = dx; e.dy = dy; halopad_input_event(&e); }
-static void button(int b, int down) { hp_input e = {0}; e.kind = HPI_BUTTON; e.x = 400; e.y = 300; e.button = b; e.down = down; halopad_input_event(&e); }
+static void mouse(int dx, int dy) { hp_input e = {0}; e.kind = HPI_MOUSEMOVE; e.x = 400; e.y = 300; e.dx = dx; e.dy = dy; halopad_host_post_input(&e); }
+static void button(int b, int down) { hp_input e = {0}; e.kind = HPI_BUTTON; e.x = 400; e.y = 300; e.button = b; e.down = down; halopad_host_post_input(&e); }
 #define QUIT_AFTER 6400
 static int frames, spawn_frame, death_frame, respawn_frame;
+static int capture_motion, motion_frames;
 static uint32_t first_unit, second_unit, objects_before, objects_most, frags0 = 0xff, frags1 = 0xff, melee_seen, name_ok;
 static float health_min = 2, shield_min = 2, look_down;
 static char map_at_spawn[32];
@@ -282,6 +300,12 @@ static void on_present(uint32_t device)
        runs, where the two frags killed; a slower closed-loop turn still moving at the throw, or
        k -0.91, left the player wounded) */
     if (t >= 240 && t < 270) mouse(0, 40);
+    if (capture_motion && u && t >= 240 && t < 270 && shot(device, 1000 + frames)) {
+        motion_frames++;
+        printf("HALOPAD HOST MOTION frame %d file host-%02d.ppm position %.9g %.9g %.9g look %.9g %.9g %.9g\n",
+               frames, 1000 + frames, f32(u + 0x5c), f32(u + 0x60), f32(u + 0x64),
+               f32(u + 0x23c), f32(u + 0x240), f32(u + 0x244));
+    }
     if (t == 325 && u) { look_down = f32(u + 0x244); frags0 = *(uint8_t *)halopad_guest_ptr(u + 0x31e); }
     /* grenades at the player's feet until it dies: a throw every 40 frames (a press while the last
        throw is still in its animation is ignored, so fixed times sometimes threw one frag, which
@@ -320,6 +344,8 @@ int main(void)
 {
     const char *image = getenv("HALOPAD_IMAGE");
     if (!image) return 2;
+    const char *motion = getenv("HALOPAD_TEST_CAPTURE_MOTION");
+    capture_motion = motion && !strcmp(motion, "1");
     setvbuf(stdout, NULL, _IONBF, 0);
     halopad_guest_harness_heap = 0;
     uint32_t top = halopad_guest_init(image, 0x400000);
@@ -456,6 +482,7 @@ int main(void)
     check("  the player dies", death_frame > 0, 1);
     check("  Slayer respawns the player as a new unit", respawn_frame > death_frame && second_unit && second_unit != first_unit, 1);
     check("  no dialog", (uint32_t)dialogs, 0);
+    if (capture_motion) check("  captured all 30 consecutive motion frames", motion_frames, 30);
     DeleteFileA_c(str(script_name));
     printf("%s: %d failure(s)\n", failures ? "FAIL" : "PASS", failures);
     return failures != 0;

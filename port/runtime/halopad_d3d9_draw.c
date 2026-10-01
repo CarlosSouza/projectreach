@@ -473,8 +473,8 @@ static uint32_t draw(device *d, uint32_t type, uint32_t prims, uint32_t start, i
             for (uint32_t l = 0; l < t->levels; l++) if (t->dirty[l]) dirty |= 1u << l;
             fprintf(stderr, "HALOPAD DRAW   sampler %d texture %08x filters %u/%u/%u lod-bias %g/%08x min-lod %u anisotropy %u\n",
                     s, d->texture[s], v[5], v[6], v[7], f32(v[8]), v[8], v[9], v[10]);
-            fprintf(stderr, "HALOPAD DRAW   texture %d type %u format %08x size %ux%ux%u levels %u pool %u resource-lod %u dirty %04x\n",
-                    s, t->ttype, t->format, t->width, t->height, t->depth, t->levels, t->pool, t->lod, dirty);
+            fprintf(stderr, "HALOPAD DRAW   texture %d type %u format %08x size %ux%ux%u levels %u pool %u resource-lod %u dirty %04x native %u\n",
+                    s, t->ttype, t->format, t->width, t->height, t->depth, t->levels, t->pool, t->lod, dirty, t->native != NULL);
         }
         if (up) {
             for (uint32_t i = 0; i < (prims <= 2 ? prims + 2 : 1); i++) {

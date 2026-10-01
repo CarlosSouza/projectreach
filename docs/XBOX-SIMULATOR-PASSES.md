@@ -1460,3 +1460,88 @@ Simulator save directory still matches `audio64.U2hPbE/real-save-before`.
 109 Xbox Python tests, whitespace and current-tree/index safety guards pass.
 Only evidence/status documentation changes in this pass; private copies and
 screenshots remain ignored. No cleanup or publication.
+
+### PC Battle Creek moving-view and texture-upload classification (2026-10-02)
+
+Private pass: `ref/xbox-build/passes/2026-10-02/pc-battlecreek.HMpnzY/`.
+The preceding goal turn made progress with a genuinely later Xbox checkpoint.
+This pass expands investigation of the unresolved physical shading/focus report,
+not Xbox renderer acceptance. A temporary `halo_play_test.c` map switch to
+beavercreek loads the map but creates no player: Simulator
+`core-arm64-apple-ios17.0-simulator-20261001T174800Z` fails five checks, including
+the absent player and zero motion frames. That source experiment is reverted;
+no map-only screenshot is counted as gameplay.
+
+Use the existing `halo_host_test.c` local route instead: Multiplayer, new profile,
+Create Game/LAN, Battle Creek, Slayer, Start Game. All scripted keyboard/mouse/
+button actions now use `halopad_host_post_input` (Simulator queue/pump; Mac
+same-thread dispatch). It remains a component systems/main route, not normal
+licensed WinMain, human touch, Bluetooth input or Internet play. Fresh state
+keeps profiles separate. No script/guest-state shortcut starts the match.
+
+Exact `HALOPAD_TEST_CAPTURE_MOTION=1` saves 30 consecutive frames during the
+existing downward mouse sweep, with actual frame/file/position/look metadata.
+A conditional native assertion requires all 30. Image allocation/open/write/
+close failures count as failures, including the original seven snapshots;
+RGB is written as one packed image instead of per-pixel fwrite. No production
+capture/input changes. Readback and logging perturb pacing, so no FPS/sync claim.
+
+Simulator `…-20261001T175127Z`: all 20 checks pass, 3,637 presents, profile New001,
+fire/melee/grenade damage/death/respawn/weapon pickup and the existing manual
+DirectSound mix checks. Frames 3141–3170 are all valid RGB 800x600 with finite
+poses and unchanged position; angular increments 4.343524–4.343598 degrees.
+Reviewed contact sheet and full-resolution largest adjacent pair 3146/3147 show
+a downward sweep across the base ramp/floor. ROI y65–549 RGB means span
+56.009–95.558; adjacent mean absolute differences 3.704–13.900 on a 0–255 scale.
+These statistics do not establish correct detail, lighting or temporal fidelity.
+
+Ordinary Mac `core-arm64-apple-macosx14.0.0-20261001T175417Z` passes all 19 checks
+at 3,716 presents. Trace 3141:3170 contains 3,245 draw requests / 9,770 bound
+observations, all bias/minimum/resource LOD zero, no dirty managed bindings.
+Ordinary traced Simulator `…-20261001T175720Z` reaches 6,400 presents but fails
+four later assertions: death, respawn, ensuing pickup and death-associated audio.
+First frag damage/fire/melee/look/menu/profile pass. No death occurs; do not call
+that run passed or blame tracing/host input without a controlled experiment.
+Its moving interval has 3,179 requests / 11,326 observations, three dirty managed
+bindings (16x16 single-level, 256x256 nine-level, 1024x256 eleven-level), again
+zero bias/minimum/resource LOD. A dirty flag alone cannot distinguish a first
+upload from changing an existing texture. Bound stages may be stale or unused,
+and are not GPU-submission or actual-upload counts.
+
+Add only `native 0/1` to opt-in texture trace, indicating whether a Metal object
+exists **before that draw request's upload**. Do not log raw pointers or change
+sampling/upload behavior. Mac native D3D9 run `…-20261001T180500Z` passes all
+260 checks; trace includes initial dirty/native-0 textures and the exact
+managed eight-by-eight four-mip rewrite with dirty-0004/native-1, validating the
+distinction. Ordinary untraced Simulator host `…-20261001T180343Z` passes all 19
+checks and writes only the original seven snapshots, no motion sequence.
+
+Combined Simulator capture/trace `…-20261001T180726Z` passes all 20 checks and
+retains all 30 frames. Its stationary player position is −3.201,17.327,−0.217,
+unlike the first capture's 24.507,10.438,−1.356: random Slayer spawns select
+different surfaces, not a matched old/new rendering comparison. Reviewed six
+views and full pair 3155/3156 show **strong high-frequency grain on outdoor
+ground** during the downward sweep. This is a concrete material/detail-sampling
+case, not confirmed reproduction of Chris's physical complaint or proof that it
+is incorrect against the original game. ROI RGB means 52.774–113.220, adjacent
+differences 15.541–44.572; camera steps 4.343525–4.343593 degrees. Trace has
+3,173 requests / 9,299 observations (9,239 managed), all bias/minimum/resource
+LOD zero and zero dirty managed textures. All observations include the new
+native flag. The three dirty textures in the earlier failed run remain
+unclassified: do not retroactively label them first uploads. No original
+Windows reference or physical capture is available for these views.
+
+The private `combined/` contact sheet, largest pair and analysis JSON retain the
+grainy case; all raw frames/logs/audio remain in ignored per-run evidence.
+Next isolate its ground-material draw and actual mip/detail sampling and obtain
+a matched original view. Do not substitute another generic mip test or green
+gameplay run for that comparison. The separate physical report and sustained
+two-thumb/controller gates remain open. Read-only iPad app metadata confirms
+HaloPad 0.1/build 1 but cannot identify its renderer revision; no device launch,
+install, pairing, filesystem mutation or gameplay claim follows from it.
+
+109 Xbox tests, five input guards, whitespace/tree/index safety pass. The
+ordinary two-edition picker is restored on the dedicated Simulator without test
+overrides. Full real Xbox-save comparison still matches the audio pass backup.
+No one-app install, pin change, physical mutation, IPA, public artifacts, push,
+release or cleanup. Goal remains active.

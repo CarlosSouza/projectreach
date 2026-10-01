@@ -110,6 +110,22 @@ Next prioritize a matched affected moving scene/reference and sustained controls
 do not repeat the now-covered opening-to-outside-pod continuation as full gameplay
 or hardware rendering proof. See the pass ledger for exact evidence.
 
+The next PC diagnostic expands moving coverage to Battle Creek through the
+existing local LAN menu route, not a direct map load. Its scripted controls now
+use the host input API. Ordinary Mac and Simulator runs pass all 19 checks;
+opt-in Simulator capture passes 20 including 30 consecutive downward-pan frames.
+One traced run fails later grenade-death/respawn/pickup assertions; preserve that
+failure, do not relax them. A combined capture/trace repeat passes and shows a
+strongly grainy outdoor ground view. Its 9,299 bound observations have zero LOD
+bias/resource LOD and no dirty managed textures. A new trace-only native-object
+flag distinguishes first uploads from rewrites; 260 native GPU checks pass.
+No explanation of the physical complaint is established. Different random spawn
+positions render different surfaces; these runs are not pixel-matched references.
+Next isolate the grainy ground material and actual mip/detail sampling against
+an original reference, rather than repeating the base-floor capture or treating
+more green gameplay assertions as visual acceptance. No iPad install/launch,
+one-app installation or real save changes. Goal active.
+
 The earlier build-61 (`f8937c61`) experimental development pin added upstream's
 high-resolution HUD after build 60's menu-glyph fix. Save-backed candidate and
 acceptance Mac/Simulator menu/campaign/scripted-match checks pass. The
