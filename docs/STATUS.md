@@ -1,8 +1,20 @@
 # HaloPad status
 
-Updated 2026-10-02. **ACTIVE — Simulator-focused Xbox/menu loop.** Physical acceptance remains separate.
+Updated 2026-10-02. **BLOCKED — coordinated physical-iPad test window needed.** The full goal is incomplete.
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE3.md](HaloPad-GOAL-LOOP-PHASE3.md). Earlier engineering history remains in [phase 2](HaloPad-GOAL-LOOP-PHASE2.md).
+
+**Blocked audit (2026-10-02).** After the current-source device rebuild, three
+consecutive audits cannot advance the remaining physical requirements without
+confirmation that the shared iPad is available. No live build/job is being
+waited on. Checkout remains clean before this record; prepared device executable
+still hashes to `af1be628…0dc436`. Prior audit verifies unchanged Simulator
+executable and all 121 retained save-backup checksums, not new gameplay.
+Repeated Simulator checks cannot close physical graphics/audio/controller or
+reported shading/focus acceptance. Resume with a coordinated hardware window;
+identify the affected edition/map, validate real provisioning, preserve and
+read back Documents/Library, install in place, then test the exact candidate.
+No physical action, IPA, publication or claim that the full goal is achieved.
 
 **Current device-SDK readiness (2026-10-02).** Rebuilt the experimental combined
 iPhoneOS app from `68cb779`, including the touch-owner fix. Executable

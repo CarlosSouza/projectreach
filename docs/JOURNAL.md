@@ -4300,3 +4300,19 @@ and readback before eventual in-place installation. Hardware-window and affected
 edition/map questions remain unanswered. Goal active; rendering complaint and
 physical graphics/audio/controllers remain open. No graphics fix, pin change,
 Xbox IPA, publication or cleanup. [Readiness evidence](XBOX-SIMULATOR-PASSES.md#current-source-device-readiness-2026-10-02).
+
+### 2026-10-02 — blocked audit after device-preview preparation
+
+Previous goal turn: no progress, not a verified wait. Three consecutive audit
+turns retain the same unanswered coordinated-iPad-window requirement; the build
+is terminal and no live process/job is being waited on. First audit reads actual
+Mac/Simulator retained results, confirms installed Simulator hash and verifies
+121 save-backup checksums. Second checks clean checkout and device-build report.
+Third reconfirms clean checkout at `a57634d` and actual prepared device executable
+SHA-256 `af1be628abbf5381160953031a91d7d817397a14999b5b25b9a4ada3830dc436`.
+None provides new physical behavior evidence. Do not manufacture further small
+Simulator edits to avoid this boundary. Record blocked goal, not completion.
+Resume needs Chris's coordinated shared-iPad window; then check actual profile,
+back up/read back full data and install in place before graphics/audio/controller
+acceptance. Rendering comparison also needs the affected edition/map. No hardware
+action, source pin change, IPA, publication or cleanup.

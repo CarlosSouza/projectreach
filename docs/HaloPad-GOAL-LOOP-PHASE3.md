@@ -4,6 +4,14 @@ Written 2026-09-29. This is the active loop for the supplied device handoff and 
 
 ## Current priority — 2026-10-01 Simulator / Xbox integration
 
+**2026-10-02 blocked checkpoint:** three consecutive no-progress audits after
+device-preview preparation retain the same missing coordinated hardware window.
+Goal remains incomplete. Do not run another identical Simulator gate as a
+substitute for physical graphics/audio/controllers. Resume when Chris confirms
+shared-iPad availability; then follow the preservation/provisioning requirements
+below. Affected edition/map clarification remains necessary for the rendering
+comparison. No physical install, launch, pairing or acceptance is implied.
+
 Current experimental device-SDK preview is `af1be628…0dc436`, rebuilt from
 `68cb779` with the touch-owner fix. Actual artifact/source/SDK checks pass;
 ad-hoc signing without a profile is not physical acceptance. No installation
