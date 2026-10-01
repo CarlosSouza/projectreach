@@ -4152,3 +4152,26 @@ and scene metadata change. 128 Xbox, five input guards, 13 executed package
 checks plus 16 native UIKit checks pass (16 package checks skipped). No physical
 change, visual fix, pin update, IPA, push, publication or cleanup. Goal stays
 active. See [profile/lifecycle pass](XBOX-SIMULATOR-PASSES.md#upstream-profile-summary-and-xbox-touch-focus-loss-2026-10-02).
+
+### 2026-10-02 — live PC ground-material color arithmetic
+
+Private `pc-live-color.L5KDQS` fixture borrows actual encoded Battle Creek
+geometry, constants, textures and samplers through the existing diagnostic hook.
+Independent float targets capture four samples, four interpolated coordinates,
+fog and unmodified pixel-shader output; original target bytes remain unchanged.
+Initial compile has an array-name collision; first linked run passes host checks
+but spawns indoors and fails the exact-material gate. Preserve both attempts.
+Second bounded run `G3/…215644Z` exits zero with 24 assertions/30 motion frames.
+Three ground draws cover 1,396,060 pixel observations; an independent original
+bytecode interpreter matches all RGBA values exactly. Base alpha is one and fog
+off in this sample; synthetic calibration covers mixed alpha/fog, not gameplay.
+Three analyzer tests (including five bad-capture subcases) pass and a deliberate
+color residual is detected. Reviewed derived contact sheet still shows grain
+in both the original target and independent material/detail sample images.
+Sampling/interpolation are observed inputs, not independently verified; no
+depth/blend visibility, original-driver, temporal or physical acceptance claim.
+No tracked runtime change or installation. Ordinary integrated app resumes at
+PID 95450 with the unchanged `58111bcb…29f093` executable. Full audit preserves
+all real game bytes, preferences and PC registry; normal logs/Metal caches and
+system snapshots change. Goal active. Next matched affected/reference rendering,
+not a speculative shader/filter fix. See [live material pass](XBOX-SIMULATOR-PASSES.md#pc-live-ground-material-arithmetic-2026-10-02).

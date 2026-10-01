@@ -4,6 +4,24 @@ Updated 2026-10-02. **ACTIVE — Simulator-focused Xbox/menu loop.** Physical ac
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE3.md](HaloPad-GOAL-LOOP-PHASE3.md). Earlier engineering history remains in [phase 2](HaloPad-GOAL-LOOP-PHASE2.md).
 
+**PC live material arithmetic (2026-10-02).** A private Simulator component
+probe replays the exact Battle Creek ground draw into independent float targets,
+capturing actual texture samples/interpolated inputs and the unmodified pixel
+shader output. An independent original-bytecode interpreter matches all
+1,396,060 covered pixel observations across three frames exactly. Actual coverage
+has base alpha one and fog off; other blend/fog paths are not gameplay-tested by
+this sample. The grain remains visible, including in the detail samples. This
+weakens color-arithmetic failure for this particular material, not sampling,
+geometry/depth or the unresolved physical shading/focus report. First linked
+run spawns indoors and fails the exact-material capture gate; preserve it.
+Successful run passes 24 assertions and retains all 30 motion frames. Analyzer
+calibration and five malformed-capture controls pass. No tracked runtime edit,
+app installation, pin change or physical operation. Ordinary app resumes at
+the same PID; installed executable, real Xbox/PC game files, preferences and
+PC registry remain unchanged. Next obtain a matched original-driver/affected
+scene comparison rather than add a speculative filtering workaround.
+Evidence: [live material pass](XBOX-SIMULATOR-PASSES.md#pc-live-ground-material-arithmetic-2026-10-02).
+
 **Xbox focus-loss follow-up (2026-10-02).** Upstream build 64 deliberately
 sets all ten new-profile level flags to `0x0f`; its summary interprets these as
 The Maw/Legendary. The isolated New001 bytes and creation log match that code.

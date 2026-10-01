@@ -68,6 +68,21 @@ finds `MIPMAPLODBIAS` explicitly ignored in `halopad_d3d9_draw.c`; investigate
 actual nonzero state use and a matched reference before treating it as the cause
 or changing shader sampling. The Xbox ANGLE diagnostic does not test that PC path.
 
+Latest PC arithmetic follow-up (`pc-live-color.L5KDQS/`) captures the exact
+four-texture Battle Creek ground draw's actual samples/interpolated inputs and
+unmodified pixel output in three independent float replays. All 1,396,060 pixel
+observations match an independent original-bytecode interpreter exactly. Base
+alpha is one and fog off; this is not all material/blend/fog coverage. Grain
+remains visible, including in detail samples. Sampling/interpolation are measured
+inputs, not independent original-driver correctness; no depth/occlusion or
+physical fidelity acceptance. Preserve the first indoor-spawn run's missing
+material failure. Successful run passes 24 assertions and 30 motion frames;
+analyzer calibration/negative controls pass. No tracked runtime edit, app install
+or physical operation; real game bytes/preferences/registry remain unchanged.
+Next obtain a matched original-driver or confirmed affected edition/map scene,
+then discriminate sampling/geometry/depth. Do not infer the physical issue is
+fixed or repeat this arithmetic gate as full visual acceptance.
+
 Follow-up PC/macOS Blood Gulch component run now checks actual sampler state:
 all 932 bound observations across 248 requests in frames 300–301 have zero LOD
 bias. No nonzero-bias cause established for this view; do not adopt a shader

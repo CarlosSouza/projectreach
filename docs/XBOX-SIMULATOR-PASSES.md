@@ -2042,3 +2042,70 @@ additional 16 passes, not part of Python's 128. Whitespace and repository
 tree/index safety pass. No physical operation, Xbox IPA, push, publication or
 cleanup. Next pursue affected moving-scene/reference rendering and physical
 shading/focus under a coordinated device window; this pass is no visual fix.
+
+## PC live ground-material arithmetic (2026-10-02)
+
+**Classification: progress, not rendering fix or goal completion.** No tracked
+runtime/shader/filter changes, upstream pin update or integrated app installation.
+Physical iPad shading/focus remains open, affected edition/map unconfirmed.
+Private fixture, analysis, controls and derived previews:
+`ref/xbox-build/passes/2026-10-02/pc-live-color.L5KDQS/`.
+
+### Probe and failed attempts
+
+The private C wrapper includes the unchanged existing PC host gameplay harness
+and uses the nullable native draw hook. Match original 160-byte ps_1_1 shader
+SHA-256 `026e77794dbcaa220c78bcec62eccdfa7d93fda8968198246d48d880beccc433`
+and all four trusted level-zero texture payloads exactly. Capture frames
+3150/3155/3160 only. Borrow the actual geometry, vertex shader, constants,
+buffer offsets, indexed draw and samplers; replay into independent RGBA32-float
+targets without depth/blending. Nine return-only shader variants capture four
+samples, four interpolated coordinates and fog; the tenth runs the unmodified
+pixel program. Require identical positive finite coverage and verify original
+color-target bytes are unchanged after each probe. This is an isolated component,
+not normal PE entry or PC license acceptance. Readbacks/compilation disrupt frame
+timing; no performance or audio-deadline claim.
+
+Initial compile fails because a fixture array collides with the harness's
+`frames` variable; rename only that array. Remove unused HALOPAD_TEST_MAP, which
+the harness never reads: its LAN menus already choose Battle Creek. First linked
+run `G3/core-arm64-apple-ios17.0-simulator-20261001T215025Z` passes host checks
+and captures 30 motion frames, but spawns indoors and has no matching material.
+Whole-run exit 1/captured zero is retained, not an arithmetic verdict. A second
+bounded run keeps identities/frame guards and succeeds outdoors; no relaxed
+capture or gameplay assertions.
+
+### Successful comparison and limits
+
+`G3/core-arm64-apple-ios17.0-simulator-20261001T215644Z` exits zero, 24 assertions,
+30 consecutive presented motion frames; diagnostic executable SHA-256
+`3f3da29f696bc841e39d98919ee44498a947d98c5d3bb649b544f66d928c758c`.
+Frame 3150/request 19 covers 436,060 pixels; 3155/3160 cover 480,000 each.
+The independent interpreter in `scripts/shader-diff.py` executes original
+bytecode against captured fragment coordinates/constants, substituting only
+the measured four texture samples. All **1,396,060 covered pixel observations**
+have exact RGBA agreement (max/p99 absolute residual zero). Three private
+analyzer tests pass, including known mixed-alpha/fog calibration, deliberate
+0.05 color-error detection and five rejected malformed/missing/identity cases.
+Synthetic mixed-alpha/fog calibration is not live coverage: the actual selected
+base texture's alpha is one and fog is disabled in all three draws.
+
+Reviewed `second-capture/material-contact.png` shows the grain in the original
+target, independent material replay and stage-one detail sample. It remains
+unfixed. This weakens arithmetic mistranslation for this particular material.
+GPU samples/interpolation are observed inputs, not independent verification of
+filtering, UV/LOD correctness or texture identity versus an original driver.
+Return variants may optimize differently. Depth/blend were intentionally omitted;
+coverage is not visibility or final-frame equivalence. One camera/three samples
+are not temporal fidelity, all-shader coverage or the physical complaint.
+
+Only the dedicated Simulator `DF51182F-1878-4A54-9AED-CC4AED86BEAB` is used.
+Ordinary integrated app resumes at the same PID 95450; installed executable
+`58111bcbbd3da23bd47282a11becf3b7c1887e9d6e37c553e884eb1bec29f093` is unchanged.
+Full Documents audit adds/removes no files and changes only the ordinary log;
+all 114 real Xbox files and PC installation/package/disc bytes survive exactly.
+Preferences match and PC registry bytes are unchanged. Metal cache/system
+snapshot changes are retained, not treated as game-data loss or Library identity.
+No physical operation, EULA acceptance, IPA, push, publication or cleanup.
+Next matched original-driver/affected scene comparison, including sampling and
+geometry/depth discrimination; do not add a speculative visual workaround.
