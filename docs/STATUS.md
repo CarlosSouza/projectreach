@@ -76,6 +76,21 @@ three full-pixel diagnostics are rejected. Transform-feedback replay of the
 original-program invariance. Next select the visibly stripe-producing material,
 correlating original before/after color with its texture/alpha inputs; a matching
 shader name alone is not sufficient. No rendering fix is claimed.
+The new one-frame material observer captures the exact VS7/`ps_0c014f79`
+combination before and after its original draws. In a 211-draw trace, all 17
+material pairs have unchanged sampled uniforms and level-0 texture bytes.
+Draw 117 (402 indices) visibly introduces the wall bands; its two 16x16 linear,
+clamp-to-edge textures also match CPU uploads. This excludes in-draw changes
+and upload/storage corruption for those samples, not UV/sampling/depth faults.
+An exact-count follow-up has a different spawn and no 402-index batch: its
+paired/native depth test is failed, not passed. Independently, its 294-draw
+trace validates 22 unchanged material pairs; draw 176 (1,377 indices) again
+introduces wall bands. Attach the next native probe to the visible draw in its
+own trace frame rather than assuming counts or spawns repeat. Runtime identifies
+the Simulator backend as Apple Software Renderer; an independently built
+Simulator ANGLE/Metal candidate remains a possible backend comparison, not an
+established driver fix. Do not extrapolate this Xbox Simulator defect to the
+physical Windows/Metal route.
 A later 984-index VS41 native replay fails exact repeat/live-color checks and
 remains rejected; it does not invalidate the independent read-only timeline.
 Chris's reported physical

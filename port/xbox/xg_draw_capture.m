@@ -197,6 +197,7 @@ static void capture_selected_draw(GLenum mode, GLsizei count, GLenum type, const
 	static GLsizei target_count;
 	static BOOL initialized;
 	static long minimum = 3;
+	static long exact_count = 0;
 	static long base_skip = 0, base_seen = 0;
 	static NSString *equal_shader;
 	int selected_target = -1;
@@ -205,16 +206,19 @@ static void capture_selected_draw(GLenum mode, GLsizei count, GLenum type, const
 		programs = [NSMutableDictionary dictionary];
 		if (getenv("XG_CAPTURE_MIN_INDICES")) minimum = strtol(getenv("XG_CAPTURE_MIN_INDICES"), NULL, 10);
 		if (minimum < 3 || minimum > 100000) minimum = 3;
+		if (getenv("XG_CAPTURE_INDEX_COUNT")) exact_count = strtol(getenv("XG_CAPTURE_INDEX_COUNT"), NULL, 10);
+		if (exact_count < 0 || exact_count > 100000) exact_count = 0;
 		if (getenv("XG_CAPTURE_BASE_SKIP")) base_skip = strtol(getenv("XG_CAPTURE_BASE_SKIP"), NULL, 10);
 		if (base_skip < 0 || base_skip > 64) base_skip = 0;
 		NSString *folder = @(getenv("XG_CAPTURE_SHADER_DIR") ?: "");
 		equal_shader = @(getenv("XG_CAPTURE_EQUAL_SHADER") ?: "vs041_0.glsl");
 		if (![@[@"vs007_0.glsl", @"vs041_0.glsl"] containsObject:equal_shader]) equal_shader = @"invalid";
 		targets[0] = [NSData dataWithContentsOfFile:[folder stringByAppendingPathComponent:@"vs017_0.glsl"]];
-		targets[1] = [NSData dataWithContentsOfFile:[folder stringByAppendingPathComponent:equal_shader]];
+		targets[1] = [equal_shader isEqualToString:@"invalid"] ? nil :
+			[NSData dataWithContentsOfFile:[folder stringByAppendingPathComponent:equal_shader]];
 		xg_log("draw capture: targets loaded %lu / %lu bytes", (unsigned long)targets[0].length, (unsigned long)targets[1].length);
 	}
-	if (count < minimum || mode != GL_TRIANGLES || (captured[0] && captured[1])) {
+	if (count < minimum || (exact_count && count != exact_count) || mode != GL_TRIANGLES || (captured[0] && captured[1])) {
 		glDrawElements(mode, count, type, indices);
 		return;
 	}
@@ -263,6 +267,7 @@ static void capture_selected_draw(GLenum mode, GLsizei count, GLenum type, const
 		state[@"mode"] = @(mode); state[@"count"] = @(count); state[@"index_type"] = @(type);
 		state[@"program"] = @(program); state[@"captured_at"] = @(NSDate.date.timeIntervalSince1970);
 		state[@"base_skip"] = @(base_skip);
+		state[@"index_count_filter"] = @(exact_count);
 		state[@"equal_shader"] = equal_shader;
 		state[@"presented_frames"] = @(presented_frames);
 		state[@"index_offset"] = @((uintptr_t)indices); state[@"element_buffer"] = @(element);
@@ -398,6 +403,83 @@ draw:
 	}
 }
 
+/* Snapshot the known stripe-producing material, not an arbitrary VS7 batch.
+ * Exact source matching keeps the two sampler / known-uniform layout bounded.
+ * Before/after snapshots have separate files; never overwrite the first image. */
+static NSDictionary *trace_material(GLint program, GLuint *shaders, GLsizei shader_count, NSString *folder)
+{
+	if (!getenv("XG_TRACE_MATERIALS")) return nil;
+	static NSData *vertex, *fragment;
+	static BOOL initialized;
+	if (!initialized) {
+		initialized = YES;
+		NSString *sources = @(getenv("XG_CAPTURE_SHADER_DIR") ?: "");
+		vertex = [NSData dataWithContentsOfFile:[sources stringByAppendingPathComponent:@"vs007_0.glsl"]];
+		fragment = [NSData dataWithContentsOfFile:[sources stringByAppendingPathComponent:@"ps_0c014f79.glsl"]];
+	}
+	BOOL matched_vertex = NO, matched_fragment = NO;
+	for (int i = 0; i < shader_count; i++) {
+		GLint kind = 0; glGetShaderiv(shaders[i], GL_SHADER_TYPE, &kind);
+		NSData *source = shader_source(shaders[i]);
+		if (kind == GL_VERTEX_SHADER) matched_vertex = vertex && [source isEqualToData:vertex];
+		if (kind == GL_FRAGMENT_SHADER) matched_fragment = fragment && [source isEqualToData:fragment];
+	}
+	if (!matched_vertex || !matched_fragment) return nil;
+	[NSFileManager.defaultManager createDirectoryAtPath:folder withIntermediateDirectories:YES attributes:nil error:nil];
+	NSMutableDictionary *uniforms = [NSMutableDictionary dictionary];
+	NSMutableArray *names = [NSMutableArray arrayWithArray:@[@"alpha_reference", @"texture_lod_bias"]];
+	for (NSString *array in @[@"ps_c0", @"ps_c1", @"texture_scale"]) {
+		int size = [array isEqualToString:@"texture_scale"] ? 4 : 8;
+		for (int i = 0; i < size; i++) [names addObject:[NSString stringWithFormat:@"%@[%d]", array, i]];
+	}
+	/* All vertex constants, including UV transforms; absent optimized uniforms
+	 * are omitted rather than replaced with invented defaults. */
+	for (int i = 0; i < 192; i++) [names addObject:[NSString stringWithFormat:@"c[%d]", i]];
+	for (NSString *name in names) {
+		GLint location = glGetUniformLocation(program, name.UTF8String);
+		if (location < 0) continue;
+		GLfloat value[4] = {0}; glGetUniformfv(program, location, value);
+		uniforms[name] = float_bits(value, [name isEqualToString:@"alpha_reference"] ? 1 : 4);
+	}
+	GLint active = 0; glGetIntegerv(GL_ACTIVE_TEXTURE, &active);
+	NSMutableArray *textures = [NSMutableArray array];
+	BOOL complete = YES;
+	for (int stage = 0; stage < 2; stage++) {
+		GLint unit = -1, sampler = 0, texture = 0;
+		NSString *name = [NSString stringWithFormat:@"tex%d", stage];
+		GLint location = glGetUniformLocation(program, name.UTF8String);
+		if (location >= 0) glGetUniformiv(program, location, &unit);
+		if (unit < 0 || unit > 3) { complete = NO; continue; }
+		glActiveTexture(GL_TEXTURE0 + unit);
+		glGetIntegerv(GL_SAMPLER_BINDING, &sampler); glGetIntegerv(GL_TEXTURE_BINDING_2D, &texture);
+		NSMutableDictionary *record = [NSMutableDictionary dictionaryWithDictionary:
+			@{@"stage":@(stage), @"unit":@(unit), @"sampler":@(sampler), @"object":@(texture)}];
+		if (!texture) { complete = NO; [textures addObject:record]; continue; }
+		for (NSNumber *parameter in @[@(GL_TEXTURE_MIN_FILTER), @(GL_TEXTURE_MAG_FILTER), @(GL_TEXTURE_WRAP_S), @(GL_TEXTURE_WRAP_T)]) {
+			GLint value = 0;
+			if (sampler) glGetSamplerParameteriv(sampler, parameter.unsignedIntValue, &value);
+			else glGetTexParameteriv(GL_TEXTURE_2D, parameter.unsignedIntValue, &value);
+			record[[NSString stringWithFormat:@"sampling-%x", parameter.unsignedIntValue]] = @(value);
+		}
+		for (NSNumber *parameter in @[@(GL_TEXTURE_BASE_LEVEL), @(GL_TEXTURE_MAX_LEVEL), @(GL_TEXTURE_SWIZZLE_R),
+			@(GL_TEXTURE_SWIZZLE_G), @(GL_TEXTURE_SWIZZLE_B), @(GL_TEXTURE_SWIZZLE_A)]) {
+			GLint value = 0; glGetTexParameteriv(GL_TEXTURE_2D, parameter.unsignedIntValue, &value);
+			record[[NSString stringWithFormat:@"gl-%x", parameter.unsignedIntValue]] = @(value);
+		}
+		record[@"level0"] = read_texture(texture, folder);
+		complete &= [record[@"level0"][@"complete"] boolValue];
+		[textures addObject:record];
+	}
+	glActiveTexture(active);
+	GLenum error = glGetError();
+	NSDictionary *record = @{@"complete":@(complete && error == GL_NO_ERROR), @"gl_error":@(error),
+		@"program":@(program), @"presented_frames":@(presented_frames), @"active_texture":@(active),
+		@"uniforms":uniforms, @"textures":textures};
+	[[NSJSONSerialization dataWithJSONObject:record options:NSJSONWritingPrettyPrinted error:nil]
+		writeToFile:[folder stringByAppendingPathComponent:@"material.json"] atomically:YES];
+	return record;
+}
+
 /* One-frame color timeline, independent of which paired draw was selected.
  * Observe both indexed and immediate draws. No shader/target state mutation. */
 static NSString *trace_color(NSString *key, GLenum mode, GLsizei count)
@@ -431,10 +513,14 @@ static NSString *trace_color(NSString *key, GLenum mode, GLsizei count)
 		NSString *path = [folder stringByAppendingPathComponent:name];
 		if (![NSFileManager.defaultManager fileExistsAtPath:path]) complete &= [shader_source(shaders[i]) writeToFile:path atomically:YES];
 	}
+	NSDictionary *material = trace_material(program, shaders, shader_count,
+		[folder stringByAppendingPathComponent:[label stringByAppendingString:@"-material"]]);
+	if (material) complete &= [material[@"complete"] boolValue];
 	GLenum final_error = glGetError();
 	NSDictionary *record = @{@"complete":@(complete && !error && !final_error), @"gl_error":@(error ?: final_error),
 		@"framebuffer":@(framebuffer), @"program":@(program), @"depth_function":@(depth_function),
-		@"mode":@(mode), @"count":@(count), @"width":@640, @"height":@480, @"presented_frames":@(presented_frames)};
+		@"mode":@(mode), @"count":@(count), @"width":@640, @"height":@480, @"presented_frames":@(presented_frames),
+		@"material_captured":@(material != nil)};
 	[[NSJSONSerialization dataWithJSONObject:record options:NSJSONWritingPrettyPrinted error:nil]
 		writeToFile:[folder stringByAppendingPathComponent:[label stringByAppendingString:@".json"]] atomically:YES];
 	return key;

@@ -75,6 +75,17 @@ positions match bit-for-bit, with linkage-change limitations intact.
 Next capture the visibly stripe-producing material with original before/after
 color and texture/alpha inputs; do not infer that an arbitrary VS7 batch is the
 defective draw or generalize VS41 controls to this detail pass.
+That material trace now captures the actually band-producing draw: all 17
+VS7/pixel-shader pairs in its 211-draw frame retain identical uniforms and
+level-0 texture bytes, including upload equality. Reviewed draw 117 (402 indices)
+changes the walls from unstriped to banded. A second, different-spawn trace has
+294 draws / 22 matching material pairs and repeats the symptom at draw 176
+(1,377 indices). Its requested 402-index paired/native capture is absent and
+fails, so draw-count filters do not establish a repeatable scene. Next attach
+the native probe to the material's original trace draw in that same frame, or
+evaluate a separately built Simulator ANGLE/Metal backend against the accepted
+Apple Software Renderer reference. Do not relax depth/alpha guards or infer a
+physical Windows/Metal fix from Xbox Simulator evidence.
 The later 984-index VS41 native replay failed exact repeat/live-color checks
 and remains rejected. The independent 211-draw timeline passes its own guards.
 Maintain upstream by freezing one candidate per pass, backing up saves, building,

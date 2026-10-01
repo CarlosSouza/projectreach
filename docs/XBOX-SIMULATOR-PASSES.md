@@ -803,6 +803,67 @@ returns to the normal Windows/Xbox picker. Real saves in rediscovered container
 141 Python tests, 16 skipped, no failures; both SDK syntax, whitespace and
 tree/index safety pass. Goal active; this pass is diagnostic progress only.
 
+### Original material inputs retained at the visible stripe draw (2026-10-01)
+
+`XG_TRACE_MATERIALS=1` requires the existing color-frame and texture-capture
+flags. It matches exact VS7/`ps_0c014f79` source, rather than selecting arbitrary
+shader-name batches. Separate before/after folders retain level-0 bytes for
+the two active 2D samplers, actual sampler/texture addressing/filter/swizzle
+state, alpha/combiner/UV constants and all active vertex constants. The observer
+reads existing state; it never relinks, changes uniforms or draws to the game
+target. Optimized-out uniforms are omitted, not invented. Reuses the existing
+texture reader. Validation rejects missing materials, uniforms or sampler stages,
+nonfinite uniform bits, incomplete/cross-frame/error captures, state changes,
+short/outside-path files, inconsistent upload comparisons and texture changes.
+Normal launches do not enable it. Unsupported cube/mip behavior is not validated.
+
+`build61-material-timeline/`: frozen accepted 61, 90 stationary seconds,
+2,083 ticks, no scripted shots, all automated diagnostic checks pass. Original
+frame 120 has **211 draws / 17 matching material pairs**, all with unchanged
+recorded uniforms and level-0 bytes. Reviewed RGB before/after **draw 117**:
+program 82, 402 indices, EQUAL; it changes the rear walls from smooth/unstriped
+shading to obvious bands (51,756 changed color pixels, not proven bad pixels).
+Both active textures (objects 116/117) are 16x16, sampled linearly with clamp
+to edge, base/max level 0; before/after readbacks match CPU uploads exactly.
+They are gradient textures, not evidence of missing placeholder assets.
+Alpha reference is 0. Recorded combiner inputs make the second texture's
+stage-0 alpha term zero for this draw; this observation is not a GPU alpha/UV
+or native-depth proof. Texture upload changes during this draw are excluded
+for these samples; incorrect interpolation, shader semantics or depth remain open.
+
+Added diagnostic `XG_CAPTURE_INDEX_COUNT` (3..100000) to constrain paired
+capture, keeping its original default unrestricted. Counts alone do not identify
+a material or a repeatable scene. `build61-material-402/` uses the filter plus
+native/depth/material flags, 90 seconds, 2,034 ticks, no scripted shots. Its
+different spawn never draws the requested 402-index pair, so paired/depth/native
+captures are missing and the aggregate **fails**. Do not retry random spawns as
+a substitute for a matched fixture. Independently, its original frame-120 trace
+passes with **294 draws / 22 unchanged material pairs**. Reviewed draw 176,
+1,377 indices, EQUAL: smooth walls become banded (12,988 changed color pixels).
+The symptom follows the material pass in both views, but no new full native
+pixel/depth proof was obtained.
+
+Both logs identify OpenGL ES 3.0 APPLE-23.1.1 on Apple Software Renderer. The
+physical Windows edition uses a different rendering route; no causal link to
+Chris's physical focus/shading report is established. Next either attach native
+controls to the visible material draw in its own trace frame, or test a properly
+built Simulator ANGLE/Metal candidate without treating it as a proven driver fix.
+Do not retag a Mac library as Simulator code or change normal EQUAL semantics.
+
+Source build/install evidence: `ios-app-20261001T120429Z` and final filtered
+app `ios-app-20261001T120952Z` under `docs/artifacts/2026-10-01/G3/`; library/app
+logs have matching `build61-material[-count]-` prefixes in private pass evidence.
+
+Final normal `build61-material-normal/`: automated menu/campaign/match gates
+pass, 1,295 match ticks / nine shots, no render/input diagnostics. Campaign and
+match screens reviewed; severe banding and pale/missing terrain remain. This is
+not visual acceptance. Actual About/Done confirms accepted `f8937c61`, no
+PREVIEW, and leaves the normal Windows/Xbox picker. Real saves in rediscovered
+container `647C8BF3-6DC3-48A5-81A2-89654BF1AEE5` remain byte-identical to the
+acceptance backup. 150 tests, 16 skipped, no failures; both SDK syntax and
+whitespace/tree/index safety pass. Upstream checkout stays clean; no physical
+install, pin promotion, IPA, push or publication. Goal active.
+
 ## Next focused pass
 
 0. Keep accepted build 61 (`f8937c61`) frozen for the next diagnostic pass;
@@ -811,9 +872,9 @@ tree/index safety pass. Goal active; this pass is diagnostic progress only.
 1. Continue beyond the cryo-bay training to weapon pickup/combat and a later
    checkpoint. Test sustained movement, simultaneous look/fire, weapon switching
    and another cold reload with isolated saves.
-2. Select the visibly stripe-producing VS17/VS7 material localized as draw
-   119 in the frame-120 timeline, not an arbitrary shader-matching batch. Record
-   original before/after color and texture/alpha inputs. VS41 is different. Retain
+2. Material inputs are now retained at the visibly stripe-producing VS7 draw.
+   Attach native controls to that original draw within its own frame; counts
+   and spawns do not repeat reliably. VS41 is different. Retain
    the new exact native repeat/live-color and calibrated copied-depth controls.
    Correlate color-response changes with copied live depth. Determine whether closer intervening
    surfaces legitimately occlude it or visible terrain fails EQUAL. Keep

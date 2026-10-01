@@ -151,6 +151,24 @@ class SimulatorDiagnosticsTests(unittest.TestCase):
             self.assertEqual(result.returncode, 2)
             self.assertIn('XG_TRACE_COLOR_FRAME ' + message, result.stderr)
 
+    def test_material_capture_requires_color_trace_and_textures(self):
+        env = {key: value for key, value in os.environ.items() if not key.startswith('XG_')}
+        env['XG_TRACE_MATERIALS'] = '1'
+        result = subprocess.run([sys.executable, str(SCRIPT), '--device', 'unused',
+                                 '--render-diagnostics'], capture_output=True, text=True, env=env)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn('XG_TRACE_MATERIALS requires', result.stderr)
+
+    def test_index_count_validated_before_launch(self):
+        for count, message in [('2', 'must be 3..100000'), ('100001', 'must be 3..100000'),
+                               ('bad', 'must be 3..100000'), ('402', 'requires XG_CAPTURE_SHADER_DIR')]:
+            env = {key: value for key, value in os.environ.items() if not key.startswith('XG_')}
+            env['XG_CAPTURE_INDEX_COUNT'] = count
+            result = subprocess.run([sys.executable, str(SCRIPT), '--device', 'unused',
+                                     '--render-diagnostics'], capture_output=True, text=True, env=env)
+            self.assertEqual(result.returncode, 2)
+            self.assertIn('XG_CAPTURE_INDEX_COUNT ' + message, result.stderr)
+
     def test_depth_probe_requires_two_distinct_complete_controls(self):
         same = 'depth probe: same-program covered 6728 failed 0 error 0x0\n'
         other = 'depth probe: separate-program covered 6728 failed 0 error 0x0\n'

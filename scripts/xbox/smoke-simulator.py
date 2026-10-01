@@ -87,6 +87,16 @@ def main():
         if not os.environ.get('XG_CAPTURE_SHADER_DIR'):
             parser.error('XG_CAPTURE_MIN_INDICES requires XG_CAPTURE_SHADER_DIR')
     raster = args.render_diagnostics and bool(os.environ.get('XG_DRAW_RASTER'))
+    exact_count = None
+    if args.render_diagnostics and os.environ.get('XG_CAPTURE_INDEX_COUNT'):
+        try:
+            exact_count = int(os.environ['XG_CAPTURE_INDEX_COUNT'])
+            if exact_count < 3 or exact_count > 100000:
+                raise ValueError()
+        except ValueError:
+            parser.error('XG_CAPTURE_INDEX_COUNT must be 3..100000')
+        if not os.environ.get('XG_CAPTURE_SHADER_DIR'):
+            parser.error('XG_CAPTURE_INDEX_COUNT requires XG_CAPTURE_SHADER_DIR')
     equal_shader = os.environ.get('XG_CAPTURE_EQUAL_SHADER') if args.render_diagnostics else None
     if equal_shader:
         if equal_shader not in ('vs007_0.glsl', 'vs041_0.glsl'):
@@ -125,6 +135,9 @@ def main():
             parser.error('XG_TRACE_COLOR_FRAME requires XG_CAPTURE_SHADER_DIR')
     if raster and os.environ['XG_DRAW_RASTER'] not in ('1', 'renderbuffer', 'texture'):
         parser.error('XG_DRAW_RASTER must be renderbuffer or texture')
+    trace_materials = args.render_diagnostics and bool(os.environ.get('XG_TRACE_MATERIALS'))
+    if trace_materials and (color_frame is None or not os.environ.get('XG_CAPTURE_TEXTURES')):
+        parser.error('XG_TRACE_MATERIALS requires XG_TRACE_COLOR_FRAME and XG_CAPTURE_TEXTURES')
     if raster and not os.environ.get('XG_DRAW_REPLAY'):
         parser.error('XG_DRAW_RASTER requires XG_DRAW_REPLAY')
     if args.render_diagnostics and os.environ.get('XG_DRAW_REPLAY'):
@@ -193,6 +206,8 @@ def main():
                              XG_CAPTURE_SHADER_DIR=os.environ['XG_CAPTURE_SHADER_DIR'])
                 if os.environ.get('XG_CAPTURE_MIN_INDICES'):
                     child['XG_CAPTURE_MIN_INDICES'] = os.environ['XG_CAPTURE_MIN_INDICES']
+                if exact_count is not None:
+                    child['XG_CAPTURE_INDEX_COUNT'] = str(exact_count)
                 if os.environ.get('XG_CAPTURE_BASE_SKIP'):
                     child['XG_CAPTURE_BASE_SKIP'] = str(skip)
                 if equal_shader:
@@ -205,6 +220,8 @@ def main():
                     child['XG_CAPTURE_NATIVE_PIXELS'] = '1'
                 if color_frame is not None:
                     child['XG_TRACE_COLOR_FRAME'] = str(color_frame)
+                if trace_materials:
+                    child['XG_TRACE_MATERIALS'] = '1'
                 if buckets is not None:
                     child['XG_TEXTURE_BUCKETS'] = format(buckets, 'x')
             if os.environ.get('XG_DRAW_REPLAY'):
@@ -330,7 +347,7 @@ def main():
             row['pass'] &= row['native_pixels_complete']
         if color_frame is not None:
             try:
-                row['color_trace'] = compare_color_trace(folder / 'draw-capture/color-trace', color_frame)
+                row['color_trace'] = compare_color_trace(folder / 'draw-capture/color-trace', color_frame, trace_materials)
                 row['color_trace_complete'] = True
             except (OSError, ValueError, KeyError, TypeError) as error:
                 row['color_trace_complete'] = False
@@ -368,7 +385,9 @@ def main():
               'native_pixels': native_pixels,
               'base_skip': os.environ.get('XG_CAPTURE_BASE_SKIP') if args.render_diagnostics else None,
               'equal_shader': equal_shader,
+              'index_count_filter': exact_count,
               'color_trace_frame': color_frame,
+              'trace_materials': trace_materials,
               'texture_pixels': bool(args.render_diagnostics and os.environ.get('XG_CAPTURE_TEXTURES')),
               'xbox_texture_source': xbox_textures,
               'live_depth': live_depth,

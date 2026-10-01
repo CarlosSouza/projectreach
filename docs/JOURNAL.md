@@ -3873,3 +3873,53 @@ without PREVIEW and leaves the normal picker. Real saves in container
 `DA23CE8C-1C94-4472-9788-C9AA87C62AA2` remain byte-identical to the acceptance
 backup. 141 tests, 16 skipped, no failures; both SDK syntax, whitespace and
 tree/index safety pass. No physical install, pin update, IPA, push or publication.
+
+## 2026-10-01 — Visible wall-band draw has stable material inputs
+
+Previous turn `06c7dbf` made progress through VS7 coordinate replay, with all
+sampled native pixel results rejected and graphics still defective. Freeze
+accepted 61 again. Added a read-only exact-source material observer to the
+original one-frame timeline, retaining separate before/after sampled textures,
+sampler/filter/swizzle state, alpha/combiner and vertex/UV constants. Reuses
+the existing texture readback and validation; normal rendering is unchanged.
+Runner requires both color-frame and texture flags. Asset-free tests cover
+missing/changed/cross-frame/error material data and nonfinite uniform bits.
+Host equal-shader whitelist now explicitly loads no target for invalid names.
+
+`build61-material-timeline/`: 90 stationary seconds, 2,083 ticks, zero shots;
+all diagnostic gates pass. Original frame 120 validates 211 before/after draw
+pairs and 17 matching VS7/`ps_0c014f79` material pairs. Reviewed draw 117,
+program 82, 402 indices, EQUAL: unstriped rear walls become banded, 51,756 color
+pixels change. Its two 16x16 gradient textures are linear/clamp-to-edge, base
+and max level 0; sampled bytes match CPU uploads and stay identical through
+the draw. Recorded uniforms also stay identical, alpha reference 0. This
+excludes in-draw changes/upload corruption for those samples, not all texture
+decoding, UV/interpolation, shader or depth faults. The small textures are not
+proof of placeholder assets or missing imports.
+
+Added an optional exact-index-count filter (3..100000), unchanged default.
+`build61-material-402/` uses it with native/depth/material flags for 90 seconds,
+2,034 ticks, zero shots. Different spawn has no 402-index pair, so its paired
+and native-depth tests **fail without a capture**. The independent trace still
+validates: 294 draws / 22 unchanged material pairs. Reviewed draw 176 (1,377
+indices) again introduces bands, 12,988 changed color pixels. No new native
+pixel/depth proof. Counts alone cannot select a repeatable scene; next attach
+the probe to the visible material draw inside the same original frame, or
+compare a correctly built Simulator ANGLE/Metal candidate. Current logs identify
+Apple Software Renderer, not the physical Windows edition's Metal route.
+
+App evidence `docs/artifacts/2026-10-01/G3/ios-app-20261001T120429Z` and final
+filtered app `ios-app-20261001T120952Z`; matching private logs/pass folders
+retained. No upstream pin change, physical install, IPA or publication. Goal
+active; this turn yields stable material data at the actual symptom, not a fix.
+
+Final normal `build61-material-normal/`: all three automated cases pass,
+1,295 match ticks / nine shots, no render/input diagnostics. Reviewed campaign
+and match frames: severe banding and pale/missing terrain remain, not visual
+acceptance. Actual About/Done confirms accepted `f8937c61` without PREVIEW and
+returns to the normal Windows/Xbox picker. Real saves in rediscovered container
+`647C8BF3-6DC3-48A5-81A2-89654BF1AEE5` match the acceptance backup byte-for-byte.
+150 tests, 16 skipped, no failures; both SDK syntax, whitespace and tree/index
+safety pass. Upstream checkout clean. No physical install, pin promotion, IPA,
+push or publication. Goal remains active with graphics/audio/controllers and
+broader campaign/hardware acceptance still open.

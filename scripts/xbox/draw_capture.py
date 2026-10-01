@@ -5,6 +5,28 @@ import pathlib
 import struct
 
 
+def read_texture_image(folder, image):
+    if not image.get('complete') or image.get('gl_error') != 0 or image.get('framebuffer_status') != 0x8cd5:
+        raise ValueError('Incomplete texture readback')
+    width, height = image['width'], image['height']
+    if not 0 < width <= 4096 or not 0 < height <= 4096:
+        raise ValueError('Unsupported texture dimensions')
+    file = image['file']
+    if pathlib.Path(file).name != file:
+        raise ValueError('Texture path must be local to capture')
+    pixels = (folder / file).read_bytes()
+    if len(pixels) != width * height * 4:
+        raise ValueError('Truncated texture readback')
+    if image.get('upload_compared'):
+        file = image['upload_file']
+        if pathlib.Path(file).name != file:
+            raise ValueError('Upload path must be local to capture')
+        upload = (folder / file).read_bytes()
+        if len(upload) != len(pixels) or (upload == pixels) != bool(image['upload_equal']):
+            raise ValueError('Invalid texture upload comparison')
+    return pixels
+
+
 def load_draw(folder):
     folder = pathlib.Path(folder)
     draw = json.loads((folder / 'draw.json').read_text())
@@ -38,24 +60,7 @@ def load_draw(folder):
         image = unit.get('texture-de1', {}).get('level0')
         if image is None:
             continue
-        if not image.get('complete') or image.get('gl_error') != 0 or image.get('framebuffer_status') != 0x8cd5:
-            raise ValueError('Incomplete texture readback')
-        width, height = image['width'], image['height']
-        if not 0 < width <= 4096 or not 0 < height <= 4096:
-            raise ValueError('Unsupported texture dimensions')
-        file = image['file']
-        if pathlib.Path(file).name != file:
-            raise ValueError('Texture path must be local to capture')
-        pixels = (folder / file).read_bytes()
-        if len(pixels) != width * height * 4:
-            raise ValueError('Truncated texture readback')
-        if image.get('upload_compared'):
-            file = image['upload_file']
-            if pathlib.Path(file).name != file:
-                raise ValueError('Upload path must be local to capture')
-            upload = (folder / file).read_bytes()
-            if len(upload) != len(pixels) or (upload == pixels) != bool(image['upload_equal']):
-                raise ValueError('Invalid texture upload comparison')
+        read_texture_image(folder, image)
     draw['_buffers'] = buffers
     draw['_indices'] = struct.unpack('<' + ('H' if index_size == 2 else 'I') * draw['count'],
                                       elements[draw['index_offset']:end])
@@ -238,7 +243,39 @@ def compare_native_pixels(folder):
             'repeat_equal': True, 'live_equal': True}
 
 
-def compare_color_trace(folder, frame):
+def compare_material_pair(folder, key, program, frame):
+    folders = [folder / (key + '-' + phase + '-material') for phase in ('before', 'after')]
+    records = [json.loads((path / 'material.json').read_text()) for path in folders]
+    for record in records:
+        if (not record.get('complete') or record.get('gl_error') != 0 or
+                record.get('program') != program or record.get('presented_frames') != frame):
+            raise ValueError('Incomplete or crossed-frame material capture')
+        uniforms = record.get('uniforms', {})
+        for name in ('alpha_reference', 'texture_scale[0]', 'texture_scale[1]', 'texture_lod_bias'):
+            if name not in uniforms:
+                raise ValueError('Missing material uniform')
+        for name, bits in uniforms.items():
+            if (len(bits) != (1 if name == 'alpha_reference' else 4) or
+                    any(not isinstance(bit, int) or bit < 0 or bit > 0xffffffff for bit in bits) or
+                    any(not math.isfinite(value) for value in struct.unpack('<' + 'f' * len(bits), struct.pack('<' + 'I' * len(bits), *bits)))):
+                raise ValueError('Invalid material uniform bits')
+        textures = record.get('textures', [])
+        if len(textures) != 2 or [texture.get('stage') for texture in textures] != [0, 1]:
+            raise ValueError('Missing material texture stages')
+        for texture in textures:
+            if (texture.get('unit') not in range(4) or not isinstance(texture.get('object'), int) or
+                    texture['object'] <= 0):
+                raise ValueError('Invalid material texture binding')
+    if records[0] != records[1]:
+        raise ValueError('Material state changed during draw')
+    for stage in range(2):
+        images = [read_texture_image(path, record['textures'][stage]['level0']) for path, record in zip(folders, records)]
+        if images[0] != images[1]:
+            raise ValueError('Material texture changed during draw')
+    return {'textures_unchanged': True, 'uniforms_unchanged': True}
+
+
+def compare_color_trace(folder, frame, require_materials=False):
     """Validate a one-frame draw timeline; changes are not artifact labels."""
     folder = pathlib.Path(folder)
     files = sorted(folder.glob('*-before.json'))
@@ -267,6 +304,11 @@ def compare_color_trace(folder, frame):
         if any(len(blob) != 640 * 480 * 4 for blob in data):
             raise ValueError('Truncated color trace')
         changed = [i // 4 for i in range(0, len(data[0]), 4) if data[0][i:i+4] != data[1][i:i+4]]
-        result.append({'key': key, 'program': rows[0]['program'], 'count': rows[0]['count'],
-                       'mode': rows[0]['mode'], 'depth_function': rows[0]['depth_function'], 'changed': len(changed)})
+        row = {'key': key, 'program': rows[0]['program'], 'count': rows[0]['count'],
+               'mode': rows[0]['mode'], 'depth_function': rows[0]['depth_function'], 'changed': len(changed)}
+        if rows[0].get('material_captured'):
+            row['material'] = compare_material_pair(folder, key, rows[0]['program'], frame)
+        result.append(row)
+    if require_materials and not any(row.get('material') for row in result):
+        raise ValueError('No matching material captured')
     return {'presented_frames': frame, 'draws': result}
