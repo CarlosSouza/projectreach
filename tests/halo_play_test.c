@@ -1,13 +1,16 @@
-/* Play test (G4): a player at the keyboard and mouse in Blood Gulch, through Halo's own input.
+/* Scripted play component test (G4): keyboard/mouse events in Blood Gulch, through Halo's own input.
  *
  * Like tests/halo_bloodgulch_test.c, Halo's start-up script (-exec, "map_name
  * levels\test\bloodgulch\bloodgulch") loads the map through main. Host input goes in as the
- * shell delivers it (halopad_input_event), so it reaches Halo through USER32 and DirectInput 8:
+ * shell delivers it (halopad_host_post_input), so it reaches Halo through USER32 and DirectInput 8:
  * the buffered keyboard (0x4946b7) and the exclusive mouse (0x4947b2). The test stands still,
  * holds W, lets go, moves the mouse right and holds the left button, and checks each effect in
  * Halo's game state: the unit's position, velocity, where it looks, and the rounds in its
  * weapon. It saves the frame while firing as play.ppm. The core runner remains the only path
  * through WinMain, gated by the license and the product ID.
+ * HALOPAD_TEST_CAPTURE_MOTION=1 retains 30 consecutive pan frames with guest pose metadata.
+ * Capture readback/file I/O changes pacing; this is not real-time performance, human touch,
+ * physical-controller or normal WinMain acceptance.
  * Linked in place of the core's main by scripts/run-core.py --main tests/halo_play_test.c. */
 #include <stdio.h>
 #include <stdlib.h>
@@ -72,35 +75,46 @@ static uint32_t object(uint32_t h)
 }
 static uint32_t player_unit(void) { uint32_t t = rd(0x815920); return t ? object(rd(rd(t + 0x34) + 0x34)) : 0; }
 
-static void key(int down) { hp_input e = {0}; e.kind = HPI_KEY; e.vk = e.side_vk = 'W'; e.scan = 0x11; e.down = down; halopad_input_event(&e); }
-static void mouse_right(int dx) { hp_input e = {0}; e.kind = HPI_MOUSEMOVE; e.x = 400; e.y = 300; e.dx = dx; halopad_input_event(&e); }
-static void trigger(int down) { hp_input e = {0}; e.kind = HPI_BUTTON; e.x = 400; e.y = 300; e.button = 0; e.down = down; halopad_input_event(&e); }
+static void key(int down) { hp_input e = {0}; e.kind = HPI_KEY; e.vk = e.side_vk = 'W'; e.scan = 0x11; e.down = down; halopad_host_post_input(&e); }
+static void mouse_right(int dx) { hp_input e = {0}; e.kind = HPI_MOUSEMOVE; e.x = 400; e.y = 300; e.dx = dx; halopad_host_post_input(&e); }
+static void trigger(int down) { hp_input e = {0}; e.kind = HPI_BUTTON; e.x = 400; e.y = 300; e.button = 0; e.down = down; halopad_host_post_input(&e); }
 
 #define QUIT_AFTER 300
 static int frames;
+static int capture_motion, motion_frames;
 static uint32_t lit, bare;
 static float pos100[3], pos119[3], pos221[3], vel229[3], look229[3], look262[3];
 static uint32_t unit_seen, rounds_before = 0xffff, rounds_after = 0xffff;
 static void get3(uint32_t g, float *v) { for (int i = 0; i < 3; i++) v[i] = f32(g + 4 * i); }
-static void save_frame(uint32_t device)
+static int save_frame(uint32_t device, const char *name, int count_pixels)
 {
     uint32_t w = 800, h = 600, *img = malloc(w * h * 4);
+    if (!img) return 0;
     halopad_metal_read_image(halopad_d3d9_device_target(device), img, w, h);
-    for (uint32_t i = 0; i < w * h; i++) { lit += (img[i] & 0xFFFFFF) != 0; bare += (img[i] & 0xFFFFFF) == 0xFFE6C4; }
+    if (count_pixels) for (uint32_t i = 0; i < w * h; i++) { lit += (img[i] & 0xFFFFFF) != 0; bare += (img[i] & 0xFFFFFF) == 0xFFE6C4; }
+    int saved = 0;
     const char *reg = getenv("HALOPAD_REGISTRY");
     if (reg && strrchr(reg, '/')) {
         char path[1200];
-        snprintf(path, sizeof path, "%.*s/play.ppm", (int)(strrchr(reg, '/') - reg), reg);
+        snprintf(path, sizeof path, "%.*s/%s", (int)(strrchr(reg, '/') - reg), reg, name);
         FILE *f = fopen(path, "wb");
         if (f) {
-            fprintf(f, "P6\n%u %u\n255\n", w, h);
-            for (uint32_t i = 0; i < w * h; i++) { uint8_t rgb[3] = {(uint8_t)(img[i] >> 16), (uint8_t)(img[i] >> 8), (uint8_t)img[i]}; fwrite(rgb, 1, 3, f); }
-            fclose(f);
+            uint8_t *rgb = malloc(w * h * 3);
+            if (rgb) {
+                for (uint32_t i = 0; i < w * h; i++) {
+                    rgb[3 * i] = img[i] >> 16; rgb[3 * i + 1] = img[i] >> 8; rgb[3 * i + 2] = img[i];
+                }
+                int header = fprintf(f, "P6\n%u %u\n255\n", w, h);
+                saved = header > 0 && fwrite(rgb, 1, w * h * 3, f) == w * h * 3;
+                free(rgb);
+            }
+            if (fclose(f)) saved = 0;
         }
     }
     free(img);
+    return saved;
 }
-/* Frame by frame, like a player at the keyboard: stand still, hold W for 100 frames, let go,
+/* Scripted frame sequence: stand still, hold W for 100 frames, let go,
    move the mouse right by 300 counts over 30 frames, then hold the left button for 20 frames. */
 static void on_present(uint32_t device)
 {
@@ -114,9 +128,21 @@ static void on_present(uint32_t device)
     if (u && frames == 221) get3(u + 0x5c, pos221);
     if (u && frames == 229) { get3(u + 0x68, vel229); get3(u + 0x23c, look229); }
     if (frames >= 230 && frames < 260) mouse_right(10);
+    /* Explicit test-only opt-in: 30 consecutive presented views during the pan.
+       Readback/file I/O changes pacing; this is not a real-time FPS measurement. */
+    if (capture_motion && frames >= 230 && frames < 260) {
+        char name[40];
+        snprintf(name, sizeof name, "motion-%03d.ppm", frames);
+        if (u && save_frame(device, name, 0)) {
+            motion_frames++;
+            printf("HALOPAD MOTION frame %d file %s position %.9g %.9g %.9g look %.9g %.9g %.9g\n",
+                   frames, name, f32(u + 0x5c), f32(u + 0x60), f32(u + 0x64),
+                   f32(u + 0x23c), f32(u + 0x240), f32(u + 0x244));
+        }
+    }
     if (u && frames == 262) { get3(u + 0x23c, look262); uint32_t w = object(rd(u + 0x118)); if (w) rounds_before = u16(w + 0x2b8); }
     if (frames == 265) trigger(1);
-    if (frames == 280) save_frame(device);
+    if (frames == 280) check("  saved firing frame", save_frame(device, "play.ppm", 1), 1);
     if (frames == 285) trigger(0);
     if (u && frames == 295) { uint32_t w = object(rd(u + 0x118)); if (w) rounds_after = u16(w + 0x2b8); }
     if (frames == QUIT_AFTER) *(uint8_t *)halopad_guest_ptr(0x6b47eb) = 1;
@@ -137,6 +163,8 @@ int main(void)
 {
     const char *image = getenv("HALOPAD_IMAGE");
     if (!image) return 2;
+    const char *motion = getenv("HALOPAD_TEST_CAPTURE_MOTION");
+    capture_motion = motion && !strcmp(motion, "1");
     setvbuf(stdout, NULL, _IONBF, 0);
     halopad_guest_harness_heap = 0;
     uint32_t top = halopad_guest_init(image, 0x400000);
@@ -241,6 +269,7 @@ int main(void)
     printf("    pixels of the bare clear colour (Blood Gulch's fog, 0xffe6c4) while firing: %u of 480000\n", bare);
     check("  the world is drawn while firing (under 10% bare clear colour)", bare < 48000, 1);
     check("  no dialog", (uint32_t)dialogs, 0);
+    if (capture_motion) check("  captured all 30 consecutive motion frames", motion_frames, 30);
     DeleteFileA_c(str(script_name));
     printf("%s: %d failure(s)\n", failures ? "FAIL" : "PASS", failures);
     return failures != 0;

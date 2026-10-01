@@ -1350,3 +1350,56 @@ their individual executable identities.
 Upstream remains clean. No physical install, save migration, IPA, push, release
 or cleanup. Next reproduce a moving affected scene/reference and correlate real
 texture updates before claiming the iPad graphics report fixed. Goal active.
+
+### Consecutive PC pan frames through host input on Simulator (2026-10-02)
+
+Private pass: `ref/xbox-build/passes/2026-10-02/pc-motion.FbhdY2/`.
+Previous goal pass made progress by correcting the verified texture-ordering
+defect; no blocked audit applies. This follow-up narrows the moving-view evidence
+gap without substituting a PC component run for the Xbox/physical acceptance gates.
+
+`halo_play_test.c` now posts scripted W/mouse/button events through the actual
+host API: iOS queue/pump, Mac same-thread dispatch. It still uses the existing
+console-script/systems/main component route, not licensed WinMain, real human
+touch or a physical controller. Ordinary Simulator run
+`core-arm64-apple-ios17.0-simulator-20261001T170346Z` and Mac
+`core-arm64-apple-macosx14.0.0-20261001T170730Z` each pass 16 checks, quit normally
+at 300 presents, and write only the original firing frame. Simulator walking
+moves +7.336 x units, stop check passes, pan turns 0→−24.9 degrees, firing drops
+60→48 rounds. Native input tests remain scripted, not human acceptance.
+
+Exact `HALOPAD_TEST_CAPTURE_MOTION=1` enables bounded test-only readback of
+frames 230–259, with frame/file and finite guest position/look metadata in stdout.
+The full set is required by a conditional native assertion; file write/close
+failure prevents a frame from counting. Existing firing snapshot now checks its
+write success too. No changes to production app capture/input flags. Repeated
+RGB writes use one packed buffer per image rather than a fwrite per pixel.
+
+Diagnostic Simulator `…-20261001T170441Z` passes all 17 checks. All 30 RGB images
+validate at 800x600, with contiguous frame labels and finite poses. Player position
+is unchanged during the pan; yaw steps range −0.8315905…−0.8315792 degrees.
+Reviewed six-view contact sheet and full-resolution pair 234/235 (largest adjacent
+RGB difference): near cliff/ground/weapon remain rendered, without an obvious
+frame-wide brightness jump or pronounced previous Xbox-style bands. ROI y65–549
+mean RGB runs 20.899→20.424; adjacent mean absolute differences range 2.179–2.673
+on the 0–255 channel scale. These simple metrics are observations, not a visual
+fidelity gate; local shading/detail errors and differences from Windows remain open.
+
+Opt-in draw trace across that same 30-frame interval has 3,134 requests / 11,966
+bound-sampler/resource observations: zero bias, zero resource LOD, no dirty
+managed bindings. Stale/unused bound stages and GPU render targets are included;
+these are not GPU submission or CPU-upload counts. Thus no link to the recently
+fixed texture-update hazard is established in this pan either. No matching
+original Windows moving-view reference was obtained in this pass.
+
+`pan-frame-replay.mp4` is H.264, 800x600, exactly 30 frames / 1 second at an
+assigned 30 fps; it is a frame replay, **not original elapsed gameplay timing**.
+Readback, traces and file I/O perturb pacing. No audio/sync/FPS claims. RGB originals,
+contact sheet, reviewed pair and replay stay private/ignored.
+
+109 Xbox tests and whitespace/tree/index safety pass. Dedicated real Simulator
+save directory still matches the prior full audio-pass copy; no app install,
+physical operation, pin change, IPA, public artifacts, push or cleanup.
+Goal remains active. Next prioritize a matched affected moving scene/reference,
+and the remaining actual Xbox checkpoint/control/physical gates; do not keep
+repeating this now-covered stationary-position cliff pan as hardware proof.

@@ -86,6 +86,16 @@ The affected edition/map is still unconfirmed. One-app Simulator compilation
 passes; no install or physical validation. Keep the graphics report open and
 seek a matched moving scene before calling it fixed.
 
+A subsequent PC moving-component pass now uses the actual host input API on
+Simulator and Mac: walk/stop, roughly 25-degree pan and fire checks pass. Explicit
+test-only capture retains all 30 consecutive presented pan frames and guest pose
+metadata, rather than selected screenshots. In this near-cliff Blood Gulch view,
+camera steps are smooth and frame-wide brightness does not abruptly switch;
+11,966 bound texture observations again have no nonzero LOD bias/resource LOD
+or dirty managed texture. This does not reproduce the physical complaint.
+The private one-second movie is a 30-fps frame replay, not measured gameplay
+timing. Normal tests do not capture the sequence. No app install or save changes.
+
 The earlier build-61 (`f8937c61`) experimental development pin added upstream's
 high-resolution HUD after build 60's menu-glyph fix. Save-backed candidate and
 acceptance Mac/Simulator menu/campaign/scripted-match checks pass. The
