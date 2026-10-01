@@ -2294,3 +2294,62 @@ publication or cleanup. Next properly provisioned, backed-up device test in a
 coordinated window: matched rendering, audio and controllers remain explicit
 unproven gates, alongside the reported shading/focus issue and normal PC license
 path. Do not reinterpret this build-only pass as completion.
+
+## Latest-source integrated Simulator runtime (2026-10-02)
+
+**Classification: progress.** The previous device-SDK pass changes authoritative
+build support; this pass verifies its latest source in the real combined app,
+not merely the asset-free renderer probe. Private evidence:
+`ref/xbox-build/passes/2026-10-02/current-source-sim.Hekk3p/`.
+
+Rebuild normal PC-entry app from `84547a5`, no scene replacement, using the
+separate `iphonesimulator-angle` archive. Source pins unchanged. Stop only the
+dedicated Simulator app, preserve its outgoing installed app and full 6.4 GB
+data container with `ditto`, then `diff -qr` verifies exact data copy. Candidate
+strict signature passes; candidate/installed executable both SHA-256
+`96e8c3176cdbcbccc8de3392552f1c03622f5c13532205b0e16fd36cbeefa652`.
+Outgoing installed app `e594a1f9…15feed` remains available. Installation changes
+both container UUIDs; rediscover them instead of using old paths.
+
+Dedicated Simulator `DF51182F-1878-4A54-9AED-CC4AED86BEAB`, iPadOS 26.5:
+actual two-card picker, About panel with frozen build-64 identity/PREVIEW and
+Done work. Copy `checkpoint64.sr7KEQ/after-cold-save-quit` into this pass's own
+`play-save`; reuse existing diagnostic maps read-only in the earlier play-data
+folder (its game logs may change). Clear bot/network test flags, show touch
+overlay explicitly; do not force edition selection. Xbox → virtual A Campaign
+→ New001 → Halo → Normal restores the copied outdoor checkpoint through normal
+menus. Actual finite horizontal/vertical look gestures change the view; RT/Y/
+Zoom actions reach a pistol and circular 2x scope. No exact rifle shot-count
+claim without reviewing intermediate frames. Pause and separately observed
+down-stick gestures safely select Save and Quit; Saving completes and main menu
+returns. Two rapidly adjacent drags advance only one item, retained as an input
+timing limitation, not sustained controls acceptance.
+
+Retain `manual-pan.mp4`, H.264, 62.313 seconds. Extracted 25s/47s frames verify
+outdoor rifle and scoped view in the captured video. Encoded capture rate is
+not game FPS. Finite drags/video samples do not prove continuous/multi-touch
+handling, full temporal stability, original-driver equivalence or physical
+fidelity. Existing frame-zero GL 0x502 log remains visible; sampled subsequent
+frame logs are zero. Do not promote the preview to default or call the physical
+shading/focus report fixed.
+
+Cold ordinary launch without development overrides presents both cards.
+Windows verifies the existing installation, enters normal PC core and presents
+the original Custom Edition EULA. Leave I Accept untouched; retain screenshot.
+Restore ordinary picker PID 67405, no test overrides. No real Xbox runtime/save
+opened. Current-backup audit checks all 196 Documents files: no additions or
+removals, only HaloPad log changes. Xbox/PC game/save/package bytes and PC
+registry preserved; final preference dictionaries identical. Library Metal
+caches, scene state and OS snapshots differ normally.
+
+The older launch-pass audit fails strict preference equality immediately after
+Xbox selection; do not hide or treat that as data-loss proof. Private fresh
+audit initially misuses `check=True` on a comparator that exits one for expected
+log differences; correct exit handling, parse full report, require unchanged
+real files/registry/key set and allow only last-edition preference changes.
+Final audit passes with no changed preferences. No physical operation, guest
+pin movement, rendering change, Xbox IPA, push, publication or cleanup. Goal
+active. Next sustained controls and affected/reference graphics; request which
+edition/map shows the physical complaint before attributing it to Xbox or PC.
+All 143 Xbox Python tests pass again (19.389 seconds); whitespace and current
+tree/index safety checks pass. Final picker process is verified live at PID 67405.

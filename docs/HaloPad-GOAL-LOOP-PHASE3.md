@@ -4,6 +4,16 @@ Written 2026-09-29. This is the active loop for the supplied device handoff and 
 
 ## Current priority — 2026-10-01 Simulator / Xbox integration
 
+Current installed Simulator app is now `96e8c317…fa652`, built from `84547a5`.
+The post-device-SDK runtime pass preserves the outgoing app/full data and verifies
+actual picker/About/Done, copied normal-menu outdoor a30 continuation, finite
+touch look, pistol/scope and Save and Quit. Ordinary Windows startup reaches
+the original unaccepted EULA. Final ordinary picker PID 67405. Real game/save
+files and PC registry preserved; final preferences match, caches/logs/snapshots
+change normally. Retained 62-second video is not sustained/multi-touch or full
+moving-image acceptance. Physical shading/focus still open; request the affected
+edition/map for a discriminating comparison, not another arithmetic-only gate.
+
 Chris's latest direction prioritizes the iPad Simulator on this Mac, one-app
 Windows/Xbox edition selection, and focused passes against a frozen recent Xbox
 upstream build. This pass does not authorize physical installs, an Xbox IPA,

@@ -23,8 +23,12 @@ The Simulator-only presentation fix remains narrow: temporarily neutralize textu
 sampler 0 during final presentation, then restore it. Physical rendering is unchanged.
 See [XBOX-SIMULATOR-PASSES.md](XBOX-SIMULATOR-PASSES.md).
 
-Latest installed local integration: executable `e594a1f9…15feed` is rebuilt and installed
+Latest installed local integration: executable `96e8c317…fa652` is rebuilt and installed
 in place on the dedicated iPad Simulator, with outgoing apps/data backed up.
+The post-device-SDK source follow-up verifies picker/About/Done, a copied outdoor
+a30 checkpoint, finite touch look, weapon swap, 2x scope and Save and Quit.
+Normal Windows startup reaches its still-unaccepted EULA. A retained 62-second
+video is not sustained-input or visual-fidelity acceptance. Earlier evidence:
 The picker and isolated outdoor Xbox continuation/fire/pistol/scope/Save and Quit
 work. Actual Home/resume retains the process and fresh controls work afterward.
 Xbox touch input now clears on focus loss and activation; 16 actual UIKit-handler

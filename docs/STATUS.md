@@ -4,6 +4,19 @@ Updated 2026-10-02. **ACTIVE — Simulator-focused Xbox/menu loop.** Physical ac
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE3.md](HaloPad-GOAL-LOOP-PHASE3.md). Earlier engineering history remains in [phase 2](HaloPad-GOAL-LOOP-PHASE2.md).
 
+**Latest-source Simulator integration (2026-10-02).** After the device-SDK
+build pass, rebuild the normal one-picker app from `84547a5` and install in place
+only on the dedicated Simulator, after full app/data backup and byte comparison.
+Installed executable is `96e8c317…fa652`. Actual picker/About/Done, Xbox normal
+menus, copied outdoor a30 checkpoint, finite touch look, weapon swap, 2x scope
+and Save and Quit work. Retain a 62-second video, not sustained-control or
+moving-image fidelity acceptance. Ordinary Windows route verifies its existing
+installation and stops at the original EULA, left unaccepted. Final ordinary
+picker PID 67405. All real game/save/package files and PC registry remain
+unchanged; final preferences match, ordinary caches/snapshots/logs differ.
+No physical operation, new pin, rendering-fix claim, IPA or publication. Goal
+active; [integrated evidence](XBOX-SIMULATOR-PASSES.md#latest-source-integrated-simulator-runtime-2026-10-02).
+
 **Device-SDK renderer preview (2026-10-02).** The independently pinned ANGLE
 preview now builds separately for iPhoneOS and Simulator. Actual SDK identity
 and per-platform feature overrides are checked before packaging; physical builds

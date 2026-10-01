@@ -4245,3 +4245,23 @@ real game bytes/saves, preferences and PC registry remain unchanged. No install,
 physical operation, shader-workaround promotion, pin move, Xbox IPA, push,
 publication or cleanup. Hardware graphics/audio/controller and physical shading/
 focus remain open. Goal active; [device-SDK evidence](XBOX-SIMULATOR-PASSES.md#device-sdk-angle-preview-build-without-installation-2026-10-02).
+
+### 2026-10-02 — current-source integrated Simulator runtime
+
+Build normal one-picker source `84547a5` with the freshly separate Simulator
+ANGLE archive, preserving frozen pins. Terminate only the dedicated Simulator
+app; preserve installed app and full 6.4 GB data container and compare bytes.
+In-place installation rediscovered both changed container UUIDs. Candidate and
+installed executable match `96e8c317…fa652`, strict signing passes. Actual UI
+verifies picker/About/Done, Xbox menus, copied outdoor a30 checkpoint, finite
+touch look, weapon swap, 2x scope and Save and Quit. Retain a 62.313-second
+private video; no sustained-control/fidelity inference. Rapid adjacent down
+gestures advance only one menu item; separately observed navigation reaches
+Save and Quit safely. Final Windows route reaches the original EULA after
+installed-data verification; do not accept it. Ordinary picker restored PID
+67405. Full real game/save/package bytes and PC registry preserved, final
+preferences match; logs/cache/system snapshots differ. Retain older audit's
+preference assertion failure and private comparator-exit handling mistake as
+limits, then enforce current-backup file/registry/key rules. No runtime change,
+physical operation, pin movement, IPA, push, publication or cleanup. Goal active;
+[integration pass](XBOX-SIMULATOR-PASSES.md#latest-source-integrated-simulator-runtime-2026-10-02).
