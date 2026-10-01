@@ -1,14 +1,14 @@
 # Xbox engine (second HaloPad engine)
 
 Status, 2026-10-01: **HaloPad offers Windows Custom Edition or Xbox Combat Evolved at launch.**
-The accepted pin remains `b47f237d`; upstream **build 58, `943abae1`**, is a local preview candidate,
-not an accepted update. This pass focuses on the iPad Simulator and does not alter the physical
-iPad. Mac campaign/menu/scripted-match evidence is separate from Simulator acceptance:
-the Simulator menu and scripted match work. The campaign black screen reproduced on
-both the old pin and newer candidate; source/destination captures isolated a texture-unit/
-sampler state leak in the Simulator blitter. The host now neutralizes unit 0 only during
-presentation and restores it afterward, showing the opening cinematic in normal runs.
-Physical rendering is unchanged. Full campaign progression and visual fidelity remain open.
+The accepted **experimental development pin** is upstream **build 59, `8fb1647e`**.
+Save-backed Mac and iPad Simulator menu/campaign/scripted-match gates pass. Real touch
+navigation, cryo-bay training, tube exit, Save and Quit, and a same-build cold checkpoint
+reload were exercised with isolated saves. This is not full gameplay acceptance:
+geometry/texture artifacts, full campaign progression, split-screen, human system link,
+audio quality and physical performance remain open. No physical iPad changes in this pass.
+The Simulator-only presentation fix remains narrow: temporarily neutralize texture unit/
+sampler 0 during final presentation, then restore it. Physical rendering is unchanged.
 See [XBOX-SIMULATOR-PASSES.md](XBOX-SIMULATOR-PASSES.md).
 
 HaloPad now opens with a choice:
@@ -18,7 +18,7 @@ HaloPad now opens with a choice:
 | Engine | Custom Edition 1.10, translated from the player's own `haloce.exe` | [cybersecurity/halo-ce-universal](https://github.com/cybersecurity/halo-ce-universal), a port of the Xbox decompilation |
 | Game files | Custom Edition package | The player's own Xbox disc image (maps copied into Documents/Halo Xbox) |
 | Online | Custom Edition servers | Other copies of that port (system link) |
-| Campaign | Not yet | Yes, plus split-screen |
+| Campaign | Not yet | Original Xbox campaign; experimental. Split-screen is upstream functionality, unverified in HaloPad |
 
 The two cannot play online together. One engine runs per launch (both use the same guest memory), so
 switching means closing HaloPad and opening it again; the picker appears at every launch.
@@ -107,9 +107,9 @@ freeze an exact commit for validation. Do not chase changing HEAD during a pass.
 local build/update workflow, not an in-app executable updater or a scheduled job already installed.
 
 ```sh
-scripts/xbox/update-pin.sh --to build-58 --simulator <dedicated-simulator-UDID>
+scripts/xbox/update-pin.sh --to build-59 --simulator <dedicated-simulator-UDID>
 # Only after all checks and visual review pass:
-scripts/xbox/update-pin.sh --to build-58 --simulator <dedicated-simulator-UDID> --accept
+scripts/xbox/update-pin.sh --to build-59 --simulator <dedicated-simulator-UDID> --accept
 ```
 
 The script lists upstream changes, backs up Mac and selected Simulator Xbox saves, builds the
@@ -119,8 +119,9 @@ Xbox saves; it does not establish physical gameplay acceptance. On rejection/int
 checkout and Mac build return to the accepted pin. A candidate installed in the Simulator remains
 an explicitly labeled preview; revision/hash checks reject stale libraries during ordinary builds.
 Rebuild and install in place after accepting. Screenshots require human/agent visual review, not
-just a nonblack-pixel check. The campaign presentation fix still needs progression/fidelity
-review before treating the preview as accepted gameplay.
+just a nonblack-pixel check. An accepted pin is the repeatable development baseline,
+not full progression/fidelity or physical-device acceptance. The Xbox card continues to
+say **EXPERIMENTAL** even after a candidate's regression gates pass.
 
 The app also copies nonempty Xbox saves to `Documents/Halo Xbox/Save Backups/<previous-revision>-<time>`
 before a changed engine opens them. A failed backup blocks startup. This preserves recovery data,
@@ -152,8 +153,10 @@ saves. The **About these builds** panel shows the bundled revision and preview s
   builds declare Local Network usage. Do not infer hardware results from the Simulator host match.
 - **Human play on the device:** touch gamepad feel and a Bluetooth controller on the iPad are untested
   by a player.
-- **Mac presentation:** the Mac proof draws in part of its fullscreen window (the iOS host fills the
-  screen); the Mac program is a test tool, not a product.
+- **Visual fidelity:** corrected Mac drawable capture shows a properly letterboxed cinematic.
+  The earlier lower-left picture was an invalid test capture, not a presentation defect.
+  Simulator geometry/texture artifacts remain, including pale triangles in the match frame.
+  The Mac program is a test tool, not a product.
 - **Internet play:** the game starts internet hosting and asks public STUN servers for its address at
   start-up; it should be opt-in in the app. UPnP and Discord are stubbed.
 - **Missing on OpenGL ES 3.0:** `glCopyImageSubData` and `glDrawElementsBaseVertex` (upstream falls back);

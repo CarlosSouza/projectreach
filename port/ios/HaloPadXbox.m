@@ -419,7 +419,7 @@ static void import_progress_update(double fraction, void *context)
 	title.textAlignment = NSTextAlignmentCenter;
 	cards = [[UIStackView alloc] initWithArrangedSubviews:@[
 		[self cardWithTitle:@"Halo Custom Edition" subtitle:@"WINDOWS • 1.10\nMultiplayer on PC community servers\n\nPlay Custom Edition →" symbol:@"desktopcomputer" action:@selector(choosePC)],
-		[self cardWithTitle:@"Halo: Combat Evolved" subtitle:[NSString stringWithFormat:@"%@\nCampaign · split-screen · system link\n\n%@ →", [xbox_build()[@"candidate"] boolValue] ? @"XBOX • PREVIEW" : @"XBOX", xbox_has_maps() ? @"Play Xbox" : @"Add your Xbox disc"] symbol:@"gamecontroller" action:@selector(chooseXbox)] ]];
+		[self cardWithTitle:@"Halo: Combat Evolved" subtitle:[NSString stringWithFormat:@"%@\nOriginal Xbox campaign\n\n%@ →", [xbox_build()[@"candidate"] boolValue] ? @"XBOX • PREVIEW" : @"XBOX • EXPERIMENTAL", xbox_has_maps() ? @"Play Xbox" : @"Add your Xbox disc"] symbol:@"gamecontroller" action:@selector(chooseXbox)] ]];
 	cards.axis = UILayoutConstraintAxisHorizontal;
 	cards.spacing = 24;
 	cards.distribution = UIStackViewDistributionFillEqually;
@@ -496,7 +496,7 @@ static void import_progress_update(double fraction, void *context)
 {
 	NSDictionary *build = xbox_build();
 	NSString *revision = build[@"revision"] ?: @"unknown";
-	NSString *message = [NSString stringWithFormat:@"Windows: Halo Custom Edition 1.10.\n\nXbox: halo-ce-universal %@ (built %@).%@\n\nUpdates are validated on the Mac and iPad Simulator before the accepted pin moves. Saves are backed up when the engine changes.", [revision substringToIndex:MIN((NSUInteger)8, revision.length)], build[@"built"] ?: @"locally", [build[@"candidate"] boolValue] ? @"\nPreview candidate; validation is incomplete." : @""];
+	NSString *message = [NSString stringWithFormat:@"Windows: Halo Custom Edition 1.10.\n\nXbox: halo-ce-universal %@ (built %@).%@\n\nThe Xbox port is experimental. Full campaign progression, split-screen and system link remain unverified in HaloPad. Xbox and Windows editions cannot play together.\n\nUpdates are validated on the Mac and iPad Simulator before the accepted pin moves. Saves are backed up when the engine changes.", [revision substringToIndex:MIN((NSUInteger)8, revision.length)], build[@"built"] ?: @"locally", [build[@"candidate"] boolValue] ? @"\nPreview candidate; validation is incomplete." : @""];
 	UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Installed builds" message:message preferredStyle:UIAlertControllerStyleAlert];
 	[alert addAction:[UIAlertAction actionWithTitle:@"Done" style:UIAlertActionStyleCancel handler:nil]];
 	[self presentViewController:alert animated:YES completion:nil];

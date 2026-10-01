@@ -320,15 +320,29 @@ int xh_host_sdl_show_simple_message_box(uint32_t flags, uint32_t title, uint32_t
 static __strong GCController *pads[PADS + 1];
 static uint8_t pad_announced[PADS + 1];
 static pthread_mutex_t pad_lock = PTHREAD_MUTEX_INITIALIZER;
-static struct xg_touch_pad touch_pad;
-static uint32_t pending_touch_buttons;
+static struct xg_touch_input touch_input;
+
+/* Opt-in touch diagnostics: input values only, no player/profile data. */
+static int touch_trace;
 
 void xg_ios_set_touch_pad(const struct xg_touch_pad *state)
 {
 	pthread_mutex_lock(&pad_lock);
-	/* Keep a quick tap until the game's next poll, even during a slow frame. */
-	pending_touch_buttons |= state->buttons & ~touch_pad.buttons;
-	touch_pad = *state;
+	if (touch_trace && (state->buttons != touch_input.current.buttons ||
+		fabsf(state->axes[0] - touch_input.current.axes[0]) > 0.1f ||
+		fabsf(state->axes[1] - touch_input.current.axes[1]) > 0.1f ||
+		fabsf(state->axes[2] - touch_input.current.axes[2]) > 0.1f ||
+		fabsf(state->axes[3] - touch_input.current.axes[3]) > 0.1f))
+		fprintf(stderr, "[xbox] touch publish buttons=%x move=%.2f,%.2f look=%.2f,%.2f\n",
+			state->buttons, state->axes[0], state->axes[1], state->axes[2], state->axes[3]);
+	xg_touch_publish(&touch_input, state);
+	pthread_mutex_unlock(&pad_lock);
+}
+
+void xg_ios_clear_touch_pad(void)
+{
+	pthread_mutex_lock(&pad_lock);
+	xg_touch_clear(&touch_input);
 	pthread_mutex_unlock(&pad_lock);
 }
 
@@ -389,13 +403,13 @@ static int16_t axis_value(float value)
 	return (int16_t)(scaled < -32768.0f ? -32768.0f : scaled > 32767.0f ? 32767.0f : scaled);
 }
 
-static float stronger(float a, float b) { return fabsf(a) >= fabsf(b) ? a : b; }
+static float stronger(float a, float b) { return xg_touch_stronger(a, b); }
 
 int xh_host_sdl_gamepad_axis(uint32_t pad, int axis)
 {
+	static float traced[6];
 	GCExtendedGamepad *g = pad <= PADS ? pads[pad].extendedGamepad : nil;
 	float values[6] = { 0 };
-	int index;
 	if (g)
 	{
 		values[SDL_GAMEPAD_AXIS_LEFTX] = g.leftThumbstick.xAxis.value;
@@ -408,9 +422,14 @@ int xh_host_sdl_gamepad_axis(uint32_t pad, int axis)
 	if (pad == 1)
 	{
 		pthread_mutex_lock(&pad_lock);
-		for (index = 0; index < 6; index++)
-			values[index] = stronger(values[index], touch_pad.axes[index]);
+		if (axis >= 0 && axis < 6)
+			values[axis] = stronger(values[axis], xg_touch_axis(&touch_input, axis));
 		pthread_mutex_unlock(&pad_lock);
+		if (touch_trace && axis >= 0 && axis < 6 && fabsf(values[axis] - traced[axis]) > 0.1f)
+		{
+			fprintf(stderr, "[xbox] touch poll axis=%d value=%.2f\n", axis, values[axis]);
+			traced[axis] = values[axis];
+		}
 	}
 	return axis >= 0 && axis < 6 ? axis_value(values[axis]) : 0;
 }
@@ -445,8 +464,7 @@ int xh_host_sdl_gamepad_button(uint32_t pad, int button)
 	if (pad == 1 && button >= 0 && button < 32)
 	{
 		pthread_mutex_lock(&pad_lock);
-		pressed |= (int)(((touch_pad.buttons | pending_touch_buttons) >> button) & 1u);
-		pending_touch_buttons &= ~(1u << button);
+		pressed |= xg_touch_button(&touch_input, button);
 		pthread_mutex_unlock(&pad_lock);
 	}
 	return pressed;
@@ -575,6 +593,7 @@ int xg_ios_start(const char *image_path, const char *data_root, const char *save
 	CGFloat longer = MAX(screen.width, screen.height), shorter = MIN(screen.width, screen.height);
 	uint32_t boot;
 	start_ticks = mach_absolute_time();
+	touch_trace = getenv("XG_TOUCH_TRACE") != NULL;
 	strlcpy(xg_paths.data_root, data_root, sizeof(xg_paths.data_root));
 	strlcpy(xg_paths.save_root, save_root, sizeof(xg_paths.save_root));
 	mkdir(save_root, 0755);

@@ -110,13 +110,15 @@ static const struct touch_button buttons[] =
 	view.layer.cornerRadius = 14;
 	view.tag = button;
 	[view addTarget:self action:@selector(smallDown:) forControlEvents:UIControlEventTouchDown];
-	[view addTarget:self action:@selector(smallUp:) forControlEvents:UIControlEventTouchUpInside | UIControlEventTouchUpOutside | UIControlEventTouchCancel];
+	[view addTarget:self action:@selector(smallUp:) forControlEvents:UIControlEventTouchUpInside | UIControlEventTouchUpOutside];
+	[view addTarget:self action:@selector(smallCancel:) forControlEvents:UIControlEventTouchCancel];
 	[self addSubview:view];
 	return view;
 }
 
 - (void)smallDown:(UIButton *)sender { state.buttons |= 1u << sender.tag; [self publish]; }
 - (void)smallUp:(UIButton *)sender { state.buttons &= ~(1u << sender.tag); [self publish]; }
+- (void)smallCancel:(UIButton *)sender { [self cancelInput]; }
 
 - (CGRect)frameOfButton:(size_t)index
 {
@@ -242,7 +244,19 @@ static const struct touch_button buttons[] =
 	[self publish];
 }
 
-- (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event { [self touchesEnded:touches withEvent:event]; }
+- (void)cancelInput
+{
+	stick_touch = look_touch = nil;
+	look_velocity = CGPointZero;
+	stick_base.hidden = stick_knob.hidden = YES;
+	[button_touches removeAllObjects];
+	memset(&state, 0, sizeof(state));
+	for (UIView *view in button_views)
+		view.backgroundColor = [UIColor colorWithWhite:0 alpha:0.28];
+	xg_ios_clear_touch_pad();
+}
+
+- (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event { [self cancelInput]; }
 
 /* the right stick follows the look finger's speed, and eases off when it stops */
 - (void)tick
@@ -251,19 +265,21 @@ static const struct touch_button buttons[] =
 	BOOL controller = xg_ios_controller_connected() && !getenv("XG_TOUCH_SHOW");
 	if (self.hidden != controller)
 	{
+		if (controller) [self cancelInput];
 		NSLog(@"HaloPad Xbox: touch gamepad %@ (controller %d), frame %@", controller ? @"hidden" : @"shown", controller,
 			NSStringFromCGRect(self.frame));
 		self.hidden = controller;
 	}
 	if (look_touch && CACurrentMediaTime() - look_time > 0.05)
 		look_velocity = CGPointMake(look_velocity.x * 0.5, look_velocity.y * 0.5);
-	state.axes[2] = (float)fmax(-1.0, fmin(1.0, look_velocity.x / LOOK_SPEED));
-	state.axes[3] = (float)fmax(-1.0, fmin(1.0, look_velocity.y / LOOK_SPEED));
 	[self publish];
 }
 
 - (void)publish
 {
+	/* Publish look on the touch event, not only on the next display tick. */
+	state.axes[2] = (float)fmax(-1.0, fmin(1.0, look_velocity.x / LOOK_SPEED));
+	state.axes[3] = (float)fmax(-1.0, fmin(1.0, look_velocity.y / LOOK_SPEED));
 	xg_ios_set_touch_pad(&state);
 }
 

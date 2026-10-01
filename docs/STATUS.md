@@ -10,16 +10,19 @@ Operating loop: [HaloPad-GOAL-LOOP-PHASE3.md](HaloPad-GOAL-LOOP-PHASE3.md). Earl
 Windows Custom Edition 1.10 from Xbox Combat Evolved, with edition-specific
 multiplayer descriptions, an installed-build panel, accessible text and a safe
 return from disc import. Short Xbox touch taps are latched until the engine polls
-them. Upstream build 58 (`943abae1`) is the latest candidate built locally;
-the accepted pin remains `b47f237d`. The newer engine runs its menu and a
-scripted Simulator match. Campaign's black presentation was narrowed to the
+them; short analog swipes and triggers are now retained for one poll as well.
+Upstream build 59 (`8fb1647e`) is the accepted experimental development pin after
+save-backed Mac and Simulator menu/campaign/scripted-match gates. Real touch
+navigation reaches cryo-bay training and exits the tube. Save and Quit followed
+by a cold relaunch reloads the same-build checkpoint. Campaign's black presentation was narrowed to the
 software blitter inheriting texture-unit/sampler state: neutralizing unit 0 during
 the final blit restores the picture. The normal build now shows the opening
 cinematic; physical rendering and internal texture copies are unchanged. An A/B
 pass reproduced the original failure on the older pin, so it was not newly
-introduced by build 57/58. Full campaign progression, visual artifacts and
-hardware acceptance remain open. Candidates are labeled **PREVIEW**, not accepted
-updates. No physical iPad changes in this pass. See [XBOX-SIMULATOR-PASSES.md](XBOX-SIMULATOR-PASSES.md).
+introduced by build 57/58. Full campaign progression, visual artifacts, audio,
+split-screen, human system link and hardware acceptance remain open. Candidates
+are labeled **PREVIEW**; the accepted Xbox baseline still says **EXPERIMENTAL**.
+No physical iPad changes in this pass. See [XBOX-SIMULATOR-PASSES.md](XBOX-SIMULATOR-PASSES.md).
 
 **Second engine: Halo Xbox (2026-09-30).** HaloPad now opens with a choice of
 Halo PC or Halo Xbox. The Xbox engine is upstream's decompilation port, pinned

@@ -2,6 +2,27 @@
 
 Written 2026-09-29. This is the active loop for the supplied device handoff and the next iPhone/iPad release candidate. It inherits the original loop's private-input, source-integrity, evidence, and safety rules. Current truth is in [STATUS.md](STATUS.md) and [JOURNAL.md](JOURNAL.md); older phase-2 claims describe builds and machines that are not present in this checkout.
 
+## Current priority — 2026-10-01 Simulator / Xbox integration
+
+Chris's latest direction prioritizes the iPad Simulator on this Mac, one-app
+Windows/Xbox edition selection, and focused passes against a frozen recent Xbox
+upstream build. This pass does not authorize physical installs, an Xbox IPA,
+publication, or a recurring automation. The older physical-device work below is
+historical context, not the next automatic action.
+
+Build 59 (`8fb1647e`) is now the experimental development pin. Mac and Simulator
+menu/campaign/scripted-match checks pass. Real touch navigation, cryo-bay training,
+tube exit and a same-build cold checkpoint reload pass with isolated saves.
+The normal picker remains on the dedicated **HaloPad Xbox iPad** Simulator.
+See [XBOX-SIMULATOR-PASSES.md](XBOX-SIMULATOR-PASSES.md) for the evidence and failed
+approaches. The broader goal remains active; this is not full campaign/hardware acceptance.
+
+Next: sustained movement/look/fire and weapon pickup/swap, a later checkpoint
+and reload, then a small reproducible case for remaining geometry artifacts.
+Maintain upstream by freezing one candidate per pass, backing up saves, building,
+testing and visually reviewing it before pin promotion. Keep normal runs free
+of input/render diagnostics and preserve the Windows route and both save domains.
+
 ## Starting point and claim boundary
 
 - The private kit is `ref/handoff/HaloPad-iPad-test/`: an arm64 iPhoneOS `HaloPad.app` and its matching `.halopad.zip`. The original kit stays untouched. The package verifies its 87 files, including 78 stock records.

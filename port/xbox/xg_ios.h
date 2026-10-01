@@ -2,6 +2,7 @@
 #ifndef XG_IOS_H
 #define XG_IOS_H
 #import <UIKit/UIKit.h>
+#include "xg_touch_input.h"
 
 /* the view the game draws into; make it on the main thread before starting */
 UIView *xg_ios_make_view(CGRect frame);
@@ -13,12 +14,8 @@ int xg_ios_start(const char *image_path, const char *data_root, const char *save
 /* player 1's touch gamepad (xg_touch.m): axes in SDL order (left x, left y,
  * right x, right y, left trigger, right trigger; -1..1, y down), buttons as
  * bits numbered by SDL_GamepadButton */
-struct xg_touch_pad
-{
-	float axes[6];
-	unsigned int buttons;
-};
 void xg_ios_set_touch_pad(const struct xg_touch_pad *state);
+void xg_ios_clear_touch_pad(void);
 /* nonzero while a game controller is player 1's */
 int xg_ios_controller_connected(void);
 

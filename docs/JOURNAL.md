@@ -3222,3 +3222,49 @@ Work that doesn't depend on the license (still unaccepted, so the core still sto
   to ignored `generated/device-backups/ipad-20260930-pre-async-shaders/` before
   installing the background-compile build; signed icon builds for iPad and
   iPhone are staged under `generated/device-candidates/*-20260930-icon-async/`.
+
+## 2026-10-01 — Xbox build 59, short analog input and checkpoint reload
+
+**Scope:** Chris requested focused iPad Simulator passes on this Mac, the
+one-app Windows/Xbox picker, and a recent upstream Xbox build. Existing checkout;
+no physical install, Xbox IPA, publication, controller re-pairing or recurring job.
+
+**Experiment/result:** build 59 (`8fb1647e18a68e164529321bdcbe24557801f23b`)
+fixes upstream weapon-swap crashes and log spam. Freeze that revision. Before
+the host fix, short stick gestures published nonzero then zero between guest
+polls; right-look gestures could also end before the display tick published them.
+The portable buffer now retains one unread nonzero sample per axis, preserving
+held input and stronger physical-pad merge. Touch cancellation/hiding clears
+pending state, including Start/Back cancellation. Look publishes on actual
+touch events. Input tracing is opt-in, values only, off in normal builds.
+
+Real UI checks on **HaloPad Xbox iPad**, iPadOS 26.5: one swipe changes Campaign
+to Multiplayer, opposite returns; create New001; Normal campaign; four-direction
+look tutorial; X exits tube; a forward gesture moves the standing view slightly;
+Start opens pause; normal Save and Quit completes. Restart the app and select
+Xbox → Campaign → New001 → Pillar of Autumn → Normal: the game-in-progress
+checkpoint reloads the cryo-bay sequence, without the initial ship cinematic.
+All this uses isolated saves, no init script, bot or guest-action injection.
+The upstream new-profile debug unlock-all-levels labels are not completion proof.
+
+The save-backed update routine passed Mac menu/campaign/match (2,074 ticks / 16
+scripted shots) and all three Simulator cases (941 ticks / 6 shots), without
+render probes/overrides. Campaign and match captures visually reviewed: campaign
+presentation works; pale match triangles and geometry/texture artifacts remain.
+Accepted pin moves from `b47f237d` to build 59 as an **experimental development
+baseline**. Rebuilt the normal app without a revision override and installed in
+place; picker and About visibly show experimental status and installed `8fb1647e`.
+About explicitly separates full campaign, split-screen/system-link and
+cross-edition multiplayer limits. Real Simulator saves remain byte-identical to
+the update backup after regression and final reinstall (container UUID refreshed).
+
+**Evidence:** ignored `ref/xbox-build/passes/2026-10-01/campaign-controls.8B6vcC/`,
+`campaign59.sXluwg/` (including `checkpoint-reloaded.png`), `build59-picker.png`,
+`build59-accept.log`; update cases under `ref/xbox-build/{smoke-results,simulator-results}/20261001-133246-8fb1647e/`;
+save backup `ref/xbox-build/save-backups/20261001-133246-from-b47f237d/`.
+68 Python tests, 16 skipped; physical-device SDK syntax and repository tree/index
+guards pass. Builds and game inputs stay private. No physical acceptance claimed.
+
+**Next discriminating experiment:** sustained movement and simultaneous look/fire,
+weapon pickup/swap and a later checkpoint reload, then isolate remaining rendering
+artifacts. Same-build reload is not old-snapshot compatibility or full progression.
