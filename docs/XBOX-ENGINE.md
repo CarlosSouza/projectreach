@@ -210,8 +210,13 @@ its `HALO_NETWORK_TEST` scripted matches). `init.txt` in the data folder holds c
 callbacks. `scripts/test-xbox-touch.py --device <booted-Simulator-UDID>` runs
 asset-free UIKit handlers plus the shared native input buffer without installing,
 opening a window or operating the game. It is not synthetic OS touch routing.
-Unset `XG_DATA` and `XG_SAVE` for the ordinary app; an empty variable is still a
-development override. Upstream build 64 deliberately unlocks all levels and
+Unset `XG_DATA` and `XG_SAVE` for the ordinary app. Empty values now behave like
+unset values; only nonempty paths override the installation. A nonempty
+`XG_SAVE` isolates development saves and skips the real revision marker/backup.
+`scripts/test-xbox-launch.py --device <booted-Simulator-UDID>` exercises the
+actual launch/save helpers against synthetic folders and isolated preferences,
+including failed-copy refusal. It neither opens the game nor installs an app.
+Upstream build 64 deliberately unlocks all levels and
 difficulties in new profiles, which explains The Maw/Legendary in their summary;
 that summary does not prove completion or describe the current checkpoint.
 

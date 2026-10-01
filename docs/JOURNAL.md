@@ -4175,3 +4175,26 @@ PID 95450 with the unchanged `58111bcb…29f093` executable. Full audit preserve
 all real game bytes, preferences and PC registry; normal logs/Metal caches and
 system snapshots change. Goal active. Next matched affected/reference rendering,
 not a speculative shader/filter fix. See [live material pass](XBOX-SIMULATOR-PASSES.md#pc-live-ground-material-arithmetic-2026-10-02).
+
+### 2026-10-02 — empty launch overrides and save-backup regression
+
+Private `launch-overrides.x2mHge` pass fixes the previous empty-variable Add Disc
+failure with three nonempty-path checks in HaloPadXbox.m. New asset-free native
+fixture includes actual launch/backup helpers with synthetic paths, isolated
+defaults/bundle and inert engine; first fixture compile has covariance/nullability
+warnings, corrected without changing production behavior. Baseline has 12 failed
+checks, including cascades after the missing backup, not 12 independent defects.
+Fixed source passes all 20 checks: ordinary/unset/empty/nonempty paths, exact
+save copy, same-pin no-op, isolated marker, copy failure and retry. Existing
+16 UIKit checks and 128 Xbox Python tests pass, as do five input guards and
+13 package checks (16 package checks skipped).
+
+Preserve full Documents/Library and outgoing installed/builder apps; rebuild
+normal PC-entry app without a scene. In-place install only on dedicated Simulator:
+executable `e594a1f9…15feed`, frozen Xbox/ANGLE libraries unchanged. Actual
+empty-variable picker shows Play Xbox, About/Done works, ordinary Windows route
+validates existing files then reopens original unaccepted EULA. Never Accept.
+Final ordinary picker PID 8646. Real Xbox runtime never opens saves; full audit
+preserves game bytes, preferences and PC registry. Logs/system snapshots/scene
+metadata change. No physical operation, graphics fix, pin update, IPA, push,
+publication or cleanup. Goal active; [full evidence](XBOX-SIMULATOR-PASSES.md#empty-launch-overrides-and-revision-backup-regression-2026-10-02).

@@ -4,6 +4,24 @@ Updated 2026-10-02. **ACTIVE — Simulator-focused Xbox/menu loop.** Physical ac
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE3.md](HaloPad-GOAL-LOOP-PHASE3.md). Earlier engineering history remains in [phase 2](HaloPad-GOAL-LOOP-PHASE2.md).
 
+**Launch-path follow-up (2026-10-02).** Empty `XG_DATA`/`XG_SAVE` no longer
+select an empty development path or skip revision-change save backups. Nonempty
+development paths remain supported. New asset-free native helper fixture
+reproduces the baseline failure, then passes 20 checks after the three-condition
+fix: exact synthetic save-copy bytes, same-pin no-op, isolated marker behavior,
+failed-copy refusal and retry. These are real Foundation helper operations,
+not gameplay or OS failure coverage. Integrated app rebuilt and installed in
+place only on the dedicated Simulator; executable `e594a1f9…15feed`.
+Actual empty-variable launch shows Play Xbox; About/Done and ordinary Windows
+route work, the latter stopping at the unchanged unaccepted EULA. Final ordinary
+launch shows both cards. No Xbox runtime opens real saves. Full audit preserves
+all game/disc/package bytes, preference dictionaries and PC registry; normal
+log/system snapshots change. 128 Xbox Python, five input-guard, 13 package,
+20 launch-helper and 16 UIKit checks pass (16 package checks skipped). Frozen
+build 64 and renderer unchanged. Physical shading/focus remains unresolved;
+no physical operation, IPA, push, publication or cleanup.
+Evidence: [launch-path pass](XBOX-SIMULATOR-PASSES.md#empty-launch-overrides-and-revision-backup-regression-2026-10-02).
+
 **PC live material arithmetic (2026-10-02).** A private Simulator component
 probe replays the exact Battle Creek ground draw into independent float targets,
 capturing actual texture samples/interpolated inputs and the unmodified pixel

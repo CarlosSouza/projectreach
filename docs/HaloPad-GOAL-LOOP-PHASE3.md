@@ -37,6 +37,19 @@ and moving-image stability. Do not substitute bot screenshots for those gates.
 Keep the accepted Apple app available for in-place rollback and all real saves
 untouched. Physical iPad shading/focus investigation stays a separate gate.
 
+Latest one-app follow-up fixes empty XG_DATA/XG_SAVE handling: empty values now
+select ordinary installation paths and do not bypass revision-change backup;
+nonempty development save paths still isolate the marker. Actual helper fixture
+passes 20 checks after reproducing the failure (including downstream cascades).
+Synthetic save bytes survive copy/failure/retry, not physical snapshot acceptance.
+Current source app `e594a1f9…15feed` is installed in place only on dedicated
+Simulator after full backup. Empty-variable picker shows Play Xbox; About/Done
+and Windows route to original unaccepted EULA verified. Final ordinary picker
+PID 8646. No real Xbox runtime/save opening; game bytes, preferences and PC
+registry remain unchanged. Existing 128 Xbox, five input-guard, 13 package and
+16 UIKit checks pass (16 package checks skipped). No renderer/pin/physical change.
+See the launch-path pass ledger; graphics and broader hardware gates remain open.
+
 Accepted experimental update, 2026-10-02: build 64,
 `c55e4e2b9d90550b0e761eb78dfe9d7c74880cb9`, four commits after 61. Candidate and
 acceptance source-built Mac/ANGLE Simulator menu/a10/scripted-match sets pass.

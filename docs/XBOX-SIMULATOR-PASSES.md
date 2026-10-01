@@ -2109,3 +2109,66 @@ snapshot changes are retained, not treated as game-data loss or Library identity
 No physical operation, EULA acceptance, IPA, push, publication or cleanup.
 Next matched original-driver/affected scene comparison, including sampling and
 geometry/depth discrimination; do not add a speculative visual workaround.
+
+## Empty launch overrides and revision-backup regression (2026-10-02)
+
+**Classification: progress, not graphics fix or goal completion.** Previous
+live-material comparison changed the next rendering experiment; this pass
+addresses the earlier observed empty-variable launch bug, not repeat gameplay.
+Private backups/logs/screens/audit: `ref/xbox-build/passes/2026-10-02/launch-overrides.x2mHge/`.
+
+### Actual helper regression
+
+`xbox_data()` and `xbox_saves()` previously treated any getenv result, even
+empty, as a development path. An empty XG_SAVE also skipped real revision
+backups/marker handling. All three conditions now require a nonempty value.
+No importer, renderer, touch routing, guest or pin change.
+
+New `tests/xbox_launch_paths_test.m` includes the actual app helpers. Only its
+Documents lookup, bundle/defaults and file-manager boundary are redirected to
+synthetic fixture folders and an isolated preference suite; copying uses real
+Foundation operations, with an explicit failed-copy injection. Engine/extractor
+stubs abort if called: no game/image/window or real installation access. Run via
+`scripts/test-xbox-launch.py --device <booted-UDID>`. First fixture compile fails
+on inherited class-property covariance and the app's test-only nil delegate
+argument warning. Correct the fixture declaration; suppress known SDK
+deprecated/non-null warnings in this test link, not general compile failures.
+Retain `generated/xbox-launch-tests/20261001T220825790376Z`.
+
+Baseline `…220850240488Z` fails 12 of 20 checks. Several cascade from the absent
+backup/revision marker; these are not 12 separate defects. Fixed `…220906050826Z`
+passes all 20: unset/empty paths and map readiness, nonempty isolation, exact
+synthetic save copy/current preservation, same-pin no-op, marker isolation,
+failed-copy refusal/preservation and successful retry. Simulated copy refusal
+does not cover partial copies, disk exhaustion or upstream snapshot compatibility.
+No revision-save acceptance claim follows from a synthetic text fixture.
+
+### Integrated source build and preservation
+
+Retain complete outgoing installed app, Documents/Library and builder-output
+folder (move aside rather than delete it). Build normal PC-entry app with the
+existing source-guarded Xbox/ANGLE archive, no development scene. Ad-hoc signing
+verification passes. In-place install only on
+`DF51182F-1878-4A54-9AED-CC4AED86BEAB`; actual installed executable SHA-256
+`e594a1f9570fd193eb48ee7e8fe89a834d611bf79546528258da90878515feed`.
+Frozen build 64 `c55e4e2b`/ANGLE PREVIEW unchanged; no upstream promotion.
+
+Launch PID 7921 with both empty development variables: actual UI shows both
+edition cards and Play Xbox instead of Add Disc. About reports build 64 preview;
+Done returns to picker. Do not open the real Xbox runtime. Relaunch with both
+variables unset, PID 8093: actual Windows card validates installed files, then
+normal PE entry reopens original EULA. Do not accept or fake product identity.
+Final ordinary cold launch PID 8646 returns both cards. Retain empty-picker and
+EULA screenshots and exact logs; these are routing evidence, not PC gameplay.
+
+Full preinstall Documents copy comparison is byte-identical. Final audit adds/
+removes no Documents files; only HaloPad's normal log changes. All real game,
+package/disc bytes, preference dictionaries and PC registry survive unchanged.
+Library system snapshots and scene-session metadata change. Preserve backups.
+128 Xbox Python tests, five input guards, 13 executed package checks and 16
+UIKit lifecycle checks pass; 16 additional package tests are skipped. Twenty
+native launch-helper checks are separate from the Python 128. Current tree/index
+and whitespace guards pass. No physical operation, renderer fix, Xbox IPA, push,
+publication or cleanup. Goal remains active. Next matched affected rendering
+and sustained controls; coordinated physical fidelity/audio/controller acceptance
+and normal PC license path still require their own evidence.

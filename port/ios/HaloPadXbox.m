@@ -51,13 +51,13 @@ static NSString *xbox_root(void)
 static NSString *xbox_data(void)
 {
 	const char *development = getenv("XG_DATA");
-	return development ? @(development) : xbox_root();
+	return development && *development ? @(development) : xbox_root();
 }
 
 static NSString *xbox_saves(void)
 {
 	const char *development = getenv("XG_SAVE");
-	return development ? @(development) : [xbox_root() stringByAppendingPathComponent:@"save"];
+	return development && *development ? @(development) : [xbox_root() stringByAppendingPathComponent:@"save"];
 }
 
 static BOOL xbox_has_maps(void)
@@ -75,7 +75,8 @@ static NSDictionary *xbox_build(void)
 static BOOL xbox_backup_saves(NSError **error)
 {
 	/* Test saves must not update the real installation's revision marker. */
-	if (getenv("XG_SAVE"))
+	const char *development = getenv("XG_SAVE");
+	if (development && *development)
 		return YES;
 	NSString *revision = xbox_build()[@"revision"];
 	NSString *previous = [NSUserDefaults.standardUserDefaults stringForKey:@"HaloPadXboxSaveRevision"];
