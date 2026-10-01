@@ -1182,3 +1182,60 @@ safety pass. No physical
 device change, IPA, push, publication or cleanup. Physical Windows/Metal
 shading/focus report is still open. Next useful fidelity gate needs a continuous
 moving-view/reference comparison, not another static screenshot.
+
+## 2026-10-02 — bounded output-callback audio coverage
+
+Private evidence: `ref/xbox-build/passes/2026-10-02/audio64.U2hPbE/`. Previous
+Simulator recordings contain video only. Added an explicitly opt-in,
+Simulator-only diagnostic, not an audio-output redesign: preallocate at setup,
+skip ten seconds of callback frames, copy the next four seconds (including
+zero-filled starvation), freeze the buffer with a release/acquire handoff.
+The game thread writes samples/metadata, never the real-time callback. This
+one diagnostic write can affect its frame; no performance acceptance from it.
+No microphone/system/other-app audio captured. Normal physical compilation
+excludes the capture; iPhoneOS syntax check passes, not a physical build/install.
+
+Six new tests exercise the actual C helper with address/undefined sanitizers,
+startup skipping, bounded length, partial starvation and completion freezing,
+plus analysis rejection of missing, truncated, invalid, nonfinite and silent
+captures. The analyzer reports range excursions and starvation; its narrow
+signal gate does not claim deadline timing or general audio quality. Full Xbox
+suite: 109 passing tests. Default runner explicitly clears inherited capture
+settings; only `--audio-diagnostics` enables it.
+
+Guest stays build 64 / `c55e4e2b`, SHA
+`102885c274aa95771be8672a65ba16fa88a52d9f4d3889310072e214aabfdaaa`;
+renderer pin and native swizzle remain unchanged. Updated Simulator-only host
+library SHA `cdcda2166b84cac16a434bb88f8cbbc01b5ef1bff4fef07c0596384d49f7ad97`.
+Source-built one-app candidate copied into this pass and installed in place
+after a full real-save backup; no physical app change or Xbox IPA. Existing
+profile-guidance and empty-object link warnings remain; startup GL `0x502`
+remains. The outgoing accepted app is retained in the previous private pass.
+
+Menu 35-second audio diagnostic passes: 192,000 frames / four seconds at
+48 kHz stereo, finite/non-silent, RMS 0.180481, peak 0.845015, zero counted
+starvation frames and zero samples outside ±1. Normal-input a50 launch
+60-second diagnostic passes: same format/length, RMS 0.106581, peak 0.609333,
+zero starvation/range excursions. This is output-callback signal delivery in
+those windows, not listening, per-effect correctness, wall-clock deadline
+stability, speaker quality, audio/video sync or physical acceptance. a50 first-
+person image retained; no scripted input, normal-menu/save claim from this
+init-map smoke. Metadata/audio files remain ignored and private.
+
+Normal no-capture regression also passes menu 30 seconds, a10 60 seconds and
+scripted-match 65 seconds (1,560 ticks, 13 shots); result explicitly labels
+`audio_diagnostics: false`, and no capture files exist in those folders. The
+final ordinary launch 10126 shows both editions; About still reports `c55e4e2b`
+and incomplete validation, Done returns both choices. Real saves in rediscovered
+container `074F7EDF-452F-46FF-98FB-938B21C0F0B4` match both the pre-install full
+copy and original acceptance backup byte-for-byte. Whitespace and tree/index
+safety pass. Upstream/ANGLE checkouts remain clean.
+No physical install, publication, push or cleanup. Goal remains active.
+
+Separate read-only PC inspection finds `MIPMAPLODBIAS` explicitly degraded and
+ignored in `port/runtime/halopad_d3d9_draw.c` (sampler mapping); the Metal sampler
+only carries a minimum LOD clamp. No matching nonzero-use observation in the
+checked physical logs. This is a source fidelity gap to test, NOT the established
+cause of Chris's shading/focus report. Xbox ANGLE improvements do not cover that
+PC/Metal shader-sampling path. Confirm actual affected edition/scene and match
+moving-view/reference evidence before any rendering fix claim.

@@ -117,6 +117,19 @@ Scripted campaign input requires both explicit diagnostic flags. Ordinary
 menu/campaign runs override inherited bot/network-test settings with empty
 values. Review the images separately; a lit frame is not visual acceptance.
 
+For output-signal diagnostics, add `--audio-diagnostics` to a Simulator smoke
+run (allow at least 14 seconds after the audio unit starts). This explicitly
+enables Simulator-only `XG_AUDIO_CAPTURE=1`: skip ten seconds of callback frames,
+then copy four seconds of interleaved float32 output, including any zero-filled
+starvation. Allocation occurs at setup; the callback does no file I/O. After a
+release/acquire completion handoff, the game thread writes `audio-output.f32le`
+and rate/channel/frame/underrun metadata in the isolated evidence folder. The
+runner rejects missing, truncated, invalid, nonfinite or silent captures and
+reports RMS, peak and samples outside ±1. Range excursions/underruns are reported,
+not hidden by the signal gate. Ordinary runs explicitly clear this diagnostic.
+This is delivery to the output callback, not audible quality, deadline timing,
+audio/video sync or physical-device acceptance. Keep captured game audio private.
+
 ## How it works
 
 Upstream's Android build compiles the game as **arm64_32** (AArch64 instructions, 32-bit pointers,

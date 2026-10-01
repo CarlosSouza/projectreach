@@ -19,6 +19,7 @@ import time
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from draw_capture import load_draw, compare_clip_positions, validate_raster_input, compare_raster_coverage, compare_live_depth, compare_native_pixels, compare_color_trace
 from texture_decode import cache_symbol, compare_captures, validate_cache_revision
+from audio_capture import inspect_audio
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 WORK = ROOT / 'ref/xbox-build'
@@ -89,6 +90,8 @@ def main():
     parser.add_argument('--seconds', type=int, help='Override the bounded runtime for a targeted pass')
     parser.add_argument('--render-diagnostics', action='store_true',
                         help='Capture before/after presentation and log renderer statistics (slower)')
+    parser.add_argument('--audio-diagnostics', action='store_true',
+                        help='Capture four seconds of output-callback samples after ten seconds; not speaker acceptance')
     parser.add_argument('--stationary-match', action='store_true',
                         help='Rendering diagnostic only: no scripted movement, shooting or gathering')
     parser.add_argument('--campaign-map', choices=('a10', 'a30', 'a50'), default='a10',
@@ -228,6 +231,7 @@ def main():
                  'HALO_NET_JOIN_FROM_CLIPBOARD': 'false', 'HALO_NET_ALLOW_UPNP': 'false',
                  'XG_DATA': str(folder), 'XG_SAVE': str(folder / 'save'), 'XG_TOUCH_SHOW': '1',
                  'XG_FRAME_DUMP': str(frame), 'XG_FRAME_DUMP_SECONDS': '10'}
+        child['XG_AUDIO_CAPTURE'] = '1' if args.audio_diagnostics else ''
         child.update(campaign_environment(name == 'campaign' and args.scripted_campaign))
         if name == 'match':
             child.update(match_environment(args.stationary_match))
@@ -332,6 +336,13 @@ def main():
         renderer_ok = renderer_matches(text, manifest.get('renderer', 'apple-gles'))
         okay = renderer_ok and lit > 0.005 and '[xbox] signal' not in text
         row = {'pass': okay, 'lit': round(lit, 3), 'renderer_matches': renderer_ok, 'seconds': seconds}
+        if args.audio_diagnostics:
+            try:
+                row['audio'] = inspect_audio(folder)
+                row['pass'] &= row['audio']['signal_present']
+            except (OSError, ValueError, KeyError, TypeError) as error:
+                row['pass'] = False
+                row['audio_error'] = str(error)
         if name == 'campaign':
             row.update(map=args.campaign_map,
                        input_mode='scripted-render-diagnostic' if args.scripted_campaign else 'no-scripted-input',
@@ -414,6 +425,7 @@ def main():
         print(name, json.dumps(row), flush=True)
     result = {'engine_revision': manifest['revision'], 'renderer': manifest.get('renderer', 'apple-gles'), 'device': args.device, 'results': results,
               'render_diagnostics': args.render_diagnostics,
+              'audio_diagnostics': args.audio_diagnostics,
               'blit_probe': bool(args.render_diagnostics and os.environ.get('XG_BLIT_PROBE')),
               'raw_present_blit': bool(args.render_diagnostics and os.environ.get('XG_PRESENT_RAW_BLIT')),
               'hidden_extension': os.environ.get('XG_NO_EXTENSION') if args.render_diagnostics else None,

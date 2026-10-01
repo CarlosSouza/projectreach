@@ -4053,3 +4053,32 @@ matches both backups. 103 Xbox tests pass, upstream/ANGLE checkouts clean;
 live remote HEAD remains accepted build 64. Physical iPad shading/focus still
 open. No physical install, IPA, push or publication. Goal active. Private
 evidence: `temporal64.wTBR3I` pass root; recordings have no audio stream.
+
+### 2026-10-02 — output-callback audio diagnostic
+
+Previous Simulator videos carry no audio. Added opt-in Simulator-only bounded
+capture of HaloPad's own float output: skip ten seconds, retain four, allocate
+at setup, no callback file I/O, completion handoff to game-thread writing.
+Analyzer fails closed on missing/truncated/invalid/nonfinite/silent captures;
+counts starvation/range excursions without claiming quality or sync. Six new
+tests (including actual native helper under sanitizers) bring Xbox suite to
+109 passing tests. Normal iPhoneOS source syntax check passes; no device build.
+
+Frozen build64/ANGLE one-app candidate rebuilt and installed in place after
+real-save copy. Guest/renderer pins unchanged. Menu and normal-input a50
+launch audio windows deliver finite/non-silent 48 kHz stereo, RMS 0.1805/0.1066,
+peak 0.8450/0.6093, zero counted starvation and out-of-range samples. No speaker,
+effect fidelity, deadline or sync acceptance. Normal no-capture menu/a10/match
+regressions pass (1,560 ticks, 13 shots). Private pass `audio64.U2hPbE` retains
+app, logs, screenshots and samples. No physical install, IPA or publication.
+
+Read-only PC sampler review finds ignored mipmap LOD bias, but no actual
+nonzero-use evidence in the checked physical logs. Record as a targeted fidelity
+experiment, not a diagnosis of the shading/focus report. The Xbox preview and
+PC renderer are distinct paths. Goal stays active for full graphics, audio and
+controller/hardware acceptance.
+
+Final ordinary launch restores both edition choices; About/Done provenance
+round-trip passes. Real Simulator saves in the rediscovered `074F7EDF` container
+match this pass's full pre-install copy and the original acceptance backup.
+Whitespace and tree/index guards pass; upstream/ANGLE sources remain clean.

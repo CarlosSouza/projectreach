@@ -63,6 +63,17 @@ and reloads its opening checkpoint, not a newly reached later checkpoint.
 103 Xbox tests pass; real saves still match both backups. The physical iPad
 shading/focus report remains unresolved; no renderer fix or device install here.
 
+**Audio signal coverage (2026-10-02).** The previous Simulator videos have no
+audio track. A new opt-in Simulator-only callback capture skips ten seconds and
+retains four seconds of HaloPad's own output. Source-built one-app build 64/ANGLE
+menu and normal-input a50 launch both deliver finite, non-silent 48 kHz stereo:
+RMS 0.1805/0.1066, peak 0.8450/0.6093, no sample starvation or excursions outside
+±1 in these windows. It does not record other apps, establish audible quality,
+callback deadlines or sync. Native bounded-buffer and invalid/silent-capture
+tests bring the Xbox suite to 109 passing tests. No physical app was changed.
+The physical shading/focus report remains open; a separate PC source inspection
+finds explicitly ignored mipmap LOD bias, not evidence that this caused the report.
+
 ## Latest engineering and device results
 
 **Earlier frozen Apple-backend passes (2026-10-01).** The launch picker clearly separates

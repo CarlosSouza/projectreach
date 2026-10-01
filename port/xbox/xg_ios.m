@@ -34,6 +34,10 @@
 #include <sys/stat.h>
 #include "xg_host.h"
 #include "xg_ios.h"
+#if TARGET_OS_SIMULATOR
+#include "xg_audio_capture.h"
+static void audio_capture_flush(void);
+#endif
 #if XG_USE_ANGLE && !TARGET_OS_SIMULATOR
 #error The ANGLE renderer candidate is Simulator-only
 #endif
@@ -538,6 +542,7 @@ int xh_host_sdl_gl_swap_window(uint32_t window)
 #if TARGET_OS_SIMULATOR
 	void xg_draw_capture_present(void);
 	xg_draw_capture_present();
+	audio_capture_flush();
 #endif
 	glBindFramebuffer(GL_READ_FRAMEBUFFER, drawable_framebuffer);
 	xg_gl_frame_dump(drawable_width, drawable_height);
@@ -765,6 +770,34 @@ static AudioComponentInstance audio_unit;
 static uint32_t audio_callback, audio_userdata;
 static uint8_t *audio_buffer;
 static uint32_t audio_length, audio_capacity, audio_frame_bytes;
+#if TARGET_OS_SIMULATOR
+static struct xg_audio_capture audio_capture;
+static uint32_t audio_capture_rate;
+static int audio_capture_written;
+
+/* The producer freezes its sample buffer before publishing ready. File I/O
+ * runs on the game thread, never Remote I/O's real-time callback. */
+static void audio_capture_flush(void)
+{
+	if (audio_capture_written || !atomic_load_explicit(&audio_capture.ready, memory_order_acquire)) return;
+	audio_capture_written = 1;
+	char path[1200];
+	snprintf(path, sizeof(path), "%s/audio-output.f32le", xg_paths.data_root);
+	FILE *file = fopen(path, "wb");
+	size_t samples = (size_t)audio_capture.frames * audio_capture.channels;
+	int okay = file && fwrite(audio_capture.samples, sizeof(float), samples, file) == samples;
+	if (file && fclose(file)) okay = 0;
+	if (!okay) { xg_log("audio capture: cannot write output samples"); return; }
+	snprintf(path, sizeof(path), "%s/audio-output.json", xg_paths.data_root);
+	file = fopen(path, "w");
+	if (!file) { xg_log("audio capture: cannot write metadata"); return; }
+	int result = fprintf(file, "{\"rate\":%u,\"channels\":%u,\"frames\":%u,\"underrun_frames\":%u}\n",
+		audio_capture_rate, audio_capture.channels, audio_capture.frames, audio_capture.underrun_frames);
+	int closed = fclose(file);
+	xg_log("audio capture: %s, %u frames, %u underrun frames",
+		result > 0 && !closed ? "complete" : "metadata failed", audio_capture.frames, audio_capture.underrun_frames);
+}
+#endif
 
 static OSStatus audio_render(void *reference, AudioUnitRenderActionFlags *flags, const AudioTimeStamp *time,
 	UInt32 bus, UInt32 frames, AudioBufferList *io)
@@ -776,6 +809,9 @@ static OSStatus audio_render(void *reference, AudioUnitRenderActionFlags *flags,
 	copied = audio_length < needed ? audio_length : needed;
 	memcpy(io->mBuffers[0].mData, audio_buffer, copied);
 	memset((uint8_t *)io->mBuffers[0].mData + copied, 0, needed - copied);
+#if TARGET_OS_SIMULATOR
+	xg_audio_capture_append(&audio_capture, io->mBuffers[0].mData, frames, copied / audio_frame_bytes);
+#endif
 	memmove(audio_buffer, audio_buffer + copied, audio_length - copied);
 	audio_length -= copied;
 	return noErr;
@@ -802,6 +838,14 @@ uint32_t xh_host_sdl_open_audio_stream(uint32_t device, uint32_t spec_address, u
 	audio_frame_bytes = 4u * (uint32_t)spec->channels;
 	audio_capacity = 1u << 20;
 	audio_buffer = malloc(audio_capacity);
+#if TARGET_OS_SIMULATOR
+	const char *capture = getenv("XG_AUDIO_CAPTURE");
+	if (capture && !strcmp(capture, "1")) {
+		audio_capture_rate = (uint32_t)spec->freq;
+		if (!xg_audio_capture_init(&audio_capture, audio_capture_rate, (uint32_t)spec->channels))
+			xg_log("audio capture: unsupported format or allocation failed");
+	}
+#endif
 	memset(&format, 0, sizeof(format));
 	format.mSampleRate = spec->freq;
 	format.mFormatID = kAudioFormatLinearPCM;

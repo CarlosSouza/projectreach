@@ -59,6 +59,15 @@ new checkpoint progression and physical memory/audio/fidelity under a separately
 coordinated device window. Keep Apple and ANGLE pins independent and PREVIEW
 visible; do not chase moving HEAD. Preserve outgoing app and both save backups.
 
+The 2026-10-02 Simulator-only opt-in audio capture now proves finite non-silent
+48 kHz stereo reaches the output callback in four-second menu and normal-input
+a50 launch windows, with no counted starvation. Captures stay private. This is
+not speaker quality, scheduling deadlines, sync or hardware audio acceptance.
+The physical shading/focus report remains unresolved. PC source inspection
+finds `MIPMAPLODBIAS` explicitly ignored in `halopad_d3d9_draw.c`; investigate
+actual nonzero state use and a matched reference before treating it as the cause
+or changing shader sampling. The Xbox ANGLE diagnostic does not test that PC path.
+
 The earlier build-61 (`f8937c61`) experimental development pin added upstream's
 high-resolution HUD after build 60's menu-glyph fix. Save-backed candidate and
 acceptance Mac/Simulator menu/campaign/scripted-match checks pass. The
