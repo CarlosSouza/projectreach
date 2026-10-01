@@ -1,7 +1,7 @@
 /*
  * xg_ios.m: the Xbox engine's platform services on iOS and iPadOS, without
  * SDL: the host half of upstream's guest_sdl.c on UIKit, OpenGL ES (Apple by
- * default; opt-in Simulator ANGLE/Metal), GameController and Core Audio.
+ * default; opt-in preview ANGLE/Metal), GameController and Core Audio.
  *
  * The game runs on a thread of its own (xg_ios_start); the view is made on
  * the main thread by the app. EAGL maps framebuffer 0 to the layer-backed
@@ -37,9 +37,6 @@
 #if TARGET_OS_SIMULATOR
 #include "xg_audio_capture.h"
 static void audio_capture_flush(void);
-#endif
-#if XG_USE_ANGLE && !TARGET_OS_SIMULATOR
-#error The ANGLE renderer candidate is Simulator-only
 #endif
 
 void xg_gl_load(void);
@@ -448,6 +445,7 @@ uint32_t xh_host_sdl_gl_create_context(uint32_t window)
 	(void)window;
 #if XG_USE_ANGLE
     if (angle_context == EGL_NO_CONTEXT) {
+#if TARGET_OS_SIMULATOR
         /* ANGLE disables sampling swizzles on Simulator by default. Its native
          * path passes the asset-free probe on this Mac/iPadOS 26.5; without it
          * the guest's BGRA textures display with red/blue reversed. This remains
@@ -455,6 +453,12 @@ uint32_t xh_host_sdl_gl_create_context(uint32_t window)
         const char *features[] = {"hasTextureSwizzle", NULL};
         const EGLAttrib attributes[] = {EGL_PLATFORM_ANGLE_TYPE_ANGLE, EGL_PLATFORM_ANGLE_TYPE_METAL_ANGLE,
             EGL_FEATURE_OVERRIDES_ENABLED_ANGLE, (EGLAttrib)features, EGL_NONE};
+#else
+        /* Hardware feature support is detected by pinned ANGLE, not inferred
+         * from a Simulator probe or overridden before device validation. */
+        const EGLAttrib attributes[] = {EGL_PLATFORM_ANGLE_TYPE_ANGLE, EGL_PLATFORM_ANGLE_TYPE_METAL_ANGLE,
+            EGL_NONE};
+#endif
         angle_display = eglGetPlatformDisplay(EGL_PLATFORM_ANGLE_ANGLE, NULL, attributes);
         EGLint major = 0, minor = 0, count = 0;
         EGLConfig config;
@@ -467,9 +471,16 @@ uint32_t xh_host_sdl_gl_create_context(uint32_t window)
         angle_context = eglCreateContext(angle_display, config, EGL_NO_CONTEXT, context_attributes);
         if (angle_surface == EGL_NO_SURFACE || angle_context == EGL_NO_CONTEXT ||
             !eglMakeCurrent(angle_display, angle_surface, angle_surface, angle_context)) goto angle_failure;
+#if TARGET_OS_SIMULATOR
         xg_log("ANGLE/Metal Simulator candidate: native texture swizzle enabled");
-        drawable_update(); blit_probe(); depth_probe();
+#else
+        xg_log("ANGLE/Metal device candidate: automatic native feature detection");
+#endif
+        drawable_update(); blit_probe();
+#if TARGET_OS_SIMULATOR
+        depth_probe();
         void xg_draw_replay(void); xg_draw_replay();
+#endif
         xg_gl_load();
     }
     return 2;

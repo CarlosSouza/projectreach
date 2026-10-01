@@ -4,6 +4,7 @@ import importlib.util
 import json
 import os
 import pathlib
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -29,6 +30,7 @@ class XboxManifestTests(unittest.TestCase):
         self.guest.write_bytes(b'fixture guest, not game code')
         self.manifest = {
             'revision': PIN,
+            'sdk': 'iphonesimulator',
             'guest_sha256': hashlib.sha256(self.guest.read_bytes()).hexdigest(),
             'library_sha256': hashlib.sha256(self.lib.read_bytes()).hexdigest(),
             'runtime_sources': builder.xbox_runtime_manifest.sources(),
@@ -86,11 +88,13 @@ class XboxManifestTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'no build manifest'):
             builder.xbox_parts(builder.TARGET)
 
-    def angle_fixture(self):
-        self.lib = self.out / 'iphonesimulator-angle/libhalopad-xbox.a'
+    def angle_fixture(self, sdk='iphonesimulator'):
+        self.lib = self.out / (sdk + '-angle') / 'libhalopad-xbox.a'
         self.lib.parent.mkdir()
         self.lib.write_bytes(b'fixture library, not game code')
         self.manifest['renderer'] = 'angle-metal'
+        self.manifest['sdk'] = sdk
+        self.manifest['angle_feature_overrides'] = ['hasTextureSwizzle'] if sdk == 'iphonesimulator' else []
         self.manifest['angle_source'] = json.loads((ROOT / 'config/xbox-angle.lock.json').read_text())
         self.save_manifest()
         patch.dict(os.environ, {'HALOPAD_XBOX_RENDERER': 'angle-metal'}).start()
@@ -102,10 +106,52 @@ class XboxManifestTests(unittest.TestCase):
         self.assertIn('Metal', parts)
         self.assertNotIn('OpenGLES', parts)
 
-    def test_angle_rejects_physical_device(self):
+    def test_angle_device_requires_device_archive(self):
         self.angle_fixture()
-        with self.assertRaisesRegex(ValueError, 'Simulator-only'):
+        with self.assertRaisesRegex(ValueError, 'library is missing'):
             builder.xbox_parts(builder.DEVICE_TARGET)
+
+    def test_device_build_never_uses_simulator_launch(self):
+        result = subprocess.run(['sh', str(ROOT / 'scripts/xbox/build-ios.sh'),
+                                 '--device', '--launch', 'unused'],
+                                env=dict(os.environ, HALOPAD_XBOX_RENDERER='angle-metal'),
+                                capture_output=True, text=True, timeout=10)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn('device builds are not installed', result.stderr)
+
+    def test_angle_device_links_only_device_archive(self):
+        self.angle_fixture('iphoneos')
+        parts = builder.xbox_parts(builder.DEVICE_TARGET)
+        self.assertIn(self.lib, parts)
+        self.assertIn('Metal', parts)
+        self.assertNotIn('OpenGLES', parts)
+
+    def test_retagged_angle_archive_is_rejected(self):
+        self.angle_fixture('iphoneos')
+        self.manifest['sdk'] = 'iphonesimulator'
+        self.save_manifest()
+        with self.assertRaisesRegex(ValueError, 'SDK differs'):
+            builder.xbox_parts(builder.DEVICE_TARGET)
+
+    def test_physical_angle_refuses_simulator_feature_override(self):
+        self.angle_fixture('iphoneos')
+        self.manifest['angle_feature_overrides'] = ['hasTextureSwizzle']
+        self.save_manifest()
+        with self.assertRaisesRegex(ValueError, 'feature overrides differ'):
+            builder.xbox_parts(builder.DEVICE_TARGET)
+
+    def test_simulator_angle_requires_tested_feature_override(self):
+        self.angle_fixture()
+        self.manifest['angle_feature_overrides'] = []
+        self.save_manifest()
+        with self.assertRaisesRegex(ValueError, 'feature overrides differ'):
+            builder.xbox_parts(builder.TARGET)
+
+    def test_sdk_identity_is_required(self):
+        self.manifest.pop('sdk')
+        self.save_manifest()
+        with self.assertRaisesRegex(ValueError, 'SDK differs'):
+            builder.xbox_parts(builder.TARGET)
 
     def test_unknown_renderer_rejected(self):
         with patch.dict(os.environ, {'HALOPAD_XBOX_RENDERER': 'unknown'}):

@@ -8,14 +8,14 @@
 # shared (docs/XBOX-ENGINE.md).
 set -eu
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
-TARGET=arm64-apple-ios17.4-simulator
+TARGET=arm64-apple-ios17.0-simulator
 SDK=iphonesimulator
 LAUNCH=""
 IDENTITY="-"
 PROFILE=""
 while [ $# -gt 0 ]; do
 	case "$1" in
-	--device) TARGET=arm64-apple-ios17.4; SDK=iphoneos ;;
+	--device) TARGET=arm64-apple-ios17.0; SDK=iphoneos ;;
 	--launch) LAUNCH=$2; shift ;;
 	--identity) IDENTITY=$2; shift ;;
 	--profile) PROFILE=$2; shift ;;
@@ -23,11 +23,14 @@ while [ $# -gt 0 ]; do
 	esac
 	shift
 done
+if [ -n "$LAUNCH" ] && [ "$SDK" != iphonesimulator ]; then
+    echo "--launch is Simulator-only; device builds are not installed by this script" >&2
+    exit 2
+fi
 RENDERER=${HALOPAD_XBOX_RENDERER:-apple-gles}
 case "$RENDERER" in
 apple-gles) ;;
 angle-metal)
-    [ "$SDK" = iphonesimulator ] || { echo "ANGLE candidate is Simulator-only" >&2; exit 2; }
     [ -n "${XBOX_ANGLE_SOURCE:-}" ] || { echo "XBOX_ANGLE_SOURCE is required for ANGLE" >&2; exit 2; }
     ANGLE_REV=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['revision'])" "$ROOT/config/xbox-angle.lock.json")
     [ "$(git -C "$XBOX_ANGLE_SOURCE" rev-parse HEAD)" = "$ANGLE_REV" ] || { echo "ANGLE source differs from the renderer pin" >&2; exit 2; }
@@ -46,15 +49,17 @@ BUILD_SDK=$SDK
 ANGLE_LIB=""
 ANGLE_FLAGS=""
 if [ "$RENDERER" = angle-metal ]; then
-    BUILD_SDK=iphonesimulator-angle
+    BUILD_SDK=$SDK-angle
     OBJ="$OUT/obj-$BUILD_SDK"
     APP="$OUT/$BUILD_SDK/HaloPadXbox.app"
-    cmake -S "$ROOT/scripts/xbox/angle" -B "$OUT/angle-simulator" -G Ninja \
+    ANGLE_BUILD="$OUT/angle-simulator"
+    [ "$SDK" != iphoneos ] || ANGLE_BUILD="$OUT/angle-iphoneos"
+    cmake -S "$ROOT/scripts/xbox/angle" -B "$ANGLE_BUILD" -G Ninja \
         -DANGLE_SOURCE_DIR="$XBOX_ANGLE_SOURCE" -DCMAKE_SYSTEM_NAME=iOS \
-        -DCMAKE_OSX_SYSROOT=iphonesimulator -DCMAKE_OSX_ARCHITECTURES=arm64 \
+        -DCMAKE_OSX_SYSROOT=$SDK -DCMAKE_OSX_ARCHITECTURES=arm64 \
         -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 -DCMAKE_BUILD_TYPE=Release
-    cmake --build "$OUT/angle-simulator" --parallel 12
-    ANGLE_LIB="$OUT/angle-simulator/libhalopad-angle.a"
+    cmake --build "$ANGLE_BUILD" --parallel 12
+    ANGLE_LIB="$ANGLE_BUILD/libhalopad-angle.a"
     ANGLE_FLAGS="-DXG_USE_ANGLE=1 -I$XBOX_ANGLE_SOURCE/include"
 fi
 SYSROOT=$(xcrun --sdk $SDK --show-sdk-path)
@@ -90,10 +95,12 @@ manifest = {
     'guest_sha256': hashlib.sha256((out / 'halo_guest.elf').read_bytes()).hexdigest(),
     'library_sha256': hashlib.sha256((out / sdk / 'libhalopad-xbox.a').read_bytes()).hexdigest(),
     'renderer': sys.argv[4],
+    'sdk': sdk.split('-')[0],
     'runtime_sources': sources(),
 }
 if sys.argv[4] == 'angle-metal':
     manifest['angle_source'] = json.loads(pathlib.Path(sys.argv[5]).read_text())
+    manifest['angle_feature_overrides'] = ['hasTextureSwizzle'] if manifest['sdk'] == 'iphonesimulator' else []
 (out / sdk / 'build.json').write_text(json.dumps(manifest, indent=2) + '\n')
 PY
 GL_LINK="-framework OpenGLES"
@@ -114,7 +121,7 @@ cat > "$APP/Info.plist" <<EOF
 <key>CFBundleShortVersionString</key><string>0.1</string>
 <key>CFBundleVersion</key><string>1</string>
 <key>CFBundleSupportedPlatforms</key><array><string>$PLATFORM</string></array>
-<key>MinimumOSVersion</key><string>17.4</string>
+<key>MinimumOSVersion</key><string>17.0</string>
 <key>UIDeviceFamily</key><array><integer>1</integer><integer>2</integer></array>
 <key>UIRequiresFullScreen</key><true/>
 <key>UILaunchScreen</key><dict/>

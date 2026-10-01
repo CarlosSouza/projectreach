@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 3.24)
 project(HaloPadAngle LANGUAGES C CXX OBJCXX)
 
-# A bounded Simulator-only build using WebKit's maintained ANGLE source lists.
+# A bounded iOS build using WebKit's maintained ANGLE source lists.
 # Source is fetched separately into scratch; no third-party source is vendored.
 string(TOLOWER "${CMAKE_OSX_SYSROOT}" angle_sdk)
-if(NOT CMAKE_SYSTEM_NAME STREQUAL "iOS" OR NOT angle_sdk MATCHES "iphonesimulator")
-    message(FATAL_ERROR "This experimental build requires the iPad Simulator SDK")
+if(NOT CMAKE_SYSTEM_NAME STREQUAL "iOS" OR NOT angle_sdk MATCHES "(^|/)(iphoneos|iphonesimulator)([0-9.]+\\.sdk)?$")
+    message(FATAL_ERROR "This experimental build requires the iOS device or Simulator SDK")
 endif()
 if(NOT EXISTS "${ANGLE_SOURCE_DIR}/PlatformCocoa.cmake")
     message(FATAL_ERROR "ANGLE_SOURCE_DIR must be WebKit's Source/ThirdParty/ANGLE")

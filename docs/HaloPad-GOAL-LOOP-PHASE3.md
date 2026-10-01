@@ -62,6 +62,20 @@ atomic copying of live writes, physical fidelity or a newer pin. No app build/
 install, physical operation, graphics change, IPA or publication. Keep the wider
 rendering/controls/hardware gates open; do not repeat backup checks as gameplay.
 
+Latest build-only device follow-up produces a separately compiled iPhoneOS
+ANGLE preview and combined personal app, without installation. SDK/feature
+identity checks refuse cross-platform libraries or Simulator-only swizzle on
+hardware; hardware uses automatic detection. First device compile exposes an
+unguarded Simulator diagnostic call, then succeeds after the guard. Both host
+and main app target iOS 17.0. Device app `259fb98f…f90cd` has IOS load commands,
+matching guest/metadata and a valid ad-hoc signature, but no provisioning profile
+or hardware runtime proof. No new Xbox IPA. Rebuilt Simulator probe passes
+depth/blit/swizzle; 143 Xbox Python, 16 UIKit and 20 launch-helper checks pass.
+Installed Simulator app, real saves/game bytes and both pins remain unchanged.
+Next coordinated, properly provisioned hardware validation and matched affected
+rendering. Do not equate compilation with physical graphics/audio/controls or
+resolution of the user's shading/focus complaint.
+
 Accepted experimental update, 2026-10-02: build 64,
 `c55e4e2b9d90550b0e761eb78dfe9d7c74880cb9`, four commits after 61. Candidate and
 acceptance source-built Mac/ANGLE Simulator menu/a10/scripted-match sets pass.

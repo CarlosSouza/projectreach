@@ -10,8 +10,9 @@ An isolated build-64 normal-menu pass now advances outside the pod using actual
 touch gestures and restores that newly reached checkpoint after Save and Quit
 and a cold launch (one grenade retained). This is bounded early progression,
 not sustained multi-touch, campaign completion or physical graphics acceptance.
-ANGLE/Metal remains an independently pinned opt-in Simulator PREVIEW, not the
-default or physical-device renderer. The earlier build-59 real touch pass verified
+ANGLE/Metal remains an independently pinned opt-in PREVIEW, not the default.
+An iPhoneOS preview now compiles as a personal app, without installation or
+hardware acceptance; physical rendering is unchanged. The earlier build-59 real touch pass verified
 navigation, cryo-bay training, tube exit, Save and Quit, and a same-build cold checkpoint
 reload with isolated saves. A copied build-59 checkpoint also loads through the
 normal build-60 menus; a copy of that fixture also reloads the cryo-bay in build 61.
@@ -22,7 +23,7 @@ The Simulator-only presentation fix remains narrow: temporarily neutralize textu
 sampler 0 during final presentation, then restore it. Physical rendering is unchanged.
 See [XBOX-SIMULATOR-PASSES.md](XBOX-SIMULATOR-PASSES.md).
 
-Latest local integration: executable `58111bcb…29f093` is rebuilt and installed
+Latest installed local integration: executable `e594a1f9…15feed` is rebuilt and installed
 in place on the dedicated iPad Simulator, with outgoing apps/data backed up.
 The picker and isolated outdoor Xbox continuation/fire/pistol/scope/Save and Quit
 work. Actual Home/resume retains the process and fresh controls work afterward.
@@ -62,14 +63,15 @@ switching means closing HaloPad and opening it again; the picker appears at ever
   Bungie material ([REVIEW-HALO1-DECOMP.md](REVIEW-HALO1-DECOMP.md)). That is why the engine stays a
   personal build, and why this document is not a rights clearance.
 
-## Opt-in Simulator renderer comparison
+## Opt-in renderer preview
 
 Apple OpenGL ES remains the default; physical-device rendering is unchanged.
-`HALOPAD_XBOX_RENDERER=angle-metal` builds a **Simulator-only preview** from the
+`HALOPAD_XBOX_RENDERER=angle-metal` builds a **preview** from the
 separately pinned [WebKit ANGLE source](https://github.com/WebKit/WebKit/tree/a1fb7ce122d0cd99f7d6cc82775f02565e266ece/Source/ThirdParty/ANGLE).
 [config/xbox-angle.lock.json](../config/xbox-angle.lock.json) records both source
-revisions and the enabled feature. This is independent of the Xbox guest pin.
-Do not retag a macOS ANGLE library as a Simulator library.
+revisions and the tested Simulator feature override. This is independent of the
+Xbox guest pin. Device builds use ANGLE's automatic feature detection, not that
+override. Do not retag libraries between macOS, Simulator and iPhoneOS.
 
 Fetch the source into scratch, not another project checkout in `GitHub`:
 
@@ -85,13 +87,30 @@ HALOPAD_XBOX_RENDERER=angle-metal scripts/xbox/build-ios.sh
 ```
 
 The small CMake wrapper reuses upstream source lists and builds with the actual
-Simulator SDK. Source revision/dirty-tree guards run before guest preparation.
-The archive/manifest live under ignored `ref/xbox-build/out/iphonesimulator-angle/`,
-leaving the default library untouched. Package with the same renderer setting
-using the normal `scripts/build-ios-app.py` workflow; it refuses a physical
-target, missing candidate library, mismatched renderer/source or stale hashes.
+selected iOS SDK. Source revision/dirty-tree guards run before guest preparation.
+Separate archives/manifests live under ignored `ref/xbox-build/out/iphonesimulator-angle/`
+and `iphoneos-angle/`, leaving the default libraries untouched. Package with the
+same renderer setting using the normal `scripts/build-ios-app.py` workflow;
+it refuses missing candidate libraries, missing/mismatched SDK identity,
+mismatched renderer/source/features or stale hashes. Older manifests require
+a real rebuild, not metadata retrofitting.
 The picker identifies this renderer build as PREVIEW even with the accepted guest
 pin. Preserve the previous app and actual saves before an in-place installation.
+
+For a build-only iPhoneOS preview:
+
+```sh
+HALOPAD_XBOX_RENDERER=angle-metal scripts/xbox/build-ios.sh --device
+HALOPAD_XBOX_RENDERER=angle-metal .venv/bin/python scripts/build-ios-app.py --iphoneos
+```
+
+This produces an ad-hoc signed personal `.app`, no Xbox IPA. It is not installed
+or device-installable merely because signature verification passes: proper
+provisioning with both memory entitlements and a coordinated device window are
+still required. The standalone host and combined app now target iOS 17.0.
+`--launch` remains Simulator-only. Simulator depth/replay diagnostics are not
+enabled on hardware. No physical graphics/audio/controller claim follows from
+compilation; the reported shading/focus issue is still open.
 
 Run the asset-free probe before accepting this backend on another Simulator:
 

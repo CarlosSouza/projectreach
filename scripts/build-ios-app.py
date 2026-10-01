@@ -60,9 +60,7 @@ def xbox_build_folder(target):
     if renderer not in ('apple-gles', 'angle-metal'):
         raise ValueError('Unknown HALOPAD_XBOX_RENDERER')
     sdk = 'iphonesimulator' if 'simulator' in target else 'iphoneos'
-    if renderer == 'angle-metal' and sdk != 'iphonesimulator':
-        raise ValueError('ANGLE candidate is Simulator-only')
-    return XBOX_OUT / ('iphonesimulator-angle' if renderer == 'angle-metal' else sdk)
+    return XBOX_OUT / (sdk + '-angle' if renderer == 'angle-metal' else sdk)
 
 
 def xbox_parts(target):
@@ -75,11 +73,16 @@ def xbox_parts(target):
     if not (lib.parent / 'build.json').exists():
         raise ValueError('Xbox library has no build manifest; run scripts/xbox/build-ios.sh')
     manifest = json.loads((lib.parent / 'build.json').read_text())
+    sdk = 'iphonesimulator' if 'simulator' in target else 'iphoneos'
+    if manifest.get('sdk') != sdk:
+        raise ValueError('Xbox library SDK differs or is unrecorded; rebuild for the intended platform')
     renderer = os.environ.get('HALOPAD_XBOX_RENDERER', 'apple-gles')
     if manifest.get('renderer', 'apple-gles') != renderer:
         raise ValueError('Xbox library renderer differs from the requested renderer')
     if renderer == 'angle-metal' and manifest.get('angle_source') != json.loads((ROOT / 'config/xbox-angle.lock.json').read_text()):
         raise ValueError('ANGLE library source differs from the renderer pin')
+    if renderer == 'angle-metal' and manifest.get('angle_feature_overrides') != (['hasTextureSwizzle'] if sdk == 'iphonesimulator' else []):
+        raise ValueError('ANGLE feature overrides differ from the intended platform')
     revision = json.loads((ROOT / 'config' / 'xbox-engine.lock.json').read_text())['revision']
     expected = os.environ.get('XBOX_REV', revision)
     if manifest['revision'] != expected:

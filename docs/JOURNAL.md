@@ -4221,3 +4221,27 @@ log/system snapshot changes. All 137 Xbox Python tests pass. No physical operati
 installation, graphics fix, IPA, push, publication or cleanup. Stop games during
 maintenance; directory comparison is not atomic snapshot or save-format proof.
 Goal active; [maintenance evidence](XBOX-SIMULATOR-PASSES.md#update-routine-save-backup-failure-gates-2026-10-02).
+
+### 2026-10-02 — separately built iPhoneOS ANGLE preview, no installation
+
+Private `angle-device-build.wGZhkZ` pass extends the pinned renderer's build-only
+path to iPhoneOS. Preserve outgoing libraries and older device-app output (which
+contains an older PC-only IPA); no cleanup. SDK/feature metadata and separate
+archives reject cross-platform reuse and physical swizzle overrides. Initial
+20-test baseline has five failures/one error; corrected final 21 manifest tests
+are included in all 143 passing Xbox Python tests. Device `--launch` fails before
+preparation; physical builds cannot invoke the Simulator launcher.
+
+First actual device compile fails on a Simulator-only depth-probe call; guard
+both depth and draw replay calls. Rebuild succeeds; align standalone minimum
+17.4 with main app/CMake's 17.0 and retain intermediate outputs/logs. Final
+combined device executable `259fb98f…f90cd`, device library `8c218df2…3a7e4`,
+Simulator library `0d8de61e…7f998`; guest unchanged `102885c2…fdaaa`. Actual
+IOS load commands, matching manifests/SDK/features and ad-hoc signature verify.
+New output has no IPA; no profile is embedded, so not hardware-install acceptance.
+Separate Simulator renderer probe passes depth/blit/swizzle controls, plus
+16 UIKit and 20 launch/save-helper checks. Installed app `e594a1f9…15feed`,
+real game bytes/saves, preferences and PC registry remain unchanged. No install,
+physical operation, shader-workaround promotion, pin move, Xbox IPA, push,
+publication or cleanup. Hardware graphics/audio/controller and physical shading/
+focus remain open. Goal active; [device-SDK evidence](XBOX-SIMULATOR-PASSES.md#device-sdk-angle-preview-build-without-installation-2026-10-02).

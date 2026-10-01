@@ -4,6 +4,23 @@ Updated 2026-10-02. **ACTIVE — Simulator-focused Xbox/menu loop.** Physical ac
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE3.md](HaloPad-GOAL-LOOP-PHASE3.md). Earlier engineering history remains in [phase 2](HaloPad-GOAL-LOOP-PHASE2.md).
 
+**Device-SDK renderer preview (2026-10-02).** The independently pinned ANGLE
+preview now builds separately for iPhoneOS and Simulator. Actual SDK identity
+and per-platform feature overrides are checked before packaging; physical builds
+use automatic features, never the Simulator-only swizzle override. The first
+device build fails on a Simulator diagnostic call, now guarded correctly.
+Standalone host and combined app target iOS 17.0. Combined personal device app
+`259fb98f…f90cd` passes ad-hoc signature, IOS load-command, bundled guest/manifest
+and no-new-IPA checks. It is **not installed or provisioned for device acceptance**.
+The Simulator library is rebuilt separately; its asset-free equal-depth/blit/
+swizzle checks pass, as do 143 Xbox Python, 16 UIKit and 20 launch-helper checks.
+Installed Simulator app `e594a1f9…15feed` remains unchanged; game files/saves,
+preferences and PC registry survive. Upstream/renderer pins unchanged. No
+physical operation, graphics-fix claim, IPA, push, publication or cleanup.
+Next properly provisioned, backed-up hardware validation under a coordinated
+window, plus matched affected/reference rendering; broader goal remains active.
+Evidence: [device-SDK pass](XBOX-SIMULATOR-PASSES.md#device-sdk-angle-preview-build-without-installation-2026-10-02).
+
 **Update-backup follow-up (2026-10-02).** The maintenance routine no longer
 ignores checksum failure, reuses a second-resolution backup folder, trusts an
 uncompared save copy or assumes an unreadable Simulator container has no saves.

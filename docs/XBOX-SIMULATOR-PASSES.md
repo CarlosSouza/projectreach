@@ -2230,3 +2230,67 @@ system snapshots change. Source upstream checkout has no tracked edits.
 No app build/install, physical operation, visual fix, Xbox IPA, push, publication
 or cleanup. Next pursue affected/reference rendering and sustained controls;
 physical graphics/audio/controller and normal PC license gates remain separate.
+
+## Device-SDK ANGLE preview build without installation (2026-10-02)
+
+**Classification: progress, not hardware acceptance or goal completion.**
+Previous maintenance pass changes and verifies backup failure gates. This pass
+moves the physical milestone forward by preparing a device-SDK renderer/app,
+without touching the shared physical iPad. Private evidence:
+`ref/xbox-build/passes/2026-10-02/angle-device-build.wGZhkZ/`.
+
+Pinned WebKit `a1fb7ce1` supplies iOS Metal source lists and hardware feature
+detection; inspect actual local `PlatformCocoa.cmake` and `DisplayMtl.mm:1243`,
+not a newer moving branch. Previously CMake, host and packager deliberately
+reject hardware. Now build separate `iphoneos-angle` and `iphonesimulator-angle`
+archives using actual SDKs. Mandatory manifest `sdk` and
+`angle_feature_overrides` fields gate packaging. Simulator requires the tested
+`hasTextureSwizzle` override; iPhoneOS requires an empty override list and uses
+upstream detection. The renderer source pin still records the original tested
+Simulator override; per-build override metadata records actual platform scope.
+Keep Apple default, both source pins and PREVIEW labeling unchanged.
+
+Twenty updated manifest tests initially fail five checks and error on a physical
+link-input expectation against the old builder. Final 21 tests pass, including
+a device/Simulator-launch refusal before guest preparation; all **143 Xbox
+Python tests pass**. Tests use inert archive fixtures for metadata behavior,
+not hardware binaries. Actual device build compiles all 342 ANGLE steps, then
+fails on an unguarded call to Simulator-only `depth_probe`. Guard depth/replay
+calls without exposing those diagnostics to hardware. Retain first error log.
+Incremental rebuild succeeds; an intermediate 17.4 standalone target is
+aligned with main app/CMake's 17.0 and rebuilt. Retain intermediate main-app
+output/logs separately. Existing assembly-zero and empty diagnostic-object
+warnings remain visible; they are not hardware performance/fidelity evidence.
+
+Final combined device app SHA-256
+`259fb98f256d823e6b1e519162f679214c39d9e42fd25529bb11e84f153f90cd`.
+Device library `8c218df298e65a053f84616f436833744f6a245f881495819e75e401fa23a7e4`;
+Simulator library `0d8de61e38f7232108fede0efb63f770f898e882e0a18476c04f472be4a7f998`.
+Guest unchanged `102885c2…fdaaa`, frozen build 64 `c55e4e2b`.
+`prepared-angle-device.app` is normal PC-entry/one-picker, not a development
+scene. Verify bundle `dev.halopad.HaloPad`, iPhoneOS supported platform,
+LC_BUILD_VERSION IOS/minos 17.0/SDK 27.0, matching bundled guest/manifest,
+candidate true, empty physical override list and strict ad-hoc signature.
+No provisioning profile is embedded: it is not installable/accepted on a device
+just because the signature verifies. New device output contains no IPA.
+Retain older outgoing device-app output, including its preexisting PC-only IPA;
+do not mislabel that retained file as a newly created Xbox package.
+
+Separately rebuilt Simulator library passes the asset-free pbuffer probe:
+two EQUAL cases cover 1,352 pixels each with zero failures; plain/swizzled blits
+match and swizzled sampling yields 13/26/204/255 versus plain 204/26/13/255.
+No GL errors. Additional 16 actual UIKit handler and 20 launch/save-helper checks
+pass on only `DF51182F-1878-4A54-9AED-CC4AED86BEAB`. No current-source game/window
+or sustained-play acceptance is inferred from these probes.
+
+Installed Simulator executable remains `e594a1f9…15feed`; no app is installed
+or launched on physical hardware. Audit against retained full launch-pass backup
+preserves all real Xbox/PC game/disc/package bytes, preferences and PC registry;
+only ordinary log/system snapshots differ. Upstream/ANGLE checkouts remain
+clean. Source guards now require fresh SDK metadata; legacy default-library
+manifests must be rebuilt normally, never retrofitted. Tree/index and whitespace
+checks pass. No physical operation, graphics-fix claim, pin move, Xbox IPA, push,
+publication or cleanup. Next properly provisioned, backed-up device test in a
+coordinated window: matched rendering, audio and controllers remain explicit
+unproven gates, alongside the reported shading/focus issue and normal PC license
+path. Do not reinterpret this build-only pass as completion.
