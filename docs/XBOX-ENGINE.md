@@ -22,6 +22,15 @@ The Simulator-only presentation fix remains narrow: temporarily neutralize textu
 sampler 0 during final presentation, then restore it. Physical rendering is unchanged.
 See [XBOX-SIMULATOR-PASSES.md](XBOX-SIMULATOR-PASSES.md).
 
+Latest local integration: source `9888782` is rebuilt and installed in place on
+the dedicated iPad Simulator, with outgoing apps and data backed up. The picker
+and isolated outdoor Xbox continuation/fire/pistol/scope/Save and Quit work.
+The normal PC Files import verifies all 78 stock files and reaches its original
+EULA, left unaccepted pending user confirmation; this is not normal PC gameplay
+proof. Real Xbox data/saves are unchanged. Reported physical-iPad shading/focus
+problems remain unresolved; this pass neither changes the physical app nor
+promotes upstream beyond frozen build 64.
+
 HaloPad now opens with a choice:
 
 | | Halo PC | Halo Xbox |

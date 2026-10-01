@@ -1705,3 +1705,59 @@ a matched original view and verify the latest-source integrated Simulator app.
 Do not infer corruption from uncalibrated readbacks or alter detail scales as a
 visual workaround. Physical shading/focus, sustained controls and device renderer
 acceptance remain open.
+
+### Current-source one-app integration (2026-10-02)
+
+Private pass: `ref/xbox-build/passes/2026-10-02/integrated-current.Uyb7ck/`.
+Rebuild from source `9888782`, normal `halopad_core_run` PC entry, no development
+scene. Xbox remains frozen build 64; ANGLE/Metal is the Simulator-only preview.
+Before the in-place install, terminate HaloPad and preserve the outgoing installed
+app, generated app, Documents (2.4 GB) and Library (15 MB) as private APFS copies.
+Documents/Library compare exactly before installation; outgoing strict signing
+passes. The new candidate and installed HaloPad binary both have SHA-256
+`db16569da62c6e5c88c6adfad6842645efa884550b6abad25af7c54d25cadd73`.
+Strict candidate signing passes. Simulator installation changes container UUIDs;
+rediscover them rather than trusting the previous paths. Documents still compare
+exactly immediately after installation; Library initially differs only in OS
+SplashBoard snapshot names.
+
+Dedicated iPad Simulator `DF51182F-1878-4A54-9AED-CC4AED86BEAB`, iPadOS 26.5:
+actual picker cards, About these builds and Done work. Windows correctly opens
+import because this Simulator previously had no PC installation. Xbox opens its
+main menu. Controller detection reports connected and normally hides touch;
+a campaign-text tap does nothing. Relaunch the isolated Xbox session with
+`XG_TOUCH_SHOW=1`, retaining separate `XG_DATA`/`XG_SAVE` and cleared bot/network
+test flags. This is diagnostic overlay visibility, not physical controller proof.
+Using actual virtual A: Campaign → New001 → Halo → Normal restores the existing
+outdoor checkpoint copied from `checkpoint64.sr7KEQ/after-cold-save-quit`.
+RT decreases rifle ammunition 60→58, Y changes to pistol, Zoom renders 2x scope
+and toggles back. Start and three separate down-stick drags select Save and Quit;
+observe Saving finish and return to the Xbox main menu. No new progression or
+sustained/multi-touch/audio-quality acceptance is claimed. Scope capture stays
+private as `xbox-scope.png`.
+
+Ordinary cold relaunch, no overrides, restores both edition cards. The unchanged
+older handoff package fails current-build preparation verification with
+`Unexpected number of archive entries`; do not weaken the verifier or modify
+the handoff kit. Prepare a matching package from existing private
+`ref/inputs/custom-original`: 89 entries, core identity
+`e0dc0256d47486c442bad3d3c789b267c753c9c021810c64c721f21949832bce`, ZIP SHA-256
+`7563091a776d3496b5a7608aa7f5d4d82927359b2ced7133724e44dd8d0e5a63`.
+Copy it into Simulator Documents and use the actual package picker:
+On My iPad → HaloPad → current-ce.halopad.zip. The initial button tap during
+startup verification is disabled; it opens once that check finishes. Import
+publishes exactly 78 stock files; independent size/hash readback matches all
+78 signed records with no extra files. Normal PC entry then presents the original
+Custom Edition EULA. **Leave I Accept untouched and request user confirmation.**
+Capture `pc-license-unaccepted.png`; neither PC main-menu/gameplay acceptance nor
+the later product-ID gate has been exercised in this installed candidate.
+
+The entire real Documents/Halo Xbox tree remains identical to the pre-install
+backup; only the isolated campaign saves are used. PC import adds its folder and
+retained ZIP. Library adds normal PC startup state and changes Metal/SplashBoard
+caches. No preference keys are lost or added; only `HaloPadLastEngine` changes,
+consistent with selecting PC after Xbox. Do not claim the whole Library is now
+unchanged. 109 Xbox tests and five input guards pass. No runtime source change,
+pin promotion, physical-device operation, IPA, publication, push or cleanup.
+Goal remains active: confirmation is needed for this normal PC startup path;
+matched moving-scene fragment LOD/shading and physical-iPad fidelity remain open.

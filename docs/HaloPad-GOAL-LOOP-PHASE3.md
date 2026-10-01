@@ -166,6 +166,25 @@ real saves intact, no app install or pin change. Next inspect actual fragment
 LOD selection against a matched original scene and exercise the latest-source
 integrated one-app build; keep physical fidelity and controls unaccepted.
 
+The next current-source integration pass (`integrated-current.Uyb7ck/`) builds
+and installs source `9888782` in place on the dedicated iPad Simulator after
+preserving both outgoing apps and Documents/Library. Installed binary SHA-256
+is `db16569da62c6e5c88c6adfad6842645efa884550b6abad25af7c54d25cadd73`.
+Picker/About/Done work; Xbox restores the isolated outdoor a30 checkpoint through
+normal menus, fires, swaps pistol, toggles 2x scope and completes Save and Quit.
+Touch is forced visible because a controller is detected; this is not hardware
+input acceptance. Real Xbox data/saves remain byte-identical. Ordinary cold
+relaunch returns both cards. PC imports a freshly matched private 89-entry ZIP
+through Files; all 78 installed stock files match the signed inventory. The old
+handoff ZIP fails closed and remains unchanged. Normal PE entry reaches the
+original EULA, left unaccepted pending explicit user confirmation. Thus the
+installed normal PC main menu, later product-ID gate and gameplay remain open.
+Only the last-edition preference changes; normal PC state and caches are added.
+109 Xbox tests and five input guards pass. No runtime edit or upstream promotion,
+physical operation, IPA or publication. This is integration progress, not a
+shading/focus correction. Next continue the authorized PC path when confirmed
+and measure actual fragment LOD/shading in a matched affected moving scene.
+
 The earlier build-61 (`f8937c61`) experimental development pin added upstream's
 high-resolution HUD after build 60's menu-glyph fix. Save-backed candidate and
 acceptance Mac/Simulator menu/campaign/scripted-match checks pass. The
