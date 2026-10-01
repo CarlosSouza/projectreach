@@ -4283,3 +4283,20 @@ picker PID 74408. Real game/save/package bytes and PC registry preserved, only
 last-edition preference/log/snapshots change. Device preview predates fix and
 must rebuild before hardware use. No rendering claim, pin move, Xbox IPA, push,
 publication or cleanup. Goal active; [touch-owner evidence](XBOX-SIMULATOR-PASSES.md#shared-touch-button-ownership-2026-10-02).
+
+### 2026-10-02 — current-source device readiness, without installation
+
+Audit confirms only the selected engine starts; Xbox's aligned 4 GiB guest
+reservation remains a physical feasibility gate. Five synthetic provisioning
+checks pass, not verification of an actual profile. Preserve old device output
+and archive privately; actual stale archive is refused by source-hash guard.
+Rebuild iPhoneOS ANGLE archive and normal combined personal app from `68cb779`.
+Artifact verifier passes both SDK libraries, frozen guest identity, automatic
+hardware features, strict ad-hoc signature, IOS/iOS 17.0 load commands and no IPA.
+Executable `af1be628…0dc436`; device archive `341f6c0d…134702`. No profile,
+installation, launch, Simulator mutation or physical credential inspection.
+Existing install helper lacks backup; require explicit full data preservation
+and readback before eventual in-place installation. Hardware-window and affected
+edition/map questions remain unanswered. Goal active; rendering complaint and
+physical graphics/audio/controllers remain open. No graphics fix, pin change,
+Xbox IPA, publication or cleanup. [Readiness evidence](XBOX-SIMULATOR-PASSES.md#current-source-device-readiness-2026-10-02).

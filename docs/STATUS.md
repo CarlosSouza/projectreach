@@ -4,6 +4,19 @@ Updated 2026-10-02. **ACTIVE — Simulator-focused Xbox/menu loop.** Physical ac
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE3.md](HaloPad-GOAL-LOOP-PHASE3.md). Earlier engineering history remains in [phase 2](HaloPad-GOAL-LOOP-PHASE2.md).
 
+**Current device-SDK readiness (2026-10-02).** Rebuilt the experimental combined
+iPhoneOS app from `68cb779`, including the touch-owner fix. Executable
+`af1be628…0dc436`, device Xbox archive `341f6c0d…134702`: actual SDK, source,
+guest identity, automatic hardware features, iOS 17.0 load command and strict
+ad-hoc signature checks pass. No profile, IPA or installation. The old device
+archive is preserved and correctly rejected as stale before the rebuild.
+Simulator app remains unchanged. The picker starts only the chosen engine.
+Physical acceptance still requires a coordinated window, matching provisioning,
+full data backup/readback, and observed graphics/audio/controller behavior.
+The existing install helper does not perform that backup. Reported physical
+shading/focus remains unresolved; edition/map clarification is still needed.
+[Readiness evidence](XBOX-SIMULATOR-PASSES.md#current-source-device-readiness-2026-10-02).
+
 **Touch-owner fix (2026-10-02).** Two fingers sharing RT or A previously lost
 the held action when either finger released. Actual UIKit-handler fixture fails
 two of 24 checks before the minimal last-owner release fix; all 24 pass after,
@@ -14,7 +27,7 @@ Actual normal-menu copied outdoor checkpoint and single RT 60→59 verified;
 ordinary picker restored PID 74408. Real Xbox/PC files and registry preserved;
 only last-edition preference/log/system snapshots change. This is not OS-level
 simultaneous gesture, physical-controller or graphics acceptance. Device preview
-predates this fix and needs a normal rebuild before hardware validation. No
+was stale at that pass; the readiness pass above rebuilds it. No
 physical operation, pin move or Xbox IPA. [Evidence](XBOX-SIMULATOR-PASSES.md#shared-touch-button-ownership-2026-10-02).
 
 **Latest-source Simulator integration (2026-10-02).** After the device-SDK

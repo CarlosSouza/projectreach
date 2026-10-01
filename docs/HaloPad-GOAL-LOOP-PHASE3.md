@@ -4,13 +4,22 @@ Written 2026-09-29. This is the active loop for the supplied device handoff and 
 
 ## Current priority — 2026-10-01 Simulator / Xbox integration
 
+Current experimental device-SDK preview is `af1be628…0dc436`, rebuilt from
+`68cb779` with the touch-owner fix. Actual artifact/source/SDK checks pass;
+ad-hoc signing without a profile is not physical acceptance. No installation
+or IPA. A coordinated hardware window and complete Documents/Library backup
+and readback are prerequisites; `install-device.sh` does not back up data.
+Then establish memory/launch feasibility and graphics/audio/controller behavior
+on that exact build. The physical shading/focus complaint still needs its
+edition/map identified; do not attribute it to Xbox based on Simulator images.
+
 Current installed Simulator app is `3a933fea…95e8a`, with the shared RT/A touch
 ownership fix. Two new actual-handler checks fail before the fix; all 24 pass
 after. Rebuild/install after full backup verifies normal-menu copied outdoor
 checkpoint and single RT 60→59. Final ordinary picker PID 74408. Real files and
 PC registry unchanged; last-edition preference changes normally. No physical
 operation or graphics fix. Sustained/multi-touch OS and physical controller
-acceptance remain open; device preview requires rebuilding this runtime source.
+acceptance remain open; the device preview has now been rebuilt as noted above.
 
 Earlier installed Simulator app was `96e8c317…fa652`, built from `84547a5`.
 The post-device-SDK runtime pass preserves the outgoing app/full data and verifies

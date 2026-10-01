@@ -2396,3 +2396,47 @@ No physical installation/game input, controller pairing, graphics-fix claim,
 pin update, Xbox IPA, push, publication or cleanup. Full sustained controls,
 hardware graphics/audio/controllers, normal PC license acceptance and reported
 physical shading/focus remain open. Goal active, not complete or blocked.
+
+## Current-source device readiness (2026-10-02)
+
+**Classification: progress, artifact readiness only.** Source inspection confirms
+the picker does not initialize both guests: PC initialization is selection-bound;
+Xbox starts only after selection/import and revision-backup checks. Xbox reserves
+8 GiB of virtual address space before trimming to an aligned 4 GiB guest region;
+physical provisioning and allocation feasibility remain unproven. Audio callback
+inspection does not establish a race or justify a speculative rewrite. Five
+synthetic profile-preflight checks pass, not actual signing-profile verification.
+
+Private pass `ref/xbox-build/passes/2026-10-02/hardware-readiness.X9a0ua/`
+preserves the previous device archive and generated output. An initial module
+import misses the scripts path; correcting that setup lets the actual archived
+library check run and reject stale local sources with the required rebuild
+message (`stale-library-guard.log`). No retagging or fabricated manifest.
+`build-library.log` and `build-app.log` retain successful current-source device
+builds. `verify-build.py`, `build-verification.json` and `device-build.json`
+retain actual artifact checks against source `68cb779`:
+
+| Artifact | Verified identity / limit |
+| --- | --- |
+| Combined iPhoneOS executable | `af1be628abbf5381160953031a91d7d817397a14999b5b25b9a4ada3830dc436` |
+| Device Xbox archive | `341f6c0d98f63f9625d7d9c29f9fd6f6d2655dc32313529629fc20497e134702`; SDK `iphoneos`, feature overrides empty |
+| Frozen guest | `102885c274aa95771be8672a65ba16fa88a52d9f4d3889310072e214aabfdaaa`; build 64 unchanged |
+| Packaging/signing | `dev.halopad.HaloPad`, IOS / minimum 17.0, strict ad-hoc signature; no provisioning profile or new IPA |
+| Simulator | Prior source-checked archive still valid; installed app is not changed by this pass |
+
+Historical accepted build-64 bounded Mac menu/campaign/match and dedicated
+Simulator results remain reference evidence, not a new hardware pass. Their
+retained results are `ref/xbox-build/smoke-results/20261002-000148-c55e4e2b/`
+and `ref/xbox-build/simulator-results/20261002-000148-c55e4e2b/`.
+The current turn makes no runtime source edit, so the prior 24 UIKit/143 Python
+results are not presented as newly rerun tests.
+
+Full inspection of `scripts/install-device.sh` confirms it signs/builds,
+installs and copies a PC package but does not back up Documents/Library. Do not
+execute it as an unattended hardware-readiness shortcut. Require a coordinated
+window, exact device/profile/certificate/entitlement checks, complete backup and
+readback, in-place install, then observed memory/launch, graphics, audio and
+controls. No BlueWake interruption, pairing, physical installation or input.
+Reported physical shading/focus still needs the affected edition/map; it is not
+fixed or attributed by this pass. Goal active, no pin promotion, IPA, push,
+publication or cleanup.
