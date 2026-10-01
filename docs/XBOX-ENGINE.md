@@ -205,6 +205,21 @@ its `HALO_NETWORK_TEST` scripted matches). `init.txt` in the data folder holds c
 On a device, back up HaloPad's Documents and Library first, install over the existing app, then either
 pick the disc image in the app (Files) or copy an extracted `maps` folder to Documents/Halo Xbox/maps.
 
+The native Files importer validates bounded XDVDFS entries and common version-5
+map headers before writing. It uses a unique `maps.import-*` stage and publishes
+with an exclusive rename: existing `maps`, old partial copies and saves are kept.
+Failed stages remain for inspection; no automatic cleanup or replacement. This
+is not authentication of the XBE/map contents or proof that every required map
+is present. The Python reference extractor has not inherited these native
+safety checks; use it only with the identified trusted personal input.
+
+The Xbox library manifest also records local `port/xbox` source and relevant
+build/generator hashes. A main-app rebuild refuses older or changed local-source
+archives, even when the upstream pin and binary hashes still match. After local
+runtime edits, run `scripts/xbox/build-ios.sh` for the intended renderer/SDK,
+then rebuild the main app. Do not retrofit hashes into an old manifest. Retained
+outgoing apps remain available as rollback artifacts without repackaging.
+
 ## Updating the engine
 
 Check upstream releases on a regular maintenance pass (weekly is the proposed cadence), then

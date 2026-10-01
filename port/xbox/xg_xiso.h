@@ -5,9 +5,10 @@
 
 typedef void (*xg_extract_progress)(double fraction, void *context);
 
-/* copies the image's maps/ to <destination>/maps (through maps.partial, so an
- * interrupted copy never looks complete); build receives the maps' build
- * string. 0 on success, else -1 with a message for the player in error. */
+/* Validates a bounded map inventory before copying into a unique staging
+ * directory. Exclusive publication never replaces existing maps or saves.
+ * Incomplete stages are retained, never reused. build receives the common map
+ * build only on success. 0 on success, else -1 with a player-facing error. */
 int xg_extract_maps(const char *image_path, const char *destination, xg_extract_progress progress, void *context,
 	char *build, size_t build_size, char *error, size_t error_size);
 

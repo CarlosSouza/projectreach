@@ -79,8 +79,10 @@ $CC -c "$ROOT/port/xbox/xg_runtime.s" -o "$OBJ/xg_runtime.o"
 LIB="$OUT/$BUILD_SDK/libhalopad-xbox.a"
 xcrun libtool -static -o "$LIB" $(ls "$OBJ"/*.o | grep -v xg_app_ios.o) $ANGLE_LIB
 # Keep the library tied to its exact guest image; app packaging checks this.
-python3 - "$ENGINE" "$OUT" "$BUILD_SDK" "$RENDERER" "$ROOT/config/xbox-angle.lock.json" <<'PY'
+python3 - "$ENGINE" "$OUT" "$BUILD_SDK" "$RENDERER" "$ROOT/config/xbox-angle.lock.json" "$ROOT" <<'PY'
 import datetime, hashlib, json, pathlib, subprocess, sys
+sys.path.insert(0, str(pathlib.Path(sys.argv[6]) / 'scripts/xbox'))
+from runtime_manifest import sources
 engine, out, sdk = sys.argv[1], pathlib.Path(sys.argv[2]), sys.argv[3]
 manifest = {
     'revision': subprocess.check_output(['git', '-C', engine, 'rev-parse', 'HEAD'], text=True).strip(),
@@ -88,6 +90,7 @@ manifest = {
     'guest_sha256': hashlib.sha256((out / 'halo_guest.elf').read_bytes()).hexdigest(),
     'library_sha256': hashlib.sha256((out / sdk / 'libhalopad-xbox.a').read_bytes()).hexdigest(),
     'renderer': sys.argv[4],
+    'runtime_sources': sources(),
 }
 if sys.argv[4] == 'angle-metal':
     manifest['angle_source'] = json.loads(pathlib.Path(sys.argv[5]).read_text())

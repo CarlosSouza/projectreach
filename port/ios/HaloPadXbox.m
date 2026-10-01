@@ -317,6 +317,7 @@ static void import_progress_update(double fraction, void *context)
 		return;
 	import_button.enabled = NO;
 	back_button.enabled = NO;
+	import_progress.progress = 0;
 	import_progress.hidden = NO;
 	import_status.text = @"Copying the maps from your disc…";
 	dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{

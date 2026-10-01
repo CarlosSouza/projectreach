@@ -4101,3 +4101,24 @@ or depth workaround adopted. Complete logs under G3 `…162406Z`, `…162729Z`;
 native input under `…162857Z`, private pass `pc-lod.c5yJyx`. Microsoft/Apple
 reference review supports a future shader-side bias path if actual use is found.
 No installation or physical data change. Goal stays active.
+
+### 2026-10-02 — native Xbox disc import and actual stale-archive rejection
+
+Private `disc-import.1pB6xv` pass hardens bounded XDVDFS/map validation, unique
+staging and exclusive publication; 17 native fixture regressions pass. Real own
+USA disc and 104 bounded synthetic cases run without ASan/UBSan findings. First
+integrated UI attempt exposes an old linked Xbox archive and wrongly accepts a
+path-traversal fixture only in an isolated root. Add runtime source hashes to
+library manifests; missing/changed hashes now reject packaging, with two tests
+and a real rejected build. Rebuild the frozen library and main app normally.
+
+Corrected Simulator executable `5ea1369d…5768df9`: actual malformed-image
+rejection, Editions return, real Files disc import, 24 exact map hashes, fresh
+New001 creation, Normal a10 cinematic, cold menu/profile recognition. Fresh
+summary The Maw/Legendary is unexpected and remains unexplained, not progression.
+Normal PC route retains the unaccepted EULA; leave final ordinary app at picker.
+All existing game bytes survive; normal logs/caches and last-edition preference
+change. 128 Xbox tests, five input guards and 13 executed package checks pass
+(16 package checks skipped). No physical operation, visual fix, pin update, IPA,
+push, publication or cleanup. Goal stays active; detailed failed/successful
+attempts and proof boundaries are in [the pass ledger](XBOX-SIMULATOR-PASSES.md#native-disc-import-validation-and-stale-library-gate-2026-10-02).

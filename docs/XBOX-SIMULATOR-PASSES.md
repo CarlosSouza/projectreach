@@ -1836,3 +1836,110 @@ Next obtain a matched affected original-driver view and compare material/lightin
 UV interpolation and sampler behavior; do not reduce detail scales or force mip
 levels as a visual workaround. PC EULA confirmation and physical acceptance remain
 separate gates; the diagnostic hook is inactive in normal apps.
+
+### Native disc-import validation and stale-library gate (2026-10-02)
+
+Private pass: `ref/xbox-build/passes/2026-10-02/disc-import.1pB6xv/`.
+Work the independent fresh-install flow while the PC EULA remains unaccepted
+and the physical iPad is shared with BlueWake. No physical operation or visual
+fix. The previous raster pass was progress, not an unchanged blocker audit.
+
+The old native extractor trusts directory names, silently skips malformed tree
+nodes and writes into a reused `maps.partial` folder. Add bounded validation
+before any destination write: 1 MiB directories, 256 entries, cycle/repeated-node
+and case-alias rejection, safe path components, image extents, maps/XBE entry
+types and XBEH magic. Maps must have canonical ASCII `.map` filenames, version-5
+daeh/toof headers and a common terminated build string; bound each to 512 MiB and
+total to 3 GiB. Keep the compressed header's logical length separate from its
+physical disc extent: ui.map's physical 14,145,536 bytes differ from header
+33,582,080. Do not reject Chris's valid compressed maps for that difference.
+Clear both result strings on entry; the UI previously formed NSStrings from
+an uninitialized success-path error buffer. Reset retry progress to zero.
+
+Create unique `maps.import-XXXXXX`, write only new fd-relative files with
+O_EXCL/O_NOFOLLOW, check close errors, and use Darwin's exclusive rename into
+`maps`. Refuse an existing destination maps file/directory/link and a final-root
+symlink. A competing maps directory appearing during copy is preserved; retain
+the unfinished stage. No old partial folder or save is reused/deleted. This
+does not authenticate game payloads, establish a complete stock inventory or
+make the upstream game's map loader safe for arbitrary malicious payloads.
+The Python reference extractor is unchanged; restrict it to trusted own input.
+
+Seventeen Darwin tests exercise inert fixtures, including valid/canonical names,
+unsafe names, aliases/cycles/bounds, invalid later map headers/mixed builds,
+existing files/directories/links, retained old stages/saves, publication race and
+source truncation followed by retry. The initial fixture accidentally adds a
+NUL to the 20-byte descriptor magic; successful cases expose the error. Correct
+the fixture before accepting negative-case results. Final 17 tests pass.
+Current strict-warning ASan/UBSan runner passes 104 retained cases (four named
+fixtures plus 100 deterministic bounded metadata/header mutations), with no
+sanitizer findings. This is not exhaustive fuzzing. A real-disc ASan/UBSan copy
+also exits 0; all 24 size/hash records match `ref/xbox-build/data/maps`.
+
+Preserve outgoing installed/generated apps, Xbox library and Simulator
+Documents/Library using APFS clones. First integrated candidate executable
+`8f3c1171…510a5fa` rebuilds the main app but links the older Xbox archive. Actual
+Files selection of `Invalid Xbox fixture.iso` is wrongly accepted: ui.map is
+published and `../a10.map` escapes the old partial folder into the **isolated**
+test root. Do not count that UI attempt as a pass. It reaches a black scene,
+not gameplay. Real game files remain identical. Retain this failed candidate,
+logs and isolated roots; no cleanup.
+
+Add a shared local-source identity to Xbox library creation and main-app
+packaging: hashes of native Xbox source/header/assembly files and relevant
+prepare/compiler/generator/build scripts. Missing or changed identities now fail
+closed. Two regression tests cover missing metadata and an older disc extractor;
+an actual main-app build rejects the outgoing archive. Rebuild through the
+normal frozen-pin library script, not a manifest edit. ANGLE checkout is clean
+and unchanged; guest remains `102885c2…bfdaaa`, new library
+`f0805929f4f4e34f1cd10afcafc6f8c663a8abe8a13b95d0ef52bf28be2fc83a`.
+The GitHub commit-page request fails; read-only official API refresh returns
+[c55e4e2b](https://github.com/cybersecurity/halo-ce-universal/commit/c55e4e2b9d90550b0e761eb78dfe9d7c74880cb9),
+still the newest commit. No upstream pin promotion.
+
+Corrected integrated executable SHA-256:
+`5ea1369de8579e0314a02fbd89f5336ce278dc6d5e6a4b076f39c2f555768df9`.
+Normal PC entry, ANGLE/Metal PREVIEW, build 64. In-place install into dedicated
+iPad Simulator `DF51182F-1878-4A54-9AED-CC4AED86BEAB`, iPadOS 26.5. A first launch
+using relative stdout/stderr filenames is denied; use absolute paths, then launch
+works. All Xbox test operations use fresh `ui-checked`/`ui-checked-save` overrides
+and cleared bot/online/UPnP/clipboard-join flags; real Xbox saves never open.
+
+Actual UI: Xbox card → Choose Disc Image → Files/HaloPad → malformed fixture.
+Corrected extractor rejects it before even creating the isolated destination;
+error appears, Choose and Editions re-enable, no touch pad is created. Editions
+returns both cards. Re-enter import and select the real `Halo USA Xbox.iso`.
+It reaches the Xbox main menu; no development import flag or synthetic input.
+All 24 imported map sizes/hashes independently match the reference, no missing
+or additional maps. The copied/source disc hashes both equal
+`bbed30485a34fb971687648f31a8b50467c92d7ef296e3f97bad51372db1b012`;
+disc is 3,728,867,328 bytes, partition zero, maps build 01.10.12.2276, XBE hash
+`ed3a8e962351ad6c4b3b620768fb6a0bda658963390252439ea036d5ede3a3ac`.
+
+Actual virtual A selects Campaign. Fresh New001 name/Done, profile saving and
+Normal selection load a10's opening cinematic from the newly imported maps.
+The no-existing-profile path briefly logs `event handler function failed`;
+default profile creation nevertheless finishes. Cold launch changes the card to
+Play Xbox, skips import and reaches the main menu. Campaign shows the saved
+New001 profile, but its summary says **The Maw / Legendary**, despite this fresh
+a10 run. Retain `cold-new001-profile.png`; cause/progression semantics are not
+established, and no later checkpoint/complete gameplay acceptance is claimed.
+
+Ordinary launch with no Xbox overrides restores both real-installation cards.
+Windows verifies its existing files and reopens the original unaccepted EULA;
+do not accept or fake product identity. Final ordinary launch is left at the
+edition picker. Independent readback preserves all 114 real Xbox files and all
+PC installation/package bytes. Documents only adds the real-disc clone and
+inert fixture, with the normal HaloPad log changed. Library changes Metal and
+SplashBoard caches and scene-session metadata. Only HaloPadLastEngine changes
+during the Xbox tests; selecting Windows restores its original value, so the
+final preference dictionary exactly matches the backup, with no keys added/lost.
+PC registry remains unchanged. Retain both full backups.
+
+128 Xbox tests and five input guards pass; package suite runs 13 checks and skips
+16 native checks (not 29 executed passes). Whitespace and current tree/index
+safety pass. No physical operation, pin update, Xbox IPA, push, publication or
+cleanup. Goal remains active. Next isolate the fresh-profile summary anomaly,
+keep normal PC license confirmation separate, and resume matched moving-scene
+rendering/reference work. The user's physical shading/focus complaint is still
+unresolved; this pass only establishes safer import/build behavior.

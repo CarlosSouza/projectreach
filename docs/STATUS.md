@@ -4,6 +4,25 @@ Updated 2026-10-02. **ACTIVE — Simulator-focused Xbox/menu loop.** Physical ac
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE3.md](HaloPad-GOAL-LOOP-PHASE3.md). Earlier engineering history remains in [phase 2](HaloPad-GOAL-LOOP-PHASE2.md).
 
+**Disc-import follow-up (2026-10-02).** The actual native extractor now bounds
+directory/map sizes and extents, rejects unsafe names/cycles/aliases and invalid
+map headers before copying, and uses unique staging plus exclusive publication.
+Existing maps/saves and failed stages are never overwritten. The first UI test
+exposed an older linked Xbox archive; the app builder now rejects missing or
+changed local runtime-source hashes. Rebuild the library, not its manifest.
+Corrected integrated Simulator executable `5ea1369d…5768df9` rejects the malformed
+image, returns to Editions, imports Chris's USA disc through Files, and produces
+24 maps byte-identical to the reference. Fresh New001 creation, Normal a10 opening
+cinematic and cold menu/profile recognition work in isolated folders. The fresh
+profile summary unexpectedly says The Maw/Legendary; its cause and progression
+semantics remain open. Windows reopens the original unaccepted EULA. Ordinary
+launch is left at both edition cards. All 114 existing Xbox files and existing
+PC files are unchanged; normal logs/caches/preferences change. 128 Xbox tests,
+five input guards and 13 package checks pass (16 package checks skipped).
+ASan/UBSan finds no error in the real-disc copy or 104 bounded synthetic cases.
+No physical iPad operation or rendering fix, pin update, IPA, push or publication.
+Detailed evidence and limits: [disc-import pass](XBOX-SIMULATOR-PASSES.md#native-disc-import-validation-and-stale-library-gate-2026-10-02).
+
 **Renderer comparison at build 61 (2026-10-01).** A correctly source-built,
 separately pinned ANGLE/Metal Simulator preview now runs the same Xbox build 61.
 Its first scenes remove the pronounced horizontal wall bands but reverse red

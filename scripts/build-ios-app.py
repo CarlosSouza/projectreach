@@ -38,6 +38,9 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location('run_core', ROOT / 'scripts' / 'run-core.py')
 run_core = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(run_core)
+spec = importlib.util.spec_from_file_location('xbox_runtime_manifest', ROOT / 'scripts/xbox/runtime_manifest.py')
+xbox_runtime_manifest = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(xbox_runtime_manifest)
 
 TARGET = 'arm64-apple-ios17.0-simulator'
 DEVICE_TARGET = 'arm64-apple-ios17.0'
@@ -84,6 +87,8 @@ def xbox_parts(target):
     for path, key in ((XBOX_OUT / 'halo_guest.elf', 'guest_sha256'), (lib, 'library_sha256')):
         if hashlib.sha256(path.read_bytes()).hexdigest() != manifest[key]:
             raise ValueError(f'Stale Xbox build: {path.name}; rebuild the Xbox library')
+    if manifest.get('runtime_sources') != xbox_runtime_manifest.sources():
+        raise ValueError('Xbox library local sources changed or are unrecorded; run scripts/xbox/build-ios.sh')
     graphics = ['-lc++', '-lz', '-framework', 'Metal', '-framework', 'IOSurface'] if renderer == 'angle-metal' else ['-framework', 'OpenGLES']
     return [ROOT / 'port' / 'ios' / 'HaloPadXbox.m', lib, '-I', str(ROOT / 'port' / 'xbox'), '-I', '/opt/homebrew/include',
             *graphics, '-DGLES_SILENCE_DEPRECATION']

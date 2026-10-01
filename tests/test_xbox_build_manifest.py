@@ -31,6 +31,7 @@ class XboxManifestTests(unittest.TestCase):
             'revision': PIN,
             'guest_sha256': hashlib.sha256(self.guest.read_bytes()).hexdigest(),
             'library_sha256': hashlib.sha256(self.lib.read_bytes()).hexdigest(),
+            'runtime_sources': builder.xbox_runtime_manifest.sources(),
         }
         self.save_manifest()
         self.addCleanup(patch.stopall)
@@ -66,6 +67,18 @@ class XboxManifestTests(unittest.TestCase):
     def test_mismatched_library(self):
         self.lib.write_bytes(b'different library')
         with self.assertRaisesRegex(ValueError, 'Stale Xbox build'):
+            builder.xbox_parts(builder.TARGET)
+
+    def test_unrecorded_local_sources_requires_rebuild(self):
+        self.manifest.pop('runtime_sources')
+        self.save_manifest()
+        with self.assertRaisesRegex(ValueError, 'local sources'):
+            builder.xbox_parts(builder.TARGET)
+
+    def test_changed_disc_extractor_requires_rebuild(self):
+        self.manifest['runtime_sources']['port/xbox/xg_xiso.c'] = 'old source'
+        self.save_manifest()
+        with self.assertRaisesRegex(ValueError, 'local sources'):
             builder.xbox_parts(builder.TARGET)
 
     def test_legacy_library_requires_rebuild(self):

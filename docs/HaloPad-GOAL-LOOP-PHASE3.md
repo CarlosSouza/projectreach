@@ -291,6 +291,20 @@ of input/render diagnostics and preserve the Windows route and both save domains
 
 ## Starting point and claim boundary
 
+2026-10-02 disc-import follow-up: validate untrusted image names/extents/headers
+before writing, keep failed copies in unique stages, never replace existing maps
+or saves, and reject stale local-source Xbox archives during app packaging.
+Corrected current-source ANGLE Simulator app verifies actual malformed-image
+rejection → Editions → real USA disc Files import, all 24 map hashes, new-profile
+creation, a10 opening cinematic and cold menu/profile recognition in isolated
+folders. Fresh profile summary The Maw/Legendary needs investigation; this is
+not a progression or compatibility pass. Normal Windows entry still presents
+the unaccepted EULA. Leave the ordinary app at the edition picker. Existing game
+files are unchanged, but normal logs/caches/preferences are not. The physical
+shading/focus complaint, matched reference comparison, new checkpoint progression
+and coordinated hardware acceptance remain open; do not substitute import/menu
+results for them. See the latest [pass ledger](XBOX-SIMULATOR-PASSES.md#native-disc-import-validation-and-stale-library-gate-2026-10-02).
+
 - The private kit is `ref/handoff/HaloPad-iPad-test/`: an arm64 iPhoneOS `HaloPad.app` and its matching `.halopad.zip`. The original kit stays untouched. The package verifies its 87 files, including 78 stock records.
 - A **copy** of the device app was converted to an ad-hoc Simulator probe under ignored `generated/simulator-probe/`. On this Mac it reaches the main menu on iPad Air 13-inch (M4) and iPhone 17 Pro Simulators. The iPad local LAN match reached first-person play; menu taps and FIRE worked. This probe is not a source-built Simulator binary or physical-device acceptance.
 - The iPad local-host **Leave Game** action in the three-dot menu did not leave; Halo's own pause-menu Leave Game did. Touch controls were initially hidden by the connected-controller setting in the Simulator; turning that setting off exposed them. Two-thumb gestures, real controller input, keyboard typing, private-server joining, and iPhone gameplay remain to be accepted on this machine.

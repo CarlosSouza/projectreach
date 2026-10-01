@@ -1,0 +1,15 @@
+"""Local source identity for the prebuilt Xbox library used by the app builder."""
+import hashlib
+import pathlib
+
+ROOT = pathlib.Path(__file__).resolve().parents[2]
+
+
+def sources():
+    paths = sorted(path for path in (ROOT / 'port/xbox').rglob('*')
+                   if path.is_file() and path.suffix in ('.c', '.m', '.mm', '.h', '.s'))
+    paths += [ROOT / 'scripts/xbox' / name for name in
+              ('build-ios.sh', 'prepare.sh', 'guest-cc.sh', 'gen-host-gl.py', 'translate.py', 'runtime_manifest.py',
+               'angle/CMakeLists.txt')]
+    return {str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
+            for path in paths}
