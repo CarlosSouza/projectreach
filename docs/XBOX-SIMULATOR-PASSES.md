@@ -1578,7 +1578,7 @@ frame; the picker/final copy is not where that appearance first enters.
 
 Request 21: VS `010441b0`, PS `01046420`, target `012426d0`, indexed triangle
 list, 23 primitives, viewport 800x600, depth test EQUAL/no depth write. Texture
-stages 0–3 are respectively 512x512 DXT3/10 levels, 256x256 DXT1/9 levels,
+stages 0–3 are respectively 512x512 DXT2/10 levels, 256x256 DXT1/9 levels,
 512x512 DXT1/10 levels, 256x256 DXT1/9 levels. All four have min/mag/mip filters
 2/2/2, anisotropy 1, zero bias/minimum/resource LOD, clean managed storage and
 an existing native object. The program actually samples all four stages;
@@ -1625,3 +1625,83 @@ detail scaling and mip texels/selection across moving views, with a matched
 original-PC reference if available. A green arithmetic or gameplay test cannot
 replace that comparison. Avoid speculative sharpening, blur, anisotropy or LOD
 workarounds; the physical report's edition/map and original view remain unknown.
+
+### PC live mip capture and calibrated readback correction (2026-10-02)
+
+Private pass: `ref/xbox-build/passes/2026-10-02/pc-material-mips.7BcfA9/`.
+The preceding goal turn made progress by isolating the ground material. This
+pass inspects its real inputs; it is not original-PC or physical-iPad acceptance.
+
+A private wrapper reuses the existing host-menu/gameplay harness and its native
+draw hook. It matches the actual pixel-program tokens, not a hardcoded guest ID,
+and captures only the first match during frames 3141–3170. Bounded managed 2D
+textures retain raw CPU blocks and uploaded native texels for all four stages;
+the live vertex program, declaration, bounded streams and constants stay private.
+The initial wrapper fails compilation on two untyped COM-state dereferences;
+the corrected source assigns a `res *` first. No game execution follows that
+failed build, and a private note preserves the failure.
+
+Simulator `core-arm64-apple-ios17.0-simulator-20261001T185619Z` captures frame
+3141/request 70, VS `010441b0` and PS `01046420`, with BC support false. Both
+program hashes match the preceding arithmetic check exactly. Four 2D stages
+have 10/9/10/9 levels, trilinear filters, zero bias/minimum/resource LOD, clean
+storage and texture-transform flags zero. Actual c10 is (100,100,60,60), c11
+(1,0,12,1), c12 (0,1,12,−1): the program requests 100x/60x detail and 12x fourth
+stage scaling. Vertex input v4 is FLOAT2 TEXCOORD0 at offset 48 in a 56-byte
+stream. These are bound inputs, not an exact indexed primitive replay or measured
+fragment derivatives. Correct the prior stage-zero label to **DXT2**, FourCC
+`0x32545844`, not DXT3; [Microsoft's format enumeration](https://learn.microsoft.com/en-us/windows/win32/direct3d9/d3dformat)
+defines the FourCC. Its stored BC2 explicit-alpha blocks are compared without
+unpremultiplying, not treated as a blend-semantics reference.
+
+The initial independent [Pillow BC decoder](https://pillow.readthedocs.io/en/stable/handbook/image-file-formats.html#dds)
+comparison agrees at level zero but reports large lower-level differences.
+Reject those lower-level native images: all four level-one images are exact
+level-zero top-left crops. A separate asset-free BGRA four-color/four-mip native
+probe confirms that this Simulator's **short** `getBytes` selector returns red
+level-zero data at all levels while explicit shader sampling returns the intended
+red/green/blue/white. The full selector returns all four correct levels. On Mac,
+short/full reads and shader samples all agree. The first probe's compute dispatch
+aborts on unsupported nonuniform threadgroups; uniform dispatch then calibrates
+the samples. Simulator probe exit 1 is the intentional old-selector negative
+control: three short-read failures, zero full-read or shader-sample failures.
+This does not prove an upload defect or that mip selection in the game is wrong.
+
+Add eight native D3D9 assertions for this existing readback helper: exact texels
+and untouched row padding at all four levels of the actual uploaded managed
+texture. Before correction, Simulator `…-20261001T190609Z` fails exactly the
+three nonzero-mip texel checks; all padding checks pass. Change only the helper
+to the full selector with explicit bytes-per-image, 3D region depth one and
+slice zero. No upload, filtering, shader or game-content changes. Afterwards
+Simulator `…-20261001T190737Z` and Mac `…-20261001T190738Z` pass all 268 checks
+with Metal validation. Preserve the rejected first mip analysis and readbacks.
+
+Corrected actual-material Simulator `…-20261001T190738Z` captures frame 3141/
+request 25. `corrected-readback/` contains all 38 CPU/native mip pairs, 873,812
+texels: independent decoding differs by at most one RGB unit, alpha exact,
+zero pixels exceeding two RGB units. Both shader hashes and the same detail
+constants verify in this capture, with projection disabled. The reviewed mip
+contact sheet now shows genuinely downsampled levels, not crops. This checks
+stored texels, not actual moving raster derivatives or an original driver.
+
+The first full gameplay run reaches 6,400 presents but fails five later checks:
+grenade damage, death, respawn, ensuing weapon pickup and death-associated audio.
+Health/shields never fall below 1/1. Motion and material capture succeed, but
+the run is not passed. The corrected full run passes all 21 checks, including
+the original gameplay/audio checks, 30 motion frames and requested material.
+Random spawns differ; do not blame or credit the helper for gameplay outcomes.
+Corrected frame 3155 has exactly the same recorded position/look as the earlier
+`…-20261001T180726Z` dirt view. Ground ROI x50/y150/w400/h250 is identical at all
+100,000 pixels (mean/max RGB difference zero). Thus visible grain persists and
+this correction must not be called a rendering/focus fix. Timings/HUD may differ;
+the comparison is not synchronized original-PC or physical fidelity.
+
+109 Xbox Python tests, five input guards, whitespace and tree/index safety pass.
+Ordinary two-edition picker restored, no overrides (PID 47787); real Xbox saves
+still match `audio64.U2hPbE/real-save-before`. No one-app install, upstream change,
+physical operation, IPA, publication, push or cleanup. Goal remains active.
+Next investigate the calibrated material's actual fragment LOD selection against
+a matched original view and verify the latest-source integrated Simulator app.
+Do not infer corruption from uncalibrated readbacks or alter detail scales as a
+visual workaround. Physical shading/focus, sustained controls and device renderer
+acceptance remain open.

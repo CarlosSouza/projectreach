@@ -147,6 +147,25 @@ Next inspect this material's actual moving-view UV/detail/mip inputs and seek
 a matched original rendering; do not infer that grain alone is a defect or
 change filtering speculatively. Physical shading/focus remains unresolved.
 
+The subsequent live-mip pass catches and fixes a **measurement** defect, not
+the reported shading: Metal's short texture-readback selector returns level-zero
+crops for nonzero mips on this Simulator. An asset-free probe distinguishes
+that readback from correct explicit shader sampling; the full selector works
+on both Simulator and Mac. A real-helper regression fails exactly three mip
+checks before the correction; all 268 native checks pass on both platforms
+afterwards. Corrected capture of the actual four-stage ground material retains
+38 levels / 873,812 texels, matching independent BC decoding within one RGB
+unit and exact alpha. Initial lower-mip captures are explicitly rejected and
+preserved. Guest constants request 100x/60x detail tiling and 12x fourth-stage
+scaling, with projection disabled. The corrected frame-3155 guest pose matches
+the prior dirt case; its 100,000-pixel ground ROI is identical, confirming this
+is not a grain-removal fix. A first component run fails five later gameplay
+checks; the corrected capture run passes 21. Do not attribute those outcomes
+to this helper without controlled gameplay evidence. Ordinary picker restored,
+real saves intact, no app install or pin change. Next inspect actual fragment
+LOD selection against a matched original scene and exercise the latest-source
+integrated one-app build; keep physical fidelity and controls unaccepted.
+
 The earlier build-61 (`f8937c61`) experimental development pin added upstream's
 high-resolution HUD after build 60's menu-glyph fix. Save-backed candidate and
 acceptance Mac/Simulator menu/campaign/scripted-match checks pass. The

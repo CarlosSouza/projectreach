@@ -10,6 +10,10 @@
 #include <math.h>
 #define PTROFS_64BIT 1
 #include "llasm_cpu.h"
+#include "../port/runtime/halopad_d3d9_internal.h"
+
+void *halopad_com_state(const char *iface, uint32_t g);
+void halopad_metal_read_texture(void *target, void *tex, uint32_t level, uint32_t x, uint32_t y, uint32_t w, uint32_t h, void *out, uint32_t pitch);
 
 extern uint64_t halopad_guest_base;
 extern int halopad_guest_harness_heap;
@@ -420,6 +424,22 @@ int main(void)
                 close &= abs((int)(got >> shift & 255) - (int)(want >> shift & 255)) <= 1;
             printf("    mip readback 0x%08x expected 0x%08x\n", got, want);
             check(mip_cases[mi].name, close, 1);
+        }
+        /* Validate the readback independently of sampling. On this Simulator,
+           Metal's short getBytes selector reads level zero for every mip. */
+        res *mips = halopad_com_state("IDirect3DTexture9", tmip);
+        for (uint32_t level=0; level<4; level++) {
+            uint32_t edge=8>>level, pixels[80], sentinel=0xC0FFEE00;
+            for (uint32_t i=0; i<80; i++) pixels[i]=sentinel;
+            halopad_metal_read_texture(tg, mips->native, level, 0, 0, edge, edge, pixels, 4*(edge+1));
+            int colors_ok=1, padding_ok=1;
+            for (uint32_t y=0; y<edge; y++) {
+                for (uint32_t x=0; x<edge; x++) colors_ok &= pixels[y*(edge+1)+x]==mip_colors[level];
+                padding_ok &= pixels[y*(edge+1)+edge]==sentinel;
+            }
+            printf("    native mip %u first pixel %08x want %08x\n", level, pixels[0], mip_colors[level]);
+            check("mips: native readback returns this level's texels", colors_ok, 1);
+            check("mips: native readback respects padded row pitch", padding_ok, 1);
         }
         /* A texture rewritten before Present must not recolour an earlier draw.
            MAXMIPLEVEL isolates level 2; the other levels must survive the update. */
