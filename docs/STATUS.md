@@ -15,8 +15,15 @@ restored colors and no pronounced cliff bands in the reviewed views. Normal
 menu/campaign/scripted-match checks pass (1,530 ticks, 12 shots), not full visual
 acceptance or a matched-camera driver diagnosis. Apple remains the default;
 the Xbox guest pin and physical Windows/Metal rendering are unchanged. The
-physical iPad's reported shading/focus instability is still open. Continue
-matched scene/motion and copied checkpoint/control checks before adopting the
+physical iPad's reported shading/focus instability is still open. A follow-up
+loads identical copied cryo-bay checkpoints through normal menus: Apple shows
+large black floor polygons; the preview draws that floor in the untouched view.
+Both use 640x480 guest rendering; NPC/prompt timing differs, so this is not a
+frame-synchronized driver diagnosis. Preview four-direction look, tube exit,
+short forward input, Save and Quit and fresh-process checkpoint reload work
+with isolated saves. Reload returns to the last checkpoint inside the tube,
+not the unsaved exit position. Continue
+sustained motion, later checkpoint and control checks before adopting the
 candidate more broadly. See the pass ledger for failed first attempts and
 source/probe provenance. No physical install, IPA or publication.
 

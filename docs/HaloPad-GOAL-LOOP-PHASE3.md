@@ -19,8 +19,13 @@ rebuilt campaign/match images restore colors and lack the pronounced bands.
 Normal menu/campaign/scripted-match gates pass (1,530 ticks / 12 shots). This is
 an observed improvement, not complete visual acceptance or proof about the
 physical Windows edition. Apple remains the default; no guest pin promotion.
-Next use a copied checkpoint/fixed scene to compare renderer images and motion,
-then verify touch, cold reload and a later campaign scene on the candidate.
+Copied identical checkpoints now provide the same untouched cryo-bay camera:
+Apple has large black floor polygons; the preview draws that floor. Both render
+at 640x480. NPC/prompt timing differs; no pixel-synchronized driver claim.
+Preview four-direction look, X tube exit, short forward input and Save and Quit
+work through actual touch controls. Fresh-process reload restores the last
+checkpoint inside the tube, not the unsaved exit position. Next verify sustained
+movement/look, simultaneous controls and a later campaign checkpoint.
 Keep the accepted Apple app available for in-place rollback and all real saves
 untouched. Physical iPad shading/focus investigation stays a separate gate.
 

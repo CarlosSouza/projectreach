@@ -3956,3 +3956,25 @@ Simulator syntax pass; physical ANGLE explicitly rejected. No physical iPad
 changes, IPA, pin promotion, push or publication. Goal active; next fixed copied
 checkpoint/motion comparison and normal controls/reload. Chris's physical
 Windows/Metal shading/focus report is not resolved by these Xbox Simulator tests.
+
+### 2026-10-01 — copied checkpoint renderer A/B and actual preview controls
+
+Same frozen Xbox 61, same isolated checkpoint bytes, ordinary Campaign menus and
+untouched cryo-bay view at 640x480: Apple has large black floor polygons and wall
+bands; ANGLE/Metal draws the floor without those pronounced bands. Static edges
+align, NPC/prompt timing differs; not pixel-synchronized or a proven driver cause.
+Preserved screenshots/PPM/logs under private `angle-checkpoint.B09wUK` pass root.
+
+Restored preview in place. Four-direction touch look advances the tutorial; X
+exits the tube; a short forward drag reaches the guest and displaces the view.
+Actual pause-menu Save and Quit finishes and returns to the main menu. A new
+process reloads through picker/Campaign into the last cryo-bay checkpoint, not
+the ship intro or unsaved exit position. The Metal save copy changes during that
+load; original fixture and Apple copy unchanged. No later checkpoint claim.
+Real Simulator saves match the acceptance backup; no physical device change.
+No renderer code or guest pin change. Keep PREVIEW and Apple fallback. Next
+sustained movement/look, simultaneous controls, later checkpoint/reload and
+broader image review. Chris's physical iPad shading/focus report remains open.
+98 Xbox tests, whitespace and tree/index safety pass; upstream and ANGLE source
+checkouts clean. Final picker/About/Done rechecked with PREVIEW, real saves still
+byte-identical. Evidence-only changes, no IPA, push or publication. Goal active.

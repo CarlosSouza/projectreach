@@ -956,3 +956,46 @@ change, IPA, push, publication or recurring job. Goal stays active. Next compare
 an isolated copied checkpoint/fixed scene and motion, verify touch/cold reload
 and later assets, then decide whether to adopt the renderer. Physical iPad
 shading/focus instability remains a separate unresolved acceptance gate.
+
+## 2026-10-01 — same copied checkpoint, renderer comparison and preview touch
+
+Private evidence: `ref/xbox-build/passes/2026-10-01/angle-checkpoint.B09wUK/`.
+Separate `apple/save` and `metal/save` copies of the existing build-61-compatible
+fixture; shared read-only map symlinks, no init script, bot, forced edition or
+injected guest actions. Both load normally via picker → Xbox → Campaign →
+New001 → Pillar of Autumn (game in progress) → Normal. Both use the frozen guest
+61 and 640x480 guest rendering on the same dedicated iPadOS 26.5 Simulator.
+Before any look/movement, `apple/checkpoint.png` has large black floor polygons
+at bottom-left and visible bands in the upstairs walls; `metal/checkpoint.png`
+draws the floor and lacks those pronounced bands. Corresponding PPM dumps are
+preserved. Static room/window/cryo edges align; NPC animations and tutorial
+prompt timing differ. This is stronger than unmatched spawns, but not a
+frame-synchronized raster comparison, exact cause or full visual acceptance.
+
+Restored the candidate app in place from the preserved `candidate-app/HaloPad.app`.
+Normal preview menus reload the copy. Actual touch drags publish and the guest
+polls right/left/up/down look values; the tutorial advances to X tube exit.
+X exits the tube; the movement tutorial appears. A finite forward drag publishes
+and polls move axis 1 at -1 and releases to zero. Screenshots show the modest
+view displacement. Pause navigation → Save and Quit shows Saving last checkpoint
+and returns to the ordinary main menu. A fresh process (PID 52855, preceding
+touch run 38151) reloads via the same normal menu flow into the cryo-bay look
+tutorial (`metal/cold-checkpoint.png`), not the ship introduction. It restores
+the last checkpoint inside the tube, not the unsaved exit position.
+
+At the untouched cross-backend capture, both copied `save/z/savegame.bin` files
+have SHA-256
+`7eb537a5bb0599d3e2d05308a9b12688933b34cb28443113c90b5d8c2f2df963`.
+Source/Apple still retain it. The Metal copy changes on the fresh load at 22:49:04
+to `24c2fb84c94418d0d9c4993489ee608097926e00f32ee1df35147690617e22e5`.
+That write alone does not prove creating a later checkpoint. Short sequential drags do not
+prove sustained or simultaneous two-thumb play, fire/weapon interaction, audio
+or later campaign progression. No normal-depth changes or speculative renderer
+patches. The startup blit error remains. Real Simulator saves in rediscovered
+`7C9D2071-CFA5-48FE-9723-67DC6DACEA4C` match the acceptance backup byte-for-byte.
+Physical iPad Windows/Metal shading/focus report remains unresolved; no physical
+install, guest pin promotion, IPA, push or publication. Candidate remains PREVIEW.
+Final ordinary picker/About/Done verified, build `f8937c61` and incomplete
+validation shown. Both edition choices return. 98 Xbox unit tests pass; whitespace
+and tree/index safety pass. Both third-party source checkouts remain clean. This
+follow-up adds evidence/documentation only; no engine or UI source changes.
