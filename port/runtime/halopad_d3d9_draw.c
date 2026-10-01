@@ -458,6 +458,11 @@ static uint32_t draw(device *d, uint32_t type, uint32_t prims, uint32_t start, i
                 d->viewport[0], d->viewport[1], d->viewport[2], d->viewport[3], callers);
         fprintf(stderr, "HALOPAD DRAW   depth %g..%g bias %g slope %g stencil %u fog %u/%08x/%u scissor %u clip %u\n", f32(d->viewport[4]), f32(d->viewport[5]),
                 f32(rs[195]), f32(rs[175]), rs[52], rs[28], rs[34], rs[35], rs[174], rs[136]);
+        for (int s = 0; s < 16; s++) if (d->texture[s]) {
+            const uint32_t *v = d->ss[s];
+            fprintf(stderr, "HALOPAD DRAW   sampler %d texture %08x filters %u/%u/%u lod-bias %g/%08x min-lod %u anisotropy %u\n",
+                    s, d->texture[s], v[5], v[6], v[7], f32(v[8]), v[8], v[9], v[10]);
+        }
         if (up) {
             for (uint32_t i = 0; i < (prims <= 2 ? prims + 2 : 1); i++) {
                 const uint32_t *w = (const uint32_t *)G(up + i * up_stride);

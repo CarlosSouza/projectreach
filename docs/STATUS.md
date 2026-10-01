@@ -74,6 +74,18 @@ tests bring the Xbox suite to 109 passing tests. No physical app was changed.
 The physical shading/focus report remains open; a separate PC source inspection
 finds explicitly ignored mipmap LOD bias, not evidence that this caused the report.
 
+**PC focus lead checked (2026-10-02).** The fresh-state macOS PC Blood Gulch
+component run renders first-person play and exits normally. New sampler fields
+in the existing bounded draw trace show zero LOD bias in all 932 bound-sampler
+observations across 248 draw requests in frames 300–301. Thus the ignored-bias
+gap is not active in this sample; it is not the established cause of the iPad
+report. No sampling/depth/shader workaround adopted. The baseline first failed
+to link because shared touch cancellation references a missing Mac input API;
+restored synchronous AppKit/Halo-main-thread delivery (iOS queue unchanged).
+All 264 native input checks pass through that actual host API. No physical or
+Simulator install in this pass; moving views and the affected edition/scene
+still need matching evidence.
+
 ## Latest engineering and device results
 
 **Earlier frozen Apple-backend passes (2026-10-01).** The launch picker clearly separates

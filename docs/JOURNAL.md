@@ -4082,3 +4082,22 @@ Final ordinary launch restores both edition choices; About/Done provenance
 round-trip passes. Real Simulator saves in the rediscovered `074F7EDF` container
 match this pass's full pre-install copy and the original acceptance backup.
 Whitespace and tree/index guards pass; upstream/ANGLE sources remain clean.
+
+### 2026-10-02 — PC sampler lead and missing Mac host input API
+
+PC component baseline first fails to link on `halopad_host_post_input`, newly
+required by shared touch cancellation. Restored the Mac API via its existing
+synchronous AppKit/Halo-main-thread delivery; not a stub or extra queue. iOS
+queuing unchanged. Native input harness now exercises this actual API on both
+platforms. All 264 native Mac checks pass, no physical-controller claim.
+
+Fresh-state PC Blood Gulch component runs reach first-person frame 300, present
+330 frames and exit normally. Existing bounded draw trace now records sampler
+filters/LOD/aniso. Full frames 300–301: 248 requests, 932 bound observations,
+all LOD bias zero. Ignored bias is not active in this sample; no cause or fix of
+the physical shading/focus report established. Bound/request counts are not
+GPU submissions; stationary screenshot is not temporal fidelity. No sampling
+or depth workaround adopted. Complete logs under G3 `…162406Z`, `…162729Z`;
+native input under `…162857Z`, private pass `pc-lod.c5yJyx`. Microsoft/Apple
+reference review supports a future shader-side bias path if actual use is found.
+No installation or physical data change. Goal stays active.

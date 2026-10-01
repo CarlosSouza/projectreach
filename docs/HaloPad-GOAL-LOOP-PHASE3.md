@@ -68,6 +68,13 @@ finds `MIPMAPLODBIAS` explicitly ignored in `halopad_d3d9_draw.c`; investigate
 actual nonzero state use and a matched reference before treating it as the cause
 or changing shader sampling. The Xbox ANGLE diagnostic does not test that PC path.
 
+Follow-up PC/macOS Blood Gulch component run now checks actual sampler state:
+all 932 bound observations across 248 requests in frames 300–301 have zero LOD
+bias. No nonzero-bias cause established for this view; do not adopt a shader
+workaround from that source gap alone. Mac input-posting API link regression
+fixed using same-thread delivery; 264 native input checks pass. This remains
+different from the reported physical scene and continuous moving-view acceptance.
+
 The earlier build-61 (`f8937c61`) experimental development pin added upstream's
 high-resolution HUD after build 60's menu-glyph fix. Save-backed candidate and
 acceptance Mac/Simulator menu/campaign/scripted-match checks pass. The

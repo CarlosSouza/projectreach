@@ -54,11 +54,9 @@ static void key(uint32_t scan, int ext, int down) { input((hp_input){.kind = HPI
 void halopad_host_pump(void);
 static void queued_input(hp_input e)
 {
-#if TARGET_OS_IPHONE
+    /* Exercise the real host API on both platforms: queued on iOS, synchronous
+       on AppKit/Halo's shared main thread. */
     halopad_host_post_input(&e);
-#else
-    input(e);
-#endif
 }
 
 static void touch_button(int button, int down)

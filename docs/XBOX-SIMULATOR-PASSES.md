@@ -1239,3 +1239,54 @@ checked physical logs. This is a source fidelity gap to test, NOT the establishe
 cause of Chris's shading/focus report. Xbox ANGLE improvements do not cover that
 PC/Metal shader-sampling path. Confirm actual affected edition/scene and match
 moving-view/reference evidence before any rendering fix claim.
+
+## 2026-10-02 — PC sampler-state lead and macOS host regression
+
+Private pass `ref/xbox-build/passes/2026-10-02/pc-lod.c5yJyx/`. This is a separate
+PC/Metal component check, not an Xbox renderer or physical iPad test. The first
+native PC link fails with missing `halopad_host_post_input`, now referenced by
+shared touch binding cancellation. AppKit and Halo already deliver native
+events on the same main thread. Added the missing Mac entry point using that
+existing synchronous delivery, not a no-op stub or another event queue. Header
+clarifies this is not a Mac cross-thread API. UIKit's queued path is unchanged.
+The native DirectInput test now uses the actual post-input API on Mac as well
+as iOS, rather than bypassing it with its local direct-delivery helper.
+
+Fresh-state Blood Gulch component runs after the fix both exit 0 / no trap,
+330 presents, map loaded and nonblank capture. It uses original guest startup
+systems plus console init, not the ordinary licensed WinMain/menu route, and
+has no human input or audio device. Full source outputs are at
+`docs/artifacts/2026-10-02/G3/core-arm64-apple-macosx14.0.0-20261001T162406Z/`
+and `…-20261001T162729Z/`. Do not use the runner's truncated console tail as the
+complete trace. Reviewed frame 300 shows cliff/base/weapon/HUD first-person
+play; screenshot is not temporal or reference-fidelity acceptance. The existing
+1,165 ms startup frame gap reports zero shader/pipeline/texture work; no
+causal relation to the visual complaint from it.
+
+Added sampler stage/texture, mag/min/mip filter, typed/raw LOD bias, minimum LOD
+and anisotropy fields only inside existing `HALOPAD_TRACE_DRAWS=first:last`.
+Frames 300–301 in the second run contain 248 draw requests and 932 bound-sampler
+observations, all bias 0 / `00000000`, minimum LOD 0. Bound includes unused/stale
+stages; a draw request trace precedes shader/pipeline acceptance, so counts are
+not GPU-submission counts. No nonzero-bias warning in the complete initial run.
+The ignored-bias source gap remains real, but is inactive in these sampled
+states and is not the established cause of Chris's iPad shading/focus report.
+No texture-sampling, depth-test, shader or capability workaround adopted.
+
+Read-only reference review: Direct3D's sampler enum defines bias and its zero
+default; Apple's Metal sampling specification supports shader-side bias and
+implicit fragment derivatives. This informs a possible implementation if
+actual nonzero use is found, not a fix applied here. Official references:
+[Microsoft sampler states](https://learn.microsoft.com/en-us/windows/win32/direct3d9/d3dsamplerstatetype),
+[Apple MSL specification](https://developer.apple.com/metal/Metal-Shading-Language-Specification.pdf),
+pages 239/248. The web reader rejects the large PDF; bundled pypdf text and a
+rendered relevant page were inspected locally. Download/render remain private.
+
+Native input run `…-20261001T162857Z/` exits 0, 264 checks / zero failures through
+the restored actual host API. Synthetic keyboard/mouse/gamepad/state tests are
+not real controller acceptance. Fresh state folders remain separate from real
+Mac/Simulator saves. One-app Simulator compilation passes; no install. All 109
+Xbox tests, whitespace and current tree/index safety pass. Existing dedicated
+Simulator saves in container `074F7EDF-452F-46FF-98FB-938B21C0F0B4` still match the
+previous full real-save copy. Upstream/ANGLE checkouts remain clean. No app install,
+physical changes, IPA, public artifact, push or cleanup. Goal remains active.

@@ -32,8 +32,8 @@ void halopad_dinput_event(const hp_input *e);       /* halopad_dinput.c, fed by 
 int halopad_mac_key(uint16_t keycode, uint32_t *vk, uint32_t *side_vk, uint32_t *scan, int *extended);
 /* A USB HID keyboard usage (UIKit's UIKey.keyCode) as a Windows key; 0 if there is no equivalent. */
 int halopad_hid_key(uint16_t usage, uint32_t *vk, uint32_t *side_vk, uint32_t *scan, int *extended);
-/* iOS: the app shell queues events from the main thread; halopad_host_pump delivers them on Halo's
-   thread (port/apple/halopad_host_ios.m). */
+/* iOS: queue shell events for Halo's thread. macOS: deliver on the shared
+   AppKit/Halo main thread, like native AppKit events (not a cross-thread API). */
 void halopad_host_post_input(const hp_input *e);
 
 /* Game controllers the host has now (port/apple/halopad_gamepad.m: GameController's extended
