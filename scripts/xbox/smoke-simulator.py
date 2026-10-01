@@ -28,6 +28,8 @@ def main():
     parser.add_argument('--out', type=pathlib.Path)
     parser.add_argument('--case', choices=('menu', 'campaign', 'match'), help='Rerun one failing case')
     parser.add_argument('--seconds', type=int, help='Override the bounded runtime for a targeted pass')
+    parser.add_argument('--render-diagnostics', action='store_true',
+                        help='Capture before/after presentation and log renderer statistics (slower)')
     args = parser.parse_args()
     stamp = datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ')
     out = (args.out or WORK / 'simulator-results' / stamp).resolve()
@@ -70,6 +72,13 @@ def main():
         env.update({'SIMCTL_CHILD_' + k: v for k, v in child.items()})
         if os.environ.get('XG_GL_CHECK'):
             env['SIMCTL_CHILD_XG_GL_CHECK'] = os.environ['XG_GL_CHECK']
+        if args.render_diagnostics:
+            child.update(XG_GL_TRACE=str(folder / 'presentation'), HALO_GPU_STATS='1', HALO_GL_DEBUG='1')
+            if os.environ.get('XG_BLIT_PROBE'):
+                child['XG_BLIT_PROBE'] = os.environ['XG_BLIT_PROBE']
+            if os.environ.get('XG_PRESENT_RAW_BLIT'):
+                child['XG_PRESENT_RAW_BLIT'] = os.environ['XG_PRESENT_RAW_BLIT']
+            env.update({'SIMCTL_CHILD_' + k: v for k, v in child.items()})
         subprocess.run(['xcrun', 'simctl', 'launch', '--terminate-running-process',
                         '--stdout=' + str(log), '--stderr=' + str(error), args.device, BUNDLE],
                        check=True, env=env, capture_output=True)
@@ -110,9 +119,16 @@ def main():
             ticks = re.findall(r'network test: tick (\d+)', text)
             row.update(last_tick=int(ticks[-1]) if ticks else 0, shots=text.count('shoots player'))
             row['pass'] &= len(ticks) >= 10 and row['shots'] >= 2
+        if args.render_diagnostics:
+            row['presentation_captured'] = all((folder / ('presentation.' + part + '.ppm')).exists()
+                                               for part in ('source', 'destination'))
+            row['pass'] &= row['presentation_captured']
         results[name] = row
         print(name, json.dumps(row), flush=True)
     result = {'engine_revision': manifest['revision'], 'device': args.device, 'results': results,
+              'render_diagnostics': args.render_diagnostics,
+              'blit_probe': bool(args.render_diagnostics and os.environ.get('XG_BLIT_PROBE')),
+              'raw_present_blit': bool(args.render_diagnostics and os.environ.get('XG_PRESENT_RAW_BLIT')),
               'pass': all(row['pass'] for row in results.values())}
     (out / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
     return 0 if result['pass'] else 1

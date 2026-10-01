@@ -52,6 +52,7 @@ def main():
              "/* the platform's (xg_sdl.c, xg_ios.m) */",
              "void *xg_gl_proc(const char *name);",
              "GLuint xg_gl_framebuffer(GLuint framebuffer);", "",
+             "void xg_gl_trace_blit(int after, int x0, int y0, int x1, int y1);", "",
              "/* XG_GL_CHECK=1: log the first OpenGL ES errors, naming the call */",
              "static int check_errors = -1;",
              "static GLenum (*check_get_error)(void);",
@@ -106,7 +107,11 @@ def main():
             # framebuffer 0 is the platform's drawable (a real framebuffer on iOS)
             args[1] = "xg_gl_framebuffer(a1)"
         if ret == "void":
+            if name == "glBlitFramebuffer":
+                lines.append("\txg_gl_trace_blit(0, a0, a1, a2, a3);")
             lines.append("\tp_%s(%s);" % (name, ", ".join(args)))
+            if name == "glBlitFramebuffer":
+                lines.append("\txg_gl_trace_blit(1, a4, a5, a6, a7);")
             if name != "glGetError":
                 lines.append('\tif (check_errors) check("%s");' % name)
         elif name == "glGetError":

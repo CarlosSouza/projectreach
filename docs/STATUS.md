@@ -12,9 +12,13 @@ multiplayer descriptions, an installed-build panel, accessible text and a safe
 return from disc import. Short Xbox touch taps are latched until the engine polls
 them. Upstream build 58 (`943abae1`) is the latest candidate built locally;
 the accepted pin remains `b47f237d`. The newer engine runs its menu and a
-scripted Simulator match, but campaign rendering is still black. An A/B
-pass reproduces the campaign failure on the older pin, so it is not newly
-introduced by build 57/58. Candidates are labeled **PREVIEW**, not accepted
+scripted Simulator match. Campaign's black presentation was narrowed to the
+software blitter inheriting texture-unit/sampler state: neutralizing unit 0 during
+the final blit restores the picture. The normal build now shows the opening
+cinematic; physical rendering and internal texture copies are unchanged. An A/B
+pass reproduced the original failure on the older pin, so it was not newly
+introduced by build 57/58. Full campaign progression, visual artifacts and
+hardware acceptance remain open. Candidates are labeled **PREVIEW**, not accepted
 updates. No physical iPad changes in this pass. See [XBOX-SIMULATOR-PASSES.md](XBOX-SIMULATOR-PASSES.md).
 
 **Second engine: Halo Xbox (2026-09-30).** HaloPad now opens with a choice of

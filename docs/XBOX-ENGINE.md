@@ -4,8 +4,12 @@ Status, 2026-10-01: **HaloPad offers Windows Custom Edition or Xbox Combat Evolv
 The accepted pin remains `b47f237d`; upstream **build 58, `943abae1`**, is a local preview candidate,
 not an accepted update. This pass focuses on the iPad Simulator and does not alter the physical
 iPad. Mac campaign/menu/scripted-match evidence is separate from Simulator acceptance:
-the Simulator menu and scripted match work, but campaign output is black on both the old pin
-and newer candidate. See [XBOX-SIMULATOR-PASSES.md](XBOX-SIMULATOR-PASSES.md).
+the Simulator menu and scripted match work. The campaign black screen reproduced on
+both the old pin and newer candidate; source/destination captures isolated a texture-unit/
+sampler state leak in the Simulator blitter. The host now neutralizes unit 0 only during
+presentation and restores it afterward, showing the opening cinematic in normal runs.
+Physical rendering is unchanged. Full campaign progression and visual fidelity remain open.
+See [XBOX-SIMULATOR-PASSES.md](XBOX-SIMULATOR-PASSES.md).
 
 HaloPad now opens with a choice:
 
@@ -115,7 +119,8 @@ Xbox saves; it does not establish physical gameplay acceptance. On rejection/int
 checkout and Mac build return to the accepted pin. A candidate installed in the Simulator remains
 an explicitly labeled preview; revision/hash checks reject stale libraries during ordinary builds.
 Rebuild and install in place after accepting. Screenshots require human/agent visual review, not
-just a nonblack-pixel check. Build 58 cannot pass this gate until the campaign issue is resolved.
+just a nonblack-pixel check. The campaign presentation fix still needs progression/fidelity
+review before treating the preview as accepted gameplay.
 
 The app also copies nonempty Xbox saves to `Documents/Halo Xbox/Save Backups/<previous-revision>-<time>`
 before a changed engine opens them. A failed backup blocks startup. This preserves recovery data,

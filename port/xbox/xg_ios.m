@@ -100,7 +100,99 @@ static void drawable_update(void)
 	xg_log("drawable %dx%d", drawable_width, drawable_height);
 }
 
-void *xg_gl_proc(const char *name) { return dlsym(RTLD_DEFAULT, name); }
+/* Isolated driver test before the guest has any GL state. No game assets.
+ * Compare transparent/opaque RGBA8 sources, filters and row reversal on a
+ * texture target versus the actual drawable. Enabled only by XG_BLIT_PROBE. */
+static void blit_probe(void)
+{
+	if (!getenv("XG_BLIT_PROBE")) return;
+	GLuint textures[2], buffers[2];
+	const int width = 640, height = 480;
+	unsigned char *pixels = malloc(width * height * 4);
+	if (!pixels) return;
+	glGenTextures(2, textures);
+	glGenFramebuffers(2, buffers);
+	for (int i = 0; i < 2; i++) {
+		glBindTexture(GL_TEXTURE_2D, textures[i]);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+		glBindFramebuffer(GL_FRAMEBUFFER, buffers[i]);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textures[i], 0);
+	}
+	for (int alpha = 0; alpha <= 255; alpha += 255) {
+		for (int i = 0; i < width * height; i++) {
+			pixels[i * 4] = 255; pixels[i * 4 + 1] = 32;
+			pixels[i * 4 + 2] = 0; pixels[i * 4 + 3] = alpha;
+		}
+		glBindTexture(GL_TEXTURE_2D, textures[0]);
+		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+		for (int target = 0; target < 2; target++)
+		for (int cull = 0; cull < 2; cull++)
+		for (int flip = 0; flip < 2; flip++)
+		for (int linear = 0; linear < 2; linear++) {
+			GLuint draw = target ? drawable_framebuffer : buffers[1];
+			int w = target ? drawable_width : width, h = target ? drawable_height : height;
+			unsigned char pixel[4] = { 0 };
+			if (cull) glEnable(GL_CULL_FACE); else glDisable(GL_CULL_FACE);
+			glFrontFace(GL_CW);
+			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, draw);
+			glClearColor(0, 1, 0, 1);
+			glClear(GL_COLOR_BUFFER_BIT);
+			glBindFramebuffer(GL_READ_FRAMEBUFFER, buffers[0]);
+			glBlitFramebuffer(0, 0, width, height, 0, flip ? h : 0, w, flip ? 0 : h,
+				GL_COLOR_BUFFER_BIT, linear ? GL_LINEAR : GL_NEAREST);
+			GLenum error = glGetError();
+			glBindFramebuffer(GL_READ_FRAMEBUFFER, draw);
+			glReadPixels(w / 2, h / 2, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixel);
+			xg_log("blit probe: alpha %d target %s cull %d flip %d linear %d => %d %d %d %d, blit error 0x%x read error 0x%x",
+				alpha, target ? "drawable" : "texture", cull, flip, linear,
+				pixel[0], pixel[1], pixel[2], pixel[3], error, glGetError());
+		}
+	}
+	glBindFramebuffer(GL_FRAMEBUFFER, drawable_framebuffer);
+	glDisable(GL_CULL_FACE);
+	glFrontFace(GL_CCW);
+	glBindTexture(GL_TEXTURE_2D, 0);
+	glClearColor(0, 0, 0, 0);
+	glDeleteFramebuffers(2, buffers);
+	glDeleteTextures(2, textures);
+	free(pixels);
+}
+
+#if TARGET_OS_SIMULATOR
+/* Apple's software blitter is sensitive to texture-unit/sampler state, although ES
+ * blits must ignore it. A campaign source was visible while the drawable was
+ * black. Neutralizing unit 0 alone restores it; blend/cull/program A/Bs did not.
+ * Only presentation needs this workaround. Restore the game's state afterward. */
+static void presentation_blit(GLint x0, GLint y0, GLint x1, GLint y1,
+	GLint x2, GLint y2, GLint x3, GLint y3, GLbitfield mask, GLenum filter)
+{
+	GLint draw = 0;
+	glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &draw);
+	GLint active = 0, sampler = 0;
+	BOOL presenting = (GLuint)draw == drawable_framebuffer;
+	if (presenting) {
+		glGetIntegerv(GL_ACTIVE_TEXTURE, &active);
+		glActiveTexture(GL_TEXTURE0);
+		glGetIntegerv(GL_SAMPLER_BINDING, &sampler);
+		glBindSampler(0, 0);
+	}
+	glBlitFramebuffer(x0, y0, x1, y1, x2, y2, x3, y3, mask, filter);
+	if (presenting) {
+		glBindSampler(0, (GLuint)sampler);
+		glActiveTexture((GLenum)active);
+	}
+}
+#endif
+
+void *xg_gl_proc(const char *name)
+{
+#if TARGET_OS_SIMULATOR
+	/* Raw path is retained only for isolated diagnostic A/Bs. */
+	if (!getenv("XG_PRESENT_RAW_BLIT") && !strcmp(name, "glBlitFramebuffer"))
+		return presentation_blit;
+#endif
+	return dlsym(RTLD_DEFAULT, name);
+}
 GLuint xg_gl_framebuffer(GLuint framebuffer) { return framebuffer ? framebuffer : drawable_framebuffer; }
 
 /* ---------- SDL services */
@@ -163,6 +255,7 @@ uint32_t xh_host_sdl_gl_create_context(uint32_t window)
 		}
 		[EAGLContext setCurrentContext:context];
 		drawable_update();
+		blit_probe();
 		xg_gl_load();
 	}
 	return 2;

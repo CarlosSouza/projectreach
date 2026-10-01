@@ -34,8 +34,7 @@ ENGINE = WORK / "vol" / "engine"
 
 
 def lit_fraction(ppm):
-    """The share of sampled pixels that are not black (the Mac build draws its
-    picture in part of the window, so an average would mislead)."""
+    """The share of sampled drawable pixels that are not black."""
     data = ppm.read_bytes()
     parts = data.split(b"\n", 3)
     pixels = parts[3]
@@ -101,33 +100,44 @@ def lan_address():
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--out", type=pathlib.Path)
+    parser.add_argument("--case", choices=("menu", "campaign", "match"))
+    parser.add_argument("--seconds", type=int, help="Bounded runtime for a targeted pass")
+    parser.add_argument("--render-diagnostics", action="store_true")
     options = parser.parse_args()
     stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     out = options.out or WORK / "smoke-results" / stamp
     out.mkdir(parents=True, exist_ok=True)
     results = {}
 
-    menu = run("menu", 25, {}, out=out)
-    results["menu"] = {"pass": menu["alive"] and menu["lit"] > 0.03 and "OpenGL" in menu["log"],
-                       "lit": round(menu["lit"], 3), "frame": menu["frame"]}
-
-    campaign = run("campaign", 35, {}, init="map_name levels\\a10\\a10", out=out)
-    requested = "starting precaching of map 'a10'" in campaign["debug"]
-    results["campaign"] = {"pass": campaign["alive"] and requested and campaign["lit"] > 0.005 and "signal" not in campaign["log"],
-                           "a10_load_requested": requested, "lit": round(campaign["lit"], 3), "frame": campaign["frame"]}
-
-    address = lan_address()
-    bots = lambda: subprocess.Popen([sys.executable, str(ROOT / "scripts/xbox/network-bot.py"), "--host", "127.0.0.1",
-                                     "--machines", "1", "--first-address", address, "--start", "--seconds", "80"],
-                                    stdout=open(out / "bots.log", "w"), stderr=subprocess.STDOUT,
-                                    preexec_fn=lambda: time.sleep(8))
-    match = run("match", 75, {"HALO_NETWORK_TEST": "host:bloodgulch", "HALO_NETWORK_TEST_START": "8",
-                              "HALO_TEST_INPUT": "bot:7", "HALO_NETWORK_TEST_SHOOT": "4"}, during=bots, out=out)
-    ticks = re.findall(r"network test: tick (\d+)", match["log"])
-    shots = match["log"].count("shoots player")
-    results["match"] = {"pass": match["alive"] and len(ticks) >= 10 and shots >= 2 and address is not None,
-                        "ticks_logged": len(ticks), "last_tick": int(ticks[-1]) if ticks else 0, "shots": shots,
-                        "lit": round(match["lit"], 3), "frame": match["frame"]}
+    for name, seconds in (("menu", 25), ("campaign", 35), ("match", 75)):
+        if options.case and name != options.case:
+            continue
+        extra = {}
+        if options.render_diagnostics:
+            extra.update(XG_GL_TRACE=str(out / name), HALO_GPU_STATS="1", HALO_GL_DEBUG="1")
+        address = lan_address() if name == "match" else None
+        bots = lambda: subprocess.Popen([sys.executable, str(ROOT / "scripts/xbox/network-bot.py"), "--host", "127.0.0.1",
+                                         "--machines", "1", "--first-address", address, "--start", "--seconds", "80"],
+                                        stdout=open(out / "bots.log", "w"), stderr=subprocess.STDOUT,
+                                        preexec_fn=lambda: time.sleep(8))
+        if name == "match":
+            extra.update(HALO_NETWORK_TEST="host:bloodgulch", HALO_NETWORK_TEST_START="8",
+                         HALO_TEST_INPUT="bot:7", HALO_NETWORK_TEST_SHOOT="4")
+        case = run(name, options.seconds or seconds, extra,
+                   init="map_name levels\\a10\\a10" if name == "campaign" else None,
+                   during=bots if name == "match" and address else None, out=out)
+        row = {"pass": case["alive"] and case["lit"] > (0.03 if name == "menu" else 0.005)
+                       and "OpenGL" in case["log"] and "signal" not in case["log"],
+               "lit": round(case["lit"], 3), "frame": case["frame"]}
+        if name == "campaign":
+            row["a10_load_requested"] = "starting precaching of map 'a10'" in case["debug"]
+            row["pass"] &= row["a10_load_requested"]
+        if name == "match":
+            ticks = re.findall(r"network test: tick (\d+)", case["log"])
+            row.update(ticks_logged=len(ticks), last_tick=int(ticks[-1]) if ticks else 0,
+                       shots=case["log"].count("shoots player"))
+            row["pass"] &= len(ticks) >= 10 and row["shots"] >= 2 and address is not None
+        results[name] = row
 
     revision = subprocess.run(["git", "-C", str(ENGINE), "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
     summary = {"engine_revision": revision, "time": stamp, "results": results,

@@ -11,11 +11,13 @@
 #include <time.h>
 
 void *xg_gl_proc(const char *name);
+GLuint xg_gl_framebuffer(GLuint framebuffer);
 
 static const GLubyte *(*p_glGetString)(GLenum);
 static const GLubyte *(*p_glGetStringi)(GLenum, GLuint);
 static void (*p_glGetIntegerv)(GLenum, GLint *);
 static void (*p_glBindBuffer)(GLenum, GLuint);
+static void (*p_glBindFramebuffer)(GLenum, GLuint);
 static void *(*p_glMapBufferRange)(GLenum, GLintptr, GLsizeiptr, GLbitfield);
 static GLboolean (*p_glUnmapBuffer)(GLenum);
 static void (*p_glBufferSubData)(GLenum, GLintptr, GLsizeiptr, const void *);
@@ -23,6 +25,93 @@ static GLsync (*p_glFenceSync)(GLenum, GLbitfield);
 static void (*p_glDeleteSync)(GLsync);
 static GLenum (*p_glClientWaitSync)(GLsync, GLbitfield, GLuint64);
 static void (*p_glReadPixels)(GLint, GLint, GLsizei, GLsizei, GLenum, GLenum, void *);
+static void helpers_load(void);
+
+/* XG_GL_TRACE=<private path prefix>: inspect presentation on an isolated
+ * diagnostic run. Never enabled by normal builds. Capture at most every ten
+ * seconds, preserving all framebuffer and pixel-pack state. */
+void xg_gl_trace_blit(int after, int x0, int y0, int x1, int y1)
+{
+	static const char *prefix;
+	static int checked, capture;
+	static time_t next;
+	static void (*bind_framebuffer)(GLenum, GLuint);
+	static void (*pixel_store)(GLenum, GLint);
+	static GLenum (*framebuffer_status)(GLenum);
+	static GLenum (*get_error)(void);
+	static GLboolean (*is_enabled)(GLenum);
+	GLenum prior_error, read_error;
+	GLint read, draw, viewport[4], pack[5];
+	const GLenum pack_names[] = { GL_PIXEL_PACK_BUFFER_BINDING, GL_PACK_ALIGNMENT,
+		GL_PACK_ROW_LENGTH, GL_PACK_SKIP_ROWS, GL_PACK_SKIP_PIXELS };
+	int width = abs(x1 - x0), height = abs(y1 - y0), row, i;
+	size_t lit = 0, alpha = 0, count;
+	unsigned char *pixels;
+	char path[1024];
+	FILE *file;
+	if (!checked) { checked = 1; prefix = getenv("XG_GL_TRACE"); }
+	if (!prefix || !*prefix) return;
+	helpers_load();
+	if (!bind_framebuffer)
+	{
+		bind_framebuffer = xg_gl_proc("glBindFramebuffer");
+		pixel_store = xg_gl_proc("glPixelStorei");
+		framebuffer_status = xg_gl_proc("glCheckFramebufferStatus");
+		get_error = xg_gl_proc("glGetError");
+		is_enabled = xg_gl_proc("glIsEnabled");
+	}
+	p_glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &read);
+	p_glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &draw);
+	if (!after)
+	{
+		capture = (GLuint)draw == xg_gl_framebuffer(0) && time(NULL) >= next;
+		if (capture) next = time(NULL) + 10;
+	}
+	if (!capture || width <= 0 || height <= 0 || width > 4096 || height > 4096) return;
+	count = (size_t)width * height;
+	pixels = calloc(count, 4);
+	if (!pixels) return;
+	for (i = 0; i < 5; i++) p_glGetIntegerv(pack_names[i], &pack[i]);
+	p_glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+	pixel_store(GL_PACK_ALIGNMENT, 1);
+	for (i = 2; i < 5; i++) pixel_store(pack_names[i], 0);
+	if (after) bind_framebuffer(GL_READ_FRAMEBUFFER, (GLuint)draw);
+	p_glGetIntegerv(GL_VIEWPORT, viewport);
+	prior_error = get_error();
+	p_glReadPixels(x0 < x1 ? x0 : x1, y0 < y1 ? y0 : y1,
+		width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+	read_error = get_error();
+	for (i = 0; (size_t)i < count; i++) {
+		if (pixels[i * 4] + pixels[i * 4 + 1] + pixels[i * 4 + 2] > 45) lit++;
+		if (pixels[i * 4 + 3]) alpha++;
+	}
+	xg_log("presentation %s: read %d draw %d, rect %d %d %d %d, viewport %d %d %d %d, status 0x%x, prior error 0x%x read error 0x%x, lit %.4f alpha %.4f",
+		after ? "destination" : "source", read, draw, x0, y0, x1, y1,
+		viewport[0], viewport[1], viewport[2], viewport[3], framebuffer_status(GL_READ_FRAMEBUFFER),
+		prior_error, read_error, (double)lit / count, (double)alpha / count);
+	if (!after) {
+		GLint active = 0, program = 0;
+		p_glGetIntegerv(GL_ACTIVE_TEXTURE, &active);
+		p_glGetIntegerv(GL_CURRENT_PROGRAM, &program);
+		xg_log("presentation state: blend %d cull %d depth %d stencil %d scissor %d, active texture 0x%x program %d",
+			is_enabled(GL_BLEND), is_enabled(GL_CULL_FACE), is_enabled(GL_DEPTH_TEST),
+			is_enabled(GL_STENCIL_TEST), is_enabled(GL_SCISSOR_TEST), active, program);
+	}
+	snprintf(path, sizeof(path), "%s.%s.ppm", prefix, after ? "destination" : "source");
+	file = fopen(path, "wb");
+	if (file)
+	{
+		fprintf(file, "P6\n%d %d\n255\n", width, height);
+		for (row = height - 1; row >= 0; row--)
+			for (i = 0; i < width; i++) fwrite(pixels + ((size_t)row * width + i) * 4, 1, 3, file);
+		fclose(file);
+	}
+	bind_framebuffer(GL_READ_FRAMEBUFFER, (GLuint)read);
+	p_glBindBuffer(GL_PIXEL_PACK_BUFFER, (GLuint)pack[0]);
+	for (i = 1; i < 5; i++) pixel_store(pack_names[i], pack[i]);
+	free(pixels);
+	if (after) capture = 0;
+}
 
 static void helpers_load(void)
 {
@@ -32,6 +121,7 @@ static void helpers_load(void)
 	p_glGetStringi = xg_gl_proc("glGetStringi");
 	p_glGetIntegerv = xg_gl_proc("glGetIntegerv");
 	p_glBindBuffer = xg_gl_proc("glBindBuffer");
+	p_glBindFramebuffer = xg_gl_proc("glBindFramebuffer");
 	p_glMapBufferRange = xg_gl_proc("glMapBufferRange");
 	p_glUnmapBuffer = xg_gl_proc("glUnmapBuffer");
 	p_glBufferSubData = xg_gl_proc("glBufferSubData");
@@ -134,7 +224,7 @@ void xh_host_android_path(int which, uint32_t buffer, uint32_t size)
 }
 
 /* XG_FRAME_DUMP=<path>: every XG_FRAME_DUMP_SECONDS (default 5), the frame
- * about to be shown (the bound framebuffer) is written to <path> as a PPM
+ * about to be shown (the platform drawable) is written to <path> as a PPM
  * image, for testing without capturing anything else on screen */
 void xg_gl_frame_dump(int width, int height)
 {
@@ -144,6 +234,7 @@ void xg_gl_frame_dump(int width, int height)
 	unsigned char *pixels;
 	FILE *file;
 	int row;
+	GLint read = 0;
 	if (!checked)
 	{
 		checked = 1;
@@ -156,7 +247,13 @@ void xg_gl_frame_dump(int width, int height)
 	pixels = malloc((size_t)width * height * 4);
 	if (!pixels)
 		return;
+	/* The guest leaves its back-buffer texture bound for reading after its
+	 * final blit. Capture the drawable, not a 640x480 source read at the
+	 * window's larger dimensions (which fabricated a small-picture result). */
+	p_glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &read);
+	p_glBindFramebuffer(GL_READ_FRAMEBUFFER, xg_gl_framebuffer(0));
 	p_glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+	p_glBindFramebuffer(GL_READ_FRAMEBUFFER, (GLuint)read);
 	file = fopen(path, "wb");
 	if (file)
 	{
