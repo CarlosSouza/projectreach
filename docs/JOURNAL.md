@@ -5285,3 +5285,18 @@ OS scene state changed; preferences and PC registry exact. Upstream checkout
 clean, no runtime/build/pin/public changes or unit rerun. Next controlled graphics
 comparison of another unresolved material/effect. Do not repeat passing preset
 checks as new progress. Broad fidelity and human multi-touch remain open.
+
+### 2026-10-03 — a50 night landing independent reference
+
+Private night-reference73.QOuaoQ: unchanged Simulator ed257ad5…af30b/Original
+versus official Windows73/Mesa/Wine, independent fresh a50 state. Desktop runs
+184.696s/214 captures; Simulator180.181s/188 captures. Both show the white landing
+transition, translucent exhaust, dust and spotlight pools. Matched settled
+regions differ0.722/0.198/0.261 RGB levels for cliff/ground/tree; no synchronized
+matrix/effect-phase or broad-fidelity claim. No new renderer fix warranted.
+Both processes end; ordinary Original picker42061 restored. Real saves/prefs/PC
+registry unchanged; only app log and four Metal cache files differ. Nested
+source clean, executable hash unchanged, no unit/build/pin/public changes.
+Next missing update gate: Mac manifest is still66, unadapted73 acceptance remains
+open. Recheck live upstream, freeze candidate, preserve adapted app/shared output
+and data before that separate workflow. Do not repeat this settled night view.

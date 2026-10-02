@@ -474,3 +474,15 @@ motion acceptance. Next a different reproducible graphics discrepancy using
 the independent desktop reference; do not repeat passing Boxer/Green Thumb or
 beam-presence checks. Human sustained multi-touch remains a later acceptance
 gate. Simulator only, no IPA/publication, full goal incomplete.
+
+Night-reference checkpoint: unchanged candidate and independent desktop73 both
+show a50's bright landing transition, exhaust/dust and spotlight pools. Selected
+settled ground/tree/cliff differ only0.20/0.26/0.72 RGB levels, without synchronized
+tick/matrix or broad-fidelity proof. No shader change warranted. Evidence
+night-reference73.QOuaoQ; real state preserved, Original picker restored.
+Next return to a concrete unmet maintenance gate: Mac output is still66 and
+unadapted73 Mac/Simulator acceptance is missing. Review live upstream and freeze
+the next candidate; preserve current adapted app/output/data before builds or
+updates. Check the update script's backend/install settings rather than silently
+replacing the working ANGLE preview with a different backend. Do not promote
+from this reference comparison or repeat passing static scenes as new progress.

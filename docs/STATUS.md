@@ -4,6 +4,16 @@ Updated 2026-10-03. **Simulator-only work: shared controls, texture compatibilit
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE4.md](HaloPad-GOAL-LOOP-PHASE4.md). Earlier device work remains in [phase 3](HaloPad-GOAL-LOOP-PHASE3.md).
 
+**Night landing compared with independent desktop73 (2026-10-03).**
+Unchanged `ed257ad5…af30b` and official Windows73/Mesa both show a50's bright
+landing transition, exhaust and spotlight pools. Selected settled terrain/tree
+regions differ by about0.2–0.3 RGB levels out of255; spotlit cliff by0.72. This
+rejects missing night lighting or a Simulator-only white transition in this
+scene, not all material/temporal defects. Real state preserved, Original picker
+restored. Next upstream-update acceptance: Mac output is still66 and unadapted73
+Mac/Simulator gates remain open; preserve this adapted preview before building.
+[Evidence](XBOX-SIMULATOR-PASSES.md#night-landing-desktop-reference-2026-10-03).
+
 **Green Thumb shared-touch runtime check passed (2026-10-03).**
 Unchanged presentation candidate `ed257ad5…af30b` correctly separates Melee and
 Zoom despite their native Green Thumb swap. Swap, Fire, Reload, Pause and menu

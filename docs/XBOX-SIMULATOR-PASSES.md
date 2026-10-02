@@ -1,5 +1,62 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Night landing desktop reference (2026-10-03)
+
+Previous Green Thumb turn is progress. This pass compares a different moving
+scene on unchanged presentation candidate ed257ad5…af30b, at Original640x480/1x,
+against existing official Windows73/Mesa26.2.3 llvmpipe under isolated Wine9.
+Reference is independent of HaloPad guest translation/ANGLE, not original Xbox
+hardware or a performance reference. Private evidence root
+`ref/xbox-build/passes/2026-10-03/night-reference73.QOuaoQ/` includes full real-data
+backup, independent fresh a50 data/save roots, capture/audit/compare helpers,
+402 raw frames, contact sheets, comparison.json and night-comparison.png.
+No real campaign saves used or changed; network, UPnP, clipboard join and updates
+disabled. No console listener, scripted player input or physical-device access.
+
+Desktop PID40036 completes successfully after184.696s with214 frames; Simulator
+PID40078 terminates at180.181s with188 frames. Screenshot cadence differs, so
+counts are not FPS. Both reach first-person gameplay after the night landing.
+Simulator cold start reports read1/draw0/error0. Same640x480 render targets are
+used for comparison, not scaled Simulator-window screenshots.
+
+Observed evidence and boundaries:
+
+- Initial contact sheets show an apparently white Simulator transition. A
+  nearest-image search locates the corresponding white desktop frame00480
+  versus Simulator01860. Both show the same washed-out first-person view under
+  the dropship. Effect phase is different; mean thumbnail difference37.18 does
+  not establish an intensity bug. Its presence is not Simulator-only.
+- Desktop00348/Simulator01320 both show translucent exhaust, engine lights and
+  ground dust. Camera/animation/particle phases are not identical (thumbnail
+  mean difference5.16); this is presence/composition evidence, not pixel parity.
+- Settled desktop02244/Simulator10380 align closely. Fixed sampled regions:
+  spotlit cliff(410,125–625,250), unlit ground(25,280–270,390), and tree
+  trunk(60,120–165,245) have mean absolute RGB differences0.722/0.198/0.261 on
+  0–255 channels; 95th-percentile channel differences3/1/1. The comparison helper
+  selects the closest desktop thumbnail, not synchronized ticks/matrices.
+  These numbers apply only to this selected pair and these regions; they are
+  not a universal acceptance threshold or evidence that all shading is fixed.
+
+No new HaloPad-only discrepancy warrants a renderer patch here. Do not remove
+the white transition or repeat this stationary night view as new progress.
+Broad dynamic fidelity, sustained multi-touch and hardware remain open.
+
+Both capture handles complete and both game PIDs are absent. Ordinary Original
+picker PID42061 restored and verified with a dedicated simctl screenshot. Full
+real-state audit: Documents only HaloPad.log changed; Library only four Metal
+cache functions/libraries data/list files changed. Preferences/keyset and PC
+registry exact; no real save/game/package add/remove/change. Installed SHA
+ed257ad5fce911fdca27796807c6f2610fc39001ad3384da24904ddb200af30b unchanged; nested
+source clean. No build/unit rerun, pin change, IPA or publication.
+
+Next concrete maintenance gate: update workflow requires unadapted acceptance,
+and inspected out/build-mac.json is still build66, guest a16a3271…cc89. Review
+live upstream at the start of that update pass, freeze its revision, preserve
+current adapted app/output/data, then complete the missing Mac/Simulator gate
+without conflating it with adapted73 graphics acceptance. Do not invoke the
+update script before preserving shared build outputs and checking its install
+backend; no promotion is implied by this night-scene comparison.
+
 ## Green Thumb shared-touch runtime (2026-10-03)
 
 Progress after Boxer: exercise genuine Green Thumb buttons on an independent
