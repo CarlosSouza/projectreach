@@ -30,7 +30,21 @@ The Simulator-only presentation fix remains narrow: temporarily neutralize textu
 sampler 0 during final presentation, then restore it. That diagnostic is not enabled on hardware.
 See [XBOX-SIMULATOR-PASSES.md](XBOX-SIMULATOR-PASSES.md).
 
-Latest Simulator candidate: build73 `d1c7243c`, executable `dc469db1…5997d`,
+Latest Simulator candidate: build73 `d1c7243c`, executable `48f118f3…213e`,
+guest `652fbebb…de17`, opt-in `shared-input-v1`. A guarded scalar guest import
+publishes resolved button/stick mappings and active-menu state before polling
+input. HaloPad normalizes its touch pad only; physical pad routing and saved
+profiles are unchanged. Context transitions clear queued pad input and suppress
+held controls until release. Menus retain raw A/B navigation. This adaptation
+includes the preceding border/water fixes, but exact-new-build broad graphics
+regression remains open. 198 Xbox tests, 153 native overlay assertions and 39
+launch/save/quality checks pass. Actual copied Southpaw Fire/Throw, normal menus,
+Save and Quit and cold checkpoint reload pass. Other presets have unit coverage,
+not equivalent runtime acceptance; legacy stick diagonal response remains guest
+behavior. Real saves/preferences/PC registry preserved, Original picker restored.
+[Input bridge evidence](XBOX-SIMULATOR-PASSES.md#southpaw-touch-mapping-bridge-2026-10-03).
+
+Previous Simulator candidate: build73 `d1c7243c`, executable `dc469db1…5997d`,
 guest `2d03ab18…b6b6`, opt-in `render-border-v1`. It includes the water correction
 and emulates border-color sampling for eligible single-level 2D textures. Matched
 bridge views lose the long black shadow bands while retaining character shadows;
@@ -45,11 +59,11 @@ No physical-device work is authorized until Chris makes the iPad available again
 [Border fix evidence](XBOX-SIMULATOR-PASSES.md#bridge-border-sampling-fix-2026-10-03).
 [Regression evidence](XBOX-SIMULATOR-PASSES.md#border-candidate-controls-saves-and-sharper-2026-10-03).
 
-Non-default profile repro on that unchanged candidate: copied Southpaw buttons
+Earlier non-default profile repro on that candidate: copied Southpaw buttons
 swap the actual shared Fire/Throw actions. No profile reset is acceptable as the
 fix. Next paired guest/host bridge must expose authoritative mapping/menu context
 and normalize only touch, preserving raw menu navigation and hardware settings.
-This is a confirmed defect and planned adaptation, not an implemented capability.
+That planned boundary is implemented in the newer candidate above.
 [Evidence and bridge gates](XBOX-SIMULATOR-PASSES.md#southpaw-touch-mismatch-reproduced-2026-10-03).
 
 Previous Simulator candidate: build 73 `d1c7243c`, executable `39f06f77…7198e`,

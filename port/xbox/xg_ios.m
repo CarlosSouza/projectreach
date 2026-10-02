@@ -597,9 +597,23 @@ static __strong GCController *pads[PADS + 1];
 static uint8_t pad_announced[PADS + 1];
 static pthread_mutex_t pad_lock = PTHREAD_MUTEX_INITIALIZER;
 static struct xg_touch_input touch_input;
+#include "xg_profile_input.h"
+static struct xg_profile_input touch_profile;
 static float touch_look_x, touch_look_y;
 #include "xg_scoreboard_input.h"
 static struct xg_scoreboard_input touch_scoreboard;
+
+void xh_host_halopad_input_context_v1(uint32_t menu, uint32_t low, uint32_t high, uint32_t sticks)
+{
+	pthread_mutex_lock(&pad_lock);
+	if (xg_profile_context(&touch_profile, &touch_input, menu, low, high, sticks)) {
+		touch_look_x = touch_look_y = 0;
+		xg_scoreboard_clear(&touch_scoreboard);
+		fprintf(stderr, "[xbox] touch context v1 menu=%u mapping=%08x:%04x sticks=%u valid=%d\n",
+			menu, low, high, sticks, touch_profile.valid);
+	}
+	pthread_mutex_unlock(&pad_lock);
+}
 
 void xg_ios_scroll_scoreboard(float points)
 {
@@ -629,7 +643,7 @@ void xg_ios_set_touch_pad(const struct xg_touch_pad *state)
 		fabsf(state->axes[3] - touch_input.current.axes[3]) > 0.1f))
 		fprintf(stderr, "[xbox] touch publish buttons=%x move=%.2f,%.2f look=%.2f,%.2f\n",
 			state->buttons, state->axes[0], state->axes[1], state->axes[2], state->axes[3]);
-	xg_touch_publish(&touch_input, state);
+	xg_profile_publish(&touch_profile, &touch_input, state);
 	if (!(state->buttons & (1u << SDL_GAMEPAD_BUTTON_BACK))) xg_scoreboard_clear(&touch_scoreboard);
 	pthread_mutex_unlock(&pad_lock);
 }
@@ -639,7 +653,7 @@ void xg_ios_clear_touch_pad(void)
 	pthread_mutex_lock(&pad_lock);
 	if (touch_trace) fprintf(stderr, "[xbox] touch clear live-buttons=%x pending-buttons=%x\n",
 		touch_input.current.buttons, touch_input.pending.buttons);
-	xg_touch_clear(&touch_input);
+	xg_profile_cancel(&touch_profile, &touch_input);
 	touch_look_x = touch_look_y = 0;
 	xg_scoreboard_clear(&touch_scoreboard);
 	pthread_mutex_unlock(&pad_lock);

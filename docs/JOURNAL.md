@@ -5070,3 +5070,35 @@ Ordinary Original picker PID42922 restored.196 real Documents unchanged except
 app log; Library, preference values/keyset and PC registry exact. Upstream clean,
 app hash and pins unchanged. No runtime edit/build/unit rerun/hardware/IPA/push.
 Goal active; this is runtime defect proof, not a completed control fix.
+
+## 2026-10-03 — shared-input-v1 fixes Southpaw touch semantics
+
+Previous turn progress; implemented the identified guest/host boundary. Exact
+hash-guarded input/import patch exposes scalar resolved bindings/stick layout/menu
+state before device polling. Touch-only host remapping preserves raw menus,
+clears queued input at context boundaries and blocks held controls until release.
+Physical controller routing and saved profile settings are unchanged. New
+adaptation includes existing border/water/quality fixes; source transaction now
+covers four files and restores upstream cleanly, including failure handling.
+
+198 Xbox tests pass, including sanitized native mapping tests across all five
+button/four stick layouts;153 native overlay assertions and39 launch/save/quality
+checks pass. Build/sign/in-place install succeeds. Private backups/evidence:
+`ref/xbox-build/passes/2026-10-03/input-bridge73.BvdqSP`. App `48f118f3…213e`,
+guest `652fbebb…de17`, recipe `71781a2a…1fd`; full hashes in Simulator ledger.
+
+PID52279 ordinary menus load the copied Southpaw reproduction checkpoint. Fire
+now fires rifle60->59 with grenade1 unchanged; Throw consumes grenade1->0 with
+rifle59 unchanged. Pause/Move/A Save and Quit returns to main menu. Saved isolated
+tree retained. After the overlay suite's own relaunch, deliberate isolated cold
+PID57563 loads the same checkpoint normally and Fire again fires60->59 without
+consuming the grenade. Context logs prove alternate bindings and menu/gameplay
+transitions; profile card Default text is not the button preset. No fresh
+progression claim; screenshots preserve counters.
+
+Final ordinary Original picker PID58269.196 real Documents preserved except app
+log; only two OS SplashBoard snapshots replaced in Library. Preferences/keyset
+and PC registry exact. Installed app SHA reverified, nested upstream clean,
+accepted66/upstream73 unchanged. No hardware/IPA/push. Next actual alternative
+A/B-binding preset and Default regression, then exact-build graphics/local-match
+checks; legacy movement feel and sustained multi-touch remain unaccepted.

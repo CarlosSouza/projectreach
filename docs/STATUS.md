@@ -4,7 +4,18 @@ Updated 2026-10-03. **Simulator-only work: shared controls, texture compatibilit
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE4.md](HaloPad-GOAL-LOOP-PHASE4.md). Earlier device work remains in [phase 3](HaloPad-GOAL-LOOP-PHASE3.md).
 
-**Non-default touch mismatch reproduced (2026-10-03).** On an isolated copy,
+**Southpaw touch mismatch fixed in Simulator candidate (2026-10-03).** New
+`shared-input-v1` exposes versioned guest mapping/menu context and adapts only
+HaloPad's touch pad, without resetting profiles or remapping physical controllers.
+On the same copied Southpaw profile, Fire now fires and Throw throws; normal
+menus, Save and Quit and cold checkpoint reload pass. 198 Xbox tests, 153 native
+overlay assertions and 39 launch/save/quality checks pass. Installed app
+`48f118f3…213e`, guest `652fbebb…de17`; upstream73/accepted66 unchanged. Original
+picker restored; real saves/preferences/PC registry preserved. Other runtime
+presets, sustained multi-touch and exact-new-build graphics regression remain
+open. [Implementation and evidence](XBOX-SIMULATOR-PASSES.md#southpaw-touch-mapping-bridge-2026-10-03).
+
+**Earlier non-default touch mismatch reproduced (2026-10-03).** On an isolated copy,
 selecting Xbox's Southpaw button preset makes shared Fire throw a grenade and
 shared Throw fire the rifle (60->59). Real profile/saves/preferences/PC registry
 remain intact; ordinary Original picker restored. Same `dc469db1…5997d` candidate,

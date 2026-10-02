@@ -268,8 +268,12 @@ static BOOL xbox_backup_saves(NSError **error)
 - (void)showControlsHelp
 {
 	[pad clearTouchInput];
+	BOOL profileBridge = [xbox_build()[@"guest_adaptation"][@"name"] isEqual:@"shared-input-v1"];
+	NSString *profileHelp = profileBridge
+		? @"Touch buttons keep their gameplay actions when you change the Xbox button preset. Controller settings stay separate. Touch size, layout and sensitivity are in Controls."
+		: @"Use the Default Xbox control profile. Other in-game button layouts do not match these labels yet. Touch size, layout and sensitivity are in Controls.";
 	UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Xbox Controls"
-		message:@"Menus: use MOVE to highlight an item. Tap A (Jump) to select or B (Melee) to go back. X and Y follow the game's prompts.\n\nPlaying: use the same touch layout as PC. Drag the screen to aim, or drag FIRE while shooting. Hold Scoreboard and drag down or up to scroll its roster.\n\nUse the Default Xbox control profile. Other in-game button layouts do not match these labels yet. Touch size, layout and sensitivity are in Controls."
+		message:[@"Menus: use MOVE to highlight an item. Tap A (Jump) to select or B (Melee) to go back. X and Y follow the game's prompts.\n\nPlaying: use the same touch layout as PC. Drag the screen to aim, or drag FIRE while shooting. Hold Scoreboard and drag down or up to scroll its roster.\n\n" stringByAppendingString:profileHelp]
 		preferredStyle:UIAlertControllerStyleAlert];
 	[alert addAction:[UIAlertAction actionWithTitle:@"Done" style:UIAlertActionStyleDefault handler:nil]];
 	[self presentViewController:alert animated:YES completion:nil];

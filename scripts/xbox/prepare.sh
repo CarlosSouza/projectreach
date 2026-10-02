@@ -60,7 +60,7 @@ OUT="$WORK/out"
 
 # ---------- translation and generated host sources
 python3 "$ROOT/scripts/xbox/translate.py" "$OUT/halo_guest.elf" "$OUT/guest.s" \
-	--imports "$ENGINE/port/android/host_imports.list" "$GUEST/guest/gen/gl_imports.list" "$GUEST/guest/gen/posix_imports.list"
+	--imports "$ENGINE/port/android/host_imports.list" "$ROOT/port/xbox/guest_imports.list" "$GUEST/guest/gen/gl_imports.list" "$GUEST/guest/gen/posix_imports.list"
 sed -n 's/^#define __NR_\([a-z0-9_]*\)[[:space:]]*\([0-9]*\)$/#define LX_NR_\1 \2/p' \
 	"$GUEST/guest/libc_include/bits/syscall.h" > "$OUT/xg_linux_nr.h"
 python3 "$ROOT/scripts/xbox/gen-host-gl.py" "$GUEST/guest/gen/guest_gl.c" "$OUT/xg_gl_gen.c"

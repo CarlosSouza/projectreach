@@ -141,6 +141,12 @@ uint32_t xh_host_sdl_open_gamepad(uint32_t id) { return handle_new(SDL_OpenGamep
 uint32_t xh_host_sdl_gamepad_from_id(uint32_t id) { return handle_new(SDL_GetGamepadFromID(id)); }
 int xh_host_sdl_gamepad_axis(uint32_t pad, int axis) { return SDL_GetGamepadAxis(handle_get(pad), (SDL_GamepadAxis)axis); }
 int xh_host_sdl_gamepad_button(uint32_t pad, int button) { return SDL_GetGamepadButton(handle_get(pad), (SDL_GamepadButton)button); }
+
+/* Desktop has no HaloPad touch surface; hardware retains upstream bindings. */
+void xh_host_halopad_input_context_v1(uint32_t menu, uint32_t low, uint32_t high, uint32_t sticks)
+{
+    (void)menu; (void)low; (void)high; (void)sticks;
+}
 int xh_host_sdl_gamepad_type(uint32_t pad) { return SDL_GetGamepadType(handle_get(pad)); }
 
 int xh_host_sdl_rumble_gamepad(uint32_t pad, uint32_t low, uint32_t high, uint32_t milliseconds)

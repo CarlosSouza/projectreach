@@ -361,3 +361,14 @@ controller preferences and held-input release across transitions. Keyboard
 emulation is also raw Xbox input, so it does not solve the mismatch. Follow the
 concrete gates in XBOX-SIMULATOR-PASSES. No fix or new unit suite claimed yet;
 broader rendering and human multi-touch remain open. Goal active.
+
+Input bridge implementation checkpoint: `shared-input-v1` adds a guarded,
+versioned resolved mapping/menu import and normalizes touch only.198 Xbox tests,
+153 native overlay assertions and39 launch/save/quality checks pass. Actual
+copied Southpaw profile now fires with Fire and throws with Throw; normal menus,
+Save and Quit and cold checkpoint reload pass. Installed app `48f118f3…213e`,
+guest `652fbebb…de17`; upstream73/accepted66 unchanged. Real state preserved,
+ordinary Original picker restored. Evidence `input-bridge73.BvdqSP`. Next test a
+different A/B-binding preset and Default on the new candidate, then exact-build
+water/border/local-match regression. Unit coverage of all presets is not actual
+all-preset movement/feel acceptance. No hardware or broader fidelity claim.

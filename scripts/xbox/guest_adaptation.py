@@ -19,6 +19,9 @@ import subprocess
 _border_spec = importlib.util.spec_from_file_location('border_sampling', pathlib.Path(__file__).with_name('border_sampling.py'))
 border_sampling = importlib.util.module_from_spec(_border_spec)
 _border_spec.loader.exec_module(border_sampling)
+_input_spec = importlib.util.spec_from_file_location('profile_input', pathlib.Path(__file__).with_name('profile_input.py'))
+profile_input = importlib.util.module_from_spec(_input_spec)
+_input_spec.loader.exec_module(profile_input)
 
 RENDERER = pathlib.Path('port/linux/src/d3d8_gl.c')
 SOURCE_SHA256 = '5c8c132048b1efaa57d322b9c8a0ef65df07c1755df653c0f1a178ce96831cc6'
@@ -89,9 +92,10 @@ WATER_RESTORE = b'''\tglBindFramebuffer(GL_READ_FRAMEBUFFER, (GLuint)saved_read)
 \telse glDisable(GL_SCISSOR_TEST);
 \t/* Preserve the in-progress draw; invalidate cached state for later calls. */
 '''
-QUALITY_ADAPTATIONS = ('render-quality-v1', 'render-visibility-v1', 'render-water-v1', 'render-border-v1')
-COUNTED_ADAPTATIONS = ('render-visibility-v1', 'render-water-v1', 'render-border-v1')
-WATER_ADAPTATIONS = ('render-water-v1', 'render-border-v1')
+BORDER_ADAPTATIONS = ('render-border-v1', 'shared-input-v1')
+QUALITY_ADAPTATIONS = ('render-quality-v1', 'render-visibility-v1', 'render-water-v1', *BORDER_ADAPTATIONS)
+COUNTED_ADAPTATIONS = ('render-visibility-v1', 'render-water-v1', *BORDER_ADAPTATIONS)
+WATER_ADAPTATIONS = ('render-water-v1', *BORDER_ADAPTATIONS)
 
 
 def identity(name=None):
@@ -107,8 +111,10 @@ def identity(name=None):
         recipe += COUNT_ANCHOR + COUNT_INSERT + ATOMIC_ANCHOR + ATOMIC_REPLACE
     if name in WATER_ADAPTATIONS:
         recipe += WATER_SAVE_ANCHOR + WATER_SAVE + WATER_RESTORE_ANCHOR + WATER_RESTORE
-    if name == 'render-border-v1':
+    if name in BORDER_ADAPTATIONS:
         recipe += border_sampling.recipe()
+    if name == 'shared-input-v1':
+        recipe += profile_input.recipe()
     return {'name': name, 'upstream_renderer_sha256': SOURCE_SHA256,
             'recipe_sha256': hashlib.sha256(recipe).hexdigest()}
 
@@ -132,7 +138,7 @@ def adapted_source(original, name='render-scale-v1'):
             raise ValueError('Renderer water input changed; review upstream first')
         modified = modified.replace(WATER_SAVE_ANCHOR, WATER_SAVE_ANCHOR + WATER_SAVE)
         modified = modified.replace(WATER_RESTORE_ANCHOR, WATER_RESTORE)
-    if name == 'render-border-v1':
+    if name in BORDER_ADAPTATIONS:
         modified = border_sampling.apply_edits(modified, border_sampling.RENDERER_EDITS)
     return modified
 
@@ -146,10 +152,12 @@ def renderer_adaptation(engine, adaptation):
     original = path.read_bytes()
     modified = adapted_source(original, adaptation['name'])
     changes = [(path, original, modified)]
-    if adaptation['name'] == 'render-border-v1':
+    if adaptation['name'] in BORDER_ADAPTATIONS:
         shader_path = engine / border_sampling.SHADER
         shader = shader_path.read_bytes()
         changes.append((shader_path, shader, border_sampling.adapt_shader(shader)))
+    if adaptation['name'] == 'shared-input-v1':
+        changes.extend(profile_input.changes(engine))
     try:
         for path, original, modified in changes:
             path.write_bytes(modified)

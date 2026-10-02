@@ -11,7 +11,8 @@ static inline BOOL HPXboxSupportsQuality(NSDictionary *build)
         ([adaptation[@"name"] isEqual:@"render-quality-v1"] ||
          [adaptation[@"name"] isEqual:@"render-visibility-v1"] ||
          [adaptation[@"name"] isEqual:@"render-water-v1"] ||
-         [adaptation[@"name"] isEqual:@"render-border-v1"]);
+         [adaptation[@"name"] isEqual:@"render-border-v1"] ||
+         [adaptation[@"name"] isEqual:@"shared-input-v1"]);
 }
 
 static inline BOOL HPXboxSharperSelected(NSUserDefaults *settings)

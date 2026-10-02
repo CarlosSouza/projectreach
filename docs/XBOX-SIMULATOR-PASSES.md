@@ -1,5 +1,75 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Southpaw touch mapping bridge (2026-10-03)
+
+Previous pass is progress: a copied Southpaw button profile reverses Fire/Throw.
+This pass implements and verifies the paired guest/host fix, keeping upstream73
+`d1c7243cb20eab4488efa1266e259b1f4d5240f6` and accepted66 unchanged. Private
+evidence: `ref/xbox-build/passes/2026-10-03/input-bridge73.BvdqSP/`.
+
+### Boundary and safeguards
+
+Opt-in `shared-input-v1` includes the previous border/water/quality adaptations.
+`scripts/xbox/profile_input.py` guards exact input source/import-list hashes and
+adds a scalar `host_halopad_input_context_v1` call before device-state polling.
+It reads resolved controller-zero preferences and `ui_widgets_active()`, passing
+12 packed button bindings, stick layout and menu state. No guest pointers,
+hard-coded memory offsets, saved-profile writes or proprietary source copies.
+The four-file adaptation transaction restores upstream files on success/failure
+and preserves concurrent edits. A changed upstream source requires review.
+
+`xg_profile_input.h` translates the canonical HaloPad touch pad to the selected
+guest bindings, leaves menu controls raw, and inversely routes movement axes.
+Context transitions discard queued pad input and suppress previously held
+buttons/axes until release; repeated identical context preserves pending taps.
+Invalid context suppresses touch-pad output. Relative mouse look is separate;
+this is not a claim that invalid context suppresses every input channel. Physical
+controller merging is unchanged. Legacy diagonal response remains guest behavior.
+Old/unadapted guests retain the existing default mapping and controls warning;
+paired candidates show the new touch/profile explanation.
+
+Build: counted ANGLE/Metal Simulator, adaptation recipe
+`71781a2a250a1e868243a461edc51127b548307149673ab05179d986e09f95fd`.
+Guest SHA `652fbebb435c433dcf9357096a5431092af0316ab9f011f7f892d5b98a67de17`.
+Signed app SHA `48f118f3f2cb690c29a8978c8f213644c45ddfc0400cfdf26495add966d1213e`,
+verified again from the installed bundle. Backups: full `data-before`, cloned
+`app-before` and `out-before`; in-place install only. Nested upstream ends clean.
+
+### Tests and actual Simulator result
+
+- 198 Xbox Python tests pass, including ASan/UBSan native helper tests for all
+  five button maps and four stick layouts, menu controls, alias ownership,
+  short taps, held-context transitions, invalid data and transaction restoration.
+- 153 native overlay assertions and 39 native launch/save/quality checks pass.
+  Evidence: `docs/artifacts/2026-10-02/G9/overlay-20261002T193129Z` and
+  `generated/xbox-launch-tests/20261002T192505785292Z`.
+- PID52279 loads the exact copied Southpaw reproduction profile by ordinary
+  picker/Campaign/New001/Halo/Normal navigation, without forced edition/init or
+  scripted input. Fire changes rifle60->59 with grenade1 unchanged; Throw changes
+  grenade1->0 with rifle59 unchanged. `southpaw-fire.png`, `southpaw-throw.png`.
+- Pause, individually observed Move-down gestures and A select Save and Quit;
+  actual main menu appears. Resulting isolated save tree retained in
+  `after-save-quit`.
+- The overlay suite relaunches the app, so PID57563 is the subsequent deliberate
+  cold launch using isolated saves. Ordinary menus reload the outside-pod
+  checkpoint; Fire again changes rifle60->59 without consuming grenade1.
+  `cold-fire.png` and `cold-stderr.log` retain evidence. This reloads an existing
+  checkpoint, not newly advanced campaign progress. The profile card's Default
+  label reflects neither proof nor reset of Southpaw button settings.
+- Logs show mapping `67513240:fedc`, sticks0, valid1, first menu1 then gameplay0;
+  the earlier run also returns to menu1 on Pause. Guest preferences remain
+  alternate while touch actions keep their labels' meanings.
+
+Final ordinary Original-quality picker PID58269. Real196 Documents have no
+additions/removals and only the expected app-log change. Library differs only in
+two replaced SplashBoard snapshot files; preferences/keyset and PC registry are
+exact. No physical device, IPA, push or accepted-pin promotion.
+
+Next: actual alternative A/B-binding preset and default regression on this exact
+candidate, followed by exact-build water/border/local-match checks. All-preset
+runtime acceptance, legacy movement feel, sustained human multi-touch, hardware
+and broad rendering fidelity remain open. Goal stays active.
+
 ## Southpaw touch mismatch reproduced (2026-10-03)
 
 Previous turn is progress: exact border-candidate regressions passed. This pass
