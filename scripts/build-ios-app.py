@@ -65,8 +65,11 @@ def xbox_build_folder(target):
 
 def xbox_parts(target):
     """Link inputs for the launch picker and the Xbox engine, or [] without a local engine build."""
+    adaptation = xbox_runtime_manifest.guest_adaptation.identity()
     lib = xbox_build_folder(target) / 'libhalopad-xbox.a'
     if not lib.exists():
+        if adaptation['name'] != 'none':
+            raise ValueError('Adapted Xbox library is missing; build it before packaging')
         if os.environ.get('HALOPAD_XBOX_RENDERER') == 'angle-metal':
             raise ValueError('ANGLE candidate library is missing; build it before packaging')
         return []
@@ -87,6 +90,8 @@ def xbox_parts(target):
     expected = os.environ.get('XBOX_REV', revision)
     if manifest['revision'] != expected:
         raise ValueError('Xbox library revision differs from the pin; run scripts/xbox/build-ios.sh')
+    if manifest.get('guest_adaptation') != adaptation:
+        raise ValueError('Xbox guest adaptation differs or is unrecorded; rebuild with the intended adaptation')
     for path, key in ((XBOX_OUT / 'halo_guest.elf', 'guest_sha256'), (lib, 'library_sha256')):
         if hashlib.sha256(path.read_bytes()).hexdigest() != manifest[key]:
             raise ValueError(f'Stale Xbox build: {path.name}; rebuild the Xbox library')
@@ -146,7 +151,8 @@ def package(exe, out, work, target=TARGET, identity=None, provisioning=None):
         shutil.copy2(guest, data / 'xbox' / 'halo_guest.elf')      # upstream's image: this Mac's personal build only
         build = json.loads((xbox_build_folder(target) / 'build.json').read_text())
         pin = json.loads((ROOT / 'config/xbox-engine.lock.json').read_text())['revision']
-        build['candidate'] = build['revision'] != pin or build.get('renderer') == 'angle-metal'
+        build['candidate'] = (build['revision'] != pin or build.get('renderer') == 'angle-metal'
+                              or build['guest_adaptation']['name'] != 'none')
         (data / 'xbox' / 'build.json').write_text(json.dumps(build, indent=2) + '\n')
     for m in sorted((run_core.IMAGE.parent / 'modules').iterdir()):
         if (m / 'image.bin').is_file():

@@ -105,3 +105,12 @@ EQUAL writes no depth. 151 Xbox tests pass. Native color/synthetic raster replay
 is still restricted to 640x480. Next gate is reproducible adaptation identity
 and visibility-effects/broader scene validation, not repeating the completed
 selected-pair depth check or claiming full graphics acceptance from it.
+
+Adaptation follow-up: `render-scale-v1` now reproduces the private experiment
+from accepted build 66 without a maintained upstream branch. Source checks,
+restoration, separate metadata and opt-in packaging are tested; ordinary rebuild
+reproduces the accepted guest hash. Actual copied a30/controls verify the packaged
+candidate. 167 Xbox tests and 26 Simulator save-helper assertions pass. Save
+backup identity now includes guest hash, covering same-pin adaptation/rollback.
+Default app restored. Next pass should inspect visibility effects, transparent
+materials and moving scene artifacts, not repeat adaptation/depth plumbing.

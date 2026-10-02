@@ -281,6 +281,33 @@ runtime edits, run `scripts/xbox/build-ios.sh` for the intended renderer/SDK,
 then rebuild the main app. Do not retrofit hashes into an old manifest. Retained
 outgoing apps remain available as rollback artifacts without repackaging.
 
+## Small HaloPad guest adaptations
+
+Upstream source stays a clean, private pinned dependency. Shared touch controls
+live in HaloPad's overlay/adapter, not guest patches. A narrowly scoped guest
+experiment can be selected with `HALOPAD_XBOX_GUEST_ADAPTATION=render-scale-v1`
+for **both** `scripts/xbox/build-ios.sh` and `scripts/build-ios-app.py` (alongside
+the existing ANGLE options). Default is `none`. This adaptation only enables
+`HALO_TEST_RENDER_SCALE=2` at runtime; without that runtime switch it remains 1x.
+Use copied `XG_SAVE` data for experiments. It is tested on Simulator ANGLE ES3.0,
+not accepted for physical-device performance or all visibility/effects paths.
+
+`guest_adaptation.py` checks the complete renderer input against build 66 before
+temporarily inserting six original lines. Ninja runs under an exclusive guest
+build lock; normal completion, failures and handled interrupts restore the
+original source. Concurrent edits are preserved and stop the build. A hard kill
+may leave edits: inspect/preserve them manually; never reset as a recovery shortcut.
+Run complete build/update workflows serially because their output directory is
+shared. The lock protects the guest operation, not all packaging/update stages.
+
+Manifests record upstream revision, guest hash and adaptation identity separately.
+The packager requires the exact requested identity and current local sources;
+adapted packages are previews. Pin updates reject adaptations so upstream
+acceptance cannot accidentally promote a patched guest. When upstream's renderer
+changes, review the new code and repeat focused graphics tests before changing
+the input hash/recipe. Unsetting the option and rebuilding both guest and app
+returns to the original guest; that round-trip is hash-verified on build 66.
+
 ## Updating the engine
 
 Check upstream releases on a regular maintenance pass (weekly is the proposed cadence), then
@@ -330,8 +357,11 @@ proof; use it only in a coordinated device window.
 the real shell control flow with inert Git/build/device boundaries and synthetic
 save copies, not an actual upstream promotion.
 
-The app also copies nonempty Xbox saves to `Documents/Halo Xbox/Save Backups/<previous-revision>-<time>`
-before a changed engine opens them. A failed backup blocks startup. This preserves recovery data,
+The app also copies nonempty Xbox saves to `Documents/Halo Xbox/Save Backups/<previous-identity>-<time>`
+before a changed guest opens them. Identity includes upstream revision and guest
+SHA256, so a same-pin adaptation and rollback both trigger backups. A legacy
+revision-only marker triggers one backup. A failed backup or missing guest
+identity blocks startup. This preserves recovery data,
 **not save-format compatibility**; upstream saves are snapshots. PC saves are not migrated into Xbox
 saves. The **About these builds** panel shows the bundled revision and preview status.
 

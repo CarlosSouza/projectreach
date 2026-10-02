@@ -1,5 +1,51 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Reproducible guest adaptation and exact save identity (2026-10-02)
+
+Keep upstream build 66 (`f2ba71d9`) pinned. New `guest_adaptation.py` applies only
+the six original render-scale lines during the private guest build, with a full
+renderer SHA256 and unique-anchor precondition. It restores the source in a
+`finally` block, refuses to overwrite concurrent edits, and records a separate
+adaptation/recipe identity only after successful compilation. Unknown options,
+changed inputs and unrequested packaging fail closed. Dirty checkouts remain
+refused; an uncatchable kill requires inspection, not an automatic reset.
+No upstream source or generated guest is added to tracked files.
+
+Actual opt-in build from the accepted pin produces guest SHA256
+`556cc14c7d2c6b50e9a51f0ae04a3120aeebe25552b08063a4358d609a9e48bc`,
+exactly matching the earlier private `97b45239` experiment. Packaging without
+the matching opt-in is rejected. The full app is signed and installed in place
+on the dedicated Simulator. Using a copied checkpoint and normal campaign menus,
+it reaches a30; traces show real 1280x960 source targets/viewport, complete FBOs
+and zero errors in sampled presentation readbacks. Shared drag-fire turns the
+camera and reduces rifle ammo 60 to 59; swap, centered pistol scope and pause
+respond. Existing frame-0 `0x502`, soft sloped ground, and an ignored experimental
+anisotropy setting in the isolated data config remain; this is reproducibility
+and interaction evidence, not a new material/effects fidelity acceptance.
+
+An unadapted rebuild produces accepted guest SHA256
+`a16a327173b74cb7ed79bdff03aba7a022f08b0e35ad2b75adf3d465f2a8cc89` again.
+The upstream checkout stays clean after both builds. Restored installed/generated
+app executable `c54e09c6c939e73fc1dadfb829c7844cfe09f9934b5e897f40dc1359ccf5e608`
+matches, passes strict signing, and opens the Windows-left/Xbox-right picker.
+ANGLE still marks it PREVIEW; no accepted renderer/default-resolution change.
+
+Save identity now includes the exact guest hash, not only the upstream commit.
+Legacy markers trigger one backup; same guest does not repeat it. 167 Python
+Xbox tests pass. The actual launch/save helpers pass 26 Simulator assertions on
+synthetic folders and isolated preferences, including failed-copy refusal,
+same-pin adapted guest, rollback and missing-identity refusal. This fixture also
+needed SDL include paths, GameController linking and inert shared-overlay/input
+boundaries after the earlier overlay integration; the failed fixture builds are
+retained. Fixture evidence: `generated/xbox-launch-tests/20261002T085954462871Z/`.
+Backups preserve recovery data, not snapshot compatibility.
+
+Private pass: `ref/xbox-build/passes/2026-10-02/guest-adaptation.jrHaaE/`.
+Original 196 Documents files preserved (only HaloPad log changed); Library
+changes are OS snapshots only. PC registry and preferences are byte/value
+unchanged. No hardware, IPA, push or publication. Next: visibility effects and
+broader scene/material checks using this reproducible candidate.
+
 ## Scaled depth observation verified in-game (2026-10-02)
 
 Extend only the opt-in Simulator depth observer and its parser, not normal

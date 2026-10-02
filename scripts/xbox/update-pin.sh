@@ -17,6 +17,10 @@
 # After accepting, rebuild the apps (scripts/xbox/build-ios.sh, then
 # scripts/build-ios-app.py) and install them over the existing app.
 set -eu
+if [ "${HALOPAD_XBOX_GUEST_ADAPTATION:-none}" != none ]; then
+    echo "Upstream pin updates require an unadapted guest; test HaloPad adaptations separately" >&2
+    exit 2
+fi
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 WORK="$ROOT/ref/xbox-build"
 ENGINE="$WORK/vol/engine"

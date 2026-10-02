@@ -32,6 +32,7 @@ manifest = {
     'revision': subprocess.check_output(['git', '-C', engine, 'rev-parse', 'HEAD'], text=True).strip(),
     'built': datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d'),
     'guest_sha256': hashlib.sha256((out / 'halo_guest.elf').read_bytes()).hexdigest(),
+    'guest_adaptation': json.loads((out / 'guest-adaptation.json').read_text()),
     'executable_sha256': hashlib.sha256((out / 'halopad-xbox').read_bytes()).hexdigest(),
 }
 (out / 'build-mac.json').write_text(json.dumps(manifest, indent=2) + '\n')

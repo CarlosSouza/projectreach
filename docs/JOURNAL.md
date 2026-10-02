@@ -4481,3 +4481,23 @@ verified; About/Done returns from `f2ba71d9` to the ordinary picker. Audit keeps
 196 Documents files (only log changed), original saves/inputs, PC registry and
 preferences. Library changes are Metal caches, OS snapshots and scene state.
 No hardware, IPA, publication or push.
+
+## 2026-10-02 — Reproducible guest adaptation and snapshot identity
+
+Add opt-in `render-scale-v1` with strict build-66 renderer input checks, source
+restoration and separate manifest identity. The accepted upstream checkout stays
+clean; actual builds reproduce both private adapted guest `556cc14c…9a9e48bc`
+and unadapted guest `a16a3271…8cc89`. Package mismatches and adapted pin updates
+are refused. Shared controls remain host-owned, not part of guest modifications.
+Full Simulator app reaches the copied a30 checkpoint at 1280x960 through normal
+menus; fire/drag (60→59 ammo), swap, centered scope and pause respond. Existing
+material softness and frame-0 GL error remain; no broader effects acceptance.
+
+Save backups now key by revision plus guest hash, including same-pin adaptations
+and return to default. 167 Xbox tests and 26 real launch/save-helper Simulator
+assertions pass on synthetic data. Repair the fixture's stale SDL/overlay linking
+boundary discovered during this check. Default guest/app restored, strict signing
+and installed/generated executable `c54e09c6…cf5e608` verified; ordinary picker
+visible. Original saves, PC registry and preferences preserved; only log and OS
+snapshots changed. Private evidence `guest-adaptation.jrHaaE`. Next: effects and
+broader material/temporal rendering checks. No hardware, IPA, push or publication.

@@ -157,6 +157,14 @@ fi
         self.assertEqual(self.events(), [])
         self.assert_old_pin()
 
+    def test_adapted_guest_cannot_promote_upstream_pin(self):
+        result = self.run_update('--simulator', 'fixture-sim', '--accept',
+                                 HALOPAD_XBOX_GUEST_ADAPTATION='render-scale-v1')
+        self.assertEqual(result.returncode, 2)
+        self.assertIn('unadapted guest', result.stderr)
+        self.assertEqual(self.events(), [])
+        self.assert_old_pin()
+
     def test_accept_advances_only_after_all_inert_gates(self):
         result = self.run_update('--simulator', 'fixture-sim', '--accept')
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

@@ -53,12 +53,10 @@ done
 [ -f "$INC/KHR/khrplatform.h" ] || curl -fsSL "$KHRONOS/EGL-Registry/main/api/KHR/khrplatform.h" -o "$INC/KHR/khrplatform.h"
 
 # ---------- the guest image (upstream's Android guest, our compiler flags)
-(cd "$ENGINE" && python3 configure.py --release --android-ndk "$NDK" \
-	--android-guest-cc "$ROOT/scripts/xbox/guest-cc.sh" >/dev/null &&
-	ninja build/android/halo_guest.elf)
+python3 "$ROOT/scripts/xbox/guest_adaptation.py" --engine "$ENGINE" --ndk "$NDK" \
+	--compiler "$ROOT/scripts/xbox/guest-cc.sh" --out "$WORK/out"
 GUEST="$ENGINE/build/android"
 OUT="$WORK/out"
-cp "$GUEST/halo_guest.elf" "$OUT/halo_guest.elf"
 
 # ---------- translation and generated host sources
 python3 "$ROOT/scripts/xbox/translate.py" "$OUT/halo_guest.elf" "$OUT/guest.s" \

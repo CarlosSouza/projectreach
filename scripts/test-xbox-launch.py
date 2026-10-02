@@ -25,8 +25,9 @@ def main():
     binary = evidence / 'xbox-launch-test'
     command = ['xcrun', 'clang', '-target', 'arm64-apple-ios17.0-simulator', '-isysroot', sdk,
                '-fobjc-arc', '-O1', '-Wall', '-Wextra', '-Werror', '-Wno-unused-parameter',
-               '-Wno-deprecated-declarations', '-Wno-nonnull', '-I', str(ROOT / 'port/xbox'), str(source),
+               '-Wno-deprecated-declarations', '-Wno-nonnull', '-I/opt/homebrew/include', '-I', str(ROOT / 'port/xbox'), str(source),
                '-framework', 'UIKit', '-framework', 'Foundation', '-framework', 'UniformTypeIdentifiers',
+               '-framework', 'GameController',
                '-o', str(binary)]
     build = subprocess.run(command, capture_output=True, text=True)
     (evidence / 'build.txt').write_text(build.stdout + build.stderr)
@@ -37,7 +38,8 @@ def main():
     run = subprocess.run(['xcrun', 'simctl', 'spawn', args.device, str(binary), str(evidence / 'fixture')],
                          capture_output=True, text=True, timeout=30)
     (evidence / 'run.txt').write_text(run.stdout + run.stderr)
-    inputs = [source, ROOT / 'port/ios/HaloPadXbox.m', ROOT / 'port/xbox/xg_ios.h',
+    inputs = [source, ROOT / 'port/ios/HaloPadXbox.m', ROOT / 'port/ios/HaloPadXboxSaveIdentity.h', ROOT / 'port/xbox/xg_ios.h',
+              ROOT / 'port/ios/HaloPadOverlay.h', ROOT / 'port/xbox/xg_overlay_input.h',
               ROOT / 'port/xbox/xg_touch_input.h', ROOT / 'port/xbox/xg_xiso.h']
     (evidence / 'result.json').write_text(json.dumps({
         'device': args.device, 'exit': run.returncode, 'build_command': command,

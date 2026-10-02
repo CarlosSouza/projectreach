@@ -10,6 +10,7 @@ static NSString *fixture_root;
 static NSUserDefaults *fixture_defaults;
 static BOOL fail_copy;
 static int checks, failures;
+static NSString *fixture_guest = @"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
 static NSArray *fixture_search_paths(NSSearchPathDirectory directory, NSSearchPathDomainMask domain, BOOL expand)
 {
@@ -61,6 +62,17 @@ static NSArray *fixture_search_paths(NSSearchPathDirectory directory, NSSearchPa
 
 @implementation XGTouchPad
 @end
+/* Save helpers never construct gameplay UI; make an accidental call fatal. */
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wincomplete-implementation"
+#pragma clang diagnostic ignored "-Wobjc-property-implementation"
+@implementation HPOverlay
++ (instancetype)alloc { abort(); }
+@end
+#pragma clang diagnostic pop
+void xg_ios_set_touch_pad(const struct xg_touch_pad *state) { (void)state; abort(); }
+void xg_ios_clear_touch_pad(void) { abort(); }
+void xg_ios_add_touch_look(float dx, float dy) { (void)dx; (void)dy; abort(); }
 UIView *xg_ios_make_view(CGRect frame) { return [[UIView alloc] initWithFrame:frame]; }
 void xg_ios_view_resized(void) {}
 int xg_ios_start(const char *image, const char *data, const char *save) { (void)image; (void)data; (void)save; abort(); }
@@ -91,7 +103,7 @@ static NSArray *backups(void)
 }
 static void revision(NSString *value)
 {
-    NSData *data = [NSJSONSerialization dataWithJSONObject:@{@"revision": value} options:0 error:nil];
+    NSData *data = [NSJSONSerialization dataWithJSONObject:@{@"revision": value, @"guest_sha256": fixture_guest} options:0 error:nil];
     NSString *path = [fixture_root stringByAppendingPathComponent:@"Bundle/data/xbox/build.json"];
     if (![data writeToFile:path atomically:YES]) abort();
 }
@@ -109,7 +121,8 @@ int main(int argc, char **argv)
         write_fixture([normal stringByAppendingPathComponent:@"maps/ui.map"], [NSData data]);
         write_fixture([save stringByAppendingPathComponent:@"profile.bin"], profile);
         write_fixture([fixture_root stringByAppendingPathComponent:@"Bundle/data/xbox/build.json"],
-            [NSJSONSerialization dataWithJSONObject:@{@"revision": @"new-pin"} options:0 error:nil]);
+            [NSJSONSerialization dataWithJSONObject:@{@"revision": @"new-pin", @"guest_sha256": fixture_guest} options:0 error:nil]);
+        NSString *newIdentity = HPXboxSaveIdentity(xbox_build());
         unsetenv("XG_DATA"); unsetenv("XG_SAVE");
         check("unset data selects the ordinary installation", [xbox_data() isEqualToString:normal]);
         check("unset save selects ordinary saves", [xbox_saves() isEqualToString:save]);
@@ -125,7 +138,7 @@ int main(int argc, char **argv)
             stringByAppendingPathComponent:backups().firstObject ?: @"missing"] stringByAppendingPathComponent:@"profile.bin"];
         check("backup preserves synthetic profile bytes", [[NSData dataWithContentsOfFile:copy] isEqualToData:profile]);
         check("backup never changes current synthetic save", [[NSData dataWithContentsOfFile:[save stringByAppendingPathComponent:@"profile.bin"]] isEqualToData:profile]);
-        check("successful backup marks the new revision", [[fixture_defaults stringForKey:@"HaloPadXboxSaveRevision"] isEqualToString:@"new-pin"]);
+        check("successful backup upgrades legacy marker to exact guest", [[fixture_defaults stringForKey:@"HaloPadXboxSaveRevision"] isEqualToString:newIdentity]);
         check("same revision does not create another backup", xbox_backup_saves(&error) && backups().count == 1);
 
         NSString *development = [fixture_root stringByAppendingPathComponent:@"development"];
@@ -136,18 +149,31 @@ int main(int argc, char **argv)
         check("development data never borrows normal maps", !xbox_has_maps());
         revision(@"later-pin");
         check("isolated saves skip real-installation backups", xbox_backup_saves(&error) && backups().count == 1);
-        check("isolated saves do not advance the real revision marker", [[fixture_defaults stringForKey:@"HaloPadXboxSaveRevision"] isEqualToString:@"new-pin"]);
+        check("isolated saves do not advance the real revision marker", [[fixture_defaults stringForKey:@"HaloPadXboxSaveRevision"] isEqualToString:newIdentity]);
 
         unsetenv("XG_DATA"); unsetenv("XG_SAVE");
         fail_copy = YES; error = nil;
         check("copy failure refuses revision acceptance", !xbox_backup_saves(&error) && error != nil);
-        check("copy failure leaves the revision marker unchanged", [[fixture_defaults stringForKey:@"HaloPadXboxSaveRevision"] isEqualToString:@"new-pin"]);
+        check("copy failure leaves the revision marker unchanged", [[fixture_defaults stringForKey:@"HaloPadXboxSaveRevision"] isEqualToString:newIdentity]);
         check("copy failure retains current saves and old backup", backups().count == 1 &&
             [[NSData dataWithContentsOfFile:[save stringByAppendingPathComponent:@"profile.bin"]] isEqualToData:profile] &&
             [[NSData dataWithContentsOfFile:copy] isEqualToData:profile]);
         fail_copy = NO; error = nil;
         check("retry backs up before advancing revision", xbox_backup_saves(&error) && backups().count == 2 &&
-            [[fixture_defaults stringForKey:@"HaloPadXboxSaveRevision"] isEqualToString:@"later-pin"]);
+            [[fixture_defaults stringForKey:@"HaloPadXboxSaveRevision"] isEqualToString:HPXboxSaveIdentity(xbox_build())]);
+        fixture_guest = @"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+        revision(@"later-pin");
+        check("same upstream pin with adapted guest creates another backup", xbox_backup_saves(&error) && backups().count == 3);
+        check("adapted guest marker is exact", [[fixture_defaults stringForKey:@"HaloPadXboxSaveRevision"] isEqualToString:HPXboxSaveIdentity(xbox_build())]);
+        check("same adapted guest does not repeat backup", xbox_backup_saves(&error) && backups().count == 3);
+        fixture_guest = @"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        revision(@"later-pin");
+        check("returning to unadapted guest also backs up", xbox_backup_saves(&error) && backups().count == 4);
+        NSString *accepted = [fixture_defaults stringForKey:@"HaloPadXboxSaveRevision"];
+        fixture_guest = @""; revision(@"later-pin"); error = nil;
+        check("missing guest identity refuses opening saves", !xbox_backup_saves(&error) && error != nil && backups().count == 4);
+        check("invalid identity leaves marker and current save untouched", [[fixture_defaults stringForKey:@"HaloPadXboxSaveRevision"] isEqualToString:accepted] &&
+            [[NSData dataWithContentsOfFile:[save stringByAppendingPathComponent:@"profile.bin"]] isEqualToData:profile]);
         printf("%d checks, %d failures\n",checks,failures);
     }
     return failures != 0;

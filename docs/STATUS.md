@@ -4,6 +4,18 @@ Updated 2026-10-02. **Simulator-only work: shared controls, texture compatibilit
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE4.md](HaloPad-GOAL-LOOP-PHASE4.md). Earlier device work remains in [phase 3](HaloPad-GOAL-LOOP-PHASE3.md).
 
+**Reproducible guest adaptation (2026-10-02).** The private 2x experiment is now
+an explicit `render-scale-v1` build option, separately identified from the
+upstream pin. Exact renderer-input checks reject upstream drift; packaging
+rejects unrequested/stale adaptations and pin promotion requires an unadapted
+guest. Actual adapted and default builds reproduce their previous guest hashes,
+leaving the upstream checkout clean. Copied a30 campaign at 1280x960 verifies
+menus, drag-fire, swap, scope and pause. 167 Xbox tests and 26 actual Simulator
+launch/save-helper assertions pass, including backups on same-pin guest changes
+and rollback. Default guest/app restored (`c54e09c6…cf5e608`), real saves, PC
+registry and preferences preserved. Effects/material fidelity remains open;
+2x is not a default. [Evidence](XBOX-SIMULATOR-PASSES.md#reproducible-guest-adaptation-and-exact-save-identity-2026-10-02).
+
 **Scaled depth gate (2026-10-02).** The opt-in depth observer now verifies actual
 attachment dimensions and supports bounded scaled targets. Real 2x and 1x
 Blood Gulch captures pass calibrated readback, same-frame geometry/projection

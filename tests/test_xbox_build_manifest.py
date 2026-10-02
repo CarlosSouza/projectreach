@@ -32,6 +32,7 @@ class XboxManifestTests(unittest.TestCase):
             'revision': PIN,
             'sdk': 'iphonesimulator',
             'guest_sha256': hashlib.sha256(self.guest.read_bytes()).hexdigest(),
+            'guest_adaptation': {'name': 'none'},
             'library_sha256': hashlib.sha256(self.lib.read_bytes()).hexdigest(),
             'runtime_sources': builder.xbox_runtime_manifest.sources(),
         }
@@ -48,6 +49,43 @@ class XboxManifestTests(unittest.TestCase):
 
     def test_exact_pin(self):
         self.assertIn(self.lib, builder.xbox_parts(builder.TARGET))
+
+    def test_adaptation_requires_explicit_opt_in(self):
+        self.manifest['guest_adaptation'] = builder.xbox_runtime_manifest.guest_adaptation.identity('render-scale-v1')
+        self.save_manifest()
+        with self.assertRaisesRegex(ValueError, 'adaptation differs'):
+            builder.xbox_parts(builder.TARGET)
+        with patch.dict(os.environ, {'HALOPAD_XBOX_GUEST_ADAPTATION': 'render-scale-v1'}):
+            self.assertIn(self.lib, builder.xbox_parts(builder.TARGET))
+
+    def test_missing_adaptation_identity_rejected(self):
+        self.manifest.pop('guest_adaptation')
+        self.save_manifest()
+        with self.assertRaisesRegex(ValueError, 'adaptation differs'):
+            builder.xbox_parts(builder.TARGET)
+
+    def test_requested_adaptation_rejects_plain_guest(self):
+        with patch.dict(os.environ, {'HALOPAD_XBOX_GUEST_ADAPTATION': 'render-scale-v1'}):
+            with self.assertRaisesRegex(ValueError, 'adaptation differs'):
+                builder.xbox_parts(builder.TARGET)
+
+    def test_adaptation_recipe_change_rejected(self):
+        self.manifest['guest_adaptation'] = builder.xbox_runtime_manifest.guest_adaptation.identity('render-scale-v1')
+        self.manifest['guest_adaptation']['recipe_sha256'] = 'old recipe'
+        self.save_manifest()
+        with patch.dict(os.environ, {'HALOPAD_XBOX_GUEST_ADAPTATION': 'render-scale-v1'}):
+            with self.assertRaisesRegex(ValueError, 'adaptation differs'):
+                builder.xbox_parts(builder.TARGET)
+
+    def test_unknown_adaptation_rejected_before_pc_only_fallback(self):
+        with patch.dict(os.environ, {'HALOPAD_XBOX_GUEST_ADAPTATION': 'unknown'}):
+            with self.assertRaisesRegex(ValueError, 'Unknown'):
+                builder.xbox_parts(builder.DEVICE_TARGET)
+
+    def test_missing_adapted_library_rejected(self):
+        with patch.dict(os.environ, {'HALOPAD_XBOX_GUEST_ADAPTATION': 'render-scale-v1'}):
+            with self.assertRaisesRegex(ValueError, 'Adapted Xbox library is missing'):
+                builder.xbox_parts(builder.DEVICE_TARGET)
 
     def test_rejected_revision(self):
         self.manifest['revision'] = 'candidate'

@@ -17,6 +17,7 @@
 #include "xg_ios.h"
 #include "xg_xiso.h"
 #import "HaloPadOverlay.h"
+#import "HaloPadXboxSaveIdentity.h"
 #include "xg_overlay_input.h"
 
 /* system link: iOS lets apps broadcast only with a restricted entitlement, so
@@ -74,16 +75,22 @@ static NSDictionary *xbox_build(void)
 	return data ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : @{};
 }
 
-/* Preserve a copy before a different engine revision opens snapshot saves. */
+/* Preserve a copy before a different guest opens snapshot saves. */
 static BOOL xbox_backup_saves(NSError **error)
 {
 	/* Test saves must not update the real installation's revision marker. */
 	const char *development = getenv("XG_SAVE");
 	if (development && *development)
 		return YES;
-	NSString *revision = xbox_build()[@"revision"];
+	NSString *revision = HPXboxSaveIdentity(xbox_build());
 	NSString *previous = [NSUserDefaults.standardUserDefaults stringForKey:@"HaloPadXboxSaveRevision"];
-	if (!revision.length || [revision isEqualToString:previous])
+	if (!revision.length)
+	{
+		if (error) *error = [NSError errorWithDomain:@"HaloPadXbox" code:1 userInfo:@{
+			NSLocalizedDescriptionKey: @"The Xbox build has no guest identity. Rebuild before opening saves." }];
+		return NO;
+	}
+	if ([revision isEqualToString:previous])
 		return YES;
 	NSFileManager *files = NSFileManager.defaultManager;
 	NSString *saves = xbox_saves();
