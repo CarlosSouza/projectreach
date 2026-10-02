@@ -4,6 +4,15 @@ Updated 2026-10-02. **Simulator-only work: shared controls, texture compatibilit
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE4.md](HaloPad-GOAL-LOOP-PHASE4.md). Earlier device work remains in [phase 3](HaloPad-GOAL-LOOP-PHASE3.md).
 
+**Normal-menu save/reload (2026-10-02).** Current counted build-66 candidate
+loads a copied build-64 New001 checkpoint through the picker and normal menus.
+Shared fire/look/pause/menu controls work; Save and Quit completes and a cold
+process restores the outside-pod checkpoint. This closes that bounded existing-
+profile gate, not fresh-profile creation, new progression or all-version save
+compatibility. Original saves/PC state preserved; no runtime changes. Graphics
+fidelity and the profile card's incorrect summary remain open.
+[Evidence](XBOX-SIMULATOR-PASSES.md#counted-candidate-normal-menu-savereload-2026-10-02).
+
 **Water reflection trace (2026-10-02).** Actual b30 trace identifies the water
 reflection draw, four-level ripple target, -0.6 LOD bias and stage-3 cubemap.
 Generated reflection-vector math agrees with the NVIDIA specification; no

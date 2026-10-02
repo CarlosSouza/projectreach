@@ -1,5 +1,48 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Counted candidate normal-menu save/reload (2026-10-02)
+
+Private evidence: `ref/xbox-build/passes/2026-10-02/normal-save66.vLJy5R/`.
+No rebuild/install. Installed executable SHA-256 remains
+`346533d7c066fa1146d94224f78eb59f692f9c3579143c3f7623fc1447df0f02`;
+build-66 guest `27700a00...`, `render-visibility-v1`, ANGLE/Metal candidate.
+Clone the complete Simulator data container before testing. Copy the older
+`checkpoint64.sr7KEQ/after-save-quit` save tree into a new isolated session;
+point only `XG_DATA`/`XG_SAVE` there, with maps linked read-only by convention.
+No init script, forced edition, direct map command or injected guest input.
+Network options disabled. Initial launch omitted touch-show and displayed no
+overlay; restart with `XG_TOUCH_SHOW=1` makes shared touch controls available.
+
+PID 62993: actual edition picker -> Xbox -> Campaign -> New001 -> Halo
+(game in progress) -> Normal restores the outside-pod checkpoint, rifle 60,
+120 reserve and one grenade, with nearby bodies and medkit. Shared Fire lowers
+loaded ammo to 59; a background Look drag turns the view. Shared Pause opens
+the guest menu. Individually observed Move-stick down gestures reach Save and
+Quit; shared A selects it. Saving finishes and the main menu returns before
+process termination. Preserve `resume-old-save.png`, `save-complete.png` and
+the complete `after-save-quit/` tree. The 16,777,216-byte `z/savegame.bin`
+changes from `ee33ca3d2b22261beb49cdca25972a88a5b662ee5178a97a0a5335631f6d5500`
+to `050d594383ed1e8f718e0050c4ad75916f3fa68f2e9a2b62fddcaf72125fa6de`.
+
+Cold PID 64436 follows the same picker and normal menu path. Halo still says
+game in progress. First person restores the outside-pod checkpoint, original
+camera, rifle 60/120 and one grenade (`cold-resumed.png`), not the unsaved
+59-round/look state. This is last-checkpoint behavior, not save-anywhere.
+The profile card still says The Maw/Legendary, as in the source fixture;
+this pass does not fix profile-summary metadata or prove fresh-profile creation.
+
+This closes the bounded normal-menu existing-profile save/quit/cold-reload gate
+for the current counted candidate. It does not prove a newly reached checkpoint,
+all upgrades, rollback compatibility, sustained multi-touch, or graphics parity.
+The prior fresh-profile/debug-save failure remains historical evidence, not a
+reason to repeat this completed named-profile check. Next prioritize a matched
+affected material/reference or another genuinely unmet control/update gate.
+
+Ordinary cold launch PID 65857 returns to the Original picker. All 196 original
+Documents files remain with only the app log changed; Library, preferences and
+PC registry are identical. No runtime edit, tests rerun, pin promotion, hardware,
+IPA or publication. Known initial GL 0x502 persists; sampled frames 1/2/120 zero.
+
 ## Water reflection consumer trace (2026-10-02)
 
 Same installed candidate/pins as the mip pass; no rebuild. Private data clone,

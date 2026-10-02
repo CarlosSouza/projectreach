@@ -220,3 +220,12 @@ no fix is justified. 90-second b30 passes, state preserved, runtime unchanged.
 Next matched reference/material input-output comparison if a visible defect is
 isolated; do not repeat existence tracing. Normal-menu save/reload is also a
 useful independent acceptance task rather than adding speculative graphics fixes.
+
+Normal-menu follow-up: current counted candidate loads copied build-64 New001
+a30 checkpoint, accepts shared fire/look/pause/menu input, completes Save and
+Quit, and restores the last checkpoint in a cold process through normal menus.
+Evidence: `normal-save66.vLJy5R`. This closes the bounded existing-profile
+save/reload gate above; fresh-profile creation, newly reached progression and
+general cross-version compatibility are not established. No runtime change.
+Original app data preserved except known log. Next return to an actual material
+comparison or another unmet control/update gate, not repeated checkpoint reload.

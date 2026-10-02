@@ -4799,3 +4799,16 @@ renderer patch; preserve concrete route for matched-reference comparison.
 Known initial GL0x502 remains; later sampled errors zero. Cold Original picker
 restored; original saves/preferences/PC registry preserved except app log.
 No build, unit-suite rerun, hardware, pin change, IPA or publication.
+
+## 2026-10-02 — counted candidate normal-menu save/reload
+
+Private `normal-save66.vLJy5R`: unchanged installed app, full original-data clone,
+copied build-64 New001 checkpoint. Normal picker/menu path loads a30 outside pod.
+Shared Fire 60->59 and Look respond, Pause and individual stick menu steps reach
+Save and Quit. Wait for main menu, snapshot saves, terminate. Cold process via
+same normal menus restores checkpoint 60/120, one grenade and original camera.
+This closes current counted candidate's bounded existing-profile gate, not new
+progression or all-upgrade compatibility. Profile The Maw/Legendary summary stays
+incorrect; graphics complaint remains open. Real Documents retain all196 files
+with only app log changed; Library/preferences/PC registry identical. Ordinary
+Original-quality picker restored. No build/tests rerun/hardware/pin/IPA/publish.
