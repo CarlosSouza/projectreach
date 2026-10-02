@@ -5049,3 +5049,24 @@ only. No runtime edit/rebuild/pin change/hardware/publication. Next non-default
 profile reproduction on a copy: fixed default adapter versus upstream preset
 mapping. Explicit guest interface needed if adapting it; no profile reset or
 hard-coded offsets. Goal active; broader fidelity/human multi-touch still open.
+
+## 2026-10-03 — reproduce alternate-profile touch action mismatch
+
+Previous turn progress; unchanged installed `dc469db1…5997d` verified. Private
+`profile73.YKiZSk`, full real-data backup and copied border-pass checkpoint.
+PID32958 normal menus set copied New001 Button Settings Southpaw, thumbsticks
+Default, then Save Changes. Normal campaign route resumes checkpoint: shared
+Fire spends grenade1->0 without firing; Throw fires rifle60->59. Pause works.
+Screenshots and changed profile retained; campaign snapshot unchanged.
+
+Source review identifies authoritative resolved preferences and active-widget
+state before raw device polling as candidate bridge inputs. Existing relative-
+mouse callback is not a menu signal; keyboard emulation is raw pad too. Next
+implement guarded/versioned touch-only mapping with menu navigation and held-
+input transition tests. No global hardware remap/profile reset/guessed offsets.
+Detailed implementation gates recorded in XBOX-SIMULATOR-PASSES.
+
+Ordinary Original picker PID42922 restored.196 real Documents unchanged except
+app log; Library, preference values/keyset and PC registry exact. Upstream clean,
+app hash and pins unchanged. No runtime edit/build/unit rerun/hardware/IPA/push.
+Goal active; this is runtime defect proof, not a completed control fix.

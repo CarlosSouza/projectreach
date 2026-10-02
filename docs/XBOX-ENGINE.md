@@ -45,6 +45,13 @@ No physical-device work is authorized until Chris makes the iPad available again
 [Border fix evidence](XBOX-SIMULATOR-PASSES.md#bridge-border-sampling-fix-2026-10-03).
 [Regression evidence](XBOX-SIMULATOR-PASSES.md#border-candidate-controls-saves-and-sharper-2026-10-03).
 
+Non-default profile repro on that unchanged candidate: copied Southpaw buttons
+swap the actual shared Fire/Throw actions. No profile reset is acceptable as the
+fix. Next paired guest/host bridge must expose authoritative mapping/menu context
+and normalize only touch, preserving raw menu navigation and hardware settings.
+This is a confirmed defect and planned adaptation, not an implemented capability.
+[Evidence and bridge gates](XBOX-SIMULATOR-PASSES.md#southpaw-touch-mismatch-reproduced-2026-10-03).
+
 Previous Simulator candidate: build 73 `d1c7243c`, executable `39f06f77…7198e`,
 adds held Scoreboard drag to paired Page Up/Down inputs. 185 Xbox tests and
 141 native overlay assertions pass; actual Simulator drag emits paired inputs

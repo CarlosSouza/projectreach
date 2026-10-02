@@ -1,5 +1,85 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Southpaw touch mismatch reproduced (2026-10-03)
+
+Previous turn is progress: exact border-candidate regressions passed. This pass
+reproduces a different unmet control gate, without rebuilding. Installed app SHA
+`dc469db18505a1a254502eed6d3427027003857a7a84b530085e226e3bf5997d` verified again;
+upstream73/accepted66 and `render-border-v1` unchanged. Private evidence:
+`ref/xbox-build/passes/2026-10-03/profile73.YKiZSk/`. Back up the real container,
+copy `border-accept73.vtqWlq/after-save-quit` into isolated session/save and link
+trusted maps. No forced edition, init script or scripted input; online, clipboard
+joins, UPnP and auto-update disabled for the isolated run.
+
+PID32958: normal picker -> Xbox -> Settings -> New001 -> Controller Setup.
+Leave thumbsticks Default; change **Button Settings to Southpaw** through the
+shared Move control. The visible diagram exchanges Fire Weapon and Throw Grenade
+between triggers. A accepts, Move selects Save Changes, A saves. Return normally
+to Campaign -> New001 -> Halo in-progress -> Normal. The profile card still says
+Controls Default; do not use that card as proof of the button preset.
+
+At the same outside-pod checkpoint, rifle60/120 and one grenade:
+
+- Tap shared **Fire**: grenade1->0, rifle remains60. Throw animation observed.
+- Tap shared **Throw**: rifle60->59, grenade remains0.
+- Pause still opens the normal guest menu.
+
+Actual Simulator screenshots `01-before-fire.png`, `02-fire-threw-grenade.png`
+and `03-throw-fired-rifle.png` retain the HUD counters. This is a reproduced
+semantic control defect, not a fix or a direct-finger feel assessment. Copy the
+resulting test save tree to `after-southpaw-repro`; its profile SHA is
+`59fadcd6ba046465a9f1c3d22543d7e82d31cff729f407b77e6cb6c05e82b255`, versus
+original copied profile `fd7317882931657e03e9d277e0e3ee585cdc6690f17df3435d9a5dba6926396b`.
+The copied campaign checkpoint stays `9162fda3…1e69`. No fresh progression or
+cold-load acceptance of the changed profile is claimed.
+
+### Source boundary and next implementation
+
+`port/xbox/xg_overlay_input.h` maps shared actions to fixed default SDL controls.
+Upstream `source/interface/player_ui.c:set_local_player_controls_from_player_profile`
+resolves five button presets and four stick presets, then calls
+`input_abstraction_update_local_player_preferences`. The actual twelve-entry
+mapping is authoritative; do not infer it from profile names or save offsets.
+`input_abstraction_update` subsequently applies that mapping to raw pad input.
+The Linux keyboard path also synthesizes raw Xbox input, so sending keyboard
+events instead is not a semantic bypass.
+
+Source-verified candidate boundary: `input_frame_begin` calls
+`input_get_device_states` before abstraction/UI processing. The main loop calls
+it before `input_update` and `input_abstraction_update`.
+`input_abstraction_get_local_player_preferences(0, ...)` copies controller0's
+resolved preferences; `ui_widgets_active()` reports initialized active widgets.
+These are candidate inputs to a guarded, versioned guest-to-host context call,
+not a runtime-validated bridge yet. Do not reuse Android's no-op relative-mouse
+callback as a menu signal. Review startup/loading and secondary frame-begin
+call sites before choosing the final insertion point.
+
+Next pass implements the smallest paired bridge with source hashes and a new
+adaptation identity, leaving the accepted pin and current graphics recipe intact:
+
+1. Publish menu/game context and resolved mapping before the relevant input poll.
+   Validate version, ranges and mapping; reject unsupported context explicitly.
+2. Normalize **touch only** to the desired gameplay actions before merging real
+   controllers. Preserve raw A/B/X/Y and Move navigation while menus are active.
+   Never rewrite profile settings or remap hardware/keyboard globally.
+3. Clear queued input and quarantine held touches until release on context or
+   mapping changes. Clearing only the host buffer is insufficient: the overlay
+   retains held action bits and could reassert them on a later unrelated event.
+4. Test all five button maps, aliases, all four stick layouts, invalid contexts,
+   short taps, cancellation and menu transitions before installing. Stick layouts
+   include nonlinear legacy diagonal processing; a byte permutation alone is not
+   movement-fidelity acceptance. Existing relative touch aim needs no speculative
+   controller-sensitivity rewrite.
+5. Reuse this exact copied Southpaw profile for a before/after Fire/Throw test,
+   normal menus and cold reload. Then another non-default A/B layout and Default
+   regression. Do not repeat the broken-build repro or promote a pin instead.
+
+Restore ordinary launch with no test environment, PID42922; picker shows Original.
+Readback:196 real Documents files, only normal app log changed; Library byte-exact,
+preference dictionary and PC registry exact. Nested upstream clean, installed
+executable unchanged. No runtime edits, unit reruns, hardware, IPA or publication.
+Goal remains active; graphics fidelity and sustained human multi-touch stay open.
+
 ## Border candidate controls, saves and Sharper (2026-10-03)
 
 Previous turn is progress: guarded border sampling fixes the traced bridge bands.

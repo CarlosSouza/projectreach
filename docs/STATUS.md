@@ -4,6 +4,15 @@ Updated 2026-10-03. **Simulator-only work: shared controls, texture compatibilit
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE4.md](HaloPad-GOAL-LOOP-PHASE4.md). Earlier device work remains in [phase 3](HaloPad-GOAL-LOOP-PHASE3.md).
 
+**Non-default touch mismatch reproduced (2026-10-03).** On an isolated copy,
+selecting Xbox's Southpaw button preset makes shared Fire throw a grenade and
+shared Throw fire the rifle (60->59). Real profile/saves/preferences/PC registry
+remain intact; ordinary Original picker restored. Same `dc469db1…5997d` candidate,
+no runtime change. Next implement a guarded mapping/menu-state bridge that adapts
+touch only, preserves hardware preferences and clears held inputs on transitions.
+The source boundary is identified but not yet implemented or runtime accepted.
+[Reproduction and implementation gates](XBOX-SIMULATOR-PASSES.md#southpaw-touch-mismatch-reproduced-2026-10-03).
+
 **Border candidate regression checks passed (2026-10-03).** Exact installed
 `dc469db1…5997d` passes normal picker/menu checkpoint loading, shared Fire/Look/
 Swap/Zoom/Pause, Save and Quit, and cold reload. UI-selected Sharper persists into

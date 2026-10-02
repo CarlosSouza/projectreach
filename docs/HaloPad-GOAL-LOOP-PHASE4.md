@@ -348,3 +348,16 @@ an explicit mapping/menu-state boundary. Fixed default SDL mappings and upstream
 five button/four stick presets are verified source facts, not yet a new runtime
 reproduction. Preserve physical controller preferences; no silent profile reset
 or guessed guest offsets. Do not repeat these unchanged regression checks.
+
+Non-default profile follow-up: copied Southpaw buttons reproduce reversed Fire/
+Throw through actual menus and gameplay (grenade1->0 for Fire; rifle60->59 for
+Throw). The real data audit passes, ordinary Original picker restored; same
+candidate/pins. Evidence `profile73.YKiZSk`, including retained changed test
+profile. Next implement/test a guarded, versioned mapping/menu-context bridge,
+not another reproduction. Source candidates are resolved input preferences and
+`ui_widgets_active()` before device-state polling; insertion timing/startup still
+need validation. Touch-only normalization must preserve raw menu A/B, physical
+controller preferences and held-input release across transitions. Keyboard
+emulation is also raw Xbox input, so it does not solve the mismatch. Follow the
+concrete gates in XBOX-SIMULATOR-PASSES. No fix or new unit suite claimed yet;
+broader rendering and human multi-touch remain open. Goal active.
