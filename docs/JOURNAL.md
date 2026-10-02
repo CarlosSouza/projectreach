@@ -4350,3 +4350,34 @@ change. No original save opening or real revision-backup acceptance; live copy
 is not an atomic test-state snapshot. Leave isolated cryo-bay run for direct
 input feedback. No runtime edit, pin movement, Xbox IPA, push or publication;
 goal incomplete. [Hardware evidence](XBOX-SIMULATOR-PASSES.md#physical-ipad-angle-preview-2026-10-02).
+
+## 2026-10-02 — phase 4 Simulator-only shared controls
+
+Chris supersedes hardware work with Simulator-only troubleshooting and asks for
+one wrapper-owned touch interface across PC/Xbox, independent upstream imports.
+Write phase-4 operating loop. Existing goal tool still reports its historical
+blocked objective; do not falsely complete it to replace the objective. Work
+continues under this new instruction without a hardware dependency.
+
+Reuse PC HPOverlay, introduce an optional input handler and a small default-Xbox
+action adapter, and carry relative look through upstream SDL mouse motion.
+Keep guest64/ANGLE pins unchanged. Preserve existing PC routing and share touch
+settings/layout; keep Xbox System Link menu separate from PC-only actions.
+Alias ownership and lifecycle cancellation get direct handler regressions.
+128 overlay assertions and 143 Xbox tests pass after two retained compile-error
+corrections. Library and actual combined Simulator app build and install in place.
+
+Normal-menu a30 test verifies aim/fire together, movement, swap, zoom, pause,
+settings/Done, Save and Quit and cold checkpoint reload. This does not prove
+post-checkpoint action persistence, sustained multi-touch, remapped Xbox profiles
+or PC gameplay. Menu-aware A/B labels remain a usability gap. Internal640x480
+and soft grass persist; no texture-fix claim. Prior app/data cloned and compared;
+post-run real Documents game/save files, PC registry and preferences unchanged.
+Private pass: shared-controls.cwPagg. No hardware, EULA, IPA, push or publication.
+
+Source review identifies build66 text/title/name changes, NicholasDominici's
+logical-vs-native resolution support and zimm3rmann's aligned vertex uploads /
+occlusion scratch-query separation. No third-party code imported. Next: preserve
+control checkpoint, run the established build66 candidate gate separately, then
+use exact paired scene evidence for resolution versus material/filter defects.
+[Detailed evidence](XBOX-SIMULATOR-PASSES.md#shared-pc-and-xbox-overlay-2026-10-02).

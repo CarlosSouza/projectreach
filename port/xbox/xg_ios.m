@@ -597,6 +597,14 @@ static __strong GCController *pads[PADS + 1];
 static uint8_t pad_announced[PADS + 1];
 static pthread_mutex_t pad_lock = PTHREAD_MUTEX_INITIALIZER;
 static struct xg_touch_input touch_input;
+static float touch_look_x, touch_look_y;
+
+void xg_ios_add_touch_look(float dx, float dy)
+{
+	pthread_mutex_lock(&pad_lock);
+	if (isfinite(dx) && isfinite(dy)) { touch_look_x += dx; touch_look_y += dy; }
+	pthread_mutex_unlock(&pad_lock);
+}
 
 /* Opt-in touch diagnostics: input values only, no player/profile data. */
 static int touch_trace;
@@ -621,6 +629,7 @@ void xg_ios_clear_touch_pad(void)
 	if (touch_trace) fprintf(stderr, "[xbox] touch clear live-buttons=%x pending-buttons=%x\n",
 		touch_input.current.buttons, touch_input.pending.buttons);
 	xg_touch_clear(&touch_input);
+	touch_look_x = touch_look_y = 0;
 	pthread_mutex_unlock(&pad_lock);
 }
 
@@ -763,6 +772,20 @@ int xh_host_sdl_poll_event(uint32_t event)
 {
 	SDL_Event *out = G(SDL_Event *, event);
 	int index;
+	pthread_mutex_lock(&pad_lock);
+	if (touch_look_x != 0 || touch_look_y != 0)
+	{
+		memset(out, 0, sizeof(*out));
+		out->motion.type = SDL_EVENT_MOUSE_MOTION;
+		out->motion.timestamp = (Uint64)xh_host_sdl_ticks() * 1000000ull;
+		out->motion.windowID = 1;
+		out->motion.xrel = touch_look_x;
+		out->motion.yrel = touch_look_y;
+		touch_look_x = touch_look_y = 0;
+		pthread_mutex_unlock(&pad_lock);
+		return 1;
+	}
+	pthread_mutex_unlock(&pad_lock);
 	pads_refresh();
 	for (index = 1; index <= PADS; index++)
 		if (pads[index] && !pad_announced[index])

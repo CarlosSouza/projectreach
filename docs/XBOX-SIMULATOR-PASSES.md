@@ -1,5 +1,76 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Shared PC and Xbox overlay (2026-10-02)
+
+Latest direction supersedes hardware work: dedicated Simulator only. The new
+phase-4 goal loop separates wrapper-owned controls, renderer investigations and
+upstream candidate promotion. Both old overlays were HaloPad code; upstream's
+Android README currently says touchscreen input is not implemented.
+
+The combined Xbox controller now instantiates PC's `HPOverlay` with an input
+handler. Default PC routing is unchanged. The small `xg_overlay_input.h` maps
+semantic actions into the default Xbox pad layout, retains Use/Reload ownership
+when both alias X, and clears on cancellation. Relative look travels through
+the upstream SDL mouse-motion path instead of the old short-lived right-stick
+velocity pulse. Both editions share size, opacity, handedness, layout and look
+settings. Xbox gets System Link plus Controls in the ellipsis menu, not PC-only
+chat/join/display commands. The standalone Xbox test app retains its older overlay.
+
+Evidence: private `ref/xbox-build/passes/2026-10-02/shared-controls.cwPagg/`.
+Full old app/data preserved by APFS clones; independent `diff -qr` exit 0.
+Library and combined app build successfully. Initial test syntax and shell BOOL
+block compile errors were corrected; failed logs retained. Native overlay suite:
+128 passing assertions (`docs/artifacts/2026-10-02/G9/overlay-20261002T025234Z/`).
+Xbox Python suite: 143 tests pass. Actual executable SHA-256:
+`e98ef1f9c860b69fc4b64892f596aad4b9f1eec6e98c389499206cf13a613f54`.
+
+Normal chooser -> Xbox -> Campaign -> copied New001 -> Halo -> Normal restores
+the outdoor checkpoint. An open-screen drag visibly turns right; dragging Fire
+turns left while ammunition changes 60 to 59. Move-stick forward changes position,
+Swap equips the pistol, Zoom enters/exits its 2x scope, Pause opens the game menu.
+The native Controls submenu and touch settings open and Done closes them. Move
+stick selects Save and Quit, Jump accepts, and a cold process launch through the
+same normal menus reloads the checkpoint (rifle 60, original checkpoint camera).
+This is checkpoint reload, not persistence of the post-checkpoint shot/camera.
+Native screenshots and bounded `shared-control-gameplay.mp4` retained; no forced
+map, scripted bot or original save was used in this sequence.
+
+After termination, independent hashing reports 196 Documents files: only
+`HaloPad Logs/HaloPad.log` changed, no additions/deletions. Library changes are
+OS snapshot replacements only; preference dictionary and PC registry unchanged.
+The real game inputs/saves remain protected. Only isolated copied saves/config
+were opened. No hardware, EULA acceptance, IPA, push or publication.
+
+Limits: menu labels still say Jump/Melee while the game asks for A/B; controls
+currently assume the default Xbox profile binding. Full sustained multi-touch,
+controller feel and physical performance are untested. The shared handler tests
+cover independent inputs but are not human multi-finger acceptance. PC gameplay
+is not newly verified. Render log remains 640x480; visibly soft ground and texture
+fidelity are not fixed by this input work.
+
+### Source-review leads for the next renderer/update pass
+
+- Upstream [build 66](https://github.com/cybersecurity/halo-ce-universal/releases/tag/build-66),
+  `f2ba71d9af4c6fc65d7419cc22e8f4899b16da88`, is latest at recheck. Relative to
+  accepted build 64 it adds high-resolution text/titles and multiplayer player
+  names. Renderer/cache/font/embedder changes require candidate testing; release
+  notes do not establish a world-texture fix.
+- [NicholasDominici's iOS port](https://github.com/NicholasDominici/halo-ce-ios/blob/3f2c14101d3ae1c7f0c0a11993a43407fadbeb46/port/ios/README.md)
+  separates logical Xbox 480-line UI from native-resolution color/depth targets;
+  commit `ff9d86bf65730b780b65fb4b4d3a7d87044623ed` adds render-height controls.
+  Our Android guest path hard-codes screen scale 1, although its desktop path
+  already has scaled target/viewport support. Test resolution independently,
+  with matching depth targets and scope/UI checks; do not stretch only the blit.
+- [zimm3rmann's Apple port](https://github.com/zimm3rmann/halo-ce-ios-macos/blob/e55684aac9a06d25bcc60f8c7ea63ff9d59687a1/port/ios/README.md)
+  uses ANGLE/Metal. Commit `678ea52913770b12cd6f66b895ac143d7d6cedad` expands
+  misaligned vertex attributes into draw-local float4 uploads (Metal alignment
+  and conversion-cost issue). `e55684a` separates scratch occlusion query from
+  game query zero. These are source leads, not reproduced fixes for this guest.
+
+No external port code copied in this pass. Keep accepted guest, ANGLE and shell
+pins independent; first preserve this shared-control checkpoint, then candidate
+test build 66 using the established update gate. No blind tracking of main.
+
 The later authorized physical pass is recorded at
 [Physical iPad ANGLE preview](#physical-ipad-angle-preview-2026-10-02).
 The scope below describes the earlier Simulator-only work.

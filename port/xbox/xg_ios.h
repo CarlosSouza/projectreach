@@ -16,6 +16,8 @@ int xg_ios_start(const char *image_path, const char *data_root, const char *save
  * bits numbered by SDL_GamepadButton */
 void xg_ios_set_touch_pad(const struct xg_touch_pad *state);
 void xg_ios_clear_touch_pad(void);
+/* Relative touch look is delivered through upstream's SDL mouse path. */
+void xg_ios_add_touch_look(float dx, float dy);
 /* nonzero while a game controller is player 1's */
 int xg_ios_controller_connected(void);
 

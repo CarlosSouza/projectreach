@@ -42,23 +42,6 @@ HP_SETTING(NSInteger, ringSpacing, setRingSpacing, @"HaloPad.ringSpacing", @(MIN
 
 /* ---- Windows input ---- */
 
-static void post_key(uint32_t vk, uint32_t side, uint32_t scan, int ext, int down, unichar ch)
-{
-    hp_input e = {.kind = HPI_KEY, .flags = HPI_TOUCH, .vk = vk, .side_vk = side ? side : vk, .scan = scan, .extended = ext, .down = down};
-    if (down && ch) { e.chars[0] = ch; e.nchars = 1; }
-    halopad_host_post_input(&e);
-}
-static void post_mouse(int32_t dx, int32_t dy)
-{
-    hp_input e = {.kind = HPI_MOUSEMOVE, .flags = HPI_TOUCH, .x = 400, .y = 300, .dx = dx, .dy = dy};
-    halopad_host_post_input(&e);
-}
-static void post_action(uint32_t action, int down)
-{
-    hp_input e = {.kind = HPI_ACTION, .flags = HPI_TOUCH, .action = action, .down = down};
-    halopad_host_post_input(&e);
-}
-
 /* Typed keys (text, the console key, chat keys) wait in a queue and go to Halo one event every
    50 ms, a little over one of Halo's frames: its keyboard is read once a frame, and a key that
    goes down and up between two reads is never seen. Held controls post at once. */
@@ -279,6 +262,7 @@ static void trace_touches(UIView *view, NSSet<UITouch *> *touches, const char *p
 @property(nonatomic, strong) UILabel *label;
 @property(nonatomic, strong) UIImageView *icon;
 @property(nonatomic, copy) void (^lookBy)(CGFloat dx, CGFloat dy);
+@property(nonatomic, copy) void (^actionChanged)(int action, int down);
 @property(nonatomic) BOOL editing;
 - (void)release_;
 - (void)press:(int)down;
@@ -363,8 +347,7 @@ static void trace_touches(UIView *view, NSSet<UITouch *> *touches, const char *p
     if (down && !self.bindingAvailable && self.bindingHelp) self.bindingHelp();
     /* Still deliver both edges: this snapshot may lag a remap, and release
        must reach the runtime's press-time owner even if availability changed. */
-    if (self.action >= 0) post_action((uint32_t)self.action, down);
-    else post_key(0x1b, 0, 0x01, 0, down, 0);
+    if (self.actionChanged) self.actionChanged(self.action, down);
     self.transform = down ? CGAffineTransformMakeScale(0.92, 0.92) : CGAffineTransformIdentity;
     [self paint];
 }
@@ -456,6 +439,7 @@ static const hp_control_def CONTROLS[] = {
 @end
 
 @interface HPOverlay () <UIGestureRecognizerDelegate>
+- (void)postInput:(const hp_input *)event;
 @end
 
 @implementation HPOverlay {
@@ -477,11 +461,19 @@ static const hp_control_def CONTROLS[] = {
     int _wasd[4];                                   /* W A S D held */
     double _lookRestX, _lookRestY;
     HPLookDrag *_lookDrag;
+    void (^_inputHandler)(const hp_input *event);
+    BOOL _inputInactive;
 }
 
 - (instancetype)initWithFrame:(CGRect)frame
 {
+    return [self initWithFrame:frame inputHandler:nil];
+}
+- (instancetype)initWithFrame:(CGRect)frame inputHandler:(void (^)(const hp_input *event))handler
+{
     if ((self = [super initWithFrame:frame])) {
+        _inputHandler = [handler copy];
+        _engineMenuItems = @[];
         self.multipleTouchEnabled = YES;
         _availableActions = (1u << 29) - 1;
         _lookDrag = [HPLookDrag new];
@@ -512,11 +504,30 @@ static const hp_control_def CONTROLS[] = {
         [self addSubview:_bindingHint];
         for (NSString *n in @[GCControllerDidConnectNotification, GCControllerDidDisconnectNotification])
             [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(refreshControllerVisibility) name:n object:nil];
+        if (_inputHandler) {
+            [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(inputWillResign:)
+                name:UIApplicationWillResignActiveNotification object:nil];
+            [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(inputDidBecomeActive:)
+                name:UIApplicationDidBecomeActiveNotification object:nil];
+        }
         [self refreshControllerVisibility];
     }
     return self;
 }
 - (void)dealloc { [NSNotificationCenter.defaultCenter removeObserver:self]; }
+- (void)postInput:(const hp_input *)event
+{
+    if (_inputInactive && event->kind != HPI_CANCEL_TOUCH) return;
+    if (_inputHandler) _inputHandler(event);
+    else halopad_host_post_input(event);
+}
+- (void)inputWillResign:(NSNotification *)note { [self clearTouchInput]; _inputInactive = YES; }
+- (void)inputDidBecomeActive:(NSNotification *)note { [self clearTouchInput]; _inputInactive = NO; }
+- (void)setEngineMenuItems:(NSArray<UIMenuElement *> *)items
+{
+    _engineMenuItems = [items copy];
+    [self rebuildMenu];
+}
 
 /* ---- the controls ---- */
 
@@ -552,6 +563,11 @@ static const hp_control_def CONTROLS[] = {
         NSString *name = b.accessibilityLabel;
         b.bindingHelp = ^{ [weak showBindingHelp:name]; };
         b.lookBy = ^(CGFloat dx, CGFloat dy) { [weak lookX:dx y:dy]; };
+        b.actionChanged = ^(int action, int down) {
+            hp_input event = {.kind = action < 0 ? HPI_KEY : HPI_ACTION, .flags = HPI_TOUCH,
+                .action = (uint32_t)action, .down = down, .vk = 0x1b, .side_vk = 0x1b, .scan = 0x01};
+            [weak postInput:&event];
+        };
         [_buttons addObject:b];
         [self addSubview:b];
         [self addEditGestures:b];
@@ -594,7 +610,7 @@ static const hp_control_def CONTROLS[] = {
     if (_editing) return;
     if (self.analogMoveReady) {
         hp_input event = {.kind = HPI_TOUCH_MOVE, .flags = HPI_TOUCH, .move_x = x, .move_y = y};
-        halopad_host_post_input(&event);
+        [self postInput:&event];
         return;
     }
     static const uint32_t actions[4] = {19, 21, 20, 22};
@@ -607,7 +623,8 @@ static const hp_control_def CONTROLS[] = {
                 static NSString * const names[] = {@"Forward", @"Left", @"Backward", @"Right"};
                 [self showBindingHelp:names[i]];
             }
-            post_action(actions[i], want);
+            hp_input event = {.kind = HPI_ACTION, .flags = HPI_TOUCH, .action = actions[i], .down = want};
+            [self postInput:&event];
         }
     }
 }
@@ -625,7 +642,10 @@ static const hp_control_def CONTROLS[] = {
     _lookRestX += dx * s; _lookRestY += dy * s;
     int32_t ix = (int32_t)_lookRestX, iy = (int32_t)_lookRestY;
     _lookRestX -= ix; _lookRestY -= iy;
-    if (ix || iy) post_mouse(ix, iy);
+    if (ix || iy) {
+        hp_input event = {.kind = HPI_MOUSEMOVE, .flags = HPI_TOUCH, .x = 400, .y = 300, .dx = ix, .dy = iy};
+        [self postInput:&event];
+    }
 }
 - (void)clearTouchInput
 {
@@ -637,7 +657,7 @@ static const hp_control_def CONTROLS[] = {
     [_lookDrag clear];
     _lookRestX = _lookRestY = 0;
     hp_input cancel = {.kind = HPI_CANCEL_TOUCH};
-    halopad_host_post_input(&cancel);
+    [self postInput:&cancel];
 }
 
 - (BOOL)driveControl:(NSString *)identifier down:(BOOL)down
@@ -736,8 +756,9 @@ static const hp_control_def CONTROLS[] = {
 {
     extern int halopad_app_controller_ready(void);
     BOOL connected = NO;
+    if (self.controllerConnected) connected = self.controllerConnected();
 #if !TARGET_OS_SIMULATOR
-    if (halopad_app_controller_ready())
+    else if (halopad_app_controller_ready())
         for (GCController *c in GCController.controllers) if (c.extendedGamepad) connected = YES;
 #endif
     _controllerHidden = connected && HPSettings.shared.hideWithController;
@@ -924,14 +945,21 @@ static NSString * const HPRepositoryURL = @"https://github.com/chrissotraidis/pr
         [play addObject:leave];
     }
 
-    UIMenu *controls = [UIMenu menuWithTitle:@"Controls" image:icon(@"gamecontroller") identifier:nil options:0 children:@[
+    NSMutableArray<UIMenuElement *> *controlItems = [NSMutableArray arrayWithArray:@[
         [UIAction actionWithTitle:@"Look Speed & Touch Settings…" image:icon(@"slider.horizontal.3") identifier:nil handler:^(__kindof UIAction *a) { [weak togglePanel]; }],
         [UIAction actionWithTitle:@"Edit Touch Layout" image:icon(@"hand.draw") identifier:nil handler:^(__kindof UIAction *a) { [weak beginEditing]; }],
         [self check:@"Hide Touch Controls" on:s.hideTouchControls handler:^{
             HPSettings.shared.hideTouchControls = !HPSettings.shared.hideTouchControls; [weak clearTouchInput]; [weak updateAppearance]; [weak rebuildMenu]; }],
         [self check:@"Hide Touch Controls with a Controller" on:s.hideWithController handler:^{
-            HPSettings.shared.hideWithController = !HPSettings.shared.hideWithController; [weak refreshControllerVisibility]; [weak rebuildMenu]; }],
-        [UIAction actionWithTitle:@"Controller Guide" image:icon(@"gamecontroller.fill") identifier:nil handler:^(__kindof UIAction *a) { [weak showControllerLayout]; }]]];
+            HPSettings.shared.hideWithController = !HPSettings.shared.hideWithController; [weak refreshControllerVisibility]; [weak rebuildMenu]; }]]];
+    if (!_inputHandler)
+        [controlItems addObject:[UIAction actionWithTitle:@"Controller Guide" image:icon(@"gamecontroller.fill") identifier:nil handler:^(__kindof UIAction *a) { [weak showControllerLayout]; }]];
+    UIMenu *controls = [UIMenu menuWithTitle:@"Controls" image:icon(@"gamecontroller") identifier:nil options:0 children:controlItems];
+    if (_inputHandler) {
+        _menuButton.menu = [UIMenu menuWithTitle:@"HaloPad" children:@[
+            [UIMenu menuWithTitle:@"" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:self.engineMenuItems], controls]];
+        return;
+    }
 
     UIMenu *chat = [UIMenu menuWithTitle:@"Keyboard & Chat" image:icon(@"keyboard") identifier:nil options:0 children:@[
         [UIAction actionWithTitle:@"All Chat" image:icon(@"bubble.left.and.bubble.right") identifier:nil

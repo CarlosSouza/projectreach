@@ -10,11 +10,14 @@
  */
 #import <UIKit/UIKit.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
+#import <GameController/GameController.h>
 #include <arpa/inet.h>
 #include <ifaddrs.h>
 #include <net/if.h>
 #include "xg_ios.h"
 #include "xg_xiso.h"
+#import "HaloPadOverlay.h"
+#include "xg_overlay_input.h"
 
 /* system link: iOS lets apps broadcast only with a restricted entitlement, so
  * the game searches the addresses the player lists instead (upstream's
@@ -108,7 +111,8 @@ static BOOL xbox_backup_saves(NSError **error)
 @implementation HPXboxViewController
 {
 	UIView *game;
-	XGTouchPad *pad;
+	HPOverlay *pad;
+	struct xg_overlay_input touch_input;
 	UIButton *link_button;
 	UIView *import_panel;
 	UILabel *import_status;
@@ -204,9 +208,29 @@ static BOOL xbox_backup_saves(NSError **error)
 	 * running game, so it cannot reappear or keep polling on the import screen. */
 	if (!pad)
 	{
-		pad = [[XGTouchPad alloc] initWithFrame:self.view.bounds];
+		__weak HPXboxViewController *weak = self;
+		pad = [[HPOverlay alloc] initWithFrame:self.view.bounds inputHandler:^(const hp_input *event) {
+			HPXboxViewController *owner = weak;
+			if (!owner) return;
+			xg_overlay_event(&owner->touch_input, event);
+			if (event->kind == HPI_CANCEL_TOUCH) xg_ios_clear_touch_pad();
+			else if (event->kind == HPI_MOUSEMOVE) xg_ios_add_touch_look(event->dx, event->dy);
+			else xg_ios_set_touch_pad(&owner->touch_input.pad);
+		}];
+		pad.analogMoveReady = YES;
+		pad.inGame = YES;
+		pad.controllerConnected = ^BOOL {
+			if (getenv("XG_TOUCH_SHOW")) return NO;
+			for (GCController *controller in GCController.controllers) if (controller.extendedGamepad) return YES;
+			return NO;
+		};
+		pad.engineMenuItems = @[
+			[UIAction actionWithTitle:@"System Link…" image:[UIImage systemImageNamed:@"network"] identifier:nil
+				handler:^(__kindof UIAction *action) { [weak showLink]; }]];
+		[pad refreshControllerVisibility];
 		pad.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
 		[self.view insertSubview:pad belowSubview:link_button];
+		link_button.hidden = YES;
 	}
 	[NSFileManager.defaultManager createDirectoryAtPath:xbox_saves() withIntermediateDirectories:YES attributes:nil error:nil];
 	{

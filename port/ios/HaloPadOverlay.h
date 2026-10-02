@@ -7,6 +7,7 @@
  * Halo's console and an on-screen keyboard, display options, touch-control settings and a problem
  * report. */
 #import <UIKit/UIKit.h>
+#include "../runtime/halopad_input.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -45,6 +46,11 @@ typedef NS_ENUM(NSInteger, HPAspectMode) { HPAspectOriginal = 0, HPAspectFill = 
 @end
 
 @interface HPOverlay : UIView
+/* The shared presentation owns layout/settings. An optional engine adapter
+   receives semantic actions, analog movement and relative look counts. */
+- (instancetype)initWithFrame:(CGRect)frame inputHandler:(nullable void (^)(const hp_input *event))handler;
+@property(nonatomic, copy, nullable) BOOL (^controllerConnected)(void);
+@property(nonatomic, copy) NSArray<UIMenuElement *> *engineMenuItems;
 @property(nonatomic, weak, nullable) id<HPOverlayDelegate> delegate;
 /* A gameplay map is loaded; Halo may also have its pause/child menu open. */
 @property(nonatomic) BOOL inGame;

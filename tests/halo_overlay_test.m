@@ -2,6 +2,7 @@
    sent to the host; it does not claim actual multi-touch routing or game acceptance. */
 #import "../port/ios/HaloPadOverlay.h"
 #include "../port/runtime/halopad_input.h"
+#include "../port/xbox/xg_overlay_input.h"
 #include <stdio.h>
 
 static hp_input events[512];
@@ -10,6 +11,61 @@ static BOOL held[256], actions[29];
 static void check(const char *name, BOOL ok);
 static void run_for(double seconds);
 static BOOL all_released(void);
+
+static void check_xbox_adapter(void)
+{
+    __block struct xg_overlay_input adapter = {0};
+    __block struct xg_touch_input buffer = {0};
+    __block int lookX = 0, lookY = 0;
+    int pcCount = count;
+    HPOverlay *view = [[HPOverlay alloc] initWithFrame:CGRectMake(0, 0, 1024, 768)
+        inputHandler:^(const hp_input *event) {
+            xg_overlay_event(&adapter, event);
+            if (event->kind == HPI_CANCEL_TOUCH) { xg_touch_clear(&buffer); lookX = lookY = 0; }
+            else if (event->kind == HPI_MOUSEMOVE) { lookX += event->dx; lookY += event->dy; }
+            else xg_touch_publish(&buffer, &adapter.pad);
+        }];
+    view.inGame = YES; view.analogMoveReady = YES;
+    [view layoutIfNeeded];
+    [view driveMoveX:.5 y:1];
+    [view driveControl:@"fire" down:YES];
+    [view driveLookX:20 y:-10];
+    check("shared Xbox controls hold movement/fire and accumulate independent look",
+          buffer.current.axes[0] == .5f && buffer.current.axes[1] == -1 &&
+          buffer.current.axes[5] == 1 && lookX > 0 && lookY < 0);
+    [view driveControl:@"action" down:YES]; [view driveControl:@"reload" down:YES];
+    (void)xg_touch_button(&buffer, SDL_GAMEPAD_BUTTON_WEST);
+    [view driveControl:@"action" down:NO];
+    check("Xbox USE/RELOAD alias preserves X until both controls release",
+          xg_touch_button(&buffer, SDL_GAMEPAD_BUTTON_WEST) && xg_touch_button(&buffer, SDL_GAMEPAD_BUTTON_WEST));
+    [view driveControl:@"reload" down:NO];
+    check("last Xbox X owner releases", !xg_touch_button(&buffer, SDL_GAMEPAD_BUTTON_WEST));
+    [view driveControl:@"jump" down:YES]; [view driveControl:@"jump" down:NO];
+    check("shared Jump reaches Xbox A for one poll after a short tap",
+          xg_touch_button(&buffer, SDL_GAMEPAD_BUTTON_SOUTH) && !xg_touch_button(&buffer, SDL_GAMEPAD_BUTTON_SOUTH));
+    [view driveControl:@"menu" down:YES]; [view driveControl:@"menu" down:NO];
+    check("shared pause reaches Xbox Start", xg_touch_button(&buffer, SDL_GAMEPAD_BUTTON_START));
+    [NSNotificationCenter.defaultCenter postNotificationName:UIApplicationWillResignActiveNotification object:nil];
+    struct xg_touch_input zero = {0};
+    check("shared Xbox focus loss clears held/unread controls and look",
+          !memcmp(&buffer, &zero, sizeof(zero)) && !lookX && !lookY);
+    [view driveControl:@"fire" down:YES]; [view driveMoveX:1 y:1]; [view driveLookX:20 y:30];
+    check("inactive engine adapter refuses input", !memcmp(&buffer, &zero, sizeof(zero)) && !lookX);
+    [NSNotificationCenter.defaultCenter postNotificationName:UIApplicationDidBecomeActiveNotification object:nil];
+    [view driveControl:@"fire" down:YES];
+    check("fresh Xbox fire works after activation", xg_touch_axis(&buffer, 5) == 1);
+    [view clearTouchInput];
+    check("Xbox routing never posts into PC input", count == pcCount);
+    UIButton *menu = [view valueForKey:@"menuButton"];
+    check("Xbox menu contains shared settings and excludes PC join/chat commands", menu.menu.children.count == 2);
+    HPOverlay *pc = [[HPOverlay alloc] initWithFrame:view.frame]; pc.inGame = YES;
+    [pc layoutIfNeeded];
+    BOOL same = YES;
+    for (UIView *a in view.subviews) for (UIView *b in pc.subviews)
+        if (a.accessibilityIdentifier.length && [a.accessibilityIdentifier isEqualToString:b.accessibilityIdentifier])
+            same &= CGRectEqualToRect(a.frame, b.frame);
+    check("PC and Xbox share identical layout geometry and preference keys", same);
+}
 
 @interface HPTestOverlay : HPOverlay
 @property(nonatomic) BOOL simulatedPhone;
@@ -603,6 +659,7 @@ int main(void)
         check_stick_ownership();
         check_layouts();
         check_editor_alignment();
+        check_xbox_adapter();
 
         fprintf(stderr, "OVERLAY INPUT: %s (%d failures)\n", failures ? "FAIL" : "PASS", failures);
         return failures ? 1 : 0;

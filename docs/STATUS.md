@@ -1,8 +1,20 @@
 # HaloPad status
 
-Updated 2026-10-02. **Physical-iPad test window authorized; Xbox preview installed and running.** The full goal is incomplete.
+Updated 2026-10-02. **Simulator-only work: shared controls, texture compatibility and upstream updates.** The full goal is incomplete. The hardware iPad is unavailable today.
 
-Operating loop: [HaloPad-GOAL-LOOP-PHASE3.md](HaloPad-GOAL-LOOP-PHASE3.md). Earlier engineering history remains in [phase 2](HaloPad-GOAL-LOOP-PHASE2.md).
+Operating loop: [HaloPad-GOAL-LOOP-PHASE4.md](HaloPad-GOAL-LOOP-PHASE4.md). Earlier device work remains in [phase 3](HaloPad-GOAL-LOOP-PHASE3.md).
+
+**Shared controls, Simulator (2026-10-02).** Combined Xbox now uses the existing
+PC `HPOverlay`, including sticks, fire-and-drag aim, layout and touch settings.
+A small Xbox adapter preserves independent Use/Reload ownership and cancels
+input on interruption. 128 native overlay checks and 143 Xbox tests pass. Actual
+normal-menu a30 gameplay verifies drag aim/fire (rifle 60 to 59), movement, swap,
+zoom, pause, settings/Done, Save and Quit, cold chooser and checkpoint reload.
+Real Documents game/save files, PC registry and preference values remain unchanged.
+Guest build 64 and ANGLE preview remain unchanged for this control baseline.
+Xbox menu-aware labels, remapped Xbox profiles, sustained multi-touch and texture
+fidelity remain open; internal rendering still reports 640x480. No hardware work.
+[Pass evidence](XBOX-SIMULATOR-PASSES.md#shared-pc-and-xbox-overlay-2026-10-02).
 
 **Physical hardware follow-up (2026-10-02).** Chris authorized the shared iPad.
 The current-source ANGLE preview is provisioned for the exact M2 iPad Pro and
