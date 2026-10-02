@@ -1,5 +1,65 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Counted Metal backend candidate (2026-10-02)
+
+The preceding rectangle pass established coverage loss. Implement the necessary
+counting mechanism in a separate ANGLE build, not another geometry observer.
+`HALOPAD_ANGLE_COUNTED_VISIBILITY=ON` generates three exact-input-checked files
+inside the build directory. External ANGLE source stays untouched and clean.
+Change Metal query begin/continue to Counting and replace the internal shader's
+boolean OR reduction with 64-bit limb addition, saturating on overflow. This
+retains counts across render-pass breaks and both old-result handling paths.
+QueryMtl's ordinary result conversion stays unchanged: standard GLES callers
+still receive GL_TRUE/GL_FALSE. The private render-thread bridge
+`halopad_angle_query_samples` uses the normal query resolve/wait path and reads
+its resolved buffer; invalid/active/non-occlusion queries fail. Counts wider than
+GLuint saturate. This bridge is only compiled into the candidate library.
+
+Build directory: `ref/xbox-build/out/angle-counted-simulator`. Configure with
+the existing pinned `ANGLE_SOURCE_DIR`, iOS system, iphonesimulator SDK, arm64,
+deployment target 17, Release, and the explicit counted option. Ordinary
+`build-ios.sh` explicitly passes OFF, preventing an old CMake cache choice from
+silently enabling the candidate. No app-packaging option or guest capability is
+implemented yet. Output identity records exact input, generated output, recipe
+and bridge hashes. Generated third-party material remains private/ignored.
+
+`scripts/test-xbox-counted-visibility.py --device <dedicated UDID>
+--angle-source <pinned source> --angle-build <candidate build>` compiles an
+asset-free executable and runs it with `simctl spawn`. It creates a Metal-backed
+EGL pbuffer and framebuffer targets, not a HaloPad installation or window, and
+does not open game files/saves. Final evidence:
+`generated/xbox-counted-tests/20261002T112532041905Z/`.
+
+**56 actual GPU cases pass**, 28 each with `allowBufferReadWrite` forced on and
+off; the bridge verifies the actual enabled state before tests. At sizes
+64/128/512: empty/reused query, full target, repeated result read, half scissor,
+fully depth-hidden, half depth-hidden, two render targets separated by glFlush,
+and conservative query. Expected full counts are 4096/16384/262144; two-pass
+counts 6144/24576/393216, exercising carry beyond 16 bits. Additional tests:
+the measured viewport (-42,203,58,58) returns exactly **928**; the entirely
+outside viewport returns zero; two pending queries read in reverse order retain
+their independent counts. Every standard GLES result is also checked as boolean.
+This verifies backend pixel counts and their 4x growth at doubled dimensions,
+**not guest normalization**, MSAA, physical iPad behavior, performance or an
+in-game flare fix. The 64-bit saturation branch is not exercised by huge GPU
+workloads; do not imply exhaustive integer-range testing.
+
+177 Xbox Python tests pass, including exact-input/duplicate-anchor rejection,
+source preservation/output identity and the normal builder's explicit OFF.
+Initial configure caught whitespace differences in the embedded shader anchor;
+corrected against inspected source. Initial build caught relative includes in
+copied DisplayMtl; added the original Metal include directory. First test link
+needed CoreGraphics; corrected. Failures remain in private build/test logs.
+No failed run is counted as passing evidence.
+
+Next integrate the private capability with a separately identified guest
+adaptation and package manifest. Do not send sample counts through ordinary
+GL_QUERY_RESULT or promote the backend pin. Guest counts must be normalized by
+actual render-target scale, then compared in the same partial-sun and world-depth
+views, with original/preview rollback and save backup intact. Existing HaloPad
+app and its saves were not replaced or opened by this fixture. No hardware,
+Xbox IPA, upstream edits, push or publication.
+
 ## Sun visibility rectangle measured (2026-10-02)
 
 Add CPU-only `XG_TRACE_QUERY_RECTS=1`, independent of aggregate query tracing.

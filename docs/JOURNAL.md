@@ -4640,3 +4640,35 @@ query-ID churn from bypassing throttling; added compiled assertion and all 174
 tests pass again. Rebuilt/signed/installed final hash `9df901c…03501ee` matches
 generated output. Earlier `69a35886…a8bbc0a` remains the five-minute trace evidence
 identity; geometry/renderer behavior is unchanged by this logging-only edit.
+
+## 2026-10-02 — Counted Metal backend, independently GPU-verified
+
+Previous pass established a specific coverage gap. Implement isolated opt-in
+ANGLE `counted-visibility-v1`: exact-input-checked generated ContextMtl/DisplayMtl
+and shader copies, no external source edits. Request Metal Counting at begin
+and continuation; use saturating 64-bit limb addition instead of OR when
+combining render passes. Ordinary QueryMtl boolean conversions are untouched.
+A private render-thread bridge exposes resolved counts, rejecting invalid,
+active and non-occlusion queries. Ordinary build-ios explicitly forces option
+OFF; the candidate uses `ref/xbox-build/out/angle-counted-simulator` only.
+
+Asset-free Simulator pbuffer fixture passes 56 actual GPU checks, 28 with each
+verified allowBufferReadWrite feature state. Includes exact full/half/zero,
+depth occlusion, query reuse and independent IDs, two render targets with flush,
+64/128/512 target sizes, conservative query and unchanged GLES boolean results.
+The actual sun-edge rectangle's equivalent viewport produces exactly 928;
+fully outside produces zero. This demonstrates counting and cross-pass sums,
+not guest scaling, game rendering, physical performance or a completed fix.
+Final evidence `generated/xbox-counted-tests/20261002T112532041905Z`, library
+`100c2ad6636c1d0f49777f0d4a44bc60c7d511e31a8408db2ec65b7bf5f9f232`.
+177 Python tests pass; generation preserves sources, rejects input/anchor drift,
+records output/bridge/recipe identity and normal builder forces OFF.
+
+Preserve initial failed shader-anchor configure, copied-source include compile
+and missing-CoreGraphics fixture link diagnostics; all were corrected and later
+build/run results, not those failures, supply acceptance. No game install,
+saved-state access, upstream pin promotion, hardware, IPA or publication.
+Next wire a separately identified private guest/backend capability, normalize
+scaled-target counts, then compare the actual Blood Gulch sun and world occluder
+with fallback/rollback. Do not substitute more identical synthetic checks for
+that integration or claim the user's broader texture/shading report resolved.

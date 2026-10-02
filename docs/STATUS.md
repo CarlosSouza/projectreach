@@ -4,6 +4,17 @@ Updated 2026-10-02. **Simulator-only work: shared controls, texture compatibilit
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE4.md](HaloPad-GOAL-LOOP-PHASE4.md). Earlier device work remains in [phase 3](HaloPad-GOAL-LOOP-PHASE3.md).
 
+**Counted backend candidate (2026-10-02).** An isolated ANGLE candidate now
+returns exact visible-pixel counts through a private bridge, while ordinary
+GLES queries remain boolean. 56 actual Simulator GPU cases pass across both
+verified render-pass accumulation paths, including the measured sun-edge
+rectangle (928 pixels), depth occlusion, query reuse and 2x target dimensions.
+177 Xbox Python tests pass. This is not yet connected to the Xbox guest or
+installed in HaloPad, so no in-game graphics fix is claimed. Next wire an
+explicit, separately identified guest/backend capability and validate scale
+normalization plus the same Blood Gulch view.
+[Evidence](XBOX-SIMULATOR-PASSES.md#counted-metal-backend-candidate-2026-10-02).
+
 **Measured flare coverage loss (2026-10-02).** Opt-in rectangle/result observer
 correlates the Blood Gulch sun with an actual test rectangle: at most 27.6% lies
 inside the viewport, but the ES boolean fallback still drives full target

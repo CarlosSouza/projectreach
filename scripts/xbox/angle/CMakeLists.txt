@@ -37,7 +37,25 @@ set(ANGLE_DEFINITIONS ANGLE_ENABLE_ESSL ANGLE_ENABLE_GLSL)
 include("${ANGLE_SOURCE_DIR}/PlatformCocoa.cmake")
 list(REMOVE_DUPLICATES ANGLE_SOURCES)
 list(TRANSFORM ANGLE_SOURCES PREPEND "${ANGLE_SOURCE_DIR}/")
+option(HALOPAD_ANGLE_COUNTED_VISIBILITY "Private counted-visibility candidate (not a game default)" OFF)
+if(HALOPAD_ANGLE_COUNTED_VISIBILITY)
+    find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    set(counted_dir "${CMAKE_CURRENT_BINARY_DIR}/counted-visibility-v1")
+    execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/counted_visibility.py"
+        --source "${ANGLE_SOURCE_DIR}" --output "${counted_dir}" COMMAND_ERROR_IS_FATAL ANY)
+    foreach(source ContextMtl.mm DisplayMtl.mm)
+        list(REMOVE_ITEM ANGLE_SOURCES "${ANGLE_SOURCE_DIR}/src/libANGLE/renderer/metal/${source}")
+        list(APPEND ANGLE_SOURCES "${counted_dir}/${source}")
+    endforeach()
+    list(APPEND ANGLE_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/counted_visibility.mm")
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+        "${CMAKE_CURRENT_SOURCE_DIR}/counted_visibility.py"
+        "${CMAKE_CURRENT_SOURCE_DIR}/counted_visibility.mm")
+endif()
 add_library(halopad-angle STATIC ${ANGLE_SOURCES})
+if(HALOPAD_ANGLE_COUNTED_VISIBILITY)
+    target_include_directories(halopad-angle PRIVATE "${ANGLE_SOURCE_DIR}/src/libANGLE/renderer/metal")
+endif()
 target_include_directories(halopad-angle PUBLIC "${ANGLE_SOURCE_DIR}/include" PRIVATE
     "${ANGLE_SOURCE_DIR}/WebKit" "${ANGLE_SOURCE_DIR}/src"
     "${ANGLE_SOURCE_DIR}/src/common/base"

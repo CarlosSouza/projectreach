@@ -55,6 +55,7 @@ if [ "$RENDERER" = angle-metal ]; then
     ANGLE_BUILD="$OUT/angle-simulator"
     [ "$SDK" != iphoneos ] || ANGLE_BUILD="$OUT/angle-iphoneos"
     cmake -S "$ROOT/scripts/xbox/angle" -B "$ANGLE_BUILD" -G Ninja \
+        -DHALOPAD_ANGLE_COUNTED_VISIBILITY=OFF \
         -DANGLE_SOURCE_DIR="$XBOX_ANGLE_SOURCE" -DCMAKE_SYSTEM_NAME=iOS \
         -DCMAKE_OSX_SYSROOT=$SDK -DCMAKE_OSX_ARCHITECTURES=arm64 \
         -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 -DCMAKE_BUILD_TYPE=Release

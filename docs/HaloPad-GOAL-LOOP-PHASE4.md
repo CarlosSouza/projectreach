@@ -159,3 +159,13 @@ rectangle again. Next test an explicitly counted backend/guest capability with
 cross-render-pass accumulation and scale normalization. Keep it separately
 identified/opt-in and preserve GLES boolean semantics. CPU viewport clipping is
 not a general occlusion fix. No claim of fixing broader texture/shading defects.
+
+Counted backend follow-up: isolated generated ANGLE candidate enables Counting
+and sums across passes; private bridge returns counts while standard GLES stays
+boolean. 56 actual GPU cases pass across both verified accumulation paths,
+including 928 pixels for the measured edge rectangle, depth hiding, query reuse
+and larger targets. 177 Python tests pass. No HaloPad install or guest change.
+Next integrate the explicit private capability, separately fingerprint backend
+and guest, normalize scaled counts, then validate the actual sun view and rollback.
+Do not repeat these same synthetic tests in lieu of game integration, and do not
+mark the visual defect fixed from this backend-only evidence.
