@@ -4,13 +4,23 @@ Updated 2026-10-02. **Simulator-only work: shared controls, texture compatibilit
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE4.md](HaloPad-GOAL-LOOP-PHASE4.md). Earlier device work remains in [phase 3](HaloPad-GOAL-LOOP-PHASE3.md).
 
+**Scoreboard observation (2026-10-02).** Read-only guest observation narrows the
+previous negative video result: real automated drag reaches guest Back and opens
+the scoreboard path, but only for one rendered sample. Fade peaks at 0.0814
+(about 0.85% opacity with upstream's curve), then closes. No evidence here of a
+lost Back input or failed font/layout entry. This does not verify final pixels or
+overflow paging. No runtime/pin change; original state preserved and ordinary
+picker restored. Return next to the captured cyan HUD/material defect; do not
+change hold semantics solely to accommodate the short automation gesture.
+[Probe evidence](XBOX-SIMULATOR-PASSES.md#build-73-scoreboard-read-only-observation-2026-10-02).
+
 **Scoreboard input bridge (2026-10-02).** Xbox Scoreboard now supports held
 vertical drag via paired Page Up/Down inputs; shared PC controls stay unchanged.
 185 Xbox tests and 141 native overlay assertions pass. Installed build-73
 candidate `39f06f77…7198e` produces four paired page events from an actual drag;
 camera/weapon stay unchanged and subsequent Fire works. Captured frames do not
 establish visible scoreboard response, and the local roster has only two players.
-Next diagnose scoreboard display/hold consumption before claiming paging acceptance.
+The follow-up probe above narrows hold consumption; paging acceptance remains open.
 Saves/preferences/PC registry preserved; ordinary picker restored; pin stays 66.
 [Evidence and limits](XBOX-SIMULATOR-PASSES.md#build-73-scoreboard-touch-bridge-2026-10-02).
 

@@ -4855,3 +4855,22 @@ end-to-end paging. Full record in Simulator ledger. Both helpers exit0 and
 recording stopped; ordinary picker PID5172. All196 Documents preserved except
 known log; Library OS snapshots/scene state only, prefs/PC registry identical.
 No hardware, IPA, push, publication or accepted-pin promotion. Graphics open.
+
+## 2026-10-02 — scoreboard Back/fade discrimination
+
+Unchanged73 app `39f06f77…7198e`, private `scoreboard-observe73.0c6lPL`.
+Read-only LLDB swap probe with exact ELF globals distinguishes input loss from
+short hold: actual CUA drag reaches guest Back1, suppression0, fade0.0814 and
+scoreboard_open1 for one rendered sample, then zero. Upstream power1.9 curve
+means only~0.85% opacity. Two PageDown pairs logged. Previous sampled video's
+negative result does not establish a rendering failure; final pixels/overflow
+still not accepted. Do not alter held semantics to suit automation.
+
+Initial debugger pause disturbed networking; write-watch EXC_BAD_ACCESS also
+stalled loading until detach/re-attach with Darwin ignored-exceptions configured
+before attachment. Not a new crash, nor performance evidence. Probe never
+writes guest memory. Both helpers exit0, breakpoint deleted/debugger detached,
+ordinary picker PID14557 visually restored. All196 Documents preserved except
+log; Library OS scene state only, prefs/PC registry identical. No product code,
+rebuild/install, pin change, unit rerun or hardware. Next cyan HUD/material
+comparison, retaining separate sustained-scoreboard and overflow gates.

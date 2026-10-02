@@ -1,5 +1,43 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Build 73 scoreboard read-only observation (2026-10-02)
+
+Private evidence: `ref/xbox-build/passes/2026-10-02/scoreboard-observe73.0c6lPL`.
+Installed app remains `39f06f77…7198e`, build73/counting adaptation unchanged;
+accepted lock remains66. No rebuild, install, source patch or hardware access.
+Separate test save/data root and original app-data copy retained. Simulator only.
+
+Source tracing identifies Back as guest binary button13, fade timer at verified
+`game_engine_globals` offset0x14, and frame duration at verified `main_globals`
+offset0x28. Private `observe.py` uses this exact guest ELF's symbols and reads
+memory at host swap only; it is not a supported cross-version runtime ABI.
+It never writes guest state or synthesizes input. LLDB must set
+`platform.plugin.darwin.ignored-exceptions EXC_BAD_ACCESS` **before attachment**:
+renderer write-watch faults are intentional. The first attempt paused networking
+and the second initially intercepted a write-watch during loading. Both are
+diagnostic perturbations, not accepted crash/performance evidence. Detach, set
+the option before reattaching, and auto-continue resolves observation.
+
+Actual CUA Scoreboard drag `[1315,274] -> [1315,680]` in local two-player Blood
+Gulch, PID12988: observations963/964/965 show host Back then guest Back1,
+suppression0, fade0.081401996 and scoreboard_open1, followed by Back0/fade0/open0.
+Guest frame duration at the open sample is0.040701 seconds. Upstream converts
+fade to alpha with `pow(fade,1.9)`, about0.0085 opacity here. Host Back is sampled
+held once, then released; two Page Down press/release pairs are logged. The prior
+video's sparse sampling is therefore not proof of a missing scoreboard. This
+run establishes input delivery, advancing fade and passage through font/height
+guards into the scoreboard-open path, **not final pixels or overflow paging**.
+Debugger sample timing is not uninstrumented frame-rate/gesture-duration proof.
+Keep held-control semantics unchanged; do not add a toggle merely for CUA.
+
+Both helpers complete exit0. Delete breakpoint and detach debugger before final
+ordinary launch PID14557; Original-quality picker visually verified. All196
+Documents files retained, only HaloPad log changed. Library only OS
+KnownSceneSessions state changed; preferences dictionary and PC registry exact.
+No new unit rerun: runtime/source and binary unchanged. Next return to the
+captured cyan shield-HUD artifact or a matched material comparison; sustained
+scoreboard/overflow acceptance remains an explicit separate gate.
+
 ## Build 73 scoreboard touch bridge (2026-10-02)
 
 Previous turn was progress: new candidate built and existing checkpoint upgrade

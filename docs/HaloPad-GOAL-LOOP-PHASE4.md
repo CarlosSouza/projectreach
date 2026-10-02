@@ -251,3 +251,13 @@ BACK consumption/fade timing from new guest font/layout/rendering failure before
 calling pagination accepted. Do not repeat queue-only checks as end-to-end proof.
 Current installed candidate `39f06f77…7198e`; accepted lock 66 unchanged. Original
 state preserved and ordinary picker restored. Cyan HUD comparison still pending.
+
+Scoreboard observation follow-up: read-only guest probe on unchanged73 proves
+actual automated drag reaches Back and scoreboard-open path. It lasts only one
+rendered sample, fade0.0814 / effective opacity~0.85%, then closes. This narrows
+the previous video failure to a short-gesture/capture limitation, not proven
+font/layout or Back-loss failure. Final pixels and overflow still unaccepted.
+Keep hold semantics unchanged. Next prioritize the captured cyan HUD/material
+comparison; avoid another queue-only or short-drag loop. LLDB must ignore the
+renderer write-watch EXC_BAD_ACCESS before attachment, and must be detached
+after sampling. Private probe/addresses are exact-build diagnostics, not an ABI.
