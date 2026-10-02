@@ -18,6 +18,7 @@
 #include "xg_xiso.h"
 #import "HaloPadOverlay.h"
 #import "HaloPadXboxSaveIdentity.h"
+#import "HaloPadXboxQuality.h"
 #include "xg_overlay_input.h"
 
 /* system link: iOS lets apps broadcast only with a restricted entitlement, so
@@ -255,6 +256,7 @@ static BOOL xbox_backup_saves(NSError **error)
 	/* development on a device: XG_FRAME_DUMP_DOCUMENTS=1 saves frames to Documents/xbox-frame.ppm */
 	if (getenv("XG_FRAME_DUMP_DOCUMENTS"))
 		setenv("XG_FRAME_DUMP", [xbox_root().stringByDeletingLastPathComponent stringByAppendingPathComponent:@"xbox-frame.ppm"].fileSystemRepresentation, 1);
+	HPXboxApplyQuality(xbox_build(), NSUserDefaults.standardUserDefaults);
 	if (xg_ios_start(image.fileSystemRepresentation, xbox_data().fileSystemRepresentation, xbox_saves().fileSystemRepresentation))
 		[self showProblem:@"The Xbox game could not start. Share the diagnostic log from Settings > HaloPad if this keeps happening."];
 }
@@ -406,6 +408,7 @@ static void import_progress_update(double fraction, void *context)
 @implementation HPEngineChooser
 {
 	UIStackView *cards;
+	UIButton *quality;
 	BOOL choosing;
 }
 
@@ -488,6 +491,19 @@ static void import_progress_update(double fraction, void *context)
 	[builds addTarget:self action:@selector(showBuilds) forControlEvents:UIControlEventTouchUpInside];
 	builds.accessibilityIdentifier = @"engine.builds";
 	stack = [[UIStackView alloc] initWithArrangedSubviews:@[ brand, title, cards, note, builds ]];
+	if (HPXboxSupportsQuality(xbox_build()))
+	{
+		quality = [UIButton buttonWithType:UIButtonTypeSystem];
+		quality.titleLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
+		quality.titleLabel.adjustsFontForContentSizeCategory = YES;
+		quality.titleLabel.numberOfLines = 0;
+		[quality setTitleColor:brand.textColor forState:UIControlStateNormal];
+		[quality.heightAnchor constraintGreaterThanOrEqualToConstant:44].active = YES;
+		[quality addTarget:self action:@selector(showQuality) forControlEvents:UIControlEventTouchUpInside];
+		quality.accessibilityIdentifier = @"engine.xbox.quality";
+		[self updateQualityTitle];
+		[stack insertArrangedSubview:quality atIndex:3];
+	}
 	stack.axis = UILayoutConstraintAxisVertical;
 	stack.spacing = 24;
 	[stack setCustomSpacing:8 afterView:brand];
@@ -549,6 +565,33 @@ static void import_progress_update(double fraction, void *context)
 	NSString *message = [NSString stringWithFormat:@"Windows: Halo Custom Edition 1.10.\n\nXbox: halo-ce-universal %@ (built %@).%@\n\nThe Xbox port is experimental. Full campaign progression, split-screen and system link remain unverified in HaloPad. Xbox and Windows editions cannot play together.\n\nUpdates are validated on the Mac and iPad Simulator before the accepted pin moves. Saves are backed up when the engine changes.", [revision substringToIndex:MIN((NSUInteger)8, revision.length)], build[@"built"] ?: @"locally", [build[@"candidate"] boolValue] ? @"\nPreview candidate; validation is incomplete." : @""];
 	UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Installed builds" message:message preferredStyle:UIAlertControllerStyleAlert];
 	[alert addAction:[UIAlertAction actionWithTitle:@"Done" style:UIAlertActionStyleCancel handler:nil]];
+	[self presentViewController:alert animated:YES completion:nil];
+}
+
+- (void)updateQualityTitle
+{
+	NSString *name = HPXboxSharperSelected(NSUserDefaults.standardUserDefaults) ? @"Sharper (Preview)" : @"Original";
+	[quality setTitle:[@"Xbox graphics: " stringByAppendingString:name] forState:UIControlStateNormal];
+	quality.accessibilityLabel = @"Xbox graphics";
+	quality.accessibilityValue = name;
+	quality.accessibilityHint = @"Choose graphics quality before launching Xbox. Does not change Windows graphics.";
+}
+
+- (void)showQuality
+{
+	UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Xbox graphics"
+		message:@"Original keeps the game's resolution and filtering. Sharper doubles the resolution and uses 4× world-texture filtering. This preview needs more GPU power and does not fix all rendering issues.\n\nApplies to Xbox only, on its next launch."
+		preferredStyle:UIAlertControllerStyleAlert];
+	for (NSString *mode in @[@"original", @"sharper"])
+	{
+		[alert addAction:[UIAlertAction actionWithTitle:[mode isEqual:@"sharper"] ? @"Sharper (Preview)" : @"Original"
+			style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+				(void)action;
+				[NSUserDefaults.standardUserDefaults setObject:mode forKey:HPXboxQualityKey];
+				[self updateQualityTitle];
+			}]];
+	}
+	[alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
 	[self presentViewController:alert animated:YES completion:nil];
 }
 

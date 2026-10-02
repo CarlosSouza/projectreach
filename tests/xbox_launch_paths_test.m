@@ -2,6 +2,7 @@
  * No window, game image, installation or real game-directory access. */
 #import <UIKit/UIKit.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
+#import "../port/ios/HaloPadXboxQuality.h"
 #include "../port/xbox/xg_ios.h"
 #include "../port/xbox/xg_xiso.h"
 #include <stdio.h>
@@ -174,6 +175,36 @@ int main(int argc, char **argv)
         check("missing guest identity refuses opening saves", !xbox_backup_saves(&error) && error != nil && backups().count == 4);
         check("invalid identity leaves marker and current save untouched", [[fixture_defaults stringForKey:@"HaloPadXboxSaveRevision"] isEqualToString:accepted] &&
             [[NSData dataWithContentsOfFile:[save stringByAppendingPathComponent:@"profile.bin"]] isEqualToData:profile]);
+        NSDictionary *qualityBuild = @{@"guest_adaptation": @{@"name": @"render-quality-v1"}};
+        check("only quality-adapted guests expose quality options", HPXboxSupportsQuality(qualityBuild) &&
+            !HPXboxSupportsQuality(@{}) && !HPXboxSupportsQuality(@{@"guest_adaptation": @"invalid"}) &&
+            !HPXboxSupportsQuality(@{@"guest_adaptation": @{@"name": @"render-scale-v1"}}));
+        unsetenv("HALO_TEST_RENDER_SCALE"); unsetenv("HALO_TEST_ANISOTROPY");
+        check("missing quality preference defaults to Original", !HPXboxSharperSelected(fixture_defaults));
+        HPXboxApplyQuality(qualityBuild, fixture_defaults);
+        check("Original applies 1x resolution and 1x filtering", !strcmp(getenv("HALO_TEST_RENDER_SCALE"), "1") &&
+            !strcmp(getenv("HALO_TEST_ANISOTROPY"), "1"));
+        [fixture_defaults setObject:@"sharper" forKey:HPXboxQualityKey];
+        setenv("HALO_TEST_RENDER_SCALE", "", 1); setenv("HALO_TEST_ANISOTROPY", "", 1);
+        HPXboxApplyQuality(qualityBuild, fixture_defaults);
+        check("Sharper applies 2x resolution and 4x filtering with empty overrides", HPXboxSharperSelected(fixture_defaults) &&
+            !strcmp(getenv("HALO_TEST_RENDER_SCALE"), "2") && !strcmp(getenv("HALO_TEST_ANISOTROPY"), "4"));
+        setenv("HALO_TEST_RENDER_SCALE", "1", 1); setenv("HALO_TEST_ANISOTROPY", "16", 1);
+        HPXboxApplyQuality(qualityBuild, fixture_defaults);
+        check("explicit independent developer overrides are preserved", !strcmp(getenv("HALO_TEST_RENDER_SCALE"), "1") &&
+            !strcmp(getenv("HALO_TEST_ANISOTROPY"), "16"));
+        unsetenv("HALO_TEST_RENDER_SCALE"); unsetenv("HALO_TEST_ANISOTROPY");
+        HPXboxApplyQuality(@{}, fixture_defaults);
+        check("unadapted guest never receives quality environment", !getenv("HALO_TEST_RENDER_SCALE") && !getenv("HALO_TEST_ANISOTROPY"));
+        [fixture_defaults setObject:@"unknown" forKey:HPXboxQualityKey];
+        check("invalid saved choice defaults to Original", !HPXboxSharperSelected(fixture_defaults));
+        [fixture_defaults setObject:@42 forKey:HPXboxQualityKey];
+        check("malformed saved choice defaults to Original", !HPXboxSharperSelected(fixture_defaults));
+        [fixture_defaults setObject:@"original" forKey:HPXboxQualityKey];
+        HPXboxApplyQuality(qualityBuild, fixture_defaults);
+        check("Original selection is reversible on a fresh launch", !strcmp(getenv("HALO_TEST_RENDER_SCALE"), "1") &&
+            !strcmp(getenv("HALO_TEST_ANISOTROPY"), "1"));
+        unsetenv("HALO_TEST_RENDER_SCALE"); unsetenv("HALO_TEST_ANISOTROPY");
         printf("%d checks, %d failures\n",checks,failures);
     }
     return failures != 0;

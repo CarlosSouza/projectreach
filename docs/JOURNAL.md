@@ -4529,3 +4529,26 @@ broader effects/scene checks. No hardware, IPA, push or publication.
 Final default app restored to ordinary picker: installed/generated executable
 `eb1e2fb0…af1f66f` and strict signature verified. Post-restoration audit narrows
 differences to log and OS snapshots; original saves/registry/preferences intact.
+
+## 2026-10-02 — Xbox quality selector on the shared launcher
+
+Add one host-owned pre-launch Original/Sharper (Preview) setting, visible only
+for `render-quality-v1`. Original default; Sharper requests 2x targets and 4x
+world filtering. Persist separately from Windows; leave explicit development
+overrides usable. Unknown guests and malformed choices fail back safely.
+
+Actual combined Simulator app verifies Cancel, About/Done, cold-persisted
+Sharper and return to Original, and copied a30 launches through normal menus.
+No quality launch overrides: logs prove 640x480/1x versus 1280x960/4x. Windows
+card reaches its license screen with copied PC inputs/state; no acceptance or
+PC gameplay claimed. 170 Xbox tests plus 35 Simulator launch/save/quality
+assertions pass. Private evidence: `quality-picker.Y3ufr2`.
+
+Keep preview installed at Original picker, executable `92db1be7…88e8a7e`, strict
+signature and installed/generated hash verified. Pre-install app/data retained.
+196 original Documents files audited: only app log changes. PC registry, all
+original saves and existing preferences except last-engine selection unchanged;
+only new preference is `HaloPadXboxGraphicsQuality=original`. OS snapshots differ.
+No upstream pin move, hardware, IPA or publication. Next: isolate remaining
+effects/material/temporal defects in a different view, not more quality-picker
+plumbing or another identical a30 filtering comparison.

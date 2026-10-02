@@ -316,8 +316,15 @@ excluded, unsupported GPUs are unchanged, and requests clamp to the GPU limit.
 It follows the reviewed policy of [Tyberious's PR35](https://github.com/cybersecurity/halo-ce-universal/pull/35)
 without importing that unmerged patch/configuration or changing the upstream pin.
 Same-view Simulator a30 comparisons show more ground detail, not full material,
-visibility or physical-device performance acceptance. Neither quality option is
-enabled by default or offered as an accepted player setting yet.
+visibility or physical-device performance acceptance. The adaptation is still
+opt-in at build time. Combined quality-adapted apps expose a pre-launch **Xbox
+graphics** choice: Original (default, 1x resolution/original filtering) or
+Sharper (Preview, 2x resolution/4x world filtering). Selection persists across
+launches and does not alter Windows settings. The control is absent for other
+guest variants. Explicit nonempty development quality environment values override
+the saved choice; ordinary launches need no environment flags. Reopen HaloPad
+to change the choice before starting Xbox. Sharper is not full graphics or
+physical-performance acceptance.
 
 ## Updating the engine
 

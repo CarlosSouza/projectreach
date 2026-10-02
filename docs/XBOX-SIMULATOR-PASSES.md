@@ -1,5 +1,50 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Player-facing Xbox graphics choice (2026-10-02)
+
+Keep the Windows-left/Xbox-right cards and shared controls unchanged. Add one
+44pt-minimum pre-launch control, shown only when the packaged guest advertises
+the verified `render-quality-v1` adaptation. Original is the default, including
+missing/malformed saved choices. Sharper (Preview) selects 2x render targets and
+4x world filtering. The dialog discloses GPU cost, Xbox-only scope and unresolved
+rendering issues. Cancel writes nothing; selection persists independently of
+PC settings. Apply only immediately before Xbox starts. Nonempty development
+quality overrides remain available for independent experiments; empty overrides
+behave as unset. Unadapted and scale-only guests receive no quality settings.
+
+Dedicated Simulator, full combined app, copied a30 saves, no `HALOPAD_CHOOSE`,
+`HALO_TEST_RENDER_SCALE` or `HALO_TEST_ANISOTROPY` launch overrides:
+
+- Default picker displays Original. Quality/Cancel returns unchanged.
+- Xbox card and normal A-button menus reach copied a30. Actual source target
+  and viewport are 640x480; runtime reports requested/effective filtering 1x.
+- Choose Sharper, terminate and cold-launch. Picker retains Sharper (Preview).
+  Xbox card/normal menus reach a30 at 1280x960, requested/effective filtering 4x.
+- About/Done still returns to the picker. With Sharper retained, Windows card
+  enters the PC license screen using separate copied state/game files. Do not
+  accept the agreement or claim PC gameplay from that routing observation.
+- Change back to Original through UI, terminate and cold-launch. Picker retains
+  Original. Leave the tested preview installed with copied Xbox save overrides.
+
+The 170-test Xbox suite passes. Actual UIKit/Foundation Simulator fixture adds
+nine quality checks to the 26 launch/save checks: 35 pass with warnings treated
+as errors. Evidence: `generated/xbox-launch-tests/20261002T094322520326Z/`.
+Build-66 quality guest remains `a2f0709738df552d4ffa1b83b6c1f510d8f261a49b986dabcef731ae655d8599`;
+upstream checkout is clean and accepted pin unchanged. Strict signature and
+installed/generated executable hash match:
+`92db1be79d12b04e27a734bce4498aacedebc75e1dd6cf3b9ec41e2a188e8a7e`.
+
+Private evidence `ref/xbox-build/passes/2026-10-02/quality-picker.Y3ufr2/` retains
+pre-install app/data, candidate app, launch recipe, Original/Sharper screenshots,
+raw frame traces, final picker, PC license screenshot and audits. Of 196 original
+Documents files, only HaloPad's log changes; game/package/save files and PC
+registry are byte-identical. Preference audit permits only last-engine selection
+and the new `HaloPadXboxGraphicsQuality=original`; all other values are unchanged.
+Library differences otherwise consist of OS snapshots. No hardware, IPA, push
+or publication. This is a usable preview choice, not a fix for remaining shading,
+material or temporal popping. Next pass should isolate an effects/visibility
+case or a different scene, not repeat the completed picker/AF comparisons.
+
 ## World filtering on the accepted guest (2026-10-02)
 
 Recheck [Tyberious's upstream PR 35](https://github.com/cybersecurity/halo-ce-universal/pull/35):

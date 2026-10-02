@@ -38,7 +38,8 @@ def main():
     run = subprocess.run(['xcrun', 'simctl', 'spawn', args.device, str(binary), str(evidence / 'fixture')],
                          capture_output=True, text=True, timeout=30)
     (evidence / 'run.txt').write_text(run.stdout + run.stderr)
-    inputs = [source, ROOT / 'port/ios/HaloPadXbox.m', ROOT / 'port/ios/HaloPadXboxSaveIdentity.h', ROOT / 'port/xbox/xg_ios.h',
+    inputs = [source, ROOT / 'port/ios/HaloPadXbox.m', ROOT / 'port/ios/HaloPadXboxSaveIdentity.h',
+              ROOT / 'port/ios/HaloPadXboxQuality.h', ROOT / 'port/xbox/xg_ios.h',
               ROOT / 'port/ios/HaloPadOverlay.h', ROOT / 'port/xbox/xg_overlay_input.h',
               ROOT / 'port/xbox/xg_touch_input.h', ROOT / 'port/xbox/xg_xiso.h']
     (evidence / 'result.json').write_text(json.dumps({

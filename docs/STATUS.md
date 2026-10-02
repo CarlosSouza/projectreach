@@ -4,6 +4,18 @@ Updated 2026-10-02. **Simulator-only work: shared controls, texture compatibilit
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE4.md](HaloPad-GOAL-LOOP-PHASE4.md). Earlier device work remains in [phase 3](HaloPad-GOAL-LOOP-PHASE3.md).
 
+**Xbox graphics choice (2026-10-02).** Quality-adapted personal builds now offer
+Original or Sharper (Preview) below the edition cards. Original stays default;
+Sharper selects 2x resolution and 4x world filtering only for Xbox. Actual
+Simulator UI verifies Cancel, About/Done, both cold-persisted choices and copied
+a30 launches: 640x480/1x versus 1280x960/4x, without development quality overrides.
+Windows routing reaches its license screen, left unaccepted; no PC gameplay
+claim. 170 Xbox tests and 35 Simulator launch/save/quality assertions pass.
+Original saves and PC registry preserved; only the intended quality preference,
+last-engine selection, logs and OS snapshots differ. Preview app remains installed
+at the picker with Original selected (`92db1be7…88e8a7e`); upstream pin unchanged.
+[Evidence and remaining gates](XBOX-SIMULATOR-PASSES.md#player-facing-xbox-graphics-choice-2026-10-02).
+
 **World filtering candidate (2026-10-02).** New opt-in `render-quality-v1`
 adds bounded world anisotropy to the reproducible resolution experiment, without
 changing the accepted upstream pin. Fixed-view a30 comparisons at 1x/4x/16x

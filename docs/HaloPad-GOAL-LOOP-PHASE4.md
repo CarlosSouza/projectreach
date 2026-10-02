@@ -123,3 +123,13 @@ turn validated resolution/filtering choices into one small pre-launch Xbox
 quality setting while retaining the original mode, then broaden visual checks.
 Do not claim the ES3.0 boolean flare-occlusion fallback or atomic-count scaling
 issue solved by texture filtering, or repeat the same checkpoint comparisons.
+
+Quality UI follow-up: adapted combined builds now expose Original/Sharper
+(Preview), Original default. Actual Simulator UI verifies both persisted choices,
+Cancel, About/Done and copied a30 startup at the intended dimensions/filtering,
+without quality environment overrides. Windows routing stops at its license
+screen, left untouched. 170 Xbox tests and 35 native launch/save/quality checks
+pass. Preview remains installed with Original selected; all original saves and
+PC registry preserved. The setting is complete; next isolate an effects/visibility
+or different-scene defect. Do not rerun this same picker/AF pass or treat a sharper
+image as resolution of the user's shading/popping report.
