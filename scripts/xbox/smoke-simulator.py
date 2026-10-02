@@ -20,6 +20,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from draw_capture import load_draw, compare_clip_positions, validate_raster_input, compare_raster_coverage, compare_live_depth, compare_native_pixels, compare_color_trace
 from texture_decode import cache_symbol, compare_captures, validate_cache_revision
 from audio_capture import inspect_audio
+from mip_capture import inspect_mips
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 WORK = ROOT / 'ref/xbox-build'
@@ -136,6 +137,7 @@ def main():
     parser.add_argument('--scripted-campaign', action='store_true',
                         help='Rendering diagnostic only: upstream bot movement/look/shoot, not human controls')
     args = parser.parse_args()
+    mip_capture = args.render_diagnostics and os.environ.get('XG_CAPTURE_MIPS') == '1'
     if args.campaign_map != 'a10' and args.case != 'campaign':
         parser.error(f'--campaign-map {args.campaign_map} requires --case campaign')
     if args.scripted_campaign and (args.case != 'campaign' or not args.render_diagnostics):
@@ -271,6 +273,7 @@ def main():
         child['XG_AUDIO_CAPTURE'] = '1' if args.audio_diagnostics else ''
         child.update(campaign_environment(name == 'campaign' and args.scripted_campaign))
         child.update(query_environment(args.render_diagnostics))
+        child['XG_CAPTURE_MIPS'] = str(folder / 'mips') if mip_capture else ''
         if name == 'match':
             child.update(match_environment(args.stationary_match))
         env.update({'SIMCTL_CHILD_' + k: v for k, v in child.items()})
@@ -404,6 +407,12 @@ def main():
             row['presentation_captured'] = all((folder / ('presentation.' + part + '.ppm')).exists()
                                                for part in ('source', 'destination'))
             row['pass'] &= row['presentation_captured']
+        if mip_capture:
+            try:
+                row['mips'] = inspect_mips(folder / 'mips')
+            except (OSError, ValueError, KeyError, TypeError) as error:
+                row['pass'] = False
+                row['mip_error'] = str(error)
         if depth_pair:
             row['depth_pair_complete'] = pair_index == len(pair_names)
             row['pass'] &= row['depth_pair_complete']
@@ -472,6 +481,7 @@ def main():
     result = {'engine_revision': manifest['revision'], 'renderer': manifest.get('renderer', 'apple-gles'), 'device': args.device, 'results': results,
               'render_diagnostics': args.render_diagnostics,
               'audio_diagnostics': args.audio_diagnostics,
+              'mip_capture': mip_capture,
               'blit_probe': bool(args.render_diagnostics and os.environ.get('XG_BLIT_PROBE')),
               'raw_present_blit': bool(args.render_diagnostics and os.environ.get('XG_PRESENT_RAW_BLIT')),
               'hidden_extension': os.environ.get('XG_NO_EXTENSION') if args.render_diagnostics else None,

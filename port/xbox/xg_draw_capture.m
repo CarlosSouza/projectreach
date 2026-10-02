@@ -12,6 +12,7 @@
 static NSMutableDictionary *texture_sizes;
 static NSMutableDictionary *texture_uploads;
 static NSMutableDictionary *texture_sources;
+static NSMutableDictionary *texture_levels;
 void xg_capture_depth(NSString *folder, NSString *label);
 void xg_capture_native_pixels(NSString *folder, GLenum mode, GLsizei count, GLenum type, const void *indices);
 void xg_capture_native_after(NSString *folder);
@@ -65,6 +66,18 @@ static void observe_texture_image(GLenum target, GLint level, GLint format, GLsi
 	GLint border, GLenum pixels, GLenum type, const void *data)
 {
 	glTexImage2D(target, level, format, width, height, border, pixels, type, data);
+	const char *mips = getenv("XG_CAPTURE_MIPS");
+	if (mips && *mips && target == GL_TEXTURE_2D && level >= 0 && level <= 12) {
+		GLint texture = 0; glGetIntegerv(GL_TEXTURE_BINDING_2D, &texture);
+		if (!texture_levels) texture_levels = [NSMutableDictionary dictionary];
+		if (!level) [texture_levels removeObjectForKey:@(texture)];
+		/* Only null-data render targets, never ordinary uploaded mip chains. */
+		if (!data) {
+			if (!texture_levels[@(texture)]) texture_levels[@(texture)] = [NSMutableDictionary dictionary];
+			texture_levels[@(texture)][@(level)] = @[@(width), @(height)];
+		}
+	}
+	if (!getenv("XG_CAPTURE_TEXTURES")) return;
 	if (target != GL_TEXTURE_2D || level != 0) return;
 	GLint texture = 0; glGetIntegerv(GL_TEXTURE_BINDING_2D, &texture);
 	if (!texture_sizes) texture_sizes = [NSMutableDictionary dictionary];
@@ -96,9 +109,8 @@ static void observe_texture_update(GLenum target, GLint level, GLint x, GLint y,
 }
 
 /* Read a separate FBO, never draw into or change the captured texture. */
-static NSDictionary *read_texture(GLuint texture, NSString *folder)
+static NSDictionary *read_texture_level(GLuint texture, GLint level, NSArray *size, NSString *folder)
 {
-	NSArray *size = texture_sizes[@(texture)];
 	GLsizei width = [size[0] intValue], height = [size[1] intValue];
 	if (!size || width <= 0 || height <= 0 || width > 4096 || height > 4096)
 		return @{@"complete":@NO, @"error":@"Missing or unsupported texture dimensions"};
@@ -107,7 +119,7 @@ static NSDictionary *read_texture(GLuint texture, NSString *folder)
 	glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &read);
 	for (int i = 0; i < 5; i++) glGetIntegerv(names[i], &pack[i]);
 	GLuint framebuffer = 0; glGenFramebuffers(1, &framebuffer); glBindFramebuffer(GL_READ_FRAMEBUFFER, framebuffer);
-	glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
+	glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, level);
 	GLenum status = glCheckFramebufferStatus(GL_READ_FRAMEBUFFER);
 	NSMutableData *rgba = [NSMutableData dataWithLength:(NSUInteger)width * height * 4];
 	if (status == GL_FRAMEBUFFER_COMPLETE) {
@@ -119,9 +131,10 @@ static NSDictionary *read_texture(GLuint texture, NSString *folder)
 	glBindFramebuffer(GL_READ_FRAMEBUFFER, read); glDeleteFramebuffers(1, &framebuffer);
 	glBindBuffer(GL_PIXEL_PACK_BUFFER, pack[0]);
 	for (int i = 1; i < 5; i++) glPixelStorei(names[i], pack[i]);
-	NSString *file = [NSString stringWithFormat:@"texture-%u.rgba", texture], *preview = [NSString stringWithFormat:@"texture-%u.ppm", texture];
+	NSString *stem = level ? [NSString stringWithFormat:@"texture-%u-level-%d", texture, level] : [NSString stringWithFormat:@"texture-%u", texture];
+	NSString *file = [stem stringByAppendingString:@".rgba"], *preview = [stem stringByAppendingString:@".ppm"];
 	NSString *upload_file = [NSString stringWithFormat:@"texture-%u.upload.rgba", texture];
-	NSData *upload = texture_uploads[@(texture)];
+	NSData *upload = level ? nil : texture_uploads[@(texture)];
 	BOOL complete = status == GL_FRAMEBUFFER_COMPLETE && error == GL_NO_ERROR;
 	if (complete) {
 		complete = [rgba writeToFile:[folder stringByAppendingPathComponent:file] atomically:YES];
@@ -134,7 +147,7 @@ static NSDictionary *read_texture(GLuint texture, NSString *folder)
 	NSMutableDictionary *result = [NSMutableDictionary dictionaryWithDictionary:@{@"complete":@(complete), @"width":@(width), @"height":@(height), @"file":file, @"preview":preview,
 		@"framebuffer_status":@(status), @"gl_error":@(error), @"upload_compared":@(upload != nil),
 		@"upload_equal":@([rgba isEqualToData:upload]), @"upload_file":upload ? upload_file : @""}];
-	if (texture_sources[@(texture)]) {
+	if (!level && texture_sources[@(texture)]) {
 		NSMutableDictionary *source = [texture_sources[@(texture)] mutableCopy];
 		NSData *bytes = source[@"bytes"]; [source removeObjectForKey:@"bytes"];
 		if (bytes) {
@@ -146,6 +159,74 @@ static NSDictionary *read_texture(GLuint texture, NSString *folder)
 		result[@"xbox_source"] = source;
 	}
 	return result;
+}
+
+static NSDictionary *read_texture(GLuint texture, NSString *folder)
+{
+	return read_texture_level(texture, 0, texture_sizes[@(texture)], folder);
+}
+
+/* Generated render-target mip chains (not uploaded terrain textures). Two
+ * snapshots of one object, at least 60 presented frames apart. No sampler or
+ * texture parameter changes; retain errors and verify touched state readback. */
+static void capture_bound_mips(void)
+{
+	const char *root = getenv("XG_CAPTURE_MIPS");
+	static GLuint selected;
+	static unsigned snapshots;
+	static unsigned long last_frame;
+	if (!root || !*root || snapshots >= 2 || presented_frames < 120 ||
+		(snapshots && presented_frames < last_frame + 60)) return;
+	const GLenum names[] = {GL_READ_FRAMEBUFFER_BINDING, GL_DRAW_FRAMEBUFFER_BINDING,
+		GL_PIXEL_PACK_BUFFER_BINDING, GL_PACK_ALIGNMENT, GL_PACK_ROW_LENGTH,
+		GL_PACK_SKIP_ROWS, GL_PACK_SKIP_PIXELS, GL_ACTIVE_TEXTURE, GL_TEXTURE_BINDING_2D};
+	GLint before[9], after[9];
+	for (int i = 0; i < 9; i++) glGetIntegerv(names[i], &before[i]);
+	GLint texture = 0, base = 0, maximum = 0, unit = 0;
+	NSDictionary *sizes = nil;
+	for (; unit < 4; unit++) {
+		glActiveTexture(GL_TEXTURE0 + unit);
+		glGetIntegerv(GL_TEXTURE_BINDING_2D, &texture);
+		sizes = texture_levels[@(texture)];
+		NSArray *first = sizes[@0];
+		if (texture && (!selected || selected == texture) && sizes.count > 1 &&
+			[first[0] intValue] == 128 && [first[1] intValue] == 128) break;
+	}
+	if (unit == 4) { glActiveTexture(before[7]); return; }
+	glGetTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, &base);
+	glGetTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, &maximum);
+	if (base < 0 || maximum < 1 || maximum < base || maximum > 12) { glActiveTexture(before[7]); return; }
+	selected = texture; snapshots++; last_frame = presented_frames;
+	GLenum prior = glGetError();
+	GLint sampler = 0, program = 0;
+	glGetIntegerv(GL_SAMPLER_BINDING, &sampler); glGetIntegerv(GL_CURRENT_PROGRAM, &program);
+	NSMutableDictionary *sampling = [NSMutableDictionary dictionary];
+	for (NSNumber *parameter in @[@(GL_TEXTURE_MIN_FILTER), @(GL_TEXTURE_MAG_FILTER), @(GL_TEXTURE_WRAP_S), @(GL_TEXTURE_WRAP_T)]) {
+		GLint value = 0;
+		if (sampler) glGetSamplerParameteriv(sampler, parameter.unsignedIntValue, &value);
+		else glGetTexParameteriv(GL_TEXTURE_2D, parameter.unsignedIntValue, &value);
+		sampling[[NSString stringWithFormat:@"%x", parameter.unsignedIntValue]] = @(value);
+	}
+	NSString *folder = [@(root) stringByAppendingPathComponent:[NSString stringWithFormat:@"frame-%lu", presented_frames]];
+	[NSFileManager.defaultManager createDirectoryAtPath:folder withIntermediateDirectories:YES attributes:nil error:nil];
+	NSMutableArray *levels = [NSMutableArray array];
+	BOOL complete = prior == GL_NO_ERROR;
+	for (GLint level = 0; level <= maximum; level++) {
+		NSArray *size = sizes[@(level)];
+		NSDictionary *pixels = read_texture_level(texture, level, size, folder);
+		complete &= [pixels[@"complete"] boolValue];
+		[levels addObject:@{@"level":@(level), @"pixels":pixels}];
+	}
+	glActiveTexture(before[7]);
+	for (int i = 0; i < 9; i++) glGetIntegerv(names[i], &after[i]);
+	BOOL restored = !memcmp(before, after, sizeof(before));
+	GLenum error = glGetError();
+	NSDictionary *record = @{@"complete":@(complete && restored && !error), @"state_restored":@(restored),
+		@"prior_gl_error":@(prior), @"gl_error":@(error), @"texture":@(texture),
+		@"presented_frames":@(presented_frames), @"base_level":@(base), @"maximum_level":@(maximum), @"levels":levels,
+		@"unit":@(unit), @"program":@(program), @"sampler":@(sampler), @"sampling":sampling};
+	[[NSJSONSerialization dataWithJSONObject:record options:NSJSONWritingPrettyPrinted error:nil]
+		writeToFile:[folder stringByAppendingPathComponent:@"mips.json"] atomically:YES];
 }
 
 static NSData *shader_source(GLuint shader)
@@ -528,6 +609,10 @@ static NSString *trace_color(NSString *key, GLenum mode, GLsizei count)
 
 static void capture_draw_elements(GLenum mode, GLsizei count, GLenum type, const void *indices)
 {
+	capture_bound_mips();
+	if (!getenv("XG_DRAW_CAPTURE") || !getenv("XG_CAPTURE_SHADER_DIR")) {
+		glDrawElements(mode, count, type, indices); return;
+	}
 	NSString *key = trace_color(nil, mode, count);
 	capture_selected_draw(mode, count, type, indices);
 	if (key) trace_color(key, mode, count);
@@ -535,6 +620,7 @@ static void capture_draw_elements(GLenum mode, GLsizei count, GLenum type, const
 
 static void capture_draw_arrays(GLenum mode, GLint first, GLsizei count)
 {
+	capture_bound_mips();
 	NSString *key = trace_color(nil, mode, count);
 	glDrawArrays(mode, first, count);
 	if (key) trace_color(key, mode, count);
@@ -542,6 +628,12 @@ static void capture_draw_arrays(GLenum mode, GLint first, GLsizei count)
 
 void *xg_draw_capture_proc(const char *name)
 {
+	const char *mips = getenv("XG_CAPTURE_MIPS");
+	if (mips && *mips) {
+		if (!strcmp(name, "glTexImage2D")) return observe_texture_image;
+		if (!strcmp(name, "glDrawElements")) return capture_draw_elements;
+		if (!strcmp(name, "glDrawArrays")) return capture_draw_arrays;
+	}
 	if (!getenv("XG_DRAW_CAPTURE") || !getenv("XG_CAPTURE_SHADER_DIR")) return NULL;
 	if (!strcmp(name, "glDrawElements")) return capture_draw_elements;
 	if (getenv("XG_TRACE_COLOR_FRAME") && !strcmp(name, "glDrawArrays")) return capture_draw_arrays;

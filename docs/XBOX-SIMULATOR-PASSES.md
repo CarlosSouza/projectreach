@@ -1,5 +1,52 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Water mip-chain readback (2026-10-02)
+
+Private evidence: `ref/xbox-build/passes/2026-10-02/water-mips.ixmd5T/`.
+Extend the existing Simulator texture reader to named mip levels and add a
+bounded observer for null-data 128x128 multi-level render targets bound at a
+draw. Two snapshots of one object, at least 60 presented frames apart; no texture
+or sampler writes. Check framebuffer/read-pack/active-unit/binding restoration
+and retain prior/readback GL errors. Ordinary runs do not install these hooks.
+Use `XG_CAPTURE_MIPS=1` with smoke `--render-diagnostics`; missing/incomplete
+captures fail this requested diagnostic, not silently become a normal smoke pass.
+The raw host setting is the private output directory. Captures stay ignored.
+
+First approach observed only glGenerateMipmap: `live` ran b30 for 180 seconds,
+but failed the mip gate because no snapshots fired. Preserve that result. The
+guest can copy all rendered levels without generating a tail; missing observer
+output was not proof of missing mip data. The final observer instead inspects
+bound null-data mip chains immediately before draws. It records binding/program/
+sampler state, not proof that every bound unit is used by the current shader.
+
+Final `draw` b30 run passes 120 seconds. At frames 120/180, texture 87 on unit 0,
+program 62, has base 0/max 3 and complete 128/64/32/16-square levels. All eight
+readbacks have complete FBOs and zero errors; checked state restores exactly.
+Changed RGB byte counts by level are 45758, 11900, 2907 and 535. The two level-0
+previews show differing normal-map-like patterns, not blank/frozen contents.
+Recorded sampler is trilinear minification, linear magnification and repeat S/T.
+The 128-square/four-rendered-level pattern and pinned source route identify this
+as the likely water ripple composite; no guest shader-tag identity is captured.
+This rules out missing/frozen levels in these samples, not incorrect normal
+orientation, shader use, blending, final appearance or a later-frame failure.
+No rendering behavior fix is claimed. Next follow the consuming shader/material
+or use matched reference evidence; do not repeat mip existence as fidelity proof.
+
+184 Xbox Python tests pass, including malformed/missing capture rejection.
+Full engine/combined app builds and strict signature verification pass. Generated
+and installed executable SHA256:
+`346533d7c066fa1146d94224f78eb59f692f9c3579143c3f7623fc1447df0f02`.
+Guest and upstream pins unchanged; upstream checkout clean. App/data cloned and
+read back before in-place installation. Observer-off menu smoke passes 30 seconds
+even with parent `XG_CAPTURE_MIPS=1` (no render-diagnostics); no mip directory is
+created. Preserve initial failed observer evidence and prior app for rollback.
+No physical device, Xbox IPA, upstream promotion or publication.
+
+Final ordinary launch returns to the Original-quality edition picker. Audit
+checks all 196 original Documents files: only the known app log differs, none
+added/removed. Preferences and PC registry are unchanged; reviewed Library
+differences are Metal caches and OS snapshots. Diagnostic remains disabled.
+
 ## Beach material reproduction route (2026-10-02)
 
 Extend the bounded smoke harness allowlist to `b30` (Silent Cartographer),

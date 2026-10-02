@@ -4,6 +4,15 @@ Updated 2026-10-02. **Simulator-only work: shared controls, texture compatibilit
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE4.md](HaloPad-GOAL-LOOP-PHASE4.md). Earlier device work remains in [phase 3](HaloPad-GOAL-LOOP-PHASE3.md).
 
+**Water mip readback (2026-10-02).** New bounded, opt-in diagnostic finds a
+complete changing 128/64/32/16 mip chain consistent with the water ripple
+composite. Two-frame readback restores checked GL state and reports zero errors.
+This rejects missing/frozen levels in those samples, not incorrect shader use
+or appearance. 184 tests, full app build, two-minute b30 and observer-off menu
+smoke pass. Next inspect the consuming shader/material or matched reference;
+no new rendering fix or upstream pin change.
+[Evidence](XBOX-SIMULATOR-PASSES.md#water-mip-chain-readback-2026-10-02).
+
 **Beach material route (2026-10-02).** Harness now supports Silent Cartographer;
 actual three-minute b30 run passes and reaches beach/ocean views. Water, shoreline
 bands and translucent exhaust are visible, not fidelity-accepted. Source review

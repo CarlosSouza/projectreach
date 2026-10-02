@@ -202,3 +202,12 @@ No definite new defect isolated. Next inspect generated water ripple mip levels
 and composite sampler state in that scene, or obtain matched reference evidence,
 before changing rendering. 181 Xbox tests pass; state preserved; runtime/pins
 unchanged. Do not count visible water as complete material-fidelity acceptance.
+
+Mip follow-up: bounded actual GL readbacks find all four levels of the likely
+water ripple composite complete and changing at frames 120/180. Sampler state
+is trilinear/linear/repeat. First generation-only observer did not fire because
+a fully copied chain need not generate a tail; final observer captures bound
+render-target chains before draws. 184 tests and 120-second b30 pass; off-menu
+passes with no captures. Checked GL state restores, no readback errors. No new
+renderer fix. Next inspect consuming shader/material behavior or a reference,
+not another mip-existence pass. Normal-menu save/reload remains separately open.

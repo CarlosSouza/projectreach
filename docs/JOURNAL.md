@@ -4763,3 +4763,24 @@ capture those levels/state next rather than changing terrain filtering blindly.
 Ordinary picker restored. Original Documents differ only in known log; preferences
 and PC registry unchanged; four Metal cache files changed. No runtime rebuild,
 pin promotion, hardware, IPA or publication. Normal-menu save/reload also remains.
+
+## 2026-10-02 — bounded water mip diagnostic
+
+Add opt-in two-snapshot readback of bound null-data 128-square mip chains to the
+existing Simulator capture path. Level reader restores checked GL state, records
+errors, sampler/program/binding and pixels; validator fails incomplete chains.
+First generation-only hook yields no captures during 180-second b30 (`live`),
+correctly failing that diagnostic. Do not mistake it for missing water textures:
+upstream copies fully rendered chains without generating a tail.
+
+Final draw-time capture (`water-mips.ixmd5T/draw`) passes 120-second b30. Texture
+87, frames 120/180, complete 128/64/32/16 levels; RGB changes 45758/11900/2907/535.
+Zero readback/prior errors, state restored. Trilinear/linear/repeat sampler.
+Source pattern supports likely water-ripple attribution, not shader-tag identity
+or proof every bound unit is consumed. This rejects missing/frozen sampled levels,
+not normal orientation/blending/final fidelity. 184 tests and full signed combined
+build pass; installed SHA `346533d7c066fa1146d94224f78eb59f692f9c3579143c3f7623fc1447df0f02`.
+Guest/pins unchanged. Observer-off menu passes 30 seconds with no captures despite
+parent flag; retain prior app/data and rejected observer logs. No hardware/IPA/
+publication. Next consuming material shader or reference comparison, not repeated
+mip-existence checks or a claim that the user's graphics problem is resolved.
