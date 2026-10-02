@@ -1,5 +1,67 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Border candidate controls, saves and Sharper (2026-10-03)
+
+Previous turn is progress: guarded border sampling fixes the traced bridge bands.
+This pass verifies the unchanged installed executable
+`dc469db18505a1a254502eed6d3427027003857a7a84b530085e226e3bf5997d`, guest
+`2d03ab18…b6b6`, upstream73 and accepted66. No rebuild or source/runtime change.
+Private `ref/xbox-build/passes/2026-10-03/border-accept73.vtqWlq/`; full real
+container backup before testing. Copy `water-accept73.wCglTA/after-save-quit`
+into independent session/save, link trusted maps. Normal launch uses no forced
+edition, init script or scripted player input; public network/update disabled.
+
+PID18874: actual picker -> Xbox -> Campaign -> New001 -> Halo in-progress ->
+Normal loads outside-pod checkpoint, rifle60/120 and one grenade. Actual Fire
+consumes one round; background Look drag turns the view; Swap selects pistol;
+Zoom shows2x scope (`zoom.png`), second Zoom exits; Pause opens guest menu.
+Three individually observed Move-stick-down drags select Save and Quit. Shared
+A saves and returns to main menu (`save-quit.png`). Copy isolated resulting tree
+before cold launch. Copied input checkpoint SHA
+`927818a3dbab2f8c5102463f064f635144e52c75b3c7aa6264f13899422efeb9`;
+after-save checkpoint SHA
+`9162fda32d717d53c501d127a775fc0a181eae744556bacc614a60afb9541e69`.
+
+Cold PID22487 follows the same normal-menu route and restores outside-pod
+location, rifle60/120 and one grenade (`cold-reload.png`). Checkpoint semantics,
+not restoration of unsaved weapon/camera changes or new progression. Default
+profile only; pointer gestures do not prove simultaneous or sustained touch.
+Known upstream profile card still says The Maw/Legendary. Normal-menu startup
+frame0 records0x502; frames1/2/120 record0. Retain the known startup diagnostic,
+not a blanket error-free claim; no shader compile/link failure observed.
+
+Actual quality UI selects Sharper; fresh isolated b30 PID24634 uses persisted
+choice without resolution/filter environment overrides. Completes100.8045s,
+210 BMPs/20 native screenshots. Actual1280x960 and effective4x filtering;
+sampled GL checks0 and complete framebuffer. Native screen04 visibly shows
+detailed water behind the weapon/Pelican cabin; screen07 shows beach, Pelican,
+enemies and effects behind the ordinary foreground. No broad depth/fidelity
+claim. Fresh ordinary picker PID26212 AX-confirms Sharper persistence.
+
+Additional a10 Sharper PID26491 completes181.2334s,246 BMPs/36 native screenshots.
+Actual1280x960/effective4x, sampled errors0. Coarse camera ranking yields
+bridge03528 versus old Original02832 and desktop01336 (`bridge-comparison.png`).
+Sharper framing is wider/slightly different; no pixel-parity claim. Long black
+bands remain absent in the corresponding floor view and native screen15 shows
+the bridge floor without the extended bands. Candidate BMP is downsampled only
+in the comparison sheet; original1280x960 capture retained. Capture counts
+include loading and are not FPS. Independent desktop is the Xbox port, not the
+HaloPad Windows CE engine. No new PC gameplay acceptance.
+
+Restore Original through actual UI, cold ordinary picker PID28582. All196 real
+Documents files unchanged except normal log; preference keys/values and PC
+registry exact. Library only Metal caches/plist encoding differ. No hardware,
+accepted-pin promotion, IPA, publication or cleanup; app hash unchanged.
+
+Next distinct control gate: reproduce a non-default guest button profile on a
+copy. Current `xg_overlay_input.h` maps named actions to fixed default SDL
+buttons; upstream `player_ui.c:set_local_player_controls_from_player_profile`
+changes game-action mappings for five button/four joystick presets. This source
+fact does not establish the runtime symptom yet. Investigate an explicit guest
+mapping/menu-state boundary, preserving actual controller/profile settings and
+default A/B menu navigation; do not silently rewrite a player's profile or guess
+guest offsets. Broad fidelity and human multi-touch remain open; goal active.
+
 ## Bridge border-sampling fix (2026-10-03)
 
 Previous turn is progress: draw/material capture isolated the bridge bands to

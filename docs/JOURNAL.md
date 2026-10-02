@@ -5026,3 +5026,26 @@ except app log; preference dictionary/PC registry exact, Library only Metal/OS
 state. Nested upstream clean, accepted66 unchanged, candidate73 frozen. No hardware,
 IPA, publication or cleanup. Next exact-build normal controls/save/cold reload
 and Sharper regression; broad rendering/human multi-touch remain open. Goal active.
+
+## 2026-10-03 — border-candidate control/save/quality acceptance
+
+Previous turn progress, unchanged a43d9cd app `dc469db1…5997d` verified installed.
+`border-accept73.vtqWlq`: full real-data backup, copied water-pass checkpoint and
+linked maps. Normal PID18874 picker/campaign/profile/Halo/Normal loads outdoors;
+Fire60->59, Look rotation, pistol Swap/2x Zoom, Pause and Move/A Save and Quit
+observed. Copy saved tree before cold PID22487; normal route restores checkpoint
+location and rifle60/120/one grenade. No new progression/multi-touch acceptance.
+
+UI-selected Sharper: b30 PID24634,100.8045s/210 BMP/20 native screenshots,
+1280x960/effective4x, detailed water and foreground visible. Fresh picker confirms
+persistence. a10 PID26491,181.2334s/246 BMP/36 screenshots: corresponding bridge
+floor remains free of the long black bands at higher resolution. Wider framing
+retained/disclosed, not pixel parity. Ordinary startup frame0 has known0x502;
+later samples0; diagnostic quality captures samples0, not every-frame proof.
+
+Original restored through UI, cold ordinary picker PID28582. Real196 Documents
+unchanged except log; preferences/PC registry exact, Library Metal/plist encoding
+only. No runtime edit/rebuild/pin change/hardware/publication. Next non-default
+profile reproduction on a copy: fixed default adapter versus upstream preset
+mapping. Explicit guest interface needed if adapting it; no profile reset or
+hard-coded offsets. Goal active; broader fidelity/human multi-touch still open.

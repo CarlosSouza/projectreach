@@ -36,10 +36,14 @@ and emulates border-color sampling for eligible single-level 2D textures. Matche
 bridge views lose the long black shadow bands while retaining character shadows;
 water and exterior engine glow remain visible. 194 Xbox tests, 38 native
 launch/save/quality checks, a10 cinematic, menu and local-match checks pass.
-Broader fidelity, exact-candidate normal-save/control reload, Sharper and hardware
-remain open. Earlier water-candidate save/control checks do not close these gates.
+Exact-candidate normal-menu copied checkpoint, shared Fire/Look/Swap/Zoom/Pause,
+Save and Quit and cold reload now pass. UI-selected Sharper persists at1280x960/
+4x into fresh water/bridge captures: water detail remains and shadow bands stay
+absent. This is bounded regression evidence; non-default profiles, sustained
+human multi-touch, broad fidelity and hardware remain open.
 No physical-device work is authorized until Chris makes the iPad available again.
 [Border fix evidence](XBOX-SIMULATOR-PASSES.md#bridge-border-sampling-fix-2026-10-03).
+[Regression evidence](XBOX-SIMULATOR-PASSES.md#border-candidate-controls-saves-and-sharper-2026-10-03).
 
 Previous Simulator candidate: build 73 `d1c7243c`, executable `39f06f77…7198e`,
 adds held Scoreboard drag to paired Page Up/Down inputs. 185 Xbox tests and

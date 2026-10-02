@@ -4,6 +4,16 @@ Updated 2026-10-03. **Simulator-only work: shared controls, texture compatibilit
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE4.md](HaloPad-GOAL-LOOP-PHASE4.md). Earlier device work remains in [phase 3](HaloPad-GOAL-LOOP-PHASE3.md).
 
+**Border candidate regression checks passed (2026-10-03).** Exact installed
+`dc469db1…5997d` passes normal picker/menu checkpoint loading, shared Fire/Look/
+Swap/Zoom/Pause, Save and Quit, and cold reload. UI-selected Sharper persists into
+fresh b30 and a10 captures at 1280x960/effective4x: detailed water remains and the
+bridge bands stay absent. Real saves/preferences/PC registry preserved, Original
+picker restored. No rebuild, pin change or hardware. Next reproduce the known
+non-default Xbox profile mismatch on a copied profile and design its adapter
+boundary; sustained human multi-touch and broad fidelity remain open.
+[Evidence](XBOX-SIMULATOR-PASSES.md#border-candidate-controls-saves-and-sharper-2026-10-03).
+
 **Bridge shadow bands fixed in Simulator candidate (2026-10-03).** New opt-in
 `render-border-v1` restores border-color sampling for the single-level 2D textures
 implicated by the preceding draw trace. Matched bridge views lose the black floor

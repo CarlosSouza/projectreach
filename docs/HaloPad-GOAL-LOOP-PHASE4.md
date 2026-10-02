@@ -337,3 +337,14 @@ ordinary Original picker restored. Evidence `border-fix73.zpl1rD`; upstream73
 and accepted66 unchanged. Next exact-candidate normal controls/save/cold reload
 and Sharper regression, then a distinct unmet material/control gate. Do not use
 prior water-build acceptance to close these changed-build gates.
+
+Border-candidate regression follow-up: unchanged `dc469db1…5997d` passes normal
+menus, copied a30 checkpoint, Fire/Look/Swap/Zoom/Pause, Save and Quit and cold
+reload. UI-selected Sharper persists into b30 and a10 at1280x960/effective4x;
+water detail remains and bridge bands are absent. No full parity or human touch
+claim. Real state preserved, Original restored; evidence `border-accept73.vtqWlq`.
+Next reproduce non-default button-profile behavior using a copy, then identify
+an explicit mapping/menu-state boundary. Fixed default SDL mappings and upstream
+five button/four stick presets are verified source facts, not yet a new runtime
+reproduction. Preserve physical controller preferences; no silent profile reset
+or guessed guest offsets. Do not repeat these unchanged regression checks.
