@@ -16,6 +16,39 @@ spec.loader.exec_module(smoke)
 
 
 class SimulatorDiagnosticsTests(unittest.TestCase):
+    def test_campaign_sequence_requires_two_visible_samples(self):
+        self.assertFalse(smoke.campaign_frames_pass([]))
+        self.assertFalse(smoke.campaign_frames_pass([{'lit': 0}, {'lit': 0}]))
+        self.assertFalse(smoke.campaign_frames_pass([{'lit': 1}, {'lit': 0}]))
+        self.assertTrue(smoke.campaign_frames_pass([{'lit': 1}, {'lit': 0.1}, {'lit': 0}]))
+
+    def test_campaign_samples_complete_distinct_and_fresh(self):
+        with tempfile.TemporaryDirectory() as directory:
+            folder = pathlib.Path(directory)
+            frame = folder / 'frame.ppm'
+            samples = []
+            smoke.capture_campaign_frame(folder, 0, samples)
+            self.assertEqual(samples, [])
+            for data in (b'P6\n2 2\n255\n\xff', b'P5\n1 1\n255\nabc', b'broken', b'P6\n0 0\n255\n'):
+                frame.write_bytes(data)
+                smoke.capture_campaign_frame(folder, 0, samples)
+                self.assertEqual(samples, [])
+            frame.write_bytes(b'P6\n1 1\n255\n\xff\xff\xff')
+            os.utime(frame, (100, 100))
+            smoke.capture_campaign_frame(folder, 101, samples)
+            self.assertEqual(samples, [])
+            smoke.capture_campaign_frame(folder, 100, samples)
+            smoke.capture_campaign_frame(folder, 100, samples)
+            self.assertEqual(len(samples), 1)
+            self.assertEqual(samples[0]['lit'], 1)
+            self.assertEqual((folder / samples[0]['frame']).read_bytes(), frame.read_bytes())
+            frame.write_bytes(b'P6\n1 1\n255\n\0\0\0')
+            os.utime(frame, (110, 110))
+            smoke.capture_campaign_frame(folder, 100, samples)
+            self.assertEqual(len(samples), 2)
+            self.assertEqual(samples[1]['lit'], 0)
+            self.assertFalse(smoke.campaign_frames_pass(samples))
+
     def test_renderer_must_match_manifest(self):
         apple = 'OpenGL ES 3.0 APPLE on Apple Software Renderer'
         angle = 'OpenGL ES 3.0 ANGLE on ANGLE Metal Renderer: Apple iOS simulator GPU'

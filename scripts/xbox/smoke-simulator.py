@@ -61,6 +61,37 @@ def renderer_matches(text, renderer):
     return renderer == 'apple-gles' and 'ANGLE ' not in text
 
 
+def capture_campaign_frame(folder, since, samples):
+    """Retain distinct complete drawable dumps in the late observation window.
+
+    A cinematic fade can make the final ten-second sample black even while
+    the displayed scene progresses. Keep the black samples too, not just hits.
+    """
+    path = folder / 'frame.ppm'
+    try:
+        before = path.stat()
+        if before.st_mtime < since or any(s['mtime_ns'] == before.st_mtime_ns for s in samples):
+            return
+        data = path.read_bytes()
+        after = path.stat()
+        if (before.st_mtime_ns, before.st_size) != (after.st_mtime_ns, after.st_size):
+            return
+        magic, size, maximum, pixels = data.split(b'\n', 3)
+        width, height = map(int, size.split())
+        if magic != b'P6' or maximum != b'255' or width <= 0 or height <= 0 or len(pixels) != width * height * 3:
+            return
+    except (OSError, ValueError):
+        return
+    lit = sum(sum(pixels[i:i+3]) > 45 for i in range(0, len(pixels), 300)) / len(range(0, len(pixels), 300))
+    name = f'campaign-frame-{len(samples):02}.ppm'
+    (folder / name).write_bytes(data)
+    samples.append({'frame': name, 'mtime_ns': before.st_mtime_ns, 'lit': lit})
+
+
+def campaign_frames_pass(samples):
+    return sum(sample['lit'] > 0.005 for sample in samples) >= 2
+
+
 def capture_depth_phase(folder, label, started):
     """Copy a complete, fresh PPM pair; never bless an in-progress trace write."""
     frames = []
@@ -291,12 +322,16 @@ def main():
                        check=True, env=env, capture_output=True)
         helper = None
         helper_log = None
+        campaign_samples = []
+        campaign_since = time.time() + max(0, seconds - 30)
         deadline = time.monotonic() + seconds
         try:
             while time.monotonic() < deadline:
                 text = log.read_text(errors='replace') if log.exists() else ''
                 if error.exists():
                     text += error.read_text(errors='replace')
+                if name == 'campaign':
+                    capture_campaign_frame(folder, campaign_since, campaign_samples)
                 if depth_pair and pair_index < len(pair_names):
                     if pair_started is None and 'network test: tick ' in text:
                         pair_started = time.time()
@@ -322,6 +357,8 @@ def main():
                 time.sleep(1)
             subprocess.run(['xcrun', 'simctl', 'io', args.device, 'screenshot', str(folder / 'screen.png')],
                            check=True, capture_output=True)
+            if name == 'campaign':
+                capture_campaign_frame(folder, campaign_since, campaign_samples)
         finally:
             if helper and helper.poll() is None:
                 helper.terminate()
@@ -334,7 +371,8 @@ def main():
         pixels = frame.read_bytes().split(b'\n', 3)[-1] if frame.exists() else b''
         lit = sum(sum(pixels[i:i+3]) > 45 for i in range(0, len(pixels), 300)) / max(1, len(pixels) / 300)
         renderer_ok = renderer_matches(text, manifest.get('renderer', 'apple-gles'))
-        okay = renderer_ok and lit > 0.005 and '[xbox] signal' not in text
+        visible = campaign_frames_pass(campaign_samples) if name == 'campaign' else lit > 0.005
+        okay = renderer_ok and visible and '[xbox] signal' not in text
         row = {'pass': okay, 'lit': round(lit, 3), 'renderer_matches': renderer_ok, 'seconds': seconds}
         if args.audio_diagnostics:
             try:
@@ -345,6 +383,7 @@ def main():
                 row['audio_error'] = str(error)
         if name == 'campaign':
             row.update(map=args.campaign_map,
+                       frame_samples=campaign_samples,
                        input_mode='scripted-render-diagnostic' if args.scripted_campaign else 'no-scripted-input',
                        map_load_requested=campaign_load_requested(debug, args.campaign_map))
             if args.campaign_map == 'a10':
