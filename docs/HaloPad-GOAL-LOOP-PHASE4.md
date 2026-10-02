@@ -181,3 +181,17 @@ repeat aggregate tracing or backend-only fixtures as the next experiment.
 Next test world-geometry occlusion in game and a different effects/material
 scene, with a matched reference where available. Keep this Simulator candidate
 opt-in; hardware/MSAA/performance and sustained multi-finger touch remain open.
+
+Geometry/night-scene follow-up: same installed candidate, no source change.
+Stationary Blood Gulch passes 360 seconds/tick 10410, zero shots. Fully
+in-viewport light rectangles return 20/25 visible, 0/36 behind the weapon,
+25/25 revealed and 30/30 near its silhouette. This is foreground-depth evidence,
+not a BSP-wall transition; the small light-core query is not the entire glow.
+a50 passes 120/300-second smoke runs. Manual run then verifies shared Zoom
+2x/10x/unscoped and Light night vision on/off. Debug saves lack a named player
+profile, so normal-menu save/resume is not accepted. Short CUA stick drags do
+not sustain movement; do not alter correct release behavior for automation.
+Returned to Original-quality picker; original saves/PC registry/preferences
+preserved. Next choose a distinct material or wall-occlusion scene with matched
+reference where available, not another sun-edge/sniper-button repeat. Full goal
+remains active; no hardware access or promotion to graphics/touch acceptance.

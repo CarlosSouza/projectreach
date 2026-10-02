@@ -1,5 +1,78 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## In-viewport light occlusion and night-scene follow-up (2026-10-02)
+
+Previous turn is progress: counted guest integration is committed as `44556bc`.
+Keep that exact installed candidate, Original quality and both upstream pins;
+no app replacement or new source patch. New private evidence directory:
+`ref/xbox-build/passes/2026-10-02/world-occlusion.KRW3Xt/`. Rediscover the data
+container and clone it before isolated tests. No physical device use.
+
+`live` runs a stationary Blood Gulch match for 360 seconds, passing through
+tick 10410 with zero shots. Spawn is (41.102,-90.282,0.125), looking toward a
+blue light through a base doorway. Background free-look moves that light behind
+the foreground weapon and then clear of it, without translating the player.
+Unlike the earlier sun-edge experiment, all relevant test rectangles are fully
+inside 640x480:
+
+| View | Logical rectangle | Depth | Raw count / area |
+| --- | --- | ---: | ---: |
+| Doorway light visible | (336,222)–(341,227) | 0.99297148 | 20 / 25 |
+| Weapon-covered | (508,425)–(514,431) | 0.991847575 | 0 / 36 |
+| Revealed left of weapon | (306,427)–(311,432) | 0.99239248 | 25 / 25 |
+| Near silhouette | (369,427)–(375,432) | 0.992350757 | 30 / 30 |
+
+Retain `light-visible.png`, `light-weapon-covered.png`, `light-revealed.png`,
+`light-silhouette.png` and logs. A separate farther-depth light test stays zero;
+the moving near weapon-associated rectangle remains distinct. Query IDs rotate.
+This provides actual foreground-geometry occlusion evidence, not merely viewport
+clipping, but does not establish a BSP-wall transition or original-renderer parity.
+The small test covers the light core, not the complete glow: near the silhouette
+the core can pass fully while the visible surrounding glow is mostly covered.
+Do not convert sample ratios into claims about measured displayed brightness.
+
+A short Move-stick drag did not change the logged player position. The supported
+CUA drag does not provide a sustained hold; do not change normal stick release
+semantics to make this automation appear to walk. Swap did not visibly change
+the single starting plasma weapon. Neither observation proves a control defect.
+Normal background free-look remained responsive throughout.
+
+The first isolated `a50` campaign run passes 120 seconds, no scripted input;
+debug log confirms the map load, retained late frames are nonblack, and manual
+inspection sees the night-time transport cinematic followed by first-person
+sniper, terrain, foliage and spotlights. This is a50, not the snow map. The
+harness deadline stops the app before the intended scope interaction; an AX
+target becomes stale and a later coordinate attempt sees Home. This is expected
+test cleanup, not a game crash or a successful scope test. A longer independent
+`a50-controls` run is used to finish that different check.
+
+`a50-controls` passes 300 seconds and the shared Zoom button reaches ordinary
+2x scope (`scope2.png`). Its deadline also precedes the Light interaction, so
+continue with a manually owned run instead of another timed race. An initial
+normal-menu launch using copied test saves reaches the fresh-profile name dialog:
+the debug-start saves do not provide a named player profile. Retain the menu logs;
+this is not successful normal-menu save/resume acceptance. Copy the test init
+script into the isolated manual data directory and start a50 directly.
+
+That manual campaign verifies shared Zoom cycling 2x -> 10x -> unscoped and
+Light enabling green sniper night vision at 2x, retaining it at 10x, then
+disabling it at 10x. Screenshots `manual/nightvision2.png`, `nightvision10.png`,
+`nightvision-off10.png` and `unscoped.png` preserve the states. No scripted input
+or query observer is enabled in this run. These are functional input/effects
+checks, not a matched original-renderer comparison or sustained multi-touch
+acceptance. Existing startup GL 0x502 remains; sampled later presentation rows
+have complete framebuffers and zero reported GL errors, not all-frame proof.
+
+Explicitly stop the manually owned app and cold-launch normally. The edition
+picker returns with Original selected (`final-picker.png`). Readback verifies
+all 196 original Documents files: only the known app log changes, none added or
+removed. Library, full preferences and PC registry are unchanged. Keep the exact
+installed candidate and private backups/evidence. This pass changes documentation
+only; no new build, unit-suite rerun, pin promotion, hardware, IPA or publication.
+Next isolate a different transparent/material or wall-occlusion case and obtain
+a matched reference where practical. Do not repeat the completed sun-edge and
+sniper button cycle as substitutes for the unresolved texture/shading report.
+
 ## Counted guest integration (2026-10-02)
 
 The explicit `render-visibility-v1` guest now pairs with the isolated counted

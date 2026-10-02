@@ -4,6 +4,18 @@ Updated 2026-10-02. **Simulator-only work: shared controls, texture compatibilit
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE4.md](HaloPad-GOAL-LOOP-PHASE4.md). Earlier device work remains in [phase 3](HaloPad-GOAL-LOOP-PHASE3.md).
 
+**Geometry and night-scene follow-up (2026-10-02).** Six-minute stationary
+Blood Gulch run verifies a fully in-viewport light hidden by the foreground
+weapon (0/36 samples) and revealed again (25/25). This extends coverage evidence
+beyond viewport clipping, not to BSP-wall or overall graphics acceptance.
+a50 campaign smoke passes 120 and 300 seconds; manual shared controls verify
+2x/10x/unscoped cycling and night vision on/off. Normal-menu resume from debug
+saves remains unverified because they lack a named player profile. No runtime
+change this pass. Original-quality picker restored; saves, Library, preferences
+and PC registry preserved except the known Documents log. Next inspect another
+material or wall-occlusion case; broader texture fidelity and sustained touch
+feel remain open. [Evidence](XBOX-SIMULATOR-PASSES.md#in-viewport-light-occlusion-and-night-scene-follow-up-2026-10-02).
+
 **Counted guest integrated (2026-10-02).** Explicit Simulator-only
 `render-visibility-v1` pairs the guest with the counted backend and preserves
 ordinary GLES boolean results. In-game Blood Gulch sun tests now return full,
@@ -11,7 +23,7 @@ partial and zero coverage: 2601 / 406 / 0 samples at Original; a corresponding
 narrow edge slice returns 1624 at Sharper (2x dimensions). Reflections fade and
 return at the viewport edge. 181 Xbox tests and 36 native launch/save/quality
 checks pass; this is a specific coverage fix, not overall graphics acceptance.
-Broader texture/shading issues, matched reference images, geometry occlusion and
+Broader texture/shading issues, matched reference images, BSP-wall occlusion and
 physical touch feel remain open. Upstream pin/default policy unchanged.
 [Integration evidence](XBOX-SIMULATOR-PASSES.md#counted-guest-integration-2026-10-02).
 

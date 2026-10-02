@@ -4720,3 +4720,32 @@ Xbox menu, and cold launch returns to Original-quality edition picker. No query
 trace rows. Preservation audit passes again after this run. Current tree/index
 safety and whitespace checks pass. Candidate remains installed for Simulator
 follow-up; no promotion to full gameplay/graphics acceptance.
+
+## 2026-10-02 — foreground occlusion and sniper night-vision checks
+
+Keep installed counted-visibility candidate from `44556bc`, Original quality
+and both upstream pins. Clone Simulator data before testing. Private evidence:
+`ref/xbox-build/passes/2026-10-02/world-occlusion.KRW3Xt/`.
+
+Stationary Blood Gulch passes 360 seconds/tick 10410 with zero shots. Manual
+free-look hides a blue doorway light behind the weapon and reveals it again.
+All query rectangles remain inside 640x480: visible 20/25, covered 0/36,
+revealed 25/25, near silhouette 30/30. This is actual foreground-depth evidence
+beyond viewport clipping, not BSP-wall acceptance or brightness measurement.
+Short Move drag does not translate the player: CUA has no sustained hold in
+this route; keep correct release semantics. No proven control defect from that.
+
+a50 night campaign passes independent 120/300-second smoke runs. The first
+deadline prevents scope interaction; the second captures 2x but stops before
+Light. Expected harness cleanup is not a crash. A manually owned copied-save
+launch first reaches the missing named-profile dialog; retain those logs, do
+not claim menu resume. Direct-map init then reaches the sniper scene and verifies
+shared 2x/10x/unscoped Zoom plus Light night vision on/off, with screenshots.
+No matched original-renderer parity, sustained multi-touch or all-frame GL claim.
+
+Stop manual app explicitly, cold-launch ordinary Original-quality picker.
+Readback: 196 original Documents files preserved except known app log; no adds
+or removals; Library, preferences and PC registry unchanged. Documentation-only
+pass, no rebuild or unit-suite rerun. No hardware, pin promotion, IPA, push or
+publication. Next distinct transparent/material or wall-occlusion case, with
+reference comparison where practical. Broader rendering and touch goals remain.
