@@ -1,5 +1,67 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Cyan beam desktop reference (2026-10-03)
+
+Previous turn is progress: exact presentation-candidate both-quality regression.
+This pass tests a different world effect without changing runtime. Private root
+`ref/xbox-build/passes/2026-10-03/beam-reference73.H8tioZ/` contains full real-data
+backup, separate desktop/Simulator states, capture/console/contact/metric helpers
+and images. Same Simulator app SHA ed257ad5…af30b; upstream73/accepted66 and ANGLE
+pins unchanged. Existing official Windows73 plus per-app Mesa llvmpipe from
+desktop73.Fi7gKD is the independent reference, not the translated Mac guest.
+
+First fresh a30 pair is insufficient for beam acceptance: desktop PID58719 exits0
+at213.610s/68 BMPs; Simulator PID58744 ends at183.397s/204 BMPs. Both reach the
+crash sequence, but stationary first-person gameplay stays inside the pod. The
+line in initial bridge/sky views is not sufficient attribution of the later cyan
+pulse. Do not use this first pair to claim the effect matches. The project venv
+lacks PIL; the existing system Python successfully generated contact sheets.
+
+Source inspection of director_save_camera/director_load_camera identifies the
+ordinary upstream camera.txt format (position, forward, up, FOV), allowing a
+controlled comparison without sharing incompatible game-memory snapshots.
+Two new private camera roots start a30 fresh. Opt-in upstream console listeners
+are explicitly verified with lsof as127.0.0.1:13373 (Simulator PID64099) and
+127.0.0.1:13374 (isolated Wine prefix); no public bind or persistent app setting.
+Network/UPnP/clipboard join/update remain off. No player input scripted.
+
+`debug_camera_save` on Simulator produces pod-camera.txt:
+position31.500887,-102.512039,59.381477; forward-.121888,.992544,0; up0,0,1;
+FOV1.221730. Preserve it, then move the diagnostic camera8 units along forward
+to30.525783,-94.571687,59.381477. Identical camera.txt copied to both private
+roots; `debug_camera_load` accepted on both sockets. This deliberately changes
+test-camera state, not player/saves or shipped behavior. Actual captured terrain
+aligns visually. Attempted subsequent save/readback came after both timed runs
+ended and was refused; identical requested inputs are established, but live
+observer matrices were not independently read back. Do not claim matrix parity.
+
+Camera runs: Simulator301.872s/345 BMPs; desktop329.622s/101 BMPs, both complete
+successfully. Desktop debug.exit_after300 starts after window creation; the
+345-second outer watchdog did not fire. Different rendering speeds and effect
+phases preclude time-synchronized comparison. Screenshot counts are not FPS.
+
+`bright-beam-comparison.png` displays desktop frame00948 and Simulator20220:
+both show the thin cyan vertical beam and its bright traveling pulse at the
+same world location. Narrow detector x299..304,y0..89, min(G,B)>150 and
+min(G,B)-R>60 finds6/36 post-camera desktop samples and15/91 Simulator samples.
+Brightest samples span82 rows each,205 versus246 qualifying pixels. Detector
+only locates this known strip; it is not a general acceptance metric or evidence
+of an intensity/width bug (phase is unmatched). Retire the beam's mere presence
+as a HaloPad-only rendering defect. Do not remove it, modify HUD textures or
+infer all other shading/focus issues resolved. Fine temporal/sampling parity
+remains unproven.
+
+Both capture processes terminate; both loopback listeners are absent. Ordinary
+picker PID66501 restored without test environment. Device Hub is now displaying
+another project's iPhone Simulator; no UI action taken there. Dedicated HaloPad
+simctl screenshot verifies Original picker instead. Real196 Documents only app
+log changes; Library only OS KnownSceneSessions file; preferences/keyset and PC
+registry exact, real saves/game data untouched. Installed app SHA unchanged and
+nested source clean. Disk206->203GiB. No cleanup/rebuild/unit rerun/hardware/IPA/
+publication/pin promotion. Next remaining control coverage: Boxer/Green Thumb
+runtime mappings on copied profiles, without claiming sustained multi-touch.
+Broader materials/effects remain open; goal active.
+
 ## Presentation candidate both-quality regression (2026-10-03)
 
 Previous turn is progress: render-present-v1 built/installed, cold smoke and

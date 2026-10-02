@@ -446,3 +446,13 @@ or full-fidelity claim. Next a different matched world-effect reference, e.g.
 a30 beam, to establish a real discrepancy before a shader change. Do not repeat
 completed quality checks on an unchanged binary. Human multi-touch and hardware
 remain later gates, not reasons to stop safe Simulator work.
+
+Cyan-beam checkpoint: unchanged candidate and independent desktop73 show the
+beam/pulse at the same location after identical upstream debug-camera inputs.
+Evidence beam-reference73.H8tioZ; fresh inside-pod pair alone was insufficient.
+The effect's presence is not a HaloPad-only defect. Phase/matrix parity is not
+proved, and no shader/HUD change is warranted. Both temporary loopback consoles
+closed, real state preserved, ordinary Original picker restored. Next remaining
+Boxer/Green Thumb touch-profile runtime checks on copied state; broad materials
+and human multi-touch remain open. Do not repeat the retired HUD/beam-presence
+hypothesis or claim all rendering fixed from this result.

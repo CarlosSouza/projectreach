@@ -4,6 +4,16 @@ Updated 2026-10-03. **Simulator-only work: shared controls, texture compatibilit
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE4.md](HaloPad-GOAL-LOOP-PHASE4.md). Earlier device work remains in [phase 3](HaloPad-GOAL-LOOP-PHASE3.md).
 
+**Cyan beam reproduced in independent desktop reference (2026-10-03).**
+The same debug-camera inputs show the narrow cyan beam and bright pulse in both
+desktop73 and unchanged Simulator `ed257ad5…af30b`. Its presence is not a
+HaloPad-only artifact; do not remove it or alter HUD sampling to hide it. Effect
+timing is not synchronized, so exact temporal/color parity remains unproved.
+Real state preserved, Original picker restored, diagnostic listeners closed.
+Next exercise still-unaccepted Boxer/Green Thumb touch mappings on copied state;
+broad material fidelity and sustained human multi-touch remain open.
+[Evidence](XBOX-SIMULATOR-PASSES.md#cyan-beam-desktop-reference-2026-10-03).
+
 **Presentation candidate retains water/shadow fixes in both modes (2026-10-03).**
 Exact `ed257ad5…af30b` passes four bounded a10/b30 captures: Original640x480/1x
 and UI-selected Sharper1280x960/4x. Detailed water and the bridge-band fix remain;

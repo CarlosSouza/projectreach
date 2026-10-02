@@ -5233,3 +5233,24 @@ Original picker PID47075 restored. Real Documents only app log changed; Library,
 preferences/keyset and PC registry exact. No cleanup/hardware/IPA/publication.
 Next a different matched desktop-versus-Simulator world-effect comparison, such
 as the a30 beam, without assuming it is erroneous. Goal remains active.
+
+## 2026-10-03 — cyan beam independent reference comparison
+
+Private beam-reference73.H8tioZ preserves real data and uses unchanged Simulator
+ed257ad5…af30b plus existing official desktop73/Mesa. Fresh-map pair reaches
+inside-pod gameplay and is insufficient to view the beam. Source-backed upstream
+debug_camera_save/load provides a controlled outside-pod camera: preserve native
+position, move8 units along forward, send identical camera.txt to both independent
+test states. Explicit loopback-only console listeners terminate with timed runs.
+Later camera readback was attempted after termination and refused, so no matrix
+parity claim. Captured world geometry aligns visually.
+
+Bright beam/pulse appears at the same location on desktop00948 and Simulator20220;
+comparison image and narrow-strip metrics retained. Presence is not a HaloPad-only
+artifact; unmatched effect phases prevent exact intensity/temporal conclusions.
+No rendering patch justified by this result. Ordinary Original picker PID66501
+restored and checked via dedicated simctl screenshot (shared Device Hub switched
+to another project; no interaction there). Real saves/preferences/PC registry
+preserved; only app log/OS scene state differ. Pins/runtime unchanged, no hardware,
+publication or unit rerun. Next unaccepted Boxer/Green Thumb runtime mappings;
+overall fidelity and human multi-touch remain open.
