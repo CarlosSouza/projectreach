@@ -8,7 +8,7 @@ import unittest
 from unittest import mock
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / 'scripts/xbox'))
-from draw_capture import read_depth, compare_depth_snapshots, compare_native_pixels
+from draw_capture import read_depth, compare_depth_snapshots, compare_native_pixels, validate_raster_input
 
 
 class DepthCaptureTests(unittest.TestCase):
@@ -82,6 +82,52 @@ class DepthCaptureTests(unittest.TestCase):
             self.write('base', 'before', struct.pack('<f', value) + self.blank[4:])
             with self.assertRaisesRegex(ValueError, 'Invalid normalized'):
                 read_depth(self.folder / 'base', 'before')
+
+    def test_scaled_depth_requires_verified_extent_and_preserves_all_pixels(self):
+        self.record.update(capture_schema=2, width=1280, height=960, texture_width=1280, texture_height=960)
+        self.blank = struct.pack('<f', 1) * (1280 * 960)
+        for label in ('base', 'equal'):
+            for phase in ('before', 'after'):
+                self.write(label, phase, self.blank)
+        self.responsive()
+        result = compare_depth_snapshots(self.folder)
+        self.assertEqual((result['width'], result['height'], result['pixels']), (1280, 960, 1228800))
+        self.assertEqual(result['base_changed'], 1)
+        self.assertEqual(result['equal_changed'], 0)
+
+    def test_extent_mismatch_or_missing_is_rejected(self):
+        for width, height in ((640, 479), (1280, 960), (None, 480), (640.0, 480)):
+            self.write('base', 'before', self.blank, capture_schema=2, texture_width=width, texture_height=height)
+            with self.assertRaisesRegex(ValueError, 'extent'):
+                read_depth(self.folder / 'base', 'before')
+
+    def test_unverified_scaled_or_unknown_schema_is_rejected(self):
+        for changes in (dict(width=1280, height=960), dict(capture_schema=3), dict(capture_schema=2.0)):
+            self.write('base', 'before', self.blank, **changes)
+            with self.assertRaisesRegex(ValueError, 'schema'):
+                read_depth(self.folder / 'base', 'before')
+
+    def test_dimension_bounds_and_types_are_rejected(self):
+        for changes in (dict(width=True), dict(width=640.0), dict(width=4097), dict(height=0), dict(height=None)):
+            self.write('base', 'before', self.blank, **changes)
+            with self.assertRaisesRegex(ValueError, 'Incomplete or unsupported'):
+                read_depth(self.folder / 'base', 'before')
+
+    def test_same_pixel_count_different_extent_is_a_target_change(self):
+        self.responsive()
+        self.write('equal', 'after', self.blank, capture_schema=2, width=1280, height=240,
+                   texture_width=1280, texture_height=240)
+        with self.assertRaisesRegex(ValueError, 'target changed'):
+            compare_depth_snapshots(self.folder)
+
+    def test_scaled_draw_viewport_must_match_and_legacy_replay_stays_strict(self):
+        draw = dict(viewport_bits=list(struct.unpack('<4I', struct.pack('<4f', 0, 0, 1280, 960))),
+                    depth_range_bits=[0, 0x3f800000])
+        validate_raster_input(draw, 1280, 960)
+        with self.assertRaisesRegex(ValueError, '640x480'):
+            validate_raster_input(draw)
+        with self.assertRaisesRegex(ValueError, '1280x480'):
+            validate_raster_input(draw, 1280, 480)
 
     def test_truncated_or_outside_file_rejected(self):
         self.write('base', 'before', b'short')

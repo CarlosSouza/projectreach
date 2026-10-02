@@ -101,10 +101,10 @@ def compare_clip_positions(folder, count):
             'max_ndc_depth_delta': max(depth_delta, default=0)}
 
 
-def validate_raster_input(draw):
-    expected = list(struct.unpack('<4I', struct.pack('<4f', 0, 0, 640, 480)))
+def validate_raster_input(draw, width=640, height=480):
+    expected = list(struct.unpack('<4I', struct.pack('<4f', 0, 0, width, height)))
     if draw['viewport_bits'] != expected or draw['depth_range_bits'] != [0, 0x3f800000]:
-        raise ValueError('Raster probe requires the captured 640x480 / depth 0..1 layout')
+        raise ValueError(f'Raster probe requires the captured {width}x{height} / depth 0..1 layout')
 
 
 def compare_raster_coverage(folder):
@@ -128,17 +128,25 @@ def compare_raster_coverage(folder):
 def read_depth(folder, phase):
     folder = pathlib.Path(folder)
     record = json.loads((folder / ('depth-' + phase + '.json')).read_text())
-    if (not record.get('complete') or not record.get('calibrated') or record.get('gl_error') != 0 or record.get('restore_error') != 0 or
+    width, height = record.get('width'), record.get('height')
+    if (type(width) is not int or type(height) is not int or not 4 <= width <= 4096 or not 1 <= height <= 4096 or
+            not record.get('complete') or not record.get('calibrated') or record.get('gl_error') != 0 or record.get('restore_error') != 0 or
             record.get('framebuffer_status') != 0x8cd5 or record.get('encoding') != 'normalized-float32-le' or
-            record.get('width') != 640 or record.get('height') != 480 or not record.get('texture') or record.get('level') != 0):
+            not record.get('texture') or record.get('level') != 0):
         raise ValueError('Incomplete or unsupported depth observation')
+    if type(record.get('capture_schema')) is int and record['capture_schema'] == 2:
+        if (type(record.get('texture_width')) is not int or type(record.get('texture_height')) is not int or
+                record['texture_width'] != width or record['texture_height'] != height):
+            raise ValueError('Depth texture extent differs from viewport')
+    elif record.get('capture_schema') is not None or (width, height) != (640, 480):
+        raise ValueError('Incomplete or unsupported depth observation schema')
     file = record['file']
     if pathlib.Path(file).name != file:
         raise ValueError('Depth path must be local to capture')
     data = (folder / file).read_bytes()
-    if len(data) != 640 * 480 * 4:
+    if len(data) != width * height * 4:
         raise ValueError('Truncated depth observation')
-    values = struct.unpack('<' + 'f' * (640 * 480), data)
+    values = struct.unpack(f'<{width * height}f', data)
     if any(not math.isfinite(value) or not 0 <= value <= 1 for value in values):
         raise ValueError('Invalid normalized depth samples')
     return record, data, values
@@ -147,7 +155,7 @@ def read_depth(folder, phase):
 def compare_depth_snapshots(folder):
     captures = [read_depth(pathlib.Path(folder) / label, phase)
                 for label in ('base', 'equal') for phase in ('before', 'after')]
-    targets = {(row[0]['framebuffer'], row[0]['texture'], row[0]['level']) for row in captures}
+    targets = {(row[0]['framebuffer'], row[0]['texture'], row[0]['level'], row[0]['width'], row[0]['height']) for row in captures}
     if len(targets) != 1:
         raise ValueError('Depth observation target changed')
     frames = {row[0].get('presented_frames') for row in captures}
@@ -161,7 +169,7 @@ def compare_depth_snapshots(folder):
         raise ValueError('Depth observation has no measurable base-draw response')
     before, after, later = [row[2] for row in captures[:3]]
     overwritten = [i for i, (a, b, c) in enumerate(zip(before, after, later)) if a != b and b != c]
-    return {'pixels': 640 * 480, 'base_changed': base_changed,
+    return {'pixels': len(captures[0][2]), 'width': captures[0][0]['width'], 'height': captures[0][0]['height'], 'base_changed': base_changed,
             'intervening_changed': changed(blobs[1], blobs[2]),
             'equal_changed': changed(blobs[2], blobs[3]),
             'after_base_equals_before_equal': blobs[1] == blobs[2],
@@ -173,15 +181,15 @@ def compare_depth_snapshots(folder):
 
 def compare_live_depth(folder):
     draws = [load_draw(pathlib.Path(folder) / label) for label in ('base', 'equal')]
+    result = compare_depth_snapshots(folder)
     for draw in draws:
-        validate_raster_input(draw)
+        validate_raster_input(draw, result['width'], result['height'])
     if draws[0].get('presented_frames') is None or draws[0]['presented_frames'] != draws[1].get('presented_frames'):
         raise ValueError('Depth observation draws cross a presentation boundary')
     names = {'c[0]', 'c[1]', 'c[2]', 'c[3]', 'c[58]', 'c[59]', 'viewport_scale', 'viewport_offset', 'screen_offset'}
     constants = [{row['name']: row['bits'] for row in draw['uniforms'] if row['name'] in names} for draw in draws]
     if len(constants[0]) != len(names) or constants[0] != constants[1] or position_bytes(draws[0]) != position_bytes(draws[1]):
         raise ValueError('Depth observation draw positions/projection differ')
-    result = compare_depth_snapshots(folder)
     if result['presented_frames'] != draws[0]['presented_frames']:
         raise ValueError('Depth observations do not match the captured draw frame')
     return result

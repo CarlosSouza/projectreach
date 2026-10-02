@@ -1,5 +1,58 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Scaled depth observation verified in-game (2026-10-02)
+
+Extend only the opt-in Simulator depth observer and its parser, not normal
+rendering. Read bounded full-viewport dimensions (up to 4096 per axis) and query
+the sampled depth attachment's actual size through `textureSize` in ES3.0.
+Reject mismatched extents before reading depth. Schema 2 records both viewport
+and attachment sizes; calibration, GL/restore error, file-length, normalized
+sample, target, position/projection and same-frame checks remain mandatory.
+Legacy 640x480 records still work; scaled records without verified extents,
+unknown schemas, invalid sizes and resized targets fail closed. Existing native
+color and synthetic raster-replay tools remain 640x480-only; they are not silently
+treated as scaled validators. 151 Xbox tests pass (22 depth/native-pixel tests).
+
+Use private guest experiment `97b45239`, ANGLE and the full shared-control app
+with `XG_CAPTURE_DEPTH=1`, exact reference VS17/41 shader bytes, minimum 1,000
+indices, and isolated saves. The 2x Blood Gulch match yields four calibrated,
+complete 1280x960 depth snapshots at presentation frame 11,614. Attachment size
+is independently read as 1280x960. Base/EQUAL pair: 1,071 indices, matching
+positions/projection, zero capture/restore errors. Of 1,228,800 samples, the base
+draw changes 635,254; 116,388 of those are subsequently overwritten by closer
+geometry; EQUAL changes zero depth samples, consistent with disabled writes.
+The local stand-in client reaches gameplay; the log reaches tick 2,883 after
+the bounded helper leaves. This is not second-human-client acceptance.
+
+At 1x, a separate spawn yields four calibrated 640x480 snapshots at frame 7,257,
+with a matching 1,398-index pair: base changes 76,393 of 307,200 samples,
+27,698 later overwritten closer, EQUAL changes zero, no capture/restore errors.
+Do not compare those counts as identical-scene resolution quality: spawn views
+and selected draws differ. Both screenshots are retained; the 2x live match was
+visually inspected. Both builds still have the previously observed initial
+frame-0 GL error, so these are not whole-run error-free claims.
+
+Setup failures are preserved: the first 2x peer joined after the automatic start
+attempt, requiring a fresh live peer and host A to start; the first 1x peer
+started before the host was ready and exited. The retry joined before host A;
+countdown and capture then succeeded. No failed lobby run is counted as gameplay.
+
+Evidence: `ref/xbox-build/passes/2026-10-02/scaled-depth.TyfGJB/`, including
+`capture-1`, `capture-2`, `depth-*-result.json`, logs, screenshots, app/data
+backups and the experimental app. Accepted guest/runtime rebuilt afterward;
+the diagnostics remain inactive in ordinary launches. The original render-scale
+experiment is still unpromoted. Next implement the reproducible local adaptation
+with separate identity, then validate visibility effects and broader scene
+behavior; the selected depth pairs do not certify all materials or hardware.
+
+Final restoration: strict signature and generated/installed executable match
+`f5709a50052929ddb72d4ef71a629435ce7ed7102c3c4ddbc916c68eaf24a126`;
+About shows accepted `f2ba71d9` and Done returns to the ordinary picker. All
+196 real Documents files retained, only application log changed. PC registry
+and preferences unchanged. Library differences are Metal caches, OS snapshots
+and saved scene-session state. Original inputs/saves remain intact. No hardware,
+IPA, publication or push; tree/index safety and whitespace checks pass.
+
 ## Actual 2x render-target experiment (2026-10-02)
 
 Source inspection at accepted build 66 identifies `screen_mode_choose` in

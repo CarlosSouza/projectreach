@@ -170,9 +170,12 @@ void xg_capture_depth(NSString *folder, NSString *label)
 	GLuint target = 0, color = 0, vertices = 0, point_sampler = 0, probe = 0, shaders[2] = { 0, 0 };
 	GLenum status = 0, error = 0;
 	BOOL complete = NO, calibrated = NO;
+	GLsizei width = viewport[2], height = viewport[3];
+	uint32_t texture_extent = 0;
 	NSMutableData *pixels = nil;
 	const char *failure = "Unsupported depth target or viewport";
-	if (kind != GL_TEXTURE || !depth || level != 0 || viewport[0] || viewport[1] || viewport[2] != 640 || viewport[3] != 480) goto restore;
+	if (kind != GL_TEXTURE || !depth || level != 0 || viewport[0] || viewport[1] ||
+		width < 4 || height < 1 || width > 4096 || height > 4096) goto restore;
 	glBindTexture(GL_TEXTURE_2D, depth);
 	GLint base = -1, red = 0;
 	glGetTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, &base);
@@ -180,8 +183,8 @@ void xg_capture_depth(NSString *folder, NSString *label)
 	if (base != 0 || red != GL_RED) goto restore;
 	const char *sources[] = {
 		"#version 300 es\nvoid main(){vec2 p=vec2((gl_VertexID<<1)&2,gl_VertexID&2);gl_Position=vec4(p*2.0-1.0,0,1);}\n",
-		"#version 300 es\nprecision highp float; precision highp int; uniform highp sampler2D depth_image; out vec4 c;\n"
-		"void main(){uint b=floatBitsToUint(texelFetch(depth_image,ivec2(gl_FragCoord.xy),0).r);"
+		"#version 300 es\nprecision highp float; precision highp int; uniform highp sampler2D depth_image; uniform bool dimensions_only; out vec4 c;\n"
+		"void main(){uvec2 s=uvec2(textureSize(depth_image,0)); uint b=dimensions_only ? (s.x | (s.y<<16)) : floatBitsToUint(texelFetch(depth_image,ivec2(gl_FragCoord.xy),0).r);"
 		"c=vec4(float(b&255u),float((b>>8)&255u),float((b>>16)&255u),float(b>>24))/255.0;}\n"
 	};
 	for (int i = 0; i < 2; i++) {
@@ -196,7 +199,7 @@ void xg_capture_depth(NSString *folder, NSString *label)
 	if (!linked) { failure = "Depth observation program failed"; goto restore; }
 	glGenFramebuffers(1, &target); glBindFramebuffer(GL_FRAMEBUFFER, target);
 	glGenRenderbuffers(1, &color); glBindRenderbuffer(GL_RENDERBUFFER, color);
-	glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA8, 640, 480);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA8, width, height);
 	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, color);
 	status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 	if (status != GL_FRAMEBUFFER_COMPLETE) { failure = "Depth observation target incomplete"; goto restore; }
@@ -205,13 +208,22 @@ void xg_capture_depth(NSString *folder, NSString *label)
 	glSamplerParameteri(point_sampler, GL_TEXTURE_COMPARE_MODE, GL_NONE); glBindSampler(0, point_sampler);
 	glGenVertexArrays(1, &vertices); glBindVertexArray(vertices);
 	for (int i = 0; i < sizeof(caps) / sizeof(caps[0]); i++) glDisable(caps[i]);
-	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE); glViewport(0, 0, 640, 480);
+	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 	glUseProgram(probe); glUniform1i(glGetUniformLocation(probe, "depth_image"), 0);
-	glDrawArrays(GL_TRIANGLES, 0, 3);
 	glBindBuffer(GL_PIXEL_PACK_BUFFER, 0); glPixelStorei(GL_PACK_ALIGNMENT, 1);
 	for (int i = 2; i < 5; i++) glPixelStorei(pack_names[i], 0);
-	pixels = [NSMutableData dataWithLength:640 * 480 * 4];
-	glReadPixels(0, 0, 640, 480, GL_RGBA, GL_UNSIGNED_BYTE, pixels.mutableBytes);
+	/* ES 3.0 lacks glGetTexLevelParameteriv. Ask the sampler for the actual
+	 * extent before reading depth; a larger viewport must not certify a crop
+	 * or out-of-range texelFetch as a full attachment observation. */
+	GLint dimensions = glGetUniformLocation(probe, "dimensions_only");
+	glUniform1i(dimensions, 1); glViewport(0, 0, 1, 1); glDrawArrays(GL_TRIANGLES, 0, 3);
+	glReadPixels(0, 0, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &texture_extent);
+	if ((texture_extent & 0xffff) != width || (texture_extent >> 16) != height) {
+		failure = "Depth texture extent differs from viewport"; goto restore;
+	}
+	glUniform1i(dimensions, 0); glViewport(0, 0, width, height); glDrawArrays(GL_TRIANGLES, 0, 3);
+	pixels = [NSMutableData dataWithLength:(NSUInteger)width * height * 4];
+	glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.mutableBytes);
 	/* Verify the sampler/float-bits/byte-packing path with exact binary fractions.
 	 * The calibration uses only an owned texture and the owned draw target. */
 	GLint unpack[5];
@@ -251,7 +263,8 @@ restore:
 	NSString *file = [@"depth-" stringByAppendingString:[label stringByAppendingString:@".bin"]];
 	complete &= error == GL_NO_ERROR && restore_error == GL_NO_ERROR;
 	if (complete) complete = [pixels writeToFile:[folder stringByAppendingPathComponent:file] atomically:YES];
-	NSDictionary *metadata = @{@"complete":@(complete), @"file":file, @"encoding":@"normalized-float32-le", @"width":@640, @"height":@480,
+	NSDictionary *metadata = @{@"complete":@(complete), @"file":file, @"encoding":@"normalized-float32-le", @"width":@(width), @"height":@(height),
+		@"capture_schema":@2, @"texture_width":@(texture_extent & 0xffff), @"texture_height":@(texture_extent >> 16),
 		@"presented_frames":@(xg_draw_capture_frame()),
 		@"calibrated":@(calibrated),
 		@"framebuffer":@(draw), @"texture":@(depth), @"level":@(level), @"framebuffer_status":@(status),

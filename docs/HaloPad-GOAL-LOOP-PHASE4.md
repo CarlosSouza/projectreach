@@ -97,3 +97,11 @@ preconditions, extend depth diagnostics beyond 640x480, and test effects/match
 before enabling a default. Android atomic visibility counts omit scale correction;
 the tested ES3.0 fallback cannot validate that path. Do not merge resolution and
 filtering hypotheses into one unexplained graphics fix.
+
+Depth follow-up: the opt-in observer now queries the real attachment extent and
+captures calibrated full-sized depth. Selected 1280x960 and 640x480 terrain pairs
+pass same-frame position/projection, GL/restoration and responsive-base checks;
+EQUAL writes no depth. 151 Xbox tests pass. Native color/synthetic raster replay
+is still restricted to 640x480. Next gate is reproducible adaptation identity
+and visibility-effects/broader scene validation, not repeating the completed
+selected-pair depth check or claiming full graphics acceptance from it.

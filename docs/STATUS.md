@@ -4,6 +4,15 @@ Updated 2026-10-02. **Simulator-only work: shared controls, texture compatibilit
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE4.md](HaloPad-GOAL-LOOP-PHASE4.md). Earlier device work remains in [phase 3](HaloPad-GOAL-LOOP-PHASE3.md).
 
+**Scaled depth gate (2026-10-02).** The opt-in depth observer now verifies actual
+attachment dimensions and supports bounded scaled targets. Real 2x and 1x
+Blood Gulch captures pass calibrated readback, same-frame geometry/projection
+and state-restoration checks; EQUAL draws correctly leave depth unchanged.
+151 Xbox tests pass. Native color/raster replay remains explicitly 640x480-only.
+This validates selected draw pairs, not all graphics. Accepted build 66 restored;
+2x stays private/experimental pending a reproducible adaptation and effects checks.
+[Evidence](XBOX-SIMULATOR-PASSES.md#scaled-depth-observation-verified-in-game-2026-10-02).
+
 **Resolution experiment (2026-10-02).** Private 2x guest experiment proves
 1280x960 source targets/viewport against 640x480 baseline, on the same copied
 a30 view. Geometry/HUD are sharper; sloped ground remains soft. Matching scopes

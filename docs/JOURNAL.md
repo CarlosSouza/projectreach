@@ -4455,3 +4455,29 @@ Restore clean accepted build 66, guest image identical to backup; generated and
 installed app executable `2d563e96…734cd8d`, strict signature and About/Done pass.
 All 196 real Documents files retained (log only changed); registry/preferences
 unchanged and Library only OS snapshots. No hardware, IPA, publication or push.
+
+## 2026-10-02 — Real depth evidence for scaled rendering
+
+Extend the opt-in Simulator depth observer with GPU-reported texture extents,
+bounded dimensions, schema-2 metadata and strict scaled parsing. Legacy 640x480
+captures remain supported; unsupported color/raster tools keep their old limit.
+151 Xbox tests pass; 22 focused depth/native-pixel tests repeat after schema
+type hardening. Full experimental and accepted-guest app builds pass.
+
+Actual 2x match: four calibrated/error-free 1280x960 depth observations, 1,071
+indices, frame 11,614; base changes 635,254 samples, 116,388 later overwritten
+closer, EQUAL writes zero. Actual 1x regression: 1,398 indices/frame 7,257,
+76,393 base changes, 27,698 later overwritten closer, EQUAL zero. Matching
+positions/projection and frame checks pass within each pair; different spawns
+prevent a direct cross-resolution count comparison. Lobby timing failures and
+successful retries preserved. A stand-in client is not a human/network acceptance.
+
+Evidence `ref/xbox-build/passes/2026-10-02/scaled-depth.TyfGJB/`. Restore accepted
+build 66; keep render-scale experiment private and unpromoted. Next: reproducible
+local adaptation identity, visibility effects and broader graphics validation.
+
+Restored installed/generated executable `f5709a50…f24a126` and strict signature
+verified; About/Done returns from `f2ba71d9` to the ordinary picker. Audit keeps
+196 Documents files (only log changed), original saves/inputs, PC registry and
+preferences. Library changes are Metal caches, OS snapshots and scene state.
+No hardware, IPA, publication or push.
