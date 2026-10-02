@@ -35,8 +35,10 @@ guest `4ac7e842…b60`, cumulative **render-present-v1**. Resolving the read
 framebuffer before selecting/clearing the presentation destination fixes the
 confirmed cold-cache ordering defect. Cold menu, a10 campaign and scripted local
 match all report frame0 read1/draw0/error0. Normal shared controls, Save and Quit
-and cold checkpoint reload pass on copied state;202 Xbox tests pass. Both-quality
-water/border regression on this exact binary is next. No accepted pin promotion,
+and cold checkpoint reload pass on copied state;202 Xbox tests pass. Subsequent
+four bounded a10/b30 captures retain water/border fixes at Original640x480/1x
+and Sharper1280x960/4x, without startup0x502. Next investigate a different
+unresolved material/effect against desktop. No accepted pin promotion,
 hardware or broad-fidelity claim.
 [Installed evidence](XBOX-SIMULATOR-PASSES.md#first-blit-fixed-build-validation-2026-10-03).
 

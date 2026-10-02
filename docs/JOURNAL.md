@@ -5217,3 +5217,19 @@ Nested upstream clean, accepted66/upstream73 unchanged. No hardware/IPA/push.
 Next exact-binary Original/Sharper water/border regression, then a different
 remaining material/effect issue. Detailed hashes and evidence are in the pass
 ledger. Goal remains active; source-only disk blocker is superseded.
+
+## 2026-10-03 — presentation candidate both-quality regression
+
+Exact installed ed257ad5…af30b / guest4ac7e842…b60 unchanged. Private pass
+present-render73.bShFII backs up the real container, runs four independent100s
+diagnostic a10/b30 captures, and retains80 native PNGs plus runtime logs. Original
+640x480/1x and actual UI-selected Sharper1280x960/4x retain detailed water, the
+bridge shadow-band correction and translucent display. All four cold starts have
+read1/draw0/error0, no startup0x502. Not pixel parity, FPS, full fidelity or new
+normal-menu progression. No runtime change/unit rerun. Upstream remote main and
+official latest release still73/d1c7243c; locks unchanged.
+
+Original picker PID47075 restored. Real Documents only app log changed; Library,
+preferences/keyset and PC registry exact. No cleanup/hardware/IPA/publication.
+Next a different matched desktop-versus-Simulator world-effect comparison, such
+as the a30 beam, without assuming it is erroneous. Goal remains active.

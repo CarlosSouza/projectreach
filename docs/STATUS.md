@@ -4,6 +4,16 @@ Updated 2026-10-03. **Simulator-only work: shared controls, texture compatibilit
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE4.md](HaloPad-GOAL-LOOP-PHASE4.md). Earlier device work remains in [phase 3](HaloPad-GOAL-LOOP-PHASE3.md).
 
+**Presentation candidate retains water/shadow fixes in both modes (2026-10-03).**
+Exact `ed257ad5…af30b` passes four bounded a10/b30 captures: Original640x480/1x
+and UI-selected Sharper1280x960/4x. Detailed water and the bridge-band fix remain;
+the bridge display remains translucent. All four cold starts report read1/draw0/
+error0. Real saves/preferences/PC registry preserved; Original picker restored.
+Live upstream still build73/d1c7243c; accepted66 unchanged. Next matched desktop
+comparison of another unresolved world effect, not another identical regression.
+Broad fidelity and human multi-touch remain open.
+[Evidence](XBOX-SIMULATOR-PASSES.md#presentation-candidate-both-quality-regression-2026-10-03).
+
 **First-blit fix built and verified in Simulator (2026-10-03).**
 Installed `ed257ad5…af30b` / guest `4ac7e842…b60`, cumulative
 `render-present-v1`, passes cold menu/campaign/local-match smoke with frame0

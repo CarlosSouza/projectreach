@@ -1,5 +1,60 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Presentation candidate both-quality regression (2026-10-03)
+
+Previous turn is progress: render-present-v1 built/installed, cold smoke and
+normal controls/save/reload verified. This pass closes its exact-binary targeted
+water/border quality gate. Installed executable SHA remains
+`ed257ad5fce911fdca27796807c6f2610fc39001ad3384da24904ddb200af30b`; bundled
+data/xbox/build.json confirms guest4ac7e842…b60, render-present-v1 and recipe
+0b2ccebc…e3f8. Initial lookup of xbox-runtime.json failed because that is not the
+manifest path; the actual bundled manifest was then located and read.
+
+Private evidence `ref/xbox-build/passes/2026-10-03/present-render73.bShFII/`.
+Full real-container APFS clone before work. Four independent diagnostic roots,
+trusted map links, explicit a10/b30 init, forced Xbox only for these captures;
+network, clipboard join, UPnP, auto-update and scripted input disabled. Existing
+bounded capture helper reused,100-second duration per scene, native screenshots
+about every5s,1GiB free-space abort guard. No periodic BMP/video capture. These
+are cinematic/material checks, not new normal-menu campaign progression.
+
+- Original b30 PID30945,101.631s/20 PNGs, actual640x480/effective1x. Screen04
+  retains detailed water; screen08 shows terrain, foreground occlusion and
+  distant shield effects.
+- Original a10 PID32787,101.001s/20 PNGs,640x480/1x. Screen13 shows the bridge
+  floor without the prior long black bands, visually checked against
+  border-fix73.zpl1rD/bridge-comparison.png. Screen05 retains exterior engine
+  glow and screen18 translucent display.
+- Sharper selected through actual picker UI. b30 PID34719,101.320s/20 PNGs,
+  actual1280x960/effective4x; screen04 retains detailed water.
+- Sharper a10 PID36009,101.430s/20 PNGs,1280x960/4x. Screen13 retains the
+  bridge-band correction and screen18 the translucent display. Camera/animation
+  timing differs across runs; no pixel-parity or FPS claim.
+
+All four stderr logs report frame0 error0/complete0x8cd5/read1/draw0/drawable0;
+sampled subsequent frames and presentation reads remain error0. No startup0x502
+or nonzero logged error found. This is bounded evidence, not every-frame or
+all-scene GL correctness. Runtime/source unchanged, so no unit suite rerun.
+
+Live upstream main resolves d1c7243cb20eab4488efa1266e259b1f4d5240f6; official
+[release listing](https://github.com/cybersecurity/halo-ce-universal/releases)
+still identifies build73 as latest. No new import required for this pass.
+Accepted66 and ANGLE locks unchanged; nested upstream clean. No promotion.
+
+Ordinary picker PID47075 restored; UI-selected Original and AX readback verified.
+Audit:196 real Documents only app log changed; all12 Library files identical,
+including preferences/keyset and PC registry. Real game/package/save files intact.
+Four diagnostic roots total about1.36GiB including generated game state; disk
+219GiB initially/205GiB finally, changes beyond these roots not attributed to us.
+No cleanup, physical device, IPA, push or publication.
+
+Next choose a different unresolved world-effect comparison using the pinned
+desktop reference, for example the a30 cyan beam already shown to be independent
+of HUD replacement. Establish an actual reference difference before changing
+shaders or removing effects. Do not repeat these unchanged regression scenes or
+zero-duration stick gestures as progress. Broad fidelity, sustained human
+multi-touch and physical acceptance remain open; goal active.
+
 ## First-blit fixed-build validation (2026-10-03)
 
 Previous turn made progress: confirmed ordering defect and guarded source fix.

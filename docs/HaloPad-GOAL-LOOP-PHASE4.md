@@ -436,3 +436,13 @@ not attributed to our1.5GiB archival). Next exact-new-build Original/Sharper wat
 and border acceptance; do not repeat the cold-start trace or short-drag tests as
 new progress. Broader materials/effects, sustained human multi-touch and physical
 acceptance remain open. Simulator only; no IPA/publication; goal incomplete.
+
+Both-quality checkpoint: exact ed257ad5…af30b retains detailed b30 water and
+a10 bridge-band correction/display transparency at Original640x480/1x and
+Sharper1280x960/4x. Four100s captures/80 PNGs in present-render73.bShFII; all four
+cold starts read1/draw0/error0. Real state preserved, ordinary Original picker
+restored, upstream still73/d1c7243c and accepted66 unchanged. No new runtime/unit
+or full-fidelity claim. Next a different matched world-effect reference, e.g.
+a30 beam, to establish a real discrepancy before a shader change. Do not repeat
+completed quality checks on an unchanged binary. Human multi-touch and hardware
+remain later gates, not reasons to stop safe Simulator work.
