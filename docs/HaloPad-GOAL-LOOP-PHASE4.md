@@ -261,3 +261,14 @@ Keep hold semantics unchanged. Next prioritize the captured cyan HUD/material
 comparison; avoid another queue-only or short-drag loop. LLDB must ignore the
 renderer write-watch EXC_BAD_ACCESS before attachment, and must be detached
 after sampling. Private probe/addresses are exact-build diagnostics, not an ABI.
+
+Cyan streak follow-up (October3): it reproduces with high-res HUD both on and
+off (guest off flag verified), and follows the world under camera rotation rather
+than the stationary shield. The private a30 map contains a beam-emitter device,
+shader and effects consistent with the traveling blue pulse. Retire the HUD
+replacement hypothesis; do not "fix" it by hiding a world effect. Videos and
+positive-control detector retained in `hud73.hWLeWC`. Exact effect fidelity is
+not established; next obtain a matched pinned upstream desktop material/effect
+reference before changing shader behavior. No more repeated HUD toggle passes
+without a new discriminating hypothesis. Original state preserved,73 candidate
+unchanged, picker restored; goal and broader graphics/controls gates stay open.

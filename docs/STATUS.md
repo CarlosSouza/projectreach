@@ -1,8 +1,19 @@
 # HaloPad status
 
-Updated 2026-10-02. **Simulator-only work: shared controls, texture compatibility and upstream updates.** The full goal is incomplete. The hardware iPad is unavailable today.
+Updated 2026-10-03. **Simulator-only work: shared controls, texture compatibility and upstream updates.** The full goal is incomplete. Physical-device testing remains out of scope until Chris makes the iPad available again.
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE4.md](HaloPad-GOAL-LOOP-PHASE4.md). Earlier device work remains in [phase 3](HaloPad-GOAL-LOOP-PHASE3.md).
+
+**Cyan streak isolated (2026-10-03).** The suspected shield-HUD line reproduces
+with high-res HUD on and off, and moves with the world when the camera turns.
+Guest readback confirms the off setting. Map metadata contains the a30 beam
+emitter and its effects: a plausible source, not yet exact draw attribution.
+Retire the HUD-replacement hypothesis; do not hide the effect or modify HUD
+shaders. Recorded comparison and preserved state in the
+[Simulator ledger](XBOX-SIMULATOR-PASSES.md#cyan-streak-isolation-2026-10-03).
+This is diagnostic progress, not a texture fix. Next use a matched upstream
+desktop reference for material/effects fidelity; accepted lock stays66 and the
+unchanged73 candidate is back at the ordinary picker.
 
 **Scoreboard observation (2026-10-02).** Read-only guest observation narrows the
 previous negative video result: real automated drag reaches guest Back and opens

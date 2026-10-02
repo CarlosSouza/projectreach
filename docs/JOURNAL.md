@@ -4874,3 +4874,21 @@ ordinary picker PID14557 visually restored. All196 Documents preserved except
 log; Library OS scene state only, prefs/PC registry identical. No product code,
 rebuild/install, pin change, unit rerun or hardware. Next cyan HUD/material
 comparison, retaining separate sustained-scoreboard and overflow gates.
+
+## 2026-10-03 — cyan streak is not tied to replacement HUD
+
+Private `hud73.hWLeWC`, unchanged73 guest/app. Back up full app data, load two
+independent copied66 checkpoints through normal menus. High-res HUD true/false
+videos both reproduce the cyan streak; it appears away from shield before Look,
+then moves with world to align near shield. Guest readback confirms hud_enabled0
+in false run. Narrow detector validated with original screenshot: high5767
+frames/347 hits, low11407/790 in original strip; low center strip769. These are
+video frames, not game FPS. Correct ffmpeg's initial resampling to passthrough.
+Map metadata contains a30 beam-emitter device/shader/effects. Likely world beam,
+not exact draw attribution or fidelity acceptance. Retire HUD texture hypothesis,
+do not hide effect. Next matched upstream desktop material/effect reference.
+
+Recordings stopped, read-only debugger detached, ordinary picker PID28067.
+All196 Documents preserved except log; Library OS scene state only; preferences
+and PC registry exact. No product edit/rebuild/install/unit rerun, accepted-pin
+change, hardware or publication. Full goal and graphics acceptance remain open.

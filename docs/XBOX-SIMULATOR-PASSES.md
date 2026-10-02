@@ -1,5 +1,59 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Cyan streak isolation (2026-10-03)
+
+Previous turn yielded guest Back/fade evidence (progress). This pass returns to
+the reported graphics issues. Private evidence is
+`ref/xbox-build/passes/2026-10-03/hud73.hWLeWC/`. Same installed73 executable
+`39f06f77…7198e` and guest `109a9789…bb4a3`; accepted66 unchanged. No rebuild,
+install or product-source change. Full real app-data backup completes before
+test launch. Two independent copies of build66's preserved checkpoint go into
+`save/` and `save-low/`; never select or modify original app saves.
+
+Launch with `HALO_HIGH_RES_HUD=true` (PID16536), then false (PID19288); each
+uses the normal Campaign/New001/Halo-in-progress/Normal menu route. Same
+Original640x480 quality and counted ANGLE renderer. Fire60->59 and background
+Look `[1540,790] -> [1480,790]` exercised in both. Network options off. Both
+recordings show the recurring cyan streak. `high-at50.png` reproduces its
+apparent alignment beside the shield, including the bright traveling pulse.
+In the unturned low-HUD scene the pulse is instead near the upper center, away
+from the stationary shield. After turning, it aligns near the shield again.
+Retained `low-world-streak.png` / `low-turned-streak.png` are frames9/6041.
+
+The exact guest symbol `hud_hires_override_find.hud_enabled` is0 in the second
+run, titles_enabled1 (`low-hud-readback.log`). This verifies effective config,
+not just launch intent; high-res asset registration logs alone do not prove
+replacement usage. Probe reads memory only, ignores intentional write-watch
+faults before attachment, and detaches in the same batch. No guest mutation.
+
+`check-line.py` validates a narrow cyan-column detector against the original
+artifact screenshot (140/140 rows at native x2047). Video output uses passthrough
+timestamps, avoiding ffmpeg's initial duplicate-frame resampling. High recording:
+71.653s /331130760 bytes,5767 decoded frames,347 detections in the original
+above-shield strip. Low recording:142.952s /670881687 bytes,11407 decoded frames,
+790 detections in that strip. A second strip near center finds769, with peak
+native x1256 versus x2052 after turning. Counts are encoded video frames, **not
+game FPS**, and this narrow detector is not a general rendering verifier.
+
+Read-only map parsing finds3215 tags including
+`levels\\a30\\devices\\beam emitter\\beam emitter` (mach), its transparent
+beam shader, light/lens, beam effect and beam-smoke particle. This supports a
+world beam-emitter hypothesis; exact live draw attribution/reference fidelity
+is not yet proved. Community descriptions of the game's skyward beams provide
+[corroborating context](https://www.halopedia.org/Beam_emitter), not renderer
+acceptance. **Retire the HUD-replacement/failed-shield-draw hypothesis**: the
+effect is camera-relative and survives verified original bitmap mode. Do not
+remove it or change HUD sampling merely to hide it. The earlier label "cyan HUD
+artifact" described screen proximity, not established origin.
+
+Recordings stopped and debugger detached. Ordinary launch PID28067 restores
+Original-quality picker (AX verified). All196 Documents files retained except
+known log; Library changes only OS KnownSceneSessions state, preferences and PC
+registry identical. No unit rerun for unchanged runtime. No hardware, IPA or
+publication. Next compare a pinned upstream desktop material/effect view against
+the Simulator before another shader change; neither overall texture fidelity
+nor candidate73 promotion is accepted by this experiment.
+
 ## Build 73 scoreboard read-only observation (2026-10-02)
 
 Private evidence: `ref/xbox-build/passes/2026-10-02/scoreboard-observe73.0c6lPL`.
