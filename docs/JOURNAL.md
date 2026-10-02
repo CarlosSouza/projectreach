@@ -4914,3 +4914,28 @@ Both test handles complete. Picker PID55014/Original AX verified. All196
 Documents retained except log; Library byte-identical, prefs/PC registry exact.
 Executable hash unchanged39f06f77…7198e. No runtime edit/rebuild/install/unit
 rerun, accepted-pin promotion, hardware, IPA or publication. Goal stays active.
+
+## 2026-10-03 — restore water draw state after ES mip copies
+
+Private `water-reference73.eG38SP`: independent desktop and existing Simulator
+sequences reveal flat green water only on Simulator. `prepare_draw` binds targets
+before texture assembly; ES fallback mip blits reset framebuffer0 and scissor
+before the current reflection draw. Add separately identified `render-water-v1`
+to preserve both framebuffer bindings and scissor, with exact source/anchor
+guards, clean upstream restoration, and existing counted-backend/SDK restrictions.
+No shader math/filter/pin/control changes. Prior recipe identity preserved.
+
+188 Xbox tests pass, including sanitized C restoration and packaging checks.
+Launch fixture initially fails linking the prior scoreboard callback; add its
+inert aborting stub.37 Simulator helper checks then pass. Full build/codesign and
+in-place install succeed. App `aa0c46d8…7077d`, guest `83dd49b6…45c5`.
+Actual before/after source frames restore blue water/ripples and closely resemble
+desktop; ordinary app screenshots without optional readback hooks verify this
+is not capture-only. Menu30s/a10 60s/Blood Gulch65s pass (tick1530/12shots).
+Rollback app/output and original real-data backup retained. Accepted66 unchanged;
+no hardware/IPA/publication. Next normal controls/save reload on this candidate
+and Sharper water/depth. Full goal and broader fidelity remain open.
+Final picker PID78201/Original AX-verified.196 Documents retained except known
+log, prefs/PC registry exact; Library changes only Metal cache and OS snapshots/
+scene state. Prior app/output remain private and recoverable; no real save marker
+advance. Repository safety and whitespace checks pass.

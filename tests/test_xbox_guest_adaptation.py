@@ -14,6 +14,67 @@ import guest_adaptation as adapter
 
 
 class GuestAdaptationTests(unittest.TestCase):
+    def test_water_unique_anchors_and_separate_identity(self):
+        base = adapter.ANCHOR + adapter.FILTER_ANCHOR + adapter.COUNT_ANCHOR + adapter.ATOMIC_ANCHOR
+        for save, restore in ((0,1),(2,1),(1,0),(1,2),(1,1)):
+            original = base + adapter.WATER_SAVE_ANCHOR * save + adapter.WATER_RESTORE_ANCHOR * restore
+            with patch.object(adapter, 'SOURCE_SHA256', hashlib.sha256(original).hexdigest()):
+                if (save,restore) != (1,1):
+                    with self.assertRaisesRegex(ValueError, 'water input changed'):
+                        adapter.adapted_source(original, 'render-water-v1')
+                else:
+                    modified = adapter.adapted_source(original, 'render-water-v1')
+                    for fragment in (adapter.WATER_SAVE, adapter.WATER_RESTORE, adapter.COUNT_INSERT, adapter.FILTER_INSERT):
+                        self.assertIn(fragment, modified)
+                    self.assertNotIn(adapter.WATER_RESTORE_ANCHOR, modified)
+                    self.assertNotIn(adapter.WATER_SAVE, adapter.adapted_source(original, 'render-visibility-v1'))
+        self.assertNotEqual(adapter.identity('render-water-v1'), adapter.identity('render-visibility-v1'))
+
+    def test_water_copy_restores_current_draw_state(self):
+        source = r'''
+#include <assert.h>
+typedef int GLint;
+typedef unsigned GLuint;
+enum { GL_READ_FRAMEBUFFER_BINDING, GL_DRAW_FRAMEBUFFER_BINDING,
+       GL_SCISSOR_TEST, GL_READ_FRAMEBUFFER, GL_DRAW_FRAMEBUFFER };
+static GLint read_fb, draw_fb, scissor;
+static void glGetIntegerv(unsigned key, GLint *out) {
+    if (key == GL_READ_FRAMEBUFFER_BINDING) *out = read_fb;
+    else if (key == GL_DRAW_FRAMEBUFFER_BINDING) *out = draw_fb;
+    else { assert(key == GL_SCISSOR_TEST); *out = scissor; }
+}
+static void glBindFramebuffer(unsigned key, GLuint fb) {
+    if (key == GL_READ_FRAMEBUFFER) read_fb = (GLint)fb;
+    else { assert(key == GL_DRAW_FRAMEBUFFER); draw_fb = (GLint)fb; }
+}
+static void glEnable(unsigned key) { assert(key == GL_SCISSOR_TEST); scissor = 1; }
+static void glDisable(unsigned key) { assert(key == GL_SCISSOR_TEST); scissor = 0; }
+static void copy(void) {
+''' + adapter.WATER_SAVE.decode() + r'''
+    read_fb = 77; draw_fb = 88; scissor = 0;
+''' + adapter.WATER_RESTORE.decode() + r'''
+}
+int main(void) {
+    for (int enabled = 0; enabled <= 1; enabled++) {
+        for (int same = 0; same <= 1; same++) {
+            read_fb = same ? 42 : 41; draw_fb = 42; scissor = enabled;
+            for (int level = 0; level < 4; level++) {
+                copy();
+                assert(read_fb == (same ? 42 : 41));
+                assert(draw_fb == 42 && scissor == enabled);
+            }
+        }
+    }
+    return 0;
+}
+'''
+        binary = self.root / 'water-state'
+        result = subprocess.run(['clang','-x','c','-','-std=c11','-Wall','-Werror',
+                                 '-fsanitize=address,undefined','-o',str(binary)],
+                                input=source, text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        subprocess.run([str(binary)], check=True, capture_output=True)
+
     def test_visibility_requires_unique_query_and_capability_anchors(self):
         for count, atomic in ((0, 1), (2, 1), (1, 0), (1, 2)):
             original = (adapter.ANCHOR + adapter.FILTER_ANCHOR +

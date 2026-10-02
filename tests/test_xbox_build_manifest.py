@@ -19,18 +19,21 @@ PIN = json.loads((ROOT / 'config/xbox-engine.lock.json').read_text())['revision'
 
 
 class XboxManifestTests(unittest.TestCase):
-    def test_counted_candidate_requires_matching_guest_backend_and_simulator(self):
+    def test_water_requires_matching_backend_and_simulator(self):
+        self.test_counted_candidate_requires_matching_guest_backend_and_simulator('render-water-v1')
+
+    def test_counted_candidate_requires_matching_guest_backend_and_simulator(self, adaptation='render-visibility-v1'):
         self.angle_fixture()
         self.lib = self.out / 'iphonesimulator-angle-counted/libhalopad-xbox.a'
         self.lib.parent.mkdir()
         self.lib.write_bytes(b'fixture library, not game code')
-        self.manifest['guest_adaptation'] = builder.xbox_runtime_manifest.guest_adaptation.identity('render-visibility-v1')
+        self.manifest['guest_adaptation'] = builder.xbox_runtime_manifest.guest_adaptation.identity(adaptation)
         identity = {'name': 'counted-visibility-v1', 'recipe_sha256': 'fixture recipe'}
         metadata = self.out / 'angle-counted-simulator/counted-visibility-v1/identity.json'
         metadata.parent.mkdir(parents=True)
         metadata.write_text(json.dumps(identity))
         self.save_manifest()
-        with patch.dict(os.environ, {'HALOPAD_XBOX_GUEST_ADAPTATION': 'render-visibility-v1'}):
+        with patch.dict(os.environ, {'HALOPAD_XBOX_GUEST_ADAPTATION': adaptation}):
             with self.assertRaisesRegex(ValueError, 'identity mismatch'):
                 builder.xbox_parts(builder.TARGET)
             self.manifest['visibility_backend'] = identity

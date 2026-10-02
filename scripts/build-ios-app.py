@@ -60,7 +60,7 @@ def xbox_build_folder(target):
     if renderer not in ('apple-gles', 'angle-metal'):
         raise ValueError('Unknown HALOPAD_XBOX_RENDERER')
     sdk = 'iphonesimulator' if 'simulator' in target else 'iphoneos'
-    if xbox_runtime_manifest.guest_adaptation.identity()['name'] == 'render-visibility-v1':
+    if xbox_runtime_manifest.guest_adaptation.identity()['name'] in xbox_runtime_manifest.guest_adaptation.COUNTED_ADAPTATIONS:
         if renderer != 'angle-metal' or sdk != 'iphonesimulator':
             raise ValueError('Counted visibility requires the ANGLE iPad Simulator candidate')
         return XBOX_OUT / (sdk + '-angle-counted')
@@ -96,7 +96,7 @@ def xbox_parts(target):
         raise ValueError('Xbox library revision differs from the pin; run scripts/xbox/build-ios.sh')
     if manifest.get('guest_adaptation') != adaptation:
         raise ValueError('Xbox guest adaptation differs or is unrecorded; rebuild with the intended adaptation')
-    if adaptation['name'] == 'render-visibility-v1':
+    if adaptation['name'] in xbox_runtime_manifest.guest_adaptation.COUNTED_ADAPTATIONS:
         expected_visibility = json.loads((XBOX_OUT / 'angle-counted-simulator/counted-visibility-v1/identity.json').read_text())
         if expected_visibility.get('name') != 'counted-visibility-v1' or manifest.get('visibility_backend') != expected_visibility:
             raise ValueError('Xbox counted guest/backend identity mismatch')

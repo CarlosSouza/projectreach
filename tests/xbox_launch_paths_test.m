@@ -74,6 +74,7 @@ static NSArray *fixture_search_paths(NSSearchPathDirectory directory, NSSearchPa
 void xg_ios_set_touch_pad(const struct xg_touch_pad *state) { (void)state; abort(); }
 void xg_ios_clear_touch_pad(void) { abort(); }
 void xg_ios_add_touch_look(float dx, float dy) { (void)dx; (void)dy; abort(); }
+void xg_ios_scroll_scoreboard(float points) { (void)points; abort(); }
 UIView *xg_ios_make_view(CGRect frame) { return [[UIView alloc] initWithFrame:frame]; }
 void xg_ios_view_resized(void) {}
 int xg_ios_start(const char *image, const char *data, const char *save) { (void)image; (void)data; (void)save; abort(); }
@@ -177,6 +178,7 @@ int main(int argc, char **argv)
             [[NSData dataWithContentsOfFile:[save stringByAppendingPathComponent:@"profile.bin"]] isEqualToData:profile]);
         NSDictionary *qualityBuild = @{@"guest_adaptation": @{@"name": @"render-quality-v1"}};
         check("counted guest retains shared quality choices", HPXboxSupportsQuality(@{@"guest_adaptation": @{@"name": @"render-visibility-v1"}}));
+        check("water guest retains shared quality choices", HPXboxSupportsQuality(@{@"guest_adaptation": @{@"name": @"render-water-v1"}}));
         check("only quality-adapted guests expose quality options", HPXboxSupportsQuality(qualityBuild) &&
             !HPXboxSupportsQuality(@{}) && !HPXboxSupportsQuality(@{@"guest_adaptation": @"invalid"}) &&
             !HPXboxSupportsQuality(@{@"guest_adaptation": @{@"name": @"render-scale-v1"}}));

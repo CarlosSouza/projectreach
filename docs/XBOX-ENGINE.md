@@ -1,6 +1,6 @@
 # Xbox engine (second HaloPad engine)
 
-Status, 2026-10-02: **HaloPad offers Windows Custom Edition or Xbox Combat Evolved at launch.**
+Status, 2026-10-03: **HaloPad offers Windows Custom Edition or Xbox Combat Evolved at launch.**
 The accepted **experimental development pin** in `config/xbox-engine.lock.json`
 is upstream **build 66, `f2ba71d9`**. Newer releases are tested separately before
 promotion. Build 64 expanded the high-resolution HUD/scopes and fixed meter
@@ -30,7 +30,16 @@ The Simulator-only presentation fix remains narrow: temporarily neutralize textu
 sampler 0 during final presentation, then restore it. That diagnostic is not enabled on hardware.
 See [XBOX-SIMULATOR-PASSES.md](XBOX-SIMULATOR-PASSES.md).
 
-Latest Simulator candidate: build 73 `d1c7243c`, executable `39f06f77…7198e`,
+Latest Simulator candidate: build73 `d1c7243c`, executable `aa0c46d8…7077d`,
+guest `83dd49b6…45c5`, opt-in `render-water-v1`. Preserving framebuffer/scissor
+state during ES mip copies restores the missing water reflection layer, verified
+against independent desktop views and ordinary Simulator screen captures.
+188 Xbox tests, 37 launch/save-helper checks and menu/a10/local-match smoke pass.
+Broader fidelity, exact-candidate normal-save reload and hardware remain open.
+No physical-device work is authorized until Chris makes the iPad available again.
+[Water fix evidence](XBOX-SIMULATOR-PASSES.md#water-mip-copy-state-fix-2026-10-03).
+
+Previous Simulator candidate: build 73 `d1c7243c`, executable `39f06f77…7198e`,
 adds held Scoreboard drag to paired Page Up/Down inputs. 185 Xbox tests and
 141 native overlay assertions pass; actual Simulator drag emits paired inputs
 without moving the camera, and Fire still works. Visible scoreboard response
@@ -341,6 +350,24 @@ guest variants. Explicit nonempty development quality environment values overrid
 the saved choice; ordinary launches need no environment flags. Reopen HaloPad
 to change the choice before starting Xbox. Sharper is not full graphics or
 physical-performance acceptance.
+
+`render-water-v1` additionally preserves read/draw framebuffer bindings and
+scissor enable through the ES mip-copy fallback. It includes the counted
+visibility/quality recipe and currently requires the paired counted ANGLE
+**Simulator** backend, like `render-visibility-v1`. Set the same adaptation on
+both build commands; leave the accepted pin and default build unchanged:
+
+```sh
+XBOX_REV=d1c7243cb20eab4488efa1266e259b1f4d5240f6 \
+HALOPAD_XBOX_GUEST_ADAPTATION=render-water-v1 \
+HALOPAD_XBOX_RENDERER=angle-metal scripts/xbox/build-ios.sh
+```
+
+Supply the pinned `XBOX_ANGLE_SOURCE` as above, preserve the prior app/output and
+save data first, then package with those same variables using the normal app
+builder. The source guard currently matches builds66/73; never substitute a new
+upstream digest without reviewing the copy/draw ordering and rerunning the water
+comparison. Evidence is linked in the latest candidate paragraph above.
 
 ## Updating the engine
 

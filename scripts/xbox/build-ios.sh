@@ -29,12 +29,14 @@ if [ -n "$LAUNCH" ] && [ "$SDK" != iphonesimulator ]; then
 fi
 RENDERER=${HALOPAD_XBOX_RENDERER:-apple-gles}
 COUNTED=OFF
-if [ "${HALOPAD_XBOX_GUEST_ADAPTATION:-none}" = render-visibility-v1 ]; then
+case "${HALOPAD_XBOX_GUEST_ADAPTATION:-none}" in
+render-visibility-v1|render-water-v1)
     [ "$RENDERER" = angle-metal ] && [ "$SDK" = iphonesimulator ] || {
         echo "Counted visibility currently requires the ANGLE iPad Simulator candidate" >&2; exit 2;
     }
     COUNTED=ON
-fi
+;;
+esac
 case "$RENDERER" in
 apple-gles) ;;
 angle-metal)
@@ -102,7 +104,7 @@ xcrun libtool -static -o "$LIB" $(ls "$OBJ"/*.o | grep -v xg_app_ios.o) $ANGLE_L
 python3 - "$ENGINE" "$OUT" "$BUILD_SDK" "$RENDERER" "$ROOT/config/xbox-angle.lock.json" "$ROOT" <<'PY'
 import datetime, hashlib, json, pathlib, subprocess, sys
 sys.path.insert(0, str(pathlib.Path(sys.argv[6]) / 'scripts/xbox'))
-from runtime_manifest import sources
+from runtime_manifest import sources, guest_adaptation
 engine, out, sdk = sys.argv[1], pathlib.Path(sys.argv[2]), sys.argv[3]
 manifest = {
     'revision': subprocess.check_output(['git', '-C', engine, 'rev-parse', 'HEAD'], text=True).strip(),
@@ -117,7 +119,7 @@ manifest = {
 if sys.argv[4] == 'angle-metal':
     manifest['angle_source'] = json.loads(pathlib.Path(sys.argv[5]).read_text())
     manifest['angle_feature_overrides'] = ['hasTextureSwizzle'] if manifest['sdk'] == 'iphonesimulator' else []
-if manifest['guest_adaptation']['name'] == 'render-visibility-v1':
+if manifest['guest_adaptation']['name'] in guest_adaptation.COUNTED_ADAPTATIONS:
     manifest['visibility_backend'] = json.loads((out / 'angle-counted-simulator/counted-visibility-v1/identity.json').read_text())
 (out / sdk / 'build.json').write_text(json.dumps(manifest, indent=2) + '\n')
 PY

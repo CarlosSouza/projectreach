@@ -68,18 +68,40 @@ COUNT_INSERT = b'''#ifdef HALO_ANDROID
 ATOMIC_ANCHOR = b'xgpu_capabilities.atomic_counters = counters > 0;'
 ATOMIC_REPLACE = b'xgpu_capabilities.atomic_counters = FALSE; /* paired counted query backend */'
 
+# ES mip assembly runs inside bind_textures, after the current draw's target
+# and raster state were applied. Restore real GL state now, not next draw.
+WATER_SAVE_ANCHOR = b'\tstatic GLuint draw_framebuffer;\n'
+WATER_SAVE = b'''\tGLint saved_read, saved_draw, saved_scissor;
+\tglGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &saved_read);
+\tglGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &saved_draw);
+\tglGetIntegerv(GL_SCISSOR_TEST, &saved_scissor);
+'''
+WATER_RESTORE_ANCHOR = b'''\tglBindFramebuffer(GL_FRAMEBUFFER, 0);
+\t/* the blit bypasses the cached state, so the next draw must re-apply it */
+'''
+WATER_RESTORE = b'''\tglBindFramebuffer(GL_READ_FRAMEBUFFER, (GLuint)saved_read);
+\tglBindFramebuffer(GL_DRAW_FRAMEBUFFER, (GLuint)saved_draw);
+\tif (saved_scissor) glEnable(GL_SCISSOR_TEST);
+\telse glDisable(GL_SCISSOR_TEST);
+\t/* Preserve the in-progress draw; invalidate cached state for later calls. */
+'''
+QUALITY_ADAPTATIONS = ('render-quality-v1', 'render-visibility-v1', 'render-water-v1')
+COUNTED_ADAPTATIONS = ('render-visibility-v1', 'render-water-v1')
+
 
 def identity(name=None):
     name = os.environ.get('HALOPAD_XBOX_GUEST_ADAPTATION', 'none') if name is None else name
     if name == 'none':
         return {'name': 'none'}
-    if name not in ('render-scale-v1', 'render-quality-v1', 'render-visibility-v1'):
+    if name not in ('render-scale-v1', *QUALITY_ADAPTATIONS):
         raise ValueError('Unknown HALOPAD_XBOX_GUEST_ADAPTATION')
     recipe = ANCHOR + INSERT
-    if name in ('render-quality-v1', 'render-visibility-v1'):
+    if name in QUALITY_ADAPTATIONS:
         recipe += FILTER_ANCHOR + FILTER_INSERT
-    if name == 'render-visibility-v1':
+    if name in COUNTED_ADAPTATIONS:
         recipe += COUNT_ANCHOR + COUNT_INSERT + ATOMIC_ANCHOR + ATOMIC_REPLACE
+    if name == 'render-water-v1':
+        recipe += WATER_SAVE_ANCHOR + WATER_SAVE + WATER_RESTORE_ANCHOR + WATER_RESTORE
     return {'name': name, 'upstream_renderer_sha256': SOURCE_SHA256,
             'recipe_sha256': hashlib.sha256(recipe).hexdigest()}
 
@@ -88,16 +110,21 @@ def adapted_source(original, name='render-scale-v1'):
     identity(name)
     if hashlib.sha256(original).hexdigest() != SOURCE_SHA256 or original.count(ANCHOR) != 1:
         raise ValueError('Renderer adaptation input changed; review the new upstream source first')
-    if name in ('render-quality-v1', 'render-visibility-v1') and original.count(FILTER_ANCHOR) != 1:
+    if name in QUALITY_ADAPTATIONS and original.count(FILTER_ANCHOR) != 1:
         raise ValueError('Renderer filtering input changed; review the new upstream source first')
     modified = original.replace(ANCHOR, ANCHOR[:-len(b'#else\n')] + INSERT + b'#else\n')
-    if name in ('render-quality-v1', 'render-visibility-v1'):
+    if name in QUALITY_ADAPTATIONS:
         modified = modified.replace(FILTER_ANCHOR, FILTER_INSERT + FILTER_ANCHOR)
-    if name == 'render-visibility-v1':
+    if name in COUNTED_ADAPTATIONS:
         if original.count(COUNT_ANCHOR) != 1 or original.count(ATOMIC_ANCHOR) != 1:
             raise ValueError('Renderer visibility input changed; review upstream first')
         modified = modified.replace(COUNT_ANCHOR, COUNT_INSERT + COUNT_ANCHOR)
         modified = modified.replace(ATOMIC_ANCHOR, ATOMIC_REPLACE)
+    if name == 'render-water-v1':
+        if original.count(WATER_SAVE_ANCHOR) != 1 or original.count(WATER_RESTORE_ANCHOR) != 1:
+            raise ValueError('Renderer water input changed; review upstream first')
+        modified = modified.replace(WATER_SAVE_ANCHOR, WATER_SAVE_ANCHOR + WATER_SAVE)
+        modified = modified.replace(WATER_RESTORE_ANCHOR, WATER_RESTORE)
     return modified
 
 

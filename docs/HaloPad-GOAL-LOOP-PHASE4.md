@@ -282,3 +282,14 @@ Simulator state preserved after180-second pass; accepted66/adapted73 unchanged.
 Next reuse this proven independent path for a moving water/effect comparison;
 do not rebuild the Mac Android wrapper and call it an independent reference,
 repeat this static view, or dismiss all reported defects as upstream behavior.
+
+Water fix follow-up: the moving desktop/Simulator comparison locates genuinely
+missing water reflections on ES. Its mip-copy fallback resets framebuffer0 after
+the current draw target was bound. New opt-in `render-water-v1` restores real
+read/draw framebuffer and scissor state, retaining cache invalidation. Actual
+reference/before/after sequences and ordinary app screenshots show restored
+animated reflections;188 Xbox tests,37 helper checks and menu/a10/match pass.
+Installed candidate `aa0c46d8…7077d`, source73/accepted66 unchanged. Next exact-
+candidate normal controls/save reload and Sharper water/depth, then another
+material defect. Do not repeat the previous mip-existence/HUD tests or treat
+this narrow Simulator correction as all graphics/hardware acceptance.

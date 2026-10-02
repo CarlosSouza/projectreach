@@ -4,6 +4,17 @@ Updated 2026-10-03. **Simulator-only work: shared controls, texture compatibilit
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE4.md](HaloPad-GOAL-LOOP-PHASE4.md). Earlier device work remains in [phase 3](HaloPad-GOAL-LOOP-PHASE3.md).
 
+**Missing water reflections fixed in Simulator candidate (2026-10-03).** Moving
+b30 reference views reveal a real difference: the prior candidate draws flat
+green water where upstream desktop draws reflections/ripples. The ES mip-copy
+fallback changes the framebuffer during preparation of that same draw. New
+opt-in `render-water-v1` restores read/draw framebuffer and scissor state; actual
+before/after frames and ordinary Simulator screen captures show restored water.
+188 Xbox tests, 37 launch/save checks and menu/a10/local-match smoke pass.
+Candidate executable `aa0c46d8…7077d`, guest `83dd49b6…45c5`; upstream73 and
+accepted lock66 unchanged. Broader graphics, controls and hardware acceptance
+remain open. [Fix, provenance and limits](XBOX-SIMULATOR-PASSES.md#water-mip-copy-state-fix-2026-10-03).
+
 **Independent desktop reference (2026-10-03).** Upstream build73's unmodified
 Windows executable runs locally under isolated Wine9/Mesa26.2.3 llvmpipe, reaches
 menu and Silent Cartographer, and produces real OpenGL4.6 frames. This is the

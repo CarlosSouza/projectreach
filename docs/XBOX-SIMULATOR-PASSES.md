@@ -1,5 +1,86 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Water mip-copy state fix (2026-10-03)
+
+Previous turn is progress: independent upstream73 desktop reference works.
+Private evidence `ref/xbox-build/passes/2026-10-03/water-reference73.eG38SP/`.
+Same official Windows Xbox-port binary, Wine9 and Mesa26.2.3 software renderer
+as `desktop73.Fi7gKD`; same maps, Original640x480, default interpolation/HUD,
+no player input. New isolated desktop/Simulator data and saves. Full real app
+data, prior app and prior output tree are copied before candidate replacement.
+
+Capture the b30 approach with upstream's existing screenshot facility. Desktop
+PID59386:154.81 seconds/294 BMPs, interval4, exit0. Before-fix Simulator PID59420:
+91.69 seconds/361 BMPs, interval12. These counts include loading and are not
+performance measurements. `match.py` ranks coarse image correspondences only;
+manual inspection confirms the relevant views, not exact camera/time identity.
+Desktop96/Simulator216 show the island approach; desktop276/Simulator792 show
+water from inside the Pelican. In both, desktop has detailed blue reflections
+and Simulator has a nearly uniform green surface. This is a concrete rendering
+defect, unlike the earlier broad static terrain similarity.
+
+Source cause: `prepare_draw` binds targets and applies raster state **before**
+`bind_textures`. The active ES3.0 path logs `copy image 0`. When assembling the
+water mip composite, `copy_level_by_blit` binds temporary read/draw framebuffers,
+disables scissor, and finishes by binding framebuffer0. Invalidating the state
+cache only repairs a later draw; the current reflection draw has already lost
+its target. Desktop uses `glCopyImageSubData` and avoids this fallback. Earlier
+mip completeness/readback tests were correct but did not establish that the
+subsequent water draw still targeted the game's back buffer.
+
+New separately identified `render-water-v1` layers a narrow state-preservation
+recipe on the existing visibility/quality adaptation. Read back read framebuffer,
+draw framebuffer and scissor enable before the copy; restore all three afterward,
+then retain the existing cache invalidation. No shader math, texture filtering,
+map bytes, controls or upstream pin change. Full input SHA and unique anchors
+guard application; upstream source is clean again after Ninja. Old visibility
+recipe identity remains byte-for-byte unchanged. New recipe SHA256
+`ab7a4178dd3ab4363cc5ab7203e84b5acebecf6ed5af2c1e26c2c30a12302db2`.
+Build/packaging require matching counted ANGLE identity and Simulator SDK; the
+new recipe retains Original/Sharper UI support and is not a hardware default.
+
+188 Xbox tests pass, including exact inserted C state-restoration fragments
+under ASan/UBSan (same/distinct framebuffer bindings, scissor on/off, four levels),
+anchor rejection, separate identity and packaging rejection without the matching
+backend/platform. Launch-helper link initially exposes a missing inert stub for
+the previous scoreboard bridge; add an aborting stub, preserving the fixture's
+no-game rule. The corrected suite passes37 actual Simulator helper checks at
+`generated/xbox-launch-tests/20261002T155744884409Z`. Full guest/library/app build
+and strict codesign validation pass; known8 availability/libtool warnings remain.
+
+Candidate installed in place: executable SHA256
+`aa0c46d8ebf733fa5d208e7a2df5703f57b81b36242e21a8554737981667077d`, guest
+`83dd49b694ad8425fae2a561143c3d55617e2ef064a51d4f7d3075ab34b045c5`.
+PID65491 runs91.42 seconds/405 BMPs. `candidate180.png` and `candidate792.png`
+restore reflections/ripple detail in both reference views. In a fixed water-only
+region x0..279/y270..409, horizontal RGB variation rises from0.005 before to2.66
+after, versus3.05 desktop (0..255 channel units). Adjacent captured sample changes
+rise from0.09 to6.73, versus7.07 desktop. These characterize restored spatial and
+temporal detail, **not exact phase/fidelity or performance acceptance**.
+
+Observer-off follow-up PID69271: no optional GL trace, upstream bitmap screenshots
+or scripted input;55-second bounded run, native Simulator screenshots every5s.
+`clean/screen-02.png` and `screen-04.png` visibly show restored ocean detail in
+the actual composited app with shared controls. This rejects a fix visible only
+through the bitmap diagnostic. Default built-in startup frame probes still run.
+Separate normal regression passes menu30s, a10 60s/three nonblack late samples,
+and Blood Gulch65s/tick1530/12 scripted shots with one stand-in peer, not a second
+human game client. All run handles complete. Normal picker is restored and real
+state is read back after the in-place install; see this pass's audit JSON.
+Final picker PID78201 is AX-verified at Original quality. All196 original
+Documents files remain, only the known log changes. Preferences and PC registry
+are exact. Library differences are Metal cache, OS scene state and replaced
+SplashBoard snapshots only. No real save-revision marker is advanced by the
+isolated data/save overrides.
+
+Accepted lock remains66, guest source frozen73, no hardware/IPA/publication.
+This fixes the reproduced missing-water layer on Simulator; it does not close
+all texture/shading, normal-menu save acceptance on this exact candidate,
+sustained shared controls, unadapted73 update gates or physical-device gates.
+Next verify this candidate's ordinary controls/save reload and Sharper water/depth
+path, then pursue a different reproduced material defect. Do not repeat missing-
+mip existence or HUD toggles; no longer describe this water issue as unlocated.
+
 ## Independent desktop reference (2026-10-03)
 
 Previous turn is progress: it retired the replacement-HUD hypothesis. This pass
