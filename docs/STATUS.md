@@ -4,6 +4,15 @@ Updated 2026-10-03. **Simulator-only work: shared controls, texture compatibilit
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE4.md](HaloPad-GOAL-LOOP-PHASE4.md). Earlier device work remains in [phase 3](HaloPad-GOAL-LOOP-PHASE3.md).
 
+**Jumpy and Default runtime checks passed (2026-10-03).** The unchanged
+`48f118f3…213e` shared-input candidate keeps Jump/Throw semantics under Jumpy's
+alternate A/trigger mapping. Default Fire/Throw/Swap/Look/Pause also respond
+correctly. These are bounded Simulator checks, not sustained touch-feel or
+all-preset acceptance. Real saves/preferences/PC registry remain unchanged;
+ordinary Original picker restored. Next exact-build water/border/local-match
+regression, without promoting the accepted pin.
+[Evidence](XBOX-SIMULATOR-PASSES.md#jumpy-and-default-runtime-regression-2026-10-03).
+
 **Southpaw touch mismatch fixed in Simulator candidate (2026-10-03).** New
 `shared-input-v1` exposes versioned guest mapping/menu context and adapts only
 HaloPad's touch pad, without resetting profiles or remapping physical controllers.

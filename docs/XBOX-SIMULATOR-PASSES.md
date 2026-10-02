@@ -1,5 +1,52 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Jumpy and Default runtime regression (2026-10-03)
+
+Previous pass is progress: the touch-only mapping bridge fixes Southpaw.
+This pass tests an A/trigger-changing preset and the common Default setup on the
+same installed `shared-input-v1` candidate, without rebuilding. Installed app SHA
+`48f118f3f2cb690c29a8978c8f213644c45ddfc0400cfdf26495add966d1213e` verified before
+and after. Guest/recipe/upstream73/accepted66 identities remain those below.
+Private evidence: `ref/xbox-build/passes/2026-10-03/presets73.WnjD7M/`.
+
+Full real-container `data-before` backup precedes testing. Separate copied
+checkpoint/profile trees isolate Jumpy and Default; only genuine settings menus
+change profile bindings. Launch-only network/update suppression remains in use.
+No forced edition/init, scripted game input, profile-byte edits or hardware.
+
+PID61051: normal picker -> Xbox -> Settings -> New001 -> Controller Setup.
+Thumbsticks remain Default; select **Jumpy** buttons, visibly assigning Jump to
+left trigger and Throw Grenade to A. Accept and Save Changes through the ordinary
+menus. Return to Campaign/New001/Halo/Normal and load the outside-pod checkpoint.
+The host context reports `70513246:fedc`, sticks0, valid1 in menus and gameplay.
+Shared Jump leaves grenade1 intact; Throw consumes it1->0 with rifle60 unchanged;
+Fire subsequently changes rifle60->59. `jumpy-save` preserves the selected profile.
+
+`jumpy.mp4` retains the initial sequence (139.583s). A second isolated Jump-only
+recording, `jump-short.mp4` (68.043s), shows a brief viewpoint rise and return;
+`jump-detail.png` samples18.5..22s. A nearby fragmentation grenade is picked up
+afterward, so its0->1 counter change is not a throw or extra-input claim. Capture
+duration includes idle/tool latency, not sustained play. These observations do
+not establish movement feel, simultaneous fingers, new checkpoint progression,
+all alternate presets or cold reload of the Jumpy profile.
+
+PID70320: fresh isolated Default copy from the previous border regression,
+normal menus load the same checkpoint. Context `76513240:fedc`, sticks0, valid1.
+Fire changes rifle60->59 while grenade1 stays; Throw changes grenade1->0; Swap
+selects the pistol (reserve64); background drag changes view; Pause opens the
+ordinary guest menu and context returns to menu1. No new Save and Quit/cold-load
+claim here; the preceding Southpaw pass covers those on this executable.
+
+Final ordinary Original picker PID73921. Readback:196 real Documents files,
+no additions/removals, only expected app-log change. Library differs only in
+`Saved Application State/dev.halopad.HaloPad.savedState/KnownSceneSessions/data.data`.
+Preference keys/values and PC registry are exact. Audit JSON and stderr retained.
+No runtime edits, build, new unit-suite run, pin promotion, IPA or publication.
+
+Next exact-candidate water/border/local-match regression. Boxer/Green Thumb,
+alternate stick runtime behavior, sustained human multi-touch and broad graphics
+fidelity remain open. Prior candidate rendering results do not close this gate.
+
 ## Southpaw touch mapping bridge (2026-10-03)
 
 Previous pass is progress: a copied Southpaw button profile reverses Fire/Throw.

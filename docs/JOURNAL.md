@@ -5102,3 +5102,21 @@ and PC registry exact. Installed app SHA reverified, nested upstream clean,
 accepted66/upstream73 unchanged. No hardware/IPA/push. Next actual alternative
 A/B-binding preset and Default regression, then exact-build graphics/local-match
 checks; legacy movement feel and sustained multi-touch remain unaccepted.
+
+## 2026-10-03 — Jumpy and Default shared-input runtime checks
+
+Previous turn progress; unchanged installed `48f118f3…213e` verified before/after.
+Private `presets73.WnjD7M` holds full real-data backup and separate genuine copied
+profiles. PID61051 normal settings changes copied Southpaw to Jumpy and saves.
+Context `70513246:fedc` proves the alternative A/trigger bindings. Shared Jump
+shows brief viewpoint rise/return; Throw consumes grenade1->0, Fire rifle60->59.
+Retained recordings include idle/tool latency, not sustained play; a nearby
+grenade pickup after Jump explains its later0->1 count. No profile-byte edits.
+
+PID70320 uses an independent copied Default profile, normal checkpoint route.
+Fire60->59/grenade1; Throw grenade1->0; pistol Swap, background Look and Pause
+respond. No fresh progression or Jumpy cold-reload claim. Ordinary Original
+picker PID73921 restored;196 real Documents differ only by app log, Library by
+one OS scene-state file. Preferences/keyset/PC registry exact. No runtime/build/
+unit rerun/pin change/hardware/publication. Next exact-build water/border/local
+match; all-preset runtime feel and sustained human multi-touch remain open.

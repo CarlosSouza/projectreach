@@ -372,3 +372,13 @@ ordinary Original picker restored. Evidence `input-bridge73.BvdqSP`. Next test a
 different A/B-binding preset and Default on the new candidate, then exact-build
 water/border/local-match regression. Unit coverage of all presets is not actual
 all-preset movement/feel acceptance. No hardware or broader fidelity claim.
+
+Alternate/default runtime follow-up: same `48f118f3…213e` candidate passes
+Jumpy's A/trigger-changing preset through genuine settings and gameplay. Shared
+Jump shows brief viewpoint rise/return; Throw/Fire keep their meanings. Separate
+Default copy passes Fire/Throw/Swap/Look/Pause. Context logs confirm both maps;
+real state preserved and ordinary Original picker restored. Evidence
+`presets73.WnjD7M`. No rebuild/unit rerun/pin promotion. Next exact-candidate
+water/border/local-match regression; do not repeat these unchanged preset checks.
+Boxer/Green Thumb, alternate stick runtime and sustained human multi-touch remain
+unaccepted. This bounded evidence is progress, not completion of the full goal.
