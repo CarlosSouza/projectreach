@@ -150,3 +150,12 @@ world-geometry occlusion. Projected query area is not viewport-clamped in source
 the visible corona is not necessarily that area. Next correlate this one test's
 rectangle/result with matched edge views or a reference before changing counting.
 No new runtime fix or pin import; the two reviewed iOS fork heads are unchanged.
+
+Rectangle correlation follow-up: new opt-in CPU-only observer and actual sun
+edge views now establish the gap: at most 928/3364 pixels (27.6%) can be visible,
+yet the returned boolean makes the guest target 255; fully outside returns zero.
+174 tests/build/five-minute smoke pass. This supersedes the need to isolate that
+rectangle again. Next test an explicitly counted backend/guest capability with
+cross-render-pass accumulation and scale normalization. Keep it separately
+identified/opt-in and preserve GLES boolean semantics. CPU viewport clipping is
+not a general occlusion fix. No claim of fixing broader texture/shading defects.

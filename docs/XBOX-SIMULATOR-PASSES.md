@@ -1,5 +1,81 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Sun visibility rectangle measured (2026-10-02)
+
+Add CPU-only `XG_TRACE_QUERY_RECTS=1`, independent of aggregate query tracing.
+It copies the four positions from the pinned guest's immediate-mode upload
+(16 float4 attributes per vertex) while an ANY_SAMPLES_PASSED query is active.
+Accept only one 1024-byte ARRAY_BUFFER upload and one four-vertex triangle fan,
+finite axis-aligned rectangle, common depth and w=1. Other layouts, extra draws,
+indexed draws and malformed rectangles are rejected. Correlate the later
+existing query result by GL object ID; a 256-slot bounded table evicts collisions.
+No GL calls, GPU waits, guest writes or changes to returned results. These are
+observed call arguments, not an independent GL-success check. This layout is
+specific to the reviewed guest; review before interpreting another upstream.
+
+Emit at most once per ID per second and 4096 rows per process. IDs rotate between
+guest visibility slots and are not stable flare identities. Repeated reads and
+within-second transitions can be omitted; this is not an event-complete trace.
+The Simulator harness forwards either query trace only with render diagnostics
+and exact environment value `1`; normal smoke runs explicitly disable both.
+
+Actual Original-quality Blood Gulch run, private `query-rect.ILuHKK/live`, retains
+the following stationary views after manual background free-look:
+
+| View | Observed rectangle, logical pixels | Area | Returned boolean |
+| --- | --- | ---: | ---: |
+| Sun inside | (173,289)–(222,338) | 2401 | 1 |
+| Sun partly clipped | (-42,203)–(16,261) | 3364 | 1 |
+| Sun outside | (-66,189)–(-7,248) | 3481 | 0 |
+
+The far-depth rectangles (z about 0.99998–0.99999), moving with the visible sun,
+are observed on rotating IDs 1/4. A separate near rectangle around (403,304)
+remains distinct. This spatial/depth correlation identifies the sun-associated
+test with much stronger evidence than aggregate counts, but no Halo flare-index
+or tag identity is logged. `sun-inside.png`, `sun-partial.png`, `sun-outside.png`
+retain the views. At partial coverage only 16*58=928 of 3364 logical rectangle
+pixels can be inside the 640x480 viewport: **at most 27.6%**, before depth tests.
+The ES fallback nevertheless maps result 1 to one million and the guest computes
+a saturated 255 target. A counted result would permit a target no greater than
+about 70 for that rectangle. Displayed flare intensity also has smoothing and
+other factors; this is not a measured 3.6x brightness error or a claim that all
+texture/shading issues share this cause. No reference-renderer comparison yet.
+
+This is a reproduced coverage-loss limitation, not a fix. Next implement/test an
+explicit counted-visibility capability in a separately identified backend/guest
+candidate, preserving generic GLES boolean semantics, accumulating across Metal
+render passes and normalizing scaled targets. Do not approximate world occlusion
+by clipping the rectangle in CPU code; that would only address the screen edge.
+No more aggregate-only diagnostics are needed to establish this particular gap.
+
+174 Xbox tests pass, including sanitized actual observer opt-in, association,
+collision eviction, malformed/extra/indexed draw rejection and hard log cap;
+generator tests check hooks follow real calls. Full combined build and strict
+installed signature pass, installed/generated executable hashes match
+`69a3588606786889c46e0bfabf74caeb8339b774e850116c8a2473c40a8bbc0a`.
+The unchanged guest remains `a2f07097…55d8599` (`render-quality-v1`, Original).
+Upstream checkout is clean. Five-minute smoke reaches tick 8580 with zero scripted
+shots and presentation captures. The harness ends before the attempted reverse
+gesture, so no reverse-sweep query capture is claimed in this run. No hardware,
+accepted pin move, Xbox IPA or publication.
+
+Separate 30-second observer-off menu smoke passes; retained screenshot visibly
+shows the ordinary Xbox main menu and its log has neither query trace prefix.
+Relaunch the ordinary edition picker, verify Original selected. All 196 original
+Documents files remain unchanged except app log; original saves and PC registry
+are unchanged. Preference dictionary unchanged; only OS SplashBoard snapshots
+change in Library. Pre-install app/data backups retained. No files deleted.
+
+Final review tightens collision throttling: replacing a table occupant retains
+the slot's last-log time, so ID churn cannot bypass the per-second limit. Add an
+actual compiled collision assertion; all 174 tests pass again. Rebuilt, signed
+and installed final executable is
+`9df901c97225eb26b2972c2983f396ef269cbd965ddda17ee70f4797203501ee`.
+The five-minute geometry evidence above belongs to the preceding executable;
+this last change affects logging only, not geometry recognition or rendering.
+Final-build 30-second observer-off menu smoke also passes, screenshot reviewed;
+return to Original picker and repeat preservation audit successfully.
+
 ## Blood Gulch sun-flare reproduction route (2026-10-02)
 
 Continue on the dedicated Simulator only, same installed `5a677b38…2d73201e`

@@ -4603,3 +4603,40 @@ Documents files, only app log differs; no files added/removed. Only saved scene
 state differs in Library; preferences and PC registry unchanged. Documentation
 and evidence only, whitespace/tree safety checks pass; no fresh unit-suite/build,
 hardware, IPA, push or publication claim.
+
+## 2026-10-02 — Correlate the sun rectangle and boolean result
+
+Previous pass produced a concrete view; this pass measures the geometry rather
+than repeating aggregate counts. Add opt-in `XG_TRACE_QUERY_RECTS=1` CPU observer
+of existing query begin/end, immediate uploads, draws and returned results.
+Validate pinned-layout rectangles, reject extra/indexed/malformed draws, evict
+ID collisions, log at most once per ID per second and 4096 rows. No GL calls,
+GPU waits, result changes or upstream source patch. Simulator harness forwards
+exact opt-in only under render diagnostics. 174 tests pass, including compiled
+observer sanitizer checks and generated hook ordering. Full combined build and
+strict installed signature/hash match `69a35886…a8bbc0a`; guest unchanged.
+
+Five-minute Original Blood Gulch smoke reaches tick 8580, no scripted shots.
+Free-look finds a far-depth rectangle moving with the sun. Inside: area 2401,
+result 1. Partly clipped: (-42,203)-(16,261), area 3364, result 1 although at most
+928 pixels (27.6%) are in the viewport. Outside: (-66,189)-(-7,248), result 0.
+The guest's boolean fallback saturates target visibility to 255 in the partial
+case, instead of a counted target bounded around 70. This is a specific coverage
+loss; not a measured brightness ratio or general texture/shading diagnosis.
+Private screenshots/logs/builds under `query-rect.ILuHKK`. Harness ends before
+reverse gesture, no reverse measurement claimed. GL IDs are not flare tag IDs;
+association uses geometry/depth and visible sun movement. No original reference
+image or hardware test. Next a separately identified counted backend capability,
+with cross-pass accumulation and scale normalization, not CPU edge clipping.
+
+Observer-off 30-second menu smoke passes with no query logs; screenshot reviewed.
+Return to ordinary picker at Original. Pre-install app/data retained; all original
+saves/game files and PC registry preserved, preference dictionary unchanged.
+Only app log and OS snapshots differ. Upstream tree clean, pin unchanged; no IPA,
+hardware, public publication or push. Full objective remains incomplete.
+
+Final review preserves the per-slot logging timestamp on collision, preventing
+query-ID churn from bypassing throttling; added compiled assertion and all 174
+tests pass again. Rebuilt/signed/installed final hash `9df901c…03501ee` matches
+generated output. Earlier `69a35886…a8bbc0a` remains the five-minute trace evidence
+identity; geometry/renderer behavior is unchanged by this logging-only edit.

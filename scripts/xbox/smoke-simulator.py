@@ -26,6 +26,12 @@ WORK = ROOT / 'ref/xbox-build'
 BUNDLE = 'dev.halopad.HaloPad'
 
 
+def query_environment(diagnostics=False, environ=None):
+    environ = os.environ if environ is None else environ
+    return {key: '1' if diagnostics and environ.get(key) == '1' else ''
+            for key in ('XG_TRACE_QUERIES', 'XG_TRACE_QUERY_RECTS')}
+
+
 def match_environment(stationary=False):
     return {'HALO_NETWORK_TEST': 'host:bloodgulch', 'HALO_NETWORK_TEST_START': '8',
             'HALO_TEST_INPUT': '' if stationary else 'bot:7',
@@ -264,6 +270,7 @@ def main():
                  'XG_FRAME_DUMP': str(frame), 'XG_FRAME_DUMP_SECONDS': '10'}
         child['XG_AUDIO_CAPTURE'] = '1' if args.audio_diagnostics else ''
         child.update(campaign_environment(name == 'campaign' and args.scripted_campaign))
+        child.update(query_environment(args.render_diagnostics))
         if name == 'match':
             child.update(match_environment(args.stationary_match))
         env.update({'SIMCTL_CHILD_' + k: v for k, v in child.items()})

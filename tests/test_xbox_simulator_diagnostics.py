@@ -16,6 +16,15 @@ spec.loader.exec_module(smoke)
 
 
 class SimulatorDiagnosticsTests(unittest.TestCase):
+    def test_query_traces_require_diagnostics_and_exact_opt_in(self):
+        keys = ('XG_TRACE_QUERIES', 'XG_TRACE_QUERY_RECTS')
+        for value in ('', '0', 'true', '1'):
+            env = dict.fromkeys(keys, value)
+            self.assertEqual(smoke.query_environment(False, env), dict.fromkeys(keys, ''))
+            self.assertEqual(smoke.query_environment(True, env),
+                             dict.fromkeys(keys, '1' if value == '1' else ''))
+        self.assertEqual(smoke.query_environment(True, {}), dict.fromkeys(keys, ''))
+
     def test_campaign_sequence_requires_two_visible_samples(self):
         self.assertFalse(smoke.campaign_frames_pass([]))
         self.assertFalse(smoke.campaign_frames_pass([{'lit': 0}, {'lit': 0}]))

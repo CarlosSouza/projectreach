@@ -54,6 +54,8 @@ def main():
              "GLuint xg_gl_framebuffer(GLuint framebuffer);", "",
              "void xg_gl_trace_blit(int after, int x0, int y0, int x1, int y1);", "",
              "void xg_gl_trace_query(int begin, GLuint id, GLenum name, GLuint value);", "",
+             "void xg_gl_trace_query_end(GLenum target);",
+             "void xg_gl_trace_query_draw(GLenum mode, GLint first, GLsizei count);", "",
              "/* XG_GL_CHECK=1: log the first OpenGL ES errors, naming the call */",
              "static int check_errors = -1;",
              "static GLenum (*check_get_error)(void);",
@@ -117,6 +119,12 @@ def main():
                 lines.append("\txg_gl_trace_query(1, a1, a0, 0);")
             if name == "glGetQueryObjectuiv":
                 lines.append("\tif (a2) xg_gl_trace_query(0, a0, a1, *G(GLuint *, a2));")
+            if name == "glEndQuery":
+                lines.append("\txg_gl_trace_query_end(a0);")
+            if name == "glDrawArrays":
+                lines.append("\txg_gl_trace_query_draw(a0, a1, a2);")
+            if name in ("glDrawElements", "glDrawElementsBaseVertex"):
+                lines.append("\txg_gl_trace_query_draw(0, 0, 0);")
             if name != "glGetError":
                 lines.append('\tif (check_errors) check("%s");' % name)
         elif name == "glGetError":

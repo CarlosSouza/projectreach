@@ -14,6 +14,9 @@ class XboxGLGeneratorTests(unittest.TestCase):
             source = pathlib.Path(tmp) / 'guest.c'
             output = pathlib.Path(tmp) / 'host.c'
             source.write_text('void hostgl_glBeginQuery(GLenum, GLuint);\n'
+                              'void hostgl_glEndQuery(GLenum);\n'
+                              'void hostgl_glDrawArrays(GLenum, GLint, GLsizei);\n'
+                              'void hostgl_glDrawElements(GLenum, GLsizei, GLenum, const void *);\n'
                               'void hostgl_glGetQueryObjectuiv(GLuint, GLenum, GLuint *);\n')
             subprocess.run([sys.executable, str(ROOT / 'scripts/xbox/gen-host-gl.py'),
                             str(source), str(output)], check=True, capture_output=True)
@@ -22,6 +25,13 @@ class XboxGLGeneratorTests(unittest.TestCase):
                             generated.index('xg_gl_trace_query(1, a1, a0, 0);'))
             self.assertLess(generated.index('p_glGetQueryObjectuiv(a0, a1, (GLuint *)GP(a2));'),
                             generated.index('if (a2) xg_gl_trace_query(0, a0, a1, *G(GLuint *, a2));'))
+            for call, observer in (
+                ('p_glEndQuery(a0);', 'xg_gl_trace_query_end(a0);'),
+                ('p_glDrawArrays(a0, a1, a2);', 'xg_gl_trace_query_draw(a0, a1, a2);'),
+                ('p_glDrawElements(a0, a1, a2, (const void *)(uintptr_t)a3);',
+                 'xg_gl_trace_query_draw(0, 0, 0);'),
+            ):
+                self.assertLess(generated.index(call), generated.index(observer))
 
     def test_blit_coordinates_and_widened_stack_arguments(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -4,6 +4,15 @@ Updated 2026-10-02. **Simulator-only work: shared controls, texture compatibilit
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE4.md](HaloPad-GOAL-LOOP-PHASE4.md). Earlier device work remains in [phase 3](HaloPad-GOAL-LOOP-PHASE3.md).
 
+**Measured flare coverage loss (2026-10-02).** Opt-in rectangle/result observer
+correlates the Blood Gulch sun with an actual test rectangle: at most 27.6% lies
+inside the viewport, but the ES boolean fallback still drives full target
+visibility. Fully outside returns zero. This establishes a specific fidelity
+limitation, not the cause of all shading/texture defects and not a fix. 174 tests,
+full combined build and five-minute Simulator smoke pass. Next is a separately
+identified counted-visibility candidate, not further aggregate tracing.
+[Measured evidence and limits](XBOX-SIMULATOR-PASSES.md#sun-visibility-rectangle-measured-2026-10-02).
+
 **Blood Gulch visual follow-up (2026-10-02).** Three- and five-minute isolated
 match smoke checks pass. Manual background free-look reveals a sun flare and
 reversibly moves it across the viewport edge without firing. This establishes

@@ -4,6 +4,7 @@
  */
 #include "xg_host.h"
 #include "xg_query_trace.h"
+#include "xg_query_rect_trace.h"
 
 #include <GLES3/gl32.h>
 #include <stdio.h>
@@ -31,7 +32,13 @@ static void helpers_load(void);
 void xg_gl_trace_query(int begin, GLuint id, GLenum name, GLuint value)
 {
 	xg_query_trace(begin, id, name, value);
+	if (begin) xg_query_rect_begin(name, id);
+	else xg_query_rect_result(id, name, value);
 }
+
+void xg_gl_trace_query_end(GLenum target) { xg_query_rect_end(target); }
+void xg_gl_trace_query_draw(GLenum mode, GLint first, GLsizei count)
+{ xg_query_rect_draw(mode, first, count); }
 
 /* XG_GL_TRACE=<private path prefix>: inspect presentation on an isolated
  * diagnostic run. Never enabled by normal builds. Capture at most every ten
@@ -190,6 +197,7 @@ uint32_t xh_host_gl_read_buffer_word(uint32_t buffer, uint32_t offset)
 void xh_host_gl_buffer_write(uint32_t target, uint32_t offset, uint32_t size, uint32_t data)
 {
 	void *mapping;
+	xg_query_rect_upload(target, size, G(const void *, data));
 	helpers_load();
 	mapping = p_glMapBufferRange(target, offset, size, GL_MAP_WRITE_BIT | GL_MAP_UNSYNCHRONIZED_BIT);
 	if (!mapping)
