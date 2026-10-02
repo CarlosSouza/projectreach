@@ -19,6 +19,9 @@ PIN = json.loads((ROOT / 'config/xbox-engine.lock.json').read_text())['revision'
 
 
 class XboxManifestTests(unittest.TestCase):
+    def test_presentation_requires_matching_backend_and_simulator(self):
+        self.test_counted_candidate_requires_matching_guest_backend_and_simulator('render-present-v1')
+
     def test_input_requires_matching_backend_and_simulator(self):
         self.test_counted_candidate_requires_matching_guest_backend_and_simulator('shared-input-v1')
 

@@ -92,7 +92,18 @@ WATER_RESTORE = b'''\tglBindFramebuffer(GL_READ_FRAMEBUFFER, (GLuint)saved_read)
 \telse glDisable(GL_SCISSOR_TEST);
 \t/* Preserve the in-progress draw; invalidate cached state for later calls. */
 '''
-BORDER_ADAPTATIONS = ('render-border-v1', 'shared-input-v1')
+# Resolve a potentially new read FBO before selecting/clearing the drawable.
+# framebuffer_get binds GL_FRAMEBUFFER on a cache miss, changing both targets.
+PRESENT_READ = b'\t\tglBindFramebuffer(GL_READ_FRAMEBUFFER, framebuffer_get(back_buffer->target.texture, 0));\n'
+PRESENT_ANCHOR = b'''\t\tglBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+\t\tglDisable(GL_SCISSOR_TEST);
+\t\tglColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+\t\tglClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+\t\tglClear(GL_COLOR_BUFFER_BIT);
+''' + PRESENT_READ
+PRESENT_REPLACE = PRESENT_READ + PRESENT_ANCHOR[:-len(PRESENT_READ)]
+INPUT_ADAPTATIONS = ('shared-input-v1', 'render-present-v1')
+BORDER_ADAPTATIONS = ('render-border-v1', *INPUT_ADAPTATIONS)
 QUALITY_ADAPTATIONS = ('render-quality-v1', 'render-visibility-v1', 'render-water-v1', *BORDER_ADAPTATIONS)
 COUNTED_ADAPTATIONS = ('render-visibility-v1', 'render-water-v1', *BORDER_ADAPTATIONS)
 WATER_ADAPTATIONS = ('render-water-v1', *BORDER_ADAPTATIONS)
@@ -113,8 +124,10 @@ def identity(name=None):
         recipe += WATER_SAVE_ANCHOR + WATER_SAVE + WATER_RESTORE_ANCHOR + WATER_RESTORE
     if name in BORDER_ADAPTATIONS:
         recipe += border_sampling.recipe()
-    if name == 'shared-input-v1':
+    if name in INPUT_ADAPTATIONS:
         recipe += profile_input.recipe()
+    if name == 'render-present-v1':
+        recipe += PRESENT_ANCHOR + PRESENT_REPLACE
     return {'name': name, 'upstream_renderer_sha256': SOURCE_SHA256,
             'recipe_sha256': hashlib.sha256(recipe).hexdigest()}
 
@@ -140,6 +153,10 @@ def adapted_source(original, name='render-scale-v1'):
         modified = modified.replace(WATER_RESTORE_ANCHOR, WATER_RESTORE)
     if name in BORDER_ADAPTATIONS:
         modified = border_sampling.apply_edits(modified, border_sampling.RENDERER_EDITS)
+    if name == 'render-present-v1':
+        if original.count(PRESENT_ANCHOR) != 1:
+            raise ValueError('Renderer presentation input changed; review upstream first')
+        modified = modified.replace(PRESENT_ANCHOR, PRESENT_REPLACE)
     return modified
 
 
@@ -156,7 +173,7 @@ def renderer_adaptation(engine, adaptation):
         shader_path = engine / border_sampling.SHADER
         shader = shader_path.read_bytes()
         changes.append((shader_path, shader, border_sampling.adapt_shader(shader)))
-    if adaptation['name'] == 'shared-input-v1':
+    if adaptation['name'] in INPUT_ADAPTATIONS:
         changes.extend(profile_input.changes(engine))
     try:
         for path, original, modified in changes:

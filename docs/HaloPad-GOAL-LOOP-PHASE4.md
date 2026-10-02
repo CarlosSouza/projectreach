@@ -411,3 +411,14 @@ framebuffer_get cache miss can replace both targets; first swap actually logs
 read1/draw1 and blit0x502. Confirm call path before a minimal correction and A/B.
 Free disk1.8GiB; do not start a large build/capture without rechecking headroom.
 Broader fidelity and human multi-touch remain open; goal is incomplete.
+
+First-blit checkpoint: actual LLDB import trace confirms draw0 -> both1 -> read1
+before the failing cold presentation. Separate one-shot draw0 correction removes
+0x502 without changing the executable. New guarded cumulative render-present-v1
+implements read-FBO resolution before drawable selection/clear.202 Xbox tests,
+40 native launch/save/quality checks pass; old identities stay stable. Evidence
+`first-blit73.HJp1Wy`. Real state preserved, Original picker restored; installed
+app still `48f118f3…213e`, pins unchanged. Disk1.2GiB; full build/install deferred.
+Next check headroom before building, preserve prior app/output and validate the
+new exact binary across cold menu/campaign/match, controls/save and both quality
+modes. The debugger A/B is not an installed fix; do not repeat it without cause.

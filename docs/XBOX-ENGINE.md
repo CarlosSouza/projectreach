@@ -44,6 +44,16 @@ not equivalent runtime acceptance; legacy stick diagonal response remains guest
 behavior. Real saves/preferences/PC registry preserved, Original picker restored.
 [Input bridge evidence](XBOX-SIMULATOR-PASSES.md#southpaw-touch-mapping-bridge-2026-10-03).
 
+Source ahead of that installed candidate: opt-in **render-present-v1** resolves
+the read framebuffer before selecting/clearing the presentation destination.
+A cold-cache runtime trace and one-process debugger correction confirm the
+startup blit ordering defect.202 Xbox tests and40 native launch/save/quality
+checks pass; this cumulative adaptation retains all shared-input/graphics fixes
+and old recipe identities. It is **not built or installed yet**: only1.2GiB free
+disk remained. Next preserve outgoing artifacts and run exact-new-build gates
+when safe headroom is available. No accepted pin promotion.
+[Evidence](XBOX-SIMULATOR-PASSES.md#first-blit-ordering-confirmed-2026-10-03).
+
 Previous Simulator candidate: build73 `d1c7243c`, executable `dc469db1…5997d`,
 guest `2d03ab18…b6b6`, opt-in `render-border-v1`. It includes the water correction
 and emulates border-color sampling for eligible single-level 2D textures. Matched

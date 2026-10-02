@@ -4,6 +4,16 @@ Updated 2026-10-03. **Simulator-only work: shared controls, texture compatibilit
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE4.md](HaloPad-GOAL-LOOP-PHASE4.md). Earlier device work remains in [phase 3](HaloPad-GOAL-LOOP-PHASE3.md).
 
+**First-blit defect confirmed; source fix not yet installed (2026-10-03).**
+Debugger trace proves cold framebuffer creation overwrites the selected draw
+target. A one-process draw-target correction removes startup0x502. New guarded
+`render-present-v1` moves read-FBO resolution before draw-target selection;
+old identities remain stable.202 Xbox tests and40 native launch/save/quality
+checks pass. Installed app stays `48f118f3…213e`; no fixed-build acceptance yet.
+Only1.2GiB disk space remains, so full rebuild/install is deferred. Real state
+preserved, Original picker restored; pins unchanged.
+[Evidence and next gate](XBOX-SIMULATOR-PASSES.md#first-blit-ordering-confirmed-2026-10-03).
+
 **Exact shared-input candidate retains fixes in Sharper (2026-10-03).**
 UI-selected Sharper runs at1280x960/effective4x on `48f118f3…213e`. Bounded b30
 and a10 captures retain detailed water, the bridge-band fix and engine glow.

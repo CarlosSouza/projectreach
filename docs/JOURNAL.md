@@ -5174,3 +5174,23 @@ registry exact. App SHA unchanged; nested source clean; pins unchanged. No new
 unit run, rebuild, hardware or publication. Free space fell2.7->1.8GiB; private
 scene roots occupy730MiB combined including generated state. Capture guard was
 1GiB. Avoid another large capture/build without rechecking disk; no deletion.
+
+## 2026-10-03 — first-blit ordering proof and unbuilt source fix
+
+Previous turn progress. `first-blit73.HJp1Wy` isolates real backup and copied b30
+state. PID1574 register-only LLDB trace confirms draw0 -> both1 -> read1 -> first
+presentation blit, then0x502/read1/draw1 in stderr. PID2378 separate unchanged-app
+launch: one-shot debugger GL draw0 binding before that blit removes the error;
+frame0 now read1/draw0/error0. Both debugger sessions detached. This is explicit
+diagnostic state modification, not a fixed binary or sustained acceptance.
+
+Implemented cumulative guarded render-present-v1: move read-FBO resolution before
+selecting/clearing drawable. Full source hash/unique anchor, old recipe identities
+stable, shared-input/quality/backend checks retained.202 Xbox tests/40 native
+launch-save-quality checks pass. Actual upstream input accepted in memory only;
+single-line move verified, checkout unmodified. No guest build/install: disk fell
+1.8->1.2GiB. Installed `48f118f3…213e` SHA unchanged, Original picker PID3923;
+real196 Documents only log, Library only OS scene-state change, preferences/PC
+registry exact. No hardware/IPA/publication/pin promotion. Next safe disk
+headroom then candidate build and exact-binary regression; source fix not yet
+accepted. Do not rerun the already confirmed debugger experiment as progress.

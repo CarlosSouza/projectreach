@@ -181,6 +181,7 @@ int main(int argc, char **argv)
         check("water guest retains shared quality choices", HPXboxSupportsQuality(@{@"guest_adaptation": @{@"name": @"render-water-v1"}}));
         check("border guest retains shared quality choices", HPXboxSupportsQuality(@{@"guest_adaptation": @{@"name": @"render-border-v1"}}));
         check("input guest retains shared quality choices", HPXboxSupportsQuality(@{@"guest_adaptation": @{@"name": @"shared-input-v1"}}));
+        check("presentation guest retains shared quality choices", HPXboxSupportsQuality(@{@"guest_adaptation": @{@"name": @"render-present-v1"}}));
         check("only quality-adapted guests expose quality options", HPXboxSupportsQuality(qualityBuild) &&
             !HPXboxSupportsQuality(@{}) && !HPXboxSupportsQuality(@{@"guest_adaptation": @"invalid"}) &&
             !HPXboxSupportsQuality(@{@"guest_adaptation": @{@"name": @"render-scale-v1"}}));

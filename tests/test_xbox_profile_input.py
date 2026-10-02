@@ -19,7 +19,7 @@ class XboxProfileInputTests(unittest.TestCase):
         fixtures = {
             guest.RENDERER: b'\n'.join((guest.ANCHOR, guest.FILTER_ANCHOR, guest.COUNT_ANCHOR,
                 guest.ATOMIC_ANCHOR, guest.WATER_SAVE_ANCHOR, guest.WATER_RESTORE_ANCHOR,
-                *(a for a, _ in border.RENDERER_EDITS))),
+                *(a for a, _ in border.RENDERER_EDITS), guest.PRESENT_ANCHOR)),
             border.SHADER: b'\n'.join(a for a, _ in border.SHADER_EDITS),
             bridge.INPUT: bridge.HEADERS + bridge.ANCHOR + b'input_get_device_states();\n}\n',
             bridge.IMPORTS: b'host_sdl_init\n',
@@ -31,12 +31,13 @@ class XboxProfileInputTests(unittest.TestCase):
              patch.object(border, 'SHADER_SHA256', hashlib.sha256(fixtures[border.SHADER]).hexdigest()), \
              patch.dict(recipe.HASHES, {p: hashlib.sha256(fixtures[p]).hexdigest() for p in recipe.HASHES}):
             root = pathlib.Path(tmp)
-            for concurrent in (None, bridge.INPUT, bridge.IMPORTS):
+            for adaptation, concurrent in ((a, c) for a in guest.INPUT_ADAPTATIONS
+                                           for c in (None, bridge.INPUT, bridge.IMPORTS)):
                 for path, content in fixtures.items():
                     (root/path).parent.mkdir(parents=True, exist_ok=True)
                     (root/path).write_bytes(content)
                 with self.assertRaises(RuntimeError):
-                    with guest.renderer_adaptation(root, guest.identity('shared-input-v1')):
+                    with guest.renderer_adaptation(root, guest.identity(adaptation)):
                         for path, content in fixtures.items():
                             self.assertNotEqual((root/path).read_bytes(), content)
                         if concurrent:
@@ -46,6 +47,8 @@ class XboxProfileInputTests(unittest.TestCase):
                     self.assertEqual((root/path).read_bytes(), b'concurrent edit' if path==concurrent else content)
         self.assertEqual(guest.identity('render-border-v1')['recipe_sha256'],
                          'eaa7d81b13ea041db40add5fcca82a628a22b6ce5073719c79979a8091f9fed6')
+        self.assertEqual(guest.identity('shared-input-v1')['recipe_sha256'],
+                         '71781a2a250a1e868243a461edc51127b548307149673ab05179d986e09f95fd')
 
     def test_native_mapping_and_transitions(self):
         source = r'''

@@ -268,7 +268,8 @@ static BOOL xbox_backup_saves(NSError **error)
 - (void)showControlsHelp
 {
 	[pad clearTouchInput];
-	BOOL profileBridge = [xbox_build()[@"guest_adaptation"][@"name"] isEqual:@"shared-input-v1"];
+	NSString *adaptation = xbox_build()[@"guest_adaptation"][@"name"];
+	BOOL profileBridge = [adaptation isEqual:@"shared-input-v1"] || [adaptation isEqual:@"render-present-v1"];
 	NSString *profileHelp = profileBridge
 		? @"Touch buttons keep their gameplay actions when you change the Xbox button preset. Controller settings stay separate. Touch size, layout and sensitivity are in Controls."
 		: @"Use the Default Xbox control profile. Other in-game button layouts do not match these labels yet. Touch size, layout and sensitivity are in Controls.";

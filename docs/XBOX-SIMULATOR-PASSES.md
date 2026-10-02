@@ -1,5 +1,57 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## First-blit ordering confirmed (2026-10-03)
+
+Previous turn is progress: exact-candidate Sharper regression and concrete
+cold-FBO hypothesis. Same installed `48f118f3…213e`, guest `652fbebb…de17`.
+Private evidence `ref/xbox-build/passes/2026-10-03/first-blit73.HJp1Wy/` holds
+full real-container backup, isolated cloned prior b30 test save/config, traces
+and audits. Diagnostic init/forced Xbox only; no normal-menu gameplay claim.
+No captures or physical device. Original quality remains selected.
+
+PID1574 launches waiting for LLDB. Register/parameter-only breakpoints on host
+BindFramebuffer/BlitFramebuffer record70 events through the third blit, then
+stop; no expressions or data writes in this observer. `bindings.jsonl` starts:
+draw0 (`0x8ca9`), both1 (`0x8d40`), read1 (`0x8ca8`), then color/linear blit
+640x480 ->1376x1032 with vertical flip. Runtime stderr reports blit0x502 and
+frame0 read1/draw1 despite drawable0. This matches the source cache-miss path,
+not a guessed missing shader/texture. Debugger detached with breakpoints disabled.
+
+PID2378 is a separate cold launch of the unchanged executable, same isolated
+settings. One-shot breakpoint before the first blit; deliberate temporary GL
+state intervention through LLDB:
+`((void (*)(unsigned int,unsigned int))xg_gl_proc("glBindFramebuffer"))(0x8ca9,0)`.
+Debugger then detaches. `repair-stderr.log` has no startup blit error and frame0
+read1/draw0/error0; frames1/2/120 also error0. This is a diagnostic intervention,
+not a patched binary, performance test or fixed-build acceptance.
+
+Source implementation: optional **render-present-v1**, cumulative with shared
+input, border, water, counted visibility and quality. Its only additional guest
+renderer change resolves/binds the read FBO before selecting/clearing draw0.
+The complete source hash and unique block guard fail closed on upstream drift.
+Recipe SHA `0b2ccebc00d023a9b665c979393dc6f51e582d8f0be2f0f15cc171102d94e3f8`.
+Existing shared-input recipe `71781a2a…f95fd` is unchanged. Build/host capability
+lists retain the paired Simulator-only backend, quality options and shared-input
+help. No automatic acceptance or lock change.
+
+202 Xbox tests pass: cold/warm target-order C harness reproduces old cold failure
+and verifies the replacement, unique-anchor checks, all four-file restoration/
+concurrent-edit checks for both input adaptations, old identity stability and
+matching-backend/Simulator manifest rejection.40 native launch/save/quality
+checks pass (`generated/xbox-launch-tests/20261002T210709889479Z`). The first
+launch-test invocation omitted required --device and exited without testing;
+the explicit dedicated-Simulator invocation succeeds. Real upstream source was
+read/applied in memory only; diff is exactly the single read-binding move.
+
+Installed app remains unchanged, SHA verified. Ordinary Original picker PID3923
+restored/AX verified.196 real Documents differ only by app log; Library only one
+OS scene-state file; preferences/keyset/PC registry exact. Disk1.8->1.2GiB; no
+large rebuild/install attempted, no deletion/IPA/publication. Next require safe
+disk headroom, preserve current app/output, build render-present-v1 and validate
+cold menu/campaign/match first blits plus controls/save and Original/Sharper
+graphics. Do not mistake the live debugger correction for installed acceptance.
+Broader fidelity, sustained multi-touch and hardware remain open.
+
 ## Shared-input Sharper regression (2026-10-03)
 
 Previous turn is progress: Southpaw routing and gesture-duration evidence plus
