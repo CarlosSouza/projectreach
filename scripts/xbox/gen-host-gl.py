@@ -53,6 +53,7 @@ def main():
              "void *xg_gl_proc(const char *name);",
              "GLuint xg_gl_framebuffer(GLuint framebuffer);", "",
              "void xg_gl_trace_blit(int after, int x0, int y0, int x1, int y1);", "",
+             "void xg_gl_trace_query(int begin, GLuint id, GLenum name, GLuint value);", "",
              "/* XG_GL_CHECK=1: log the first OpenGL ES errors, naming the call */",
              "static int check_errors = -1;",
              "static GLenum (*check_get_error)(void);",
@@ -112,6 +113,10 @@ def main():
             lines.append("\tp_%s(%s);" % (name, ", ".join(args)))
             if name == "glBlitFramebuffer":
                 lines.append("\txg_gl_trace_blit(1, a4, a5, a6, a7);")
+            if name == "glBeginQuery":
+                lines.append("\txg_gl_trace_query(1, a1, a0, 0);")
+            if name == "glGetQueryObjectuiv":
+                lines.append("\tif (a2) xg_gl_trace_query(0, a0, a1, *G(GLuint *, a2));")
             if name != "glGetError":
                 lines.append('\tif (check_errors) check("%s");' % name)
         elif name == "glGetError":

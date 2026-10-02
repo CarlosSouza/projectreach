@@ -4,6 +4,17 @@ Updated 2026-10-02. **Simulator-only work: shared controls, texture compatibilit
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE4.md](HaloPad-GOAL-LOOP-PHASE4.md). Earlier device work remains in [phase 3](HaloPad-GOAL-LOOP-PHASE3.md).
 
+**Visibility-path investigation (2026-10-02).** New bounded, disabled-by-default
+query observer confirms boolean visibility results during the copied a30 run:
+11,866 zero and 103 one result reads, none above one, across 180 summaries.
+These are API reads, not pixel counts or individual-flare attribution. Source
+review confirms ANGLE Metal uses boolean visibility and Halo maps positive
+results to a saturated flare target. This is a narrower fidelity limitation,
+not a demonstrated cause of general texture/shading defects. No rendering
+behavior changed. 172 tests pass; installed executable `5a677b38…2d73201e`,
+Original selected, trace disabled after the pass. Saves/PC registry/settings
+preserved except last-engine choice. [Evidence](XBOX-SIMULATOR-PASSES.md#boolean-visibility-observation-2026-10-02).
+
 **Xbox graphics choice (2026-10-02).** Quality-adapted personal builds now offer
 Original or Sharper (Preview) below the edition cards. Original stays default;
 Sharper selects 2x resolution and 4x world filtering only for Xbox. Actual

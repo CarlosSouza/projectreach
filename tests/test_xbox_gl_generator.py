@@ -9,6 +9,20 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 
 class XboxGLGeneratorTests(unittest.TestCase):
+    def test_query_observation_follows_call_and_converts_guest_pointer(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source = pathlib.Path(tmp) / 'guest.c'
+            output = pathlib.Path(tmp) / 'host.c'
+            source.write_text('void hostgl_glBeginQuery(GLenum, GLuint);\n'
+                              'void hostgl_glGetQueryObjectuiv(GLuint, GLenum, GLuint *);\n')
+            subprocess.run([sys.executable, str(ROOT / 'scripts/xbox/gen-host-gl.py'),
+                            str(source), str(output)], check=True, capture_output=True)
+            generated = output.read_text()
+            self.assertLess(generated.index('p_glBeginQuery(a0, a1);'),
+                            generated.index('xg_gl_trace_query(1, a1, a0, 0);'))
+            self.assertLess(generated.index('p_glGetQueryObjectuiv(a0, a1, (GLuint *)GP(a2));'),
+                            generated.index('if (a2) xg_gl_trace_query(0, a0, a1, *G(GLuint *, a2));'))
+
     def test_blit_coordinates_and_widened_stack_arguments(self):
         with tempfile.TemporaryDirectory() as tmp:
             source = pathlib.Path(tmp) / 'guest.c'

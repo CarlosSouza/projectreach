@@ -133,3 +133,11 @@ pass. Preview remains installed with Original selected; all original saves and
 PC registry preserved. The setting is complete; next isolate an effects/visibility
 or different-scene defect. Do not rerun this same picker/AF pass or treat a sharper
 image as resolution of the user's shading/popping report.
+
+Visibility observer follow-up: 172 tests and actual bounded query logs confirm
+the ES3.0 boolean path is active. Backend source also uses boolean mode; scaling
+the result cannot recover coverage. The camera sweep did not isolate a partially
+covered flare, so there is no user-defect reproduction or graphics fix yet.
+Next isolate one flare draw/area and occluder before implementing counted
+visibility; do not conflate this with general texture blur or rerun an aggregate
+query trace as if it established flare attribution. Observer is off by default.

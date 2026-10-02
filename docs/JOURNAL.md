@@ -4552,3 +4552,28 @@ only new preference is `HaloPadXboxGraphicsQuality=original`. OS snapshots diffe
 No upstream pin move, hardware, IPA or publication. Next: isolate remaining
 effects/material/temporal defects in a different view, not more quality-picker
 plumbing or another identical a30 filtering comparison.
+
+## 2026-10-02 — Observe the live boolean visibility path
+
+Add bounded opt-in `XG_TRACE_QUERIES=1` observer behind guest GL wrappers.
+It records existing result values/targets, not extra GPU queries or waits.
+172 Xbox tests pass, including generator ordering/guest-pointer conversion and
+compiled observer aggregation, opt-in behavior and 180-row limit under sanitizers.
+
+Actual copied a30 menus/camera sweep at Original quality: 180 summary buckets,
+11,866 zero and 103 one result reads, none above one. Queries are active; this
+is not individual-flare coverage attribution. Source confirms guest positive
+results become one million, lens-flare target visibility saturates, and ANGLE
+Metal both requests boolean visibility and converts its result to true/false.
+General texture blur/shading is not established as a consequence. A camera sweep
+around the nearby escape pod did not isolate a partial sun/flare, so do not claim
+reproduction of that visual defect or change coverage based on these aggregates.
+Next: one known flare's geometry/test area and partial occluder/reference, then
+an explicitly counted backend capability if warranted; rescaling boolean results
+is not a fix. Android atomic scale normalization is a separate untested path.
+
+Evidence `query-visibility.VodWdU`; full combined app strict-signed and installed
+hash `5a677b38…2d73201e` matches generated output. Restart with observer disabled
+still reaches ordinary Xbox menu, then return to Original picker. Original
+saves/game files and PC registry preserved; only app log, last-engine selection,
+OS snapshots/scene state differ. No pin promotion, hardware, IPA or publication.

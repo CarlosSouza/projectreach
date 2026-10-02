@@ -3,6 +3,7 @@
  * frame dump for testing, on any platform (xg_gl_proc resolves functions).
  */
 #include "xg_host.h"
+#include "xg_query_trace.h"
 
 #include <GLES3/gl32.h>
 #include <stdio.h>
@@ -26,6 +27,11 @@ static void (*p_glDeleteSync)(GLsync);
 static GLenum (*p_glClientWaitSync)(GLsync, GLbitfield, GLuint64);
 static void (*p_glReadPixels)(GLint, GLint, GLsizei, GLsizei, GLenum, GLenum, void *);
 static void helpers_load(void);
+
+void xg_gl_trace_query(int begin, GLuint id, GLenum name, GLuint value)
+{
+	xg_query_trace(begin, id, name, value);
+}
 
 /* XG_GL_TRACE=<private path prefix>: inspect presentation on an isolated
  * diagnostic run. Never enabled by normal builds. Capture at most every ten

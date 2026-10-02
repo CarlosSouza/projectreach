@@ -1,5 +1,61 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Boolean visibility observation (2026-10-02)
+
+Investigate the known visibility-count mismatch without changing shaders,
+textures, depth, the accepted pin or quality choice. Add `XG_TRACE_QUERIES=1`:
+generated guest wrappers observe the values already returned by
+`glGetQueryObjectuiv` and query targets already passed to `glBeginQuery`.
+The observer makes no GL calls, consumes no GL errors, does not add queries,
+readbacks or GPU waits, and changes no results. Log at most once per second
+when calls arrive, with a hard cap of 180 summaries. These counts represent API
+reads, not distinct tests, pixels, frame rate or particular flare objects. The
+last partial bucket is not flushed; do not claim totals for the entire run.
+
+Actual Original-mode combined app on the dedicated Simulator, copied a30 save,
+normal campaign menus and camera sweeps around the escape pod/outdoor view:
+180 summaries span Unix times 1790935646–1790935968. Every reported last target
+is `GL_ANY_SAMPLES_PASSED` (0x8c2f). Aggregate reads: 11,866 zero, 103 one, no
+other values; six buckets contain both zero and one. 11,970 availability reads
+are ready, none pending in this sample. The logger stops at its cap while the
+app continues. The pass did **not** isolate a partially covered sun/flare or
+obtain a matched reference rendering; it proves active boolean behavior, not
+the cause or resolution of the user's broader shading/popping complaint.
+
+Read-only source review establishes the boundary:
+
+- Accepted `d3d8_gl.c` returns one million for any positive ES boolean result;
+  the counted Android branch is inactive here (ES3.0, sample counting 0).
+- `rasterizer_lights.c` divides visible pixels by test area, clamps its target
+  visibility to 255, smooths positive changes and clears immediately on zero.
+  Thus positive boolean results lose partial-coverage information. This does
+  not mean the displayed flare brightness is instantaneously binary.
+- ANGLE `ContextMtl.mm` uses `MTLVisibilityResultModeBoolean` at query begin and
+  continuation; `QueryMtl::waitAndGetResult` returns GL_TRUE/GL_FALSE. Merely
+  dividing the guest result by resolution cannot reconstruct pixel coverage.
+- Other source visibility calls include the debug transparent-pixel counter;
+  they are not a general texture-filtering or material-shading implementation.
+
+Do not change generic GLES boolean semantics or guess a coverage fraction.
+Next discriminating experiment: isolate one flare's test geometry/area and
+partial occluder, then compare coverage and resulting brightness. A counted
+backend path would need explicit guest/backend capability, cross-pass count
+handling and scale normalization; it is not a one-line filtering fix. The
+independent Android atomic-count scaling concern remains untested here.
+
+172 Xbox tests pass. New compiled observer test checks unset/empty/invalid
+environment values, aggregation/reset and hard cap with ASan/UBSan; generator
+test checks observation occurs after the real call and reads the converted
+guest pointer. Full combined app builds, strict signature and installed hash
+match `5a677b38bfd865ea8713bfa94f2c4f919360ac57de45e3bb1301c5522d73201e`.
+Guest stays the same quality-adapted build 66. Private evidence:
+`ref/xbox-build/passes/2026-10-02/query-visibility.VodWdU/` (app/data backups,
+logs, summary/analyzer, launch script, scene screenshot, tests and audits).
+All original game/save/package files and PC registry remain byte-identical;
+only app log, last-engine preference, OS snapshots/scene state differ. Restart
+without query/presentation tracing after observation. No hardware, IPA, pin
+promotion, push or publication; no graphics fix claimed.
+
 ## Player-facing Xbox graphics choice (2026-10-02)
 
 Keep the Windows-left/Xbox-right cards and shared controls unchanged. Add one
