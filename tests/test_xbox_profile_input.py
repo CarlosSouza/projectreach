@@ -96,6 +96,25 @@ int main(void) {
   raw.buttons=0; xg_profile_publish(&p,&b,&raw);
   const int xdest[4]={0,2,2,0},ydest[4]={1,3,1,3};
   for(int k=0;k<4;k++) assert(xg_touch_axis(&b,k)==(k==xdest[stick]?.7f:k==ydest[stick]?-.6f:0));
+  /* A held Move must survive repeated guest polls without fresh UIKit events.
+   * Repeated identical context reports must not turn it into a one-frame tap. */
+  for(int frame=0;frame<60;frame++) {
+   context(&p,&b,0,layout,stick);
+   for(int k=0;k<4;k++) assert(xg_touch_axis(&b,k)==(k==xdest[stick]?.7f:k==ydest[stick]?-.6f:0));
+  }
+  xg_profile_publish(&p,&b,&zero);
+  for(int k=0;k<4;k++) assert(xg_touch_axis(&b,k)==0);
+  /* A sub-frame drag survives exactly one poll, never a fabricated hold. */
+  xg_profile_publish(&p,&b,&raw); xg_profile_publish(&p,&b,&zero);
+  for(int k=0;k<4;k++) assert(xg_touch_axis(&b,k)==(k==xdest[stick]?.7f:k==ydest[stick]?-.6f:0));
+  for(int k=0;k<4;k++) assert(xg_touch_axis(&b,k)==0);
+  /* A preset change cannot reroute an already held finger into a new action. */
+  xg_profile_publish(&p,&b,&raw);
+  int next=(stick+1)%4;
+  context(&p,&b,0,layout,next); xg_profile_publish(&p,&b,&raw);
+  for(int k=0;k<4;k++) assert(xg_touch_axis(&b,k)==0);
+  xg_profile_publish(&p,&b,&zero); xg_profile_publish(&p,&b,&raw);
+  for(int k=0;k<4;k++) assert(xg_touch_axis(&b,k)==(k==xdest[next]?.7f:k==ydest[next]?-.6f:0));
  }
  /* Held input cannot cross menu boundaries or reappear on unrelated events. */
  xg_profile_cancel(&p,&b); context(&p,&b,0,1,0);

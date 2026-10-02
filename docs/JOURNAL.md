@@ -5136,3 +5136,22 @@ Ordinary Original picker PID81615 restored. Real196 Documents differ only by
 app log; Library only four Metal cache files; preferences/keyset/PC registry
 exact. No hardware/pin promotion/IPA/publication. Next alternate-thumbstick
 runtime move/look check; exact-build Sharper and broad fidelity remain open.
+
+## 2026-10-03 — Southpaw thumbsticks and bounded gesture evidence
+
+Previous turn progress. Same `48f118f3…213e` app, no runtime/pin change. Private
+`sticks73.gpETY0` contains full real backup and genuine isolated Southpaw-stick/
+Default-button profile created through normal settings. PID86046 saves it and
+loads a30; swipe Look visibly rotates. PID90343 cold normal-menu reload reports
+sticks1/valid1. Trace proves shared Move Y routes to axis3 and X to axis2, but
+began/moved/ended occur within0–1ms; no clear movement or held LOOK acceptance.
+Fire60->59/grenade1 works. Preserve the distinction from Southpaw button tests.
+
+Added native assertions for60 repeated polls, unchanged context, release,
+single-poll quick drags and held-axis blocking across preset changes under all
+five button/four stick combinations.199 Xbox tests pass. No artificial gesture
+extension. Ordinary Original picker PID92696 restored; app SHA unchanged.
+Real196 Documents differ only by app log, Library only four Metal cache files;
+preferences/keyset/PC registry exact. No hardware/IPA/publication. Next Sharper
+on this exact candidate, not repetition of the zero-duration gesture. Sustained
+multi-touch and broader graphics fidelity remain unaccepted.

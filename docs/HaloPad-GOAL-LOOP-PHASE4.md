@@ -391,3 +391,13 @@ Real state preserved, Original picker restored. Evidence `input-render73.wmTYV3`
 Next alternate-thumbstick runtime move/look semantics, not unchanged Original
 graphics repetition. Exact-build Sharper, full preset feel and broad fidelity
 remain open; no physical device or completion claim.
+
+Alternate-stick checkpoint: genuine Southpaw thumbsticks/Default buttons saved
+and cold-loaded on unchanged `48f118f3…213e`. Swipe Look/Fire work; native trace
+proves canonical Move reaches Southpaw's right-stick axes. Automated Move/LOOK
+drags last0–1ms, so sustained movement/aiming remains unaccepted.199 Xbox tests
+pass with additional60-poll/release/short-drag/preset-boundary assertions.
+Evidence `sticks73.gpETY0`; real state preserved, Original picker restored,
+accepted66/upstream73 unchanged. Next exact-build Sharper graphics with bounded
+disk usage. Do not repeat identical zero-duration gestures or extend gameplay
+input solely for automation; human multi-touch/feel stays an explicit later gate.

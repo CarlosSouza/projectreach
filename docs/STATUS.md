@@ -4,6 +4,16 @@ Updated 2026-10-03. **Simulator-only work: shared controls, texture compatibilit
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE4.md](HaloPad-GOAL-LOOP-PHASE4.md). Earlier device work remains in [phase 3](HaloPad-GOAL-LOOP-PHASE3.md).
 
+**Southpaw thumbstick routing verified; sustained feel still open (2026-10-03).**
+Genuine saved Southpaw sticks/Default buttons reload on the unchanged
+`48f118f3…213e` candidate. Shared swipe Look and Fire work; trace proves Move
+reaches the expected right-stick axes. Automated Move/LOOK drags last only0–1ms,
+so they do not establish held movement/aiming. Added repeated-poll, short-drag
+and preset-transition regression assertions;199 Xbox tests pass. Real state
+preserved, ordinary Original picker restored. Next exact-build Sharper graphics,
+not another identical short-gesture attempt. No runtime or pin change.
+[Evidence](XBOX-SIMULATOR-PASSES.md#southpaw-thumbsticks-and-gesture-duration-2026-10-03).
+
 **Shared-input graphics regression passed at Original quality (2026-10-03).**
 Exact `48f118f3…213e` candidate retains detailed b30 water and the bridge shadow
 fix; 65-second scripted local match passes. 199 Xbox tests pass. Smoke tests now

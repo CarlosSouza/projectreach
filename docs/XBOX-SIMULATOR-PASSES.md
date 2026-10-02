@@ -1,5 +1,51 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Southpaw thumbsticks and gesture duration (2026-10-03)
+
+Previous pass is progress: exact-candidate Original rendering/local match pass.
+Same installed `48f118f3…213e`, guest `652fbebb…de17`, shared-input-v1; accepted66
+and upstream73 unchanged. No app rebuild. Private evidence:
+`ref/xbox-build/passes/2026-10-03/sticks73.gpETY0/`.
+
+Full real-container backup precedes testing. `session/save` is a copy of the
+prior border-acceptance checkpoint, with private map links and launch-only
+network/update suppression. No forced edition/init, scripted input or edited
+profile bytes. PID86046: picker -> Xbox -> Settings/New001/Controller Setup;
+select **Southpaw thumbsticks**, keeping Default buttons. Accept/Save Changes
+through genuine menus, then Campaign/New001/Halo/Normal. Context reports
+`76513240:fedc`, sticks1, valid1. This is different from Southpaw **buttons**
+tested earlier. `southpaw-profile` preserves the genuine saved test profile.
+Background swipe visibly rotates toward the pod wall (`southpaw-before.png`,
+`southpaw-look.png`). Short Move drags show no clear displacement.
+
+PID90343 cold-launches the same saved Southpaw profile through normal menus.
+Existing `HALOPAD_TRACE_TOUCH=1`/`XG_TOUCH_TRACE=1` diagnostics show:
+
+- Move forward began/moved/ended at418682.266; canonical Y-1 reaches guest
+  axis3 as-1 and then0, as Southpaw requires.
+- Move right began/moved/ended at418928.276; canonical X+1 reaches guest
+  axis2 as+1 and then0. Both confirm routing, not sustained locomotion.
+- LOOK began418906.454 and moved/ended418906.455. The display-link-driven held
+  look path has no meaningful hold interval; no visible held-aiming pass.
+- Shared Fire reduces rifle60->59 with grenade1 unchanged; trace axis5 press/
+  release agrees. The earlier PID90069 attempt used the wrong trace-variable
+  name and never left the picker; it is not gameplay/trace evidence.
+
+Do not extend input lifetime or alter the actual control response to accommodate
+these0–1ms automated drags. Native regression coverage now checks60 repeated
+polls without new touch events under all five button/four stick combinations,
+unchanged context, release, one-poll short drags and held-axis suppression across
+preset changes until release.199 Xbox tests pass, including the sanitized C
+mapping harness. This is state-machine coverage, not human touch-feel acceptance.
+
+Final ordinary Original picker PID92696 verified visually/AX. Installed SHA
+unchanged.196 real Documents differ only by app log; Library only four Metal
+cache files. Preferences/keyset and PC registry exact. No hardware, cleanup,
+IPA, publication or pin promotion. Disk4.5GiB free at start; only small captures.
+Next exact-build Sharper graphics regression. Sustained/multi-touch feel,
+legacy-stick runtime behavior and broad fidelity remain open; repeating the
+same zero-duration Move/LOOK gesture is not a useful next pass.
+
 ## Shared-input Original rendering regression (2026-10-03)
 
 Previous pass is progress: Jumpy/Default controls run correctly. Unchanged
