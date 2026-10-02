@@ -4,6 +4,15 @@ Updated 2026-10-02. **Simulator-only work: shared controls, texture compatibilit
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE4.md](HaloPad-GOAL-LOOP-PHASE4.md). Earlier device work remains in [phase 3](HaloPad-GOAL-LOOP-PHASE3.md).
 
+**Resolution experiment (2026-10-02).** Private 2x guest experiment proves
+1280x960 source targets/viewport against 640x480 baseline, on the same copied
+a30 view. Geometry/HUD are sharper; sloped ground remains soft. Matching scopes
+stay centered; pause and touch actions respond. Not promoted: depth diagnostics
+still assume 640x480 and Android visibility counting needs separate review.
+Accepted build 66 restored, original data audited intact; executable now
+`2d563e96…734cd8d`. Experimental app/source identity and comparisons are preserved
+privately. [Evidence and next gate](XBOX-SIMULATOR-PASSES.md#actual-2x-render-target-experiment-2026-10-02).
+
 **Xbox menu clarity (2026-10-02).** Shared gameplay buttons now carry A/B/X/Y
 badges and accessibility hints; an Xbox Controls guide explains menu navigation
 and the required Default guest profile. PC presentation and all input mappings

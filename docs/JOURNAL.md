@@ -4433,3 +4433,25 @@ PC registry; only OS snapshots differ in Library. No hardware, IPA or publicatio
 Visible texture softness remains. Next discriminating graphics experiment is real
 render-target scaling, checking HUD/scopes/depth separately from filtering.
 Non-default guest profiles and sustained human multi-touch remain unaccepted.
+
+## 2026-10-02 — Separate render resolution from texture filtering
+
+Trace Android's forced 1x screen scale. Test a six-line private guest adaptation
+using the existing desktop-capable target scaling path, preserving logical layout.
+Same copied a30 checkpoint at 1x/2x yields verified 640x480/1280x960 source and
+viewport readbacks; drawable remains 1376x1032. Sharper geometry/HUD, still soft
+ground. Matched scopes remain centered; swap, zoom, fire/drag and pause respond.
+Initial frame-0 GL 0x502 exists at both scales; later presentation readbacks have
+complete framebuffers and no prior/read error. Not full GL or depth acceptance.
+
+Do not promote yet: draw/depth replay assumes 640x480; Android atomic visibility
+results omit scale normalization, while the tested ES3.0 fallback reports boolean
+visibility as a large count. Need independently validated depth/effects/match and
+a reproducible, separately identified local adaptation before a default change.
+
+Preserve private branch `halopad-private-render-scale-20261002` at `97b45239`,
+experimental app and evidence in `ref/xbox-build/passes/2026-10-02/render-scale.tXrS4o/`.
+Restore clean accepted build 66, guest image identical to backup; generated and
+installed app executable `2d563e96…734cd8d`, strict signature and About/Done pass.
+All 196 real Documents files retained (log only changed); registry/preferences
+unchanged and Library only OS snapshots. No hardware, IPA, publication or push.

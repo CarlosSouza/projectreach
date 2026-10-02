@@ -1,5 +1,68 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Actual 2x render-target experiment (2026-10-02)
+
+Source inspection at accepted build 66 identifies `screen_mode_choose` in
+upstream `port/linux/src/d3d8_gl.c`: Android fixes both scale factors at 1.
+Desktop already scales screen-sized color/depth targets, viewport/clear
+coordinates and presentation independently of the logical 480-line layout.
+Changing only the host drawable resolution cannot enable this guest path.
+
+Private experimental revision `97b45239583b33fbc700b9614288209b13169d4a`
+adds a strict opt-in `HALO_TEST_RENDER_SCALE=2` in the Android branch. No
+anisotropy change is included. It is retained only in the ignored upstream
+checkout on local branch `halopad-private-render-scale-20261002`; the accepted
+lock is unchanged. Build with `XBOX_REV` using the ordinary candidate workflow,
+not by pretending the modified guest is the accepted pin. Full experimental
+app executable SHA-256 is
+`7eca603ff8a998e7fad7719918f65dc7585f726d7fb61abea2715332cca3a778`.
+
+Use identical copies of the untouched a30 checkpoint, normal menus and no
+camera input for each baseline view. At 1x, presentation source and viewport
+are 640x480. At 2x, both are 1280x960, while the drawable stays 1376x1032.
+The source framebuffer is complete (`0x8cd5`), with zero prior/read errors in
+the presentation samples. Both runs report the same initial frame-0 `0x502`;
+do not describe either run as wholly GL-error-free. The 2x run retains 27
+presentation-source log samples. Screenshots show sharper geometry edges,
+weapon/HUD detail and finer foliage; sloped ground textures remain soft.
+This proves actual higher-resolution rendering, not a general material fix.
+
+Matching pistol scopes at 1x/2x retain the same centered circle and HUD layout.
+At 2x, swap, scope exit, fire-and-drag camera movement and pause still respond;
+the pause menu remains aligned. The captures are not synchronized animation
+frames, so weapon idle motion and animated textures must not be scored as
+resolution differences. No full depth correctness, sustained performance,
+campaign progression or match acceptance is claimed from this comparison.
+
+Important remaining source issue: Android atomic visibility results bypass
+`query_area` normalization; the desktop correction is compiled out. The tested
+ANGLE ES3.0 path has sample counting disabled and substitutes a large count for
+any visible sample, so this run does not test the atomic-counter issue. Existing
+depth/draw replay diagnostics also assume 640x480 and must not be used to certify
+2x depth unchanged. Extend those diagnostics before claiming depth acceptance.
+
+Evidence and rollback are private under
+`ref/xbox-build/passes/2026-10-02/render-scale.tXrS4o/`: `scale-1.png`,
+`scale-2.png`, both `scale-*-scope.png`, raw presentation PPMs, logs, independent
+save copies, app/data/output backups, and `HaloPad-scale-experiment.app`.
+Rebuild the accepted guest/runtime and full combined app after the experiment;
+restore the accepted in-place app, not user data. No upstream push or IPA.
+
+Restoration verified: clean upstream checkout at `f2ba71d9`, accepted guest
+image byte-identical to the pre-experiment backup (`a16a3271…c89`), matching
+build manifest, strict app signature and installed/generated executable
+`2d563e964011f7f20ae8d982de45ff4fd448a89f0c1822045e2e2c161734cd8d`.
+About shows `f2ba71d9`; Done returns to the ordinary picker. Independent audit
+finds 196 Documents files, no additions/removals, only application log changed;
+PC registry and preference values unchanged, OS snapshots alone differ in Library.
+
+Next implementation gate: a small versioned local guest adaptation, with its
+identity recorded separately from the upstream pin, strict source preconditions,
+and an unchanged-source/default fallback. Validate 1x/2x target/depth readback,
+effects and a bounded match before choosing a default. Keep touch UI wholly in
+HaloPad; updating upstream must not overwrite it. This experiment is not yet a
+user-facing resolution preference or an accepted renderer upgrade.
+
 ## Xbox menu labels on the shared overlay (2026-10-02)
 
 Add small A/B/X/Y badges to the existing Jump/Melee/Use+Reload/Swap buttons,

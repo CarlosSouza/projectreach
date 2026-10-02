@@ -85,3 +85,15 @@ Do not infer guest menu visibility from our existing relative-mouse import.
 A default-binding A/B label hint is simpler than pretending that callback is an
 authoritative menu signal. Any actual menu-state bridge needs a separately
 validated, versioned guest interface rather than hard-coded memory offsets.
+
+## Resolution experiment checkpoint
+
+Private build-66 adaptation `97b45239` enables 2x existing render targets while
+retaining the logical 480-line layout. Actual source/viewport readback is 1280x960
+versus 640x480; matching a30 and scoped views show sharper edges/HUD but continued
+ground softness. Accepted pin/app restored after the experiment. Next: make the
+small guest adaptation reproducible with a separate identity and strict source
+preconditions, extend depth diagnostics beyond 640x480, and test effects/match
+before enabling a default. Android atomic visibility counts omit scale correction;
+the tested ES3.0 fallback cannot validate that path. Do not merge resolution and
+filtering hypotheses into one unexplained graphics fix.
