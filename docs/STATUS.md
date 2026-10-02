@@ -4,6 +4,16 @@ Updated 2026-10-03. **Simulator-only work: shared controls, texture compatibilit
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE4.md](HaloPad-GOAL-LOOP-PHASE4.md). Earlier device work remains in [phase 3](HaloPad-GOAL-LOOP-PHASE3.md).
 
+**Shared settings regression coverage (2026-10-03).** Native overlay suite now
+passes153 assertions, including12 new checks for settings/editor cancellation,
+handedness, shared look sensitivity and PC/Xbox layout persistence with separate
+phone/tablet keys. Actual Simulator UI mirrors controls; left-side Fire and
+background swipe aiming work. Short automated LOOK-stick drag has no observable
+rotation, so sustained mirrored-stick behavior is not newly accepted. Original
+preferences/saves/PC state restored; same water candidate and accepted66 pin.
+Next investigate a different moving material/effect against desktop, not another
+unchanged checkpoint/settings repeat. [Evidence](XBOX-SIMULATOR-PASSES.md#shared-settings-and-layout-contracts-2026-10-03).
+
 **Water candidate regression checks passed (2026-10-03).** The exact installed
 `aa0c46d8…7077d` build passes ordinary picker/menu checkpoint loading, shared
 Fire/Look/Swap/Zoom/Pause, Save and Quit, and cold checkpoint reload. Sharper

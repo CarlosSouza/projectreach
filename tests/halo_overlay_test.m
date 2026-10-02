@@ -119,6 +119,13 @@ static void check_xbox_adapter(void)
 - (CGPoint)alignedCenter:(CGPoint)center forView:(UIView *)view;
 - (void)place:(UIView *)view frame:(CGRect)frame;
 - (NSString *)key:(NSString *)what;
+- (void)beginEditing;
+- (void)endEditing;
+- (void)select:(UIView *)view;
+- (void)togglePanel;
+- (void)leftChanged:(UISwitch *)sender;
+- (void)lookChanged:(UISlider *)sender;
+- (void)selectedSizeChanged:(UISlider *)sender;
 @end
 
 static void check_editor_alignment(void)
@@ -148,6 +155,103 @@ static void check_editor_alignment(void)
           move.bounds.size.width == 44 && move.bounds.size.height == 44);
     if (saved) [NSUserDefaults.standardUserDefaults setObject:saved forKey:key];
     else [NSUserDefaults.standardUserDefaults removeObjectForKey:key];
+}
+
+/* Real settings/editor handlers, with separate PC/Xbox destinations. This checks
+   persisted presentation and cancellation contracts, not physical multitouch. */
+static void check_shared_settings(void)
+{
+    NSUserDefaults *defaults = NSUserDefaults.standardUserDefaults;
+    NSArray *keys = @[@"HaloPad.lookSensitivity", @"HaloPad.leftHanded",
+                      @"HaloPad.tablet.v3.origins", @"HaloPad.tablet.v3.scales",
+                      @"HaloPad.phone.v3.origins", @"HaloPad.phone.v3.scales"];
+    NSMutableDictionary *saved = [NSMutableDictionary dictionary];
+    for (NSString *key in keys) {
+        id value = [defaults objectForKey:key];
+        if (value) saved[key] = value;
+    }
+    __block struct xg_overlay_input adapter = {0};
+    __block int xboxLook = 0;
+    HPTestOverlay *xbox = [[HPTestOverlay alloc] initWithFrame:CGRectMake(0, 0, 1024, 768)
+        inputHandler:^(const hp_input *event) {
+            xg_overlay_event(&adapter, event);
+            if (event->kind == HPI_MOUSEMOVE) xboxLook += event->dx;
+        }];
+    xbox.inGame = YES; xbox.analogMoveReady = YES;
+    [defaults removeObjectForKey:[xbox key:@"origins"]];
+    [defaults removeObjectForKey:[xbox key:@"scales"]];
+    HPSettings.shared.leftHanded = NO;
+    [xbox layoutIfNeeded];
+    UIView *move = [xbox valueForKey:@"move"], *aim = [xbox valueForKey:@"aim"];
+    CGPoint moveBefore = move.center, aimBefore = aim.center;
+    [xbox driveMoveX:1 y:1]; [xbox driveControl:@"fire" down:YES];
+    [xbox togglePanel];
+    check("opening shared settings cancels Xbox movement and fire", !adapter.actions &&
+          adapter.pad.axes[0] == 0 && adapter.pad.axes[1] == 0 && adapter.pad.axes[5] == 0);
+    UISwitch *hand = [xbox valueForKey:@"leftSwitch"];
+    check("shared settings retain the registered value-change targets",
+          [[hand actionsForTarget:xbox forControlEvent:UIControlEventValueChanged] containsObject:@"leftChanged:"]);
+    /* This helper has no UIApplication event loop. Invoke the registered handler
+       directly; real UI dispatch is covered separately on the installed app. */
+    hand.on = YES; [xbox leftChanged:hand];
+    [xbox layoutIfNeeded];
+    check("left-handed handler mirrors both sticks without changing their identities",
+          hypot(move.center.x - aimBefore.x, move.center.y - aimBefore.y) < .01 &&
+          hypot(aim.center.x - moveBefore.x, aim.center.y - moveBefore.y) < .01);
+    UISlider *look = [xbox valueForKey:@"look"];
+    check("Look Speed slider keeps its handler", [[look actionsForTarget:xbox
+          forControlEvent:UIControlEventValueChanged] containsObject:@"lookChanged:"]);
+    look.value = 2; [xbox lookChanged:look];
+    [xbox driveLookX:10 y:0];
+    /* UISlider returns a float near 2, not necessarily exactly 2. The overlay
+       intentionally retains sub-count fractions for the next drag segment. */
+    check("shared Look Speed handler changes Xbox mouse counts",
+          fabs(HPSettings.shared.lookSensitivity - 2) < .00001 &&
+          xboxLook == (int)(10 * 2.2 * HPSettings.shared.lookSensitivity));
+    [xbox togglePanel];
+    [xbox driveControl:@"fire" down:YES];
+    [xbox beginEditing];
+    check("entering editor releases gameplay input", !adapter.actions && adapter.pad.axes[5] == 0);
+    [xbox driveMoveX:1 y:1];
+    [xbox select:move];
+    CGFloat baseWidth = move.bounds.size.width;
+    UISlider *resize = [xbox valueForKey:@"selectedSize"];
+    check("editor resize slider keeps its handler", [[resize actionsForTarget:xbox
+          forControlEvent:UIControlEventValueChanged] containsObject:@"selectedSizeChanged:"]);
+    resize.value = 1.2; [xbox selectedSizeChanged:resize];
+    check("editor selection and resizing do not fire or move the player", !adapter.actions &&
+          adapter.pad.axes[0] == 0 && adapter.pad.axes[1] == 0 && adapter.pad.axes[5] == 0);
+    /* The saved normalized position is the editor's persistence contract. Actual
+       drag delivery is a separate UI test; do not synthesize it here. */
+    [defaults setObject:@{@"move": NSStringFromCGPoint(CGPointMake(.7, .65))}
+                forKey:[xbox key:@"origins"]];
+    [xbox endEditing]; [xbox layoutIfNeeded];
+    HPTestOverlay *pc = [[HPTestOverlay alloc] initWithFrame:xbox.frame];
+    pc.inGame = YES; [pc layoutIfNeeded];
+    UIView *pcMove = [pc valueForKey:@"move"];
+    check("fresh PC overlay restores Xbox-edited position and size",
+          CGRectEqualToRect(move.frame, pcMove.frame) && fabs(move.center.x - 716.8) < .01 &&
+          fabs(move.center.y - 499.2) < .01 && fabs(move.bounds.size.width - baseWidth * 1.2) < .01);
+    int before = count;
+    [pc driveLookX:10 y:0];
+    check("fresh PC overlay uses the same saved Look Speed", count == before + 1 &&
+          events[before].kind == HPI_MOUSEMOVE && events[before].dx == xboxLook);
+    HPTestOverlay *phone = [[HPTestOverlay alloc] initWithFrame:CGRectMake(0, 0, 844, 390)];
+    phone.simulatedPhone = YES;
+    [defaults setObject:@{@"move": NSStringFromCGPoint(CGPointMake(.2, .6))}
+                forKey:[phone key:@"origins"]];
+    [phone setNeedsLayout]; [phone layoutIfNeeded];
+    [xbox setNeedsLayout]; [xbox layoutIfNeeded];
+    check("phone layout changes do not overwrite shared tablet layout",
+          ![[phone key:@"origins"] isEqualToString:[xbox key:@"origins"]] &&
+          CGRectEqualToRect(move.frame, pcMove.frame));
+    [xbox driveControl:@"fire" down:YES];
+    check("fresh fire works after leaving editor", adapter.pad.axes[5] == 1);
+    [xbox clearTouchInput]; [pc clearTouchInput]; [phone clearTouchInput];
+    for (NSString *key in keys) {
+        if (saved[key]) [defaults setObject:saved[key] forKey:key];
+        else [defaults removeObjectForKey:key];
+    }
 }
 
 @interface HPLookDrag : NSObject
@@ -737,6 +841,7 @@ int main(void)
         check_layouts();
         check_editor_alignment();
         check_xbox_adapter();
+        check_shared_settings();
 
         fprintf(stderr, "OVERLAY INPUT: %s (%d failures)\n", failures ? "FAIL" : "PASS", failures);
         return failures ? 1 : 0;

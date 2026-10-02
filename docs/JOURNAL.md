@@ -4960,3 +4960,25 @@ Final picker PID16731.196 Documents retained except log, Library only OS scene
 state, preferences/PC registry exact, executable unchanged. No rebuild/unit
 rerun/install, pin change, hardware/IPA/publication. Next different moving
 material/effect against desktop or unmet controls/product gate. Goal active.
+
+## 2026-10-03 — shared settings and layout regression contracts
+
+Private `shared-settings73.ugJORz`, full backup and isolated copied checkpoint,
+unchanged water73 candidate. Add12 native assertions for registered settings/
+editor handlers, cancellation, mirrored identities, look sensitivity and saved
+PC/Xbox geometry with separate phone/tablet keys. Helper lacks UIApplication
+dispatch, so verify registration and invoke actual handlers directly; fixture
+position is not real drag proof. Correct test-hook misuse, a diagnostic compile
+error and UISlider near-2 float expectation. Final153 PASS,90 layouts/0 failures.
+
+Actual PID39747 normal guest campaign route, shared settings UI left-handed on:
+left Fire60->59 and background left Look rotate camera. Short automated LOOK
+stick produces no visible turn; no sustained/multi-touch acceptance. Generic AX
+switch ambiguous, coordinate clicks sometimes ineffective; visible drag restores
+off, AX0 verified. UI-off creates explicit false key absent in original backup;
+audit catches it. Remove only that test-created preference via Simulator defaults
+with exact container domain, cold-launch picker PID58756. All196 Documents retained
+except normal log; preference keys/values and PC registry identical; Library
+otherwise plist encoding/OS scene state only. App SHA unchanged. No runtime edit,
+rebuild/install, upstream pin change, hardware, IPA or publication. Goal active;
+next a different moving material/effect, not repeated settings/checkpoint tests.

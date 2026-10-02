@@ -304,3 +304,14 @@ multi-touch acceptance. Original quality restored, real state preserved, no
 pin/product change. Next different moving material/effect against independent
 desktop or an unmet product/control gate; do not repeat this completed water/
 checkpoint check without changed inputs. Evidence `water-accept73.wCglTA`.
+
+Shared settings follow-up:153 native assertions/90 layout combinations pass,
+including12 new registered-handler, cancellation and cross-adapter persistence
+checks. Actual Simulator UI mirrors handedness; left Fire and background Look
+work. The helper's saved-position fixture is not a real drag test, and the short
+automated mirrored LOOK-stick gesture shows no observable rotation. Keep physical
+multi-touch and non-default profiles open. Restore original preference absence
+after UI-off creates an explicit false key; cold picker and full save/PC audit
+pass. No runtime/pin change. Evidence `shared-settings73.ugJORz`. Next compare a
+different moving material/effect against desktop; do not repeat these unchanged
+settings or checkpoint tests absent a new concern.

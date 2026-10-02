@@ -1,5 +1,52 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Shared settings and layout contracts (2026-10-03)
+
+Previous turn is progress: water-candidate controls/save/Sharper checks passed.
+This pass covers an unmet shared-settings regression contract, without changing
+runtime code, installed app, guest73, water recipe or accepted66. Private evidence:
+`ref/xbox-build/passes/2026-10-03/shared-settings73.ugJORz/`. Full real container
+backup precedes testing; isolated session links trusted maps and copies the known
+`normal-save66.vLJy5R/after-save-quit` checkpoint. Forced Xbox edition, then actual
+Campaign/New001/Halo/Normal menu route; no init script or public networking.
+
+`tests/halo_overlay_test.m` adds12 checks: settings opening cancels Xbox holds;
+registered settings handlers remain wired; handedness mirrors identities; shared
+Look Speed affects Xbox counts; editing cancels gameplay; resize/selection do not
+play the game; a fresh PC overlay reads the same position, scale and sensitivity;
+phone layout keys do not overwrite tablet; fresh Fire works after editing.
+The helper has no UIApplication event loop: invoking UIControl events did not
+dispatch handlers, so tests explicitly verify registration and invoke the real
+handlers. A driveControl test hook also bypasses the touch editor guard and is
+not used to claim editor touch suppression. UISlider's near-2 float is compared
+with tolerance, with integer mouse counts derived from its actual value. Saved
+position is an explicit persistence fixture, not a claim of real drag delivery.
+An intermediate diagnostic compile error was corrected before the final run.
+Final native run153 PASS/0 failures,90 layout combinations/0 failures:
+`docs/artifacts/2026-10-02/G9/overlay-20261002T170146Z/` (UTC date).
+
+Actual installed app PID39747: native Menu/Controls/Look Speed & Touch Settings
+opens the shared panel. Left-handed switch changes both clusters; left Fire
+consumes a rifle round60->59 and background left-side swipe visibly rotates the
+camera (`left-handed-gameplay.png`). Short automated left LOOK-stick drag has no
+visible rotation; short gesture duration is a possible cause, not established
+here. Sustained mirrored-stick behavior remains unaccepted.
+Generic switch AX click is ambiguous; coordinate clicks sometimes do not toggle.
+A visible switch drag reliably restores off, AX confirms0, and Done closes the
+panel. No real sensitivity or custom-layout edits made. This does not establish
+physical multi-touch, actual cross-engine gameplay or non-default guest profiles.
+
+UI-off writes an explicit false preference where the original key was absent.
+Audit catches that difference; terminate app and remove only the newly created
+`HaloPad.leftHanded` key through Simulator defaults against its exact container
+preference domain. Cold picker PID58756: Windows left/Xbox right, Original quality,
+no launch overrides. Readback shows identical preference keys/values, identical
+PC registry, all196 Documents retained with only normal log changes. Library
+otherwise changes plist encoding and OS scene state. Backup retained. Installed
+executable SHA remains `aa0c46d8ebf733fa5d208e7a2df5703f57b81b36242e21a8554737981667077d`.
+No build/install, hardware, IPA, publication or pin promotion. Next different
+moving material/effect comparison; full goal remains active.
+
 ## Water candidate controls, saves and Sharper (2026-10-03)
 
 Previous turn is progress: `render-water-v1` fixes the missing water layer.
