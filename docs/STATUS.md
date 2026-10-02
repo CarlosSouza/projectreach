@@ -4,6 +4,13 @@ Updated 2026-10-02. **Simulator-only work: shared controls, texture compatibilit
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE4.md](HaloPad-GOAL-LOOP-PHASE4.md). Earlier device work remains in [phase 3](HaloPad-GOAL-LOOP-PHASE3.md).
 
+**Water reflection trace (2026-10-02).** Actual b30 trace identifies the water
+reflection draw, four-level ripple target, -0.6 LOD bias and stage-3 cubemap.
+Generated reflection-vector math agrees with the NVIDIA specification; no
+justified shader fix yet. Ninety-second diagnostic run passes. Next is a matched
+material/reference comparison, not more mip/expression existence checks.
+[Evidence and limits](XBOX-SIMULATOR-PASSES.md#water-reflection-consumer-trace-2026-10-02).
+
 **Water mip readback (2026-10-02).** New bounded, opt-in diagnostic finds a
 complete changing 128/64/32/16 mip chain consistent with the water ripple
 composite. Two-frame readback restores checked GL state and reports zero errors.

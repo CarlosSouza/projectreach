@@ -4784,3 +4784,18 @@ Guest/pins unchanged. Observer-off menu passes 30 seconds with no captures despi
 parent flag; retain prior app/data and rejected observer logs. No hardware/IPA/
 publication. Next consuming material shader or reference comparison, not repeated
 mip-existence checks or a claim that the user's graphics problem is resolved.
+
+## 2026-10-02 — water reflection consumer identified
+
+Use existing diagnostics only on installed `5bd669d` candidate. Private
+`water-shader.km9ZLU/trace` b30 passes 90 seconds with frame-120 guest trace and
+shader dumps. Water reflection draw: VS24, 198 indices, modes64621, stage0
+128-square four-level render target with -0.6 bias, stage3 64-square five-level
+cubemap. Generated matching fragment sources contain normal/dot/reflection
+lookup; VS writes required coordinates. Reflection expression agrees with the
+NVIDIA texture-shader spec section3.8.13.1.18, except zero-denominator guard.
+No Xbox precision, cube orientation or final-pixel parity claim. No justified
+renderer patch; preserve concrete route for matched-reference comparison.
+Known initial GL0x502 remains; later sampled errors zero. Cold Original picker
+restored; original saves/preferences/PC registry preserved except app log.
+No build, unit-suite rerun, hardware, pin change, IPA or publication.

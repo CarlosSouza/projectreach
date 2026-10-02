@@ -1,5 +1,40 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Water reflection consumer trace (2026-10-02)
+
+Same installed candidate/pins as the mip pass; no rebuild. Private data clone,
+trace and shader dumps: `ref/xbox-build/passes/2026-10-02/water-shader.km9ZLU/`.
+Run b30 for 90 seconds with render diagnostics, `XG_CAPTURE_MIPS=1`,
+`XG_DUMP_SHADERS=1` and `HALO_GPU_TRACE=120`. All requested gates pass.
+
+Guest frame 120 contains a 198-index water reflection draw with vertex shader
+24, texture modes `64621`, two combiners and final inputs `2d0f0b00/0c0c0000`.
+Stage 0 is a 128x128 four-level render target, linear min/mip filtering,
+LOD bias -0.6; stage 3 is a 64x64 five-level cubemap. Blend is destination-alpha
+source plus one destination, RGB writes enabled, depth LEQUAL with writes on.
+These states match the pinned water-reflection source path. This trace goes
+beyond a merely bound texture, but does not directly map this 198-index draw to the
+host program-62 snapshot or capture a shader-tag name.
+
+Dumped `ps_2653fcd8.glsl` and `ps_39058af4.glsl` are byte-identical and match
+that mode/combiner route. They sample the ripple normal, compute two intermediate
+dot products and a third reflection-stage product, derive the eye vector from
+the three interpolated w components, then sample the stage-3 cubemap. Generated
+`vs024_0.glsl` writes all those coordinates. The reflection-vector expression
+agrees with section 3.8.13.1.18 of the
+[NVIDIA texture-shader specification](https://registry.khronos.org/OpenGL/extensions/NV/NV_texture_shader.txt),
+apart from a small zero-denominator guard. This is not verification of Xbox
+quantization/dot-mapping semantics, cubemap orientation, interpolated values,
+final compositing or all compiled GPU output. No shader fix is justified yet.
+
+The initial GL 0x502 remains; sampled frames 1, 2 and 120 report zero errors.
+Normal cold launch returns to the Original-quality picker. Preservation audit:
+196 original Documents files retained except known app log, preferences/PC
+registry unchanged. No source change, unit-suite rerun, hardware, IPA or pin
+promotion. Next compare this concrete material/cubemap with a matched reference
+or capture its actual inputs/output if a visible defect is isolated. Do not
+spend another pass re-proving mip existence or merely finding the same equation.
+
 ## Water mip-chain readback (2026-10-02)
 
 Private evidence: `ref/xbox-build/passes/2026-10-02/water-mips.ixmd5T/`.

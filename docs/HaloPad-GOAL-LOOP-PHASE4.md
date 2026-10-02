@@ -211,3 +211,12 @@ render-target chains before draws. 184 tests and 120-second b30 pass; off-menu
 passes with no captures. Checked GL state restores, no readback errors. No new
 renderer fix. Next inspect consuming shader/material behavior or a reference,
 not another mip-existence pass. Normal-menu save/reload remains separately open.
+
+Consumer trace follow-up: existing diagnostics identify the actual water
+reflection draw (VS24, 198 indices, modes 64621), ripple target and cubemap.
+Generated reflection expression matches the published NVIDIA equation, with a
+zero-denominator guard. This is not Xbox precision/orientation/final-pixel proof;
+no fix is justified. 90-second b30 passes, state preserved, runtime unchanged.
+Next matched reference/material input-output comparison if a visible defect is
+isolated; do not repeat existence tracing. Normal-menu save/reload is also a
+useful independent acceptance task rather than adding speculative graphics fixes.
