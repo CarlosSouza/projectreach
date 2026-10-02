@@ -1,5 +1,9 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+The later authorized physical pass is recorded at
+[Physical iPad ANGLE preview](#physical-ipad-angle-preview-2026-10-02).
+The scope below describes the earlier Simulator-only work.
+
 Scope: HaloPad's existing checkout, local personal builds, and the dedicated
 **HaloPad Xbox iPad** Simulator (iPadOS 26.5). No physical iPad installation,
 IPA creation, publication, or upstream modifications.
@@ -2440,3 +2444,122 @@ controls. No BlueWake interruption, pairing, physical installation or input.
 Reported physical shading/focus still needs the affected edition/map; it is not
 fixed or attributed by this pass. Goal active, no pin promotion, IPA, push,
 publication or cleanup.
+
+## Physical iPad ANGLE preview (2026-10-02)
+
+**Classification: progress, bounded hardware execution, not full acceptance.**
+Chris explicitly authorizes the hardware iPad. Rediscover the wired/trusted,
+Developer-Mode-enabled M2 iPad Pro 12.9-inch (6th generation), iPad14,5,
+iPadOS 27.0 / 24A437. The connected iPhone is not a target. Stop only the outgoing
+HaloPad; BlueWake's background process remains untouched. No Bluetooth change,
+uninstall, reset or unrelated-app input. Private evidence is retained under
+`ref/xbox-build/passes/2026-10-02/ipad-hardware.YPnm9V/`.
+
+### Preservation and exact candidate
+
+CoreDevice bulk Documents backup fails after a partial transfer (error 7000,
+socket closed/POSIX 60); the separate Library copy succeeds. Preserve both.
+Use the already installed AFC CLI serially, never concurrently with CoreDevice
+transfers. Complete Documents/Library backup, then independently read them again.
+The first readback disconnects; retain that partial too. The successful retry
+nests Documents under the preexisting destination. Preserve the initial failed
+layout audit; correct the explicit successful root, not the hashes. Actual
+`backup-audit.json` verifies **320 files / 3,348,625,943 bytes, no differences**.
+This complete independently compared backup precedes installation.
+
+Copy the existing ad-hoc app, preserving source executable
+`af1be628abbf5381160953031a91d7d817397a14999b5b25b9a4ada3830dc436`.
+Validate a real development profile for the exact bundle/device, certificate
+match, expiry and both extended-virtual-addressing/increased-memory entitlements.
+Sign only the staged copy. Strict signature/entitlement checks pass; signed
+staged executable is
+`90437ca63e7c8314c1ee32b887c31299ecd4ddda01355850c86f05892306362e`.
+Signing changes embedded executable bytes; do not confuse these two identities.
+In-place CoreDevice installation succeeds; rediscover installed bundle/data
+metadata. This is not an independent readback/hash of the installed executable.
+Bundled frozen build 64 (`c55e4e2b`), guest `102885c2…fdaaa`, device Xbox archive
+`341f6c0d…134702`, SDK iphoneos and empty feature overrides are unchanged.
+Post-install/pre-launch original Xbox save bytes match exactly; Library changes
+are SplashBoard snapshots only, with PC registry/preferences unchanged.
+
+### Observed hardware behavior
+
+Launch the ordinary picker, no forced engine/map or bot. Disable upstream online,
+clipboard joins, UPnP and automatic updates using launch-only environment values.
+Use a fresh `XG_SAVE` root `Documents/xbox-hardware-save-20261002-YPnm9V`;
+original Xbox snapshots are never opened. This isolation deliberately bypasses
+the real revision-marker path, so it is **not normal revision-backup acceptance**.
+About displays `c55e4e2b` PREVIEW; Done returns to the picker. Xbox → Campaign →
+fresh New001 → Normal → a10 ship/bridge cinematic → first-person cryo bay runs
+through the actual controls. A/Start cinematic inputs are not a general skip
+behavior claim. No PC engine gameplay is tested in this pass.
+
+The actual device log confirms 4 GiB guest memory at `0x7000000000`, the Xbox
+image mapping, automatic device feature detection, ANGLE Metal Apple M2 GPU
+(ANGLE `eb725ace1839`) and 48 kHz/two-channel audio initialization. Render size
+is **640×480**, not native-panel resolution. Bootstrap frame 0 reports GL
+`0x502`; sampled frames 1, 2 and 120 report zero and complete framebuffers.
+Do not describe all frames as error-free or these samples as sustained FPS.
+Upstream config adds new default keys and logs the removed `network.netcode`
+setting. The fresh-profile event-handler error is retained, not hidden; startup
+continues through profile creation and the campaign.
+
+Native device screenshots retain About, campaign setup, opening and before/
+after cryo look views. Sampled floor/walls render without the large black floor
+polygons seen in the earlier Simulator Apple comparison. No matched physical
+Apple baseline or original-driver scene is available; the user's shading/focus
+complaint is **not resolved**, and the affected edition/map remains unspecified.
+Short mirrored look drags produce only small camera changes and leave the look
+tutorial pending. This is not usable sustained touch, simultaneous fingers,
+checkpoint progression or controller acceptance. Request direct-finger feedback;
+do not pair a controller or infer its feel from mirrored pointer input.
+
+### Wired video/audio and connection limits
+
+Use the QuickTime wired-capture skill with supported CUA UI controls (its older
+Sky entry point is unavailable). Verify the recording timer, then stop via UI.
+The first retained unsaved movie is 396.617 seconds / 1,495,917,432 bytes,
+H.264 1600×1200 plus mono AAC 48 kHz. Its audio source was not explicitly selected,
+so it does **not** establish game-audio output. It covers menu/cinematic/cryo,
+not six minutes of sustained play. A second bounded capture explicitly selects
+the exact iPad under both Screen and Speaker: **31.368 seconds / 74,470,060 bytes,
+H.264 1600×1200 and stereo AAC 48 kHz**. A 12-second sample has nonzero stereo
+signal, peak −12.67/−13.45 dB, RMS about −24.95 dB, no NaNs/Infs. This establishes
+captured output, not speech/weapon fidelity, underrun-free playback or physical
+speaker quality; mirroring changes routing. Both unsaved compositions remain
+local in QuickTime autosave, not moved, discarded, uploaded or published.
+
+The CoreDevice console connection later invalidates (error 3 / Mercury 1001).
+Read-only process inspection confirms HaloPad **PID 7089 remains live** in the
+installed bundle after the captures; this is not an app crash. Do not attribute
+the transport loss to QuickTime without a discriminating test. The original
+console failure and partial backups remain retained. No runtime rewrite is
+justified by this bounded pass. No pin promotion, Xbox IPA, release or cleanup.
+
+### Post-run preservation and next gate
+
+After stopping capture, complete a serial AFC Documents/Library readback to a
+fresh destination. HaloPad remains live with isolated saves; this is not an
+atomic snapshot of its active new test state. The initial audit incorrectly
+classifies the known app log at `Documents/HaloPad Logs/HaloPad.log` as protected;
+retain that failed report, then correct that one exact log path. The final audit
+passes: 320 original versus 363 current files, **151 protected original Documents
+files unchanged**, including original Xbox maps/saves, PC files/packages/profile
+data and revision state. PC registry and preference dictionary are unchanged.
+Only reviewed config-default additions, game/app logs, fresh isolated test saves
+and OS/Metal/dyld caches/scene snapshots differ. No unexplained changes remain.
+Config review confirms existing values unchanged, with new defaults appended;
+telnet stays disabled. `after-audit.json`/inventories retain the full comparison.
+
+Leave the physical app in the isolated cryo-bay run for Chris's direct-finger
+check. Next verify sustained look/move and simultaneous controls, real checkpoint
+progression/Save and Quit/cold reload, already-paired controller behavior and
+speaker audio. Then reproduce the affected edition/map at matched graphics
+settings against an original/reference renderer before changing fidelity code.
+No source/runtime fix or newly rerun synthetic suite is claimed in this pass.
+The final CUA reconnect reports its native pipe closed; do not restart Codex or
+other shared apps to recover it. Purpose-built device screenshot capture still
+succeeds and confirms the cryo-bay look tutorial; a final process query confirms
+PID 7089 live. This limits further mirrored UI automation, not app execution.
+Whitespace and current tree/index safety checks pass; private inputs/evidence
+remain ignored. No public-artifact or full gameplay gate is claimed.

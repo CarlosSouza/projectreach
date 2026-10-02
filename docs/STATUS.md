@@ -1,10 +1,29 @@
 # HaloPad status
 
-Updated 2026-10-02. **BLOCKED — coordinated physical-iPad test window needed.** The full goal is incomplete.
+Updated 2026-10-02. **Physical-iPad test window authorized; Xbox preview installed and running.** The full goal is incomplete.
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE3.md](HaloPad-GOAL-LOOP-PHASE3.md). Earlier engineering history remains in [phase 2](HaloPad-GOAL-LOOP-PHASE2.md).
 
-**Blocked audit (2026-10-02).** After the current-source device rebuild, three
+**Physical hardware follow-up (2026-10-02).** Chris authorized the shared iPad.
+The current-source ANGLE preview is provisioned for the exact M2 iPad Pro and
+installed in place after complete Documents/Library backup and independent
+byte-identical readback (320 files, 3,348,625,943 bytes). Source ad-hoc app is
+preserved; signed staged executable is `90437ca6…06362e`, installed metadata
+verified. Actual picker/About → Xbox → fresh isolated profile → Normal → a10
+cinematic/cryo bay works. The physical log confirms 4 GiB guest allocation,
+Apple M2 ANGLE/Metal automatic features and 48 kHz stereo output setup.
+Sampled cryo floor/walls lack the earlier Simulator's large black floor polygons;
+this is not a matched hardware/reference comparison or a shading/focus fix.
+A short capture with explicit iPad audio has non-silent stereo, not speaker/
+audio-quality acceptance. Sustained/direct-finger/controller play remains open.
+Original Xbox saves are not opened; launch uses a fresh isolated save root.
+Post-run readback preserves all 151 protected original Documents files, PC
+registry and preference dictionary; reviewed config/log/test-save/cache changes
+only. Physical app remains at the cryo-bay look tutorial for direct-finger testing.
+No PC gameplay, upstream promotion, Xbox IPA, pairing, push or publication.
+[Hardware evidence](XBOX-SIMULATOR-PASSES.md#physical-ipad-angle-preview-2026-10-02).
+
+**Historical blocked audit (2026-10-02; hardware authorization now resolved).** After the current-source device rebuild, three
 consecutive audits cannot advance the remaining physical requirements without
 confirmation that the shared iPad is available. No live build/job is being
 waited on. Checkout remains clean before this record; prepared device executable
@@ -16,7 +35,7 @@ identify the affected edition/map, validate real provisioning, preserve and
 read back Documents/Library, install in place, then test the exact candidate.
 No physical action, IPA, publication or claim that the full goal is achieved.
 
-**Current device-SDK readiness (2026-10-02).** Rebuilt the experimental combined
+**Earlier device-SDK readiness (2026-10-02; installed in the follow-up above).** Rebuilt the experimental combined
 iPhoneOS app from `68cb779`, including the touch-owner fix. Executable
 `af1be628…0dc436`, device Xbox archive `341f6c0d…134702`: actual SDK, source,
 guest identity, automatic hardware features, iOS 17.0 load command and strict

@@ -4316,3 +4316,37 @@ Resume needs Chris's coordinated shared-iPad window; then check actual profile,
 back up/read back full data and install in place before graphics/audio/controller
 acceptance. Rendering comparison also needs the affected edition/map. No hardware
 action, source pin change, IPA, publication or cleanup.
+
+### 2026-10-02 — authorized physical iPad preview and preservation
+
+Chris authorizes hardware use, resolving the previous window boundary. Validate
+exact wired M2 iPad Pro/iPadOS 27.0 and real profile/device/certificate/memory
+entitlements. CoreDevice Documents backup fails mid-transfer; preserve partial,
+use installed AFC serially for full backup and independent readback. First AFC
+readback disconnects; retain failure and nested successful retry. Correct the
+root-layout audit, then verify all 320 files / 3,348,625,943 bytes before install.
+Preserve source ad-hoc app; sign only private staged copy, executable
+`90437ca6…06362e`. Strict signature passes and in-place installation succeeds.
+Installed bundle metadata verified, not an independent installed-executable hash.
+
+Ordinary picker/About/Done → Xbox → fresh isolated New001 → Normal → a10
+cinematic/cryo bay observed. Actual hardware logs 4 GiB guest memory, ANGLE Metal
+Apple M2 automatic features, 640×480 rendering and 48 kHz stereo initialization.
+Frame 0 GL 0x502 retained; sampled later frames zero, not every-frame/FPS proof.
+Sampled cryo floor lacks earlier Simulator Apple black polygons, no matched
+hardware/reference comparison or reported shading/focus resolution. Short
+mirrored look gestures are small; ask for direct fingers/already-paired controller,
+do not alter Bluetooth. Capture via QuickTime skill/CUA: first 396.6-second movie
+has unverified mono source; explicit second iPad screen/audio capture 31.37 seconds
+has non-silent stereo. Unsaved compositions retained locally, not moved/shared;
+speaker/audio quality remains open. Console transport disconnects but actual
+process query confirms PID 7089 live, not a crash claim.
+
+Post-run full AFC readback succeeds. Retain initial mistaken log-path audit,
+correct that exact known log location. Final preservation audit passes all 151
+protected original Documents files, PC registry and preferences. Only config
+new defaults, known logs, fresh isolated saves and OS/Metal/dyld scene caches
+change. No original save opening or real revision-backup acceptance; live copy
+is not an atomic test-state snapshot. Leave isolated cryo-bay run for direct
+input feedback. No runtime edit, pin movement, Xbox IPA, push or publication;
+goal incomplete. [Hardware evidence](XBOX-SIMULATOR-PASSES.md#physical-ipad-angle-preview-2026-10-02).

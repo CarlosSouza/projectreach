@@ -4,7 +4,19 @@ Written 2026-09-29. This is the active loop for the supplied device handoff and 
 
 ## Current priority — 2026-10-01 Simulator / Xbox integration
 
-**2026-10-02 blocked checkpoint:** three consecutive no-progress audits after
+**2026-10-02 physical follow-up:** Chris subsequently authorized the hardware
+iPad. Complete independently compared Documents/Library backup precedes exact
+provisioning and in-place installation of the current-source ANGLE preview.
+The ordinary picker and Xbox a10 first-play cryo bay run on the M2 iPad; 4 GiB
+guest allocation and automatic ANGLE/Metal features are observed. Fresh test
+saves isolate original snapshots. Explicit iPad-audio capture is non-silent
+stereo, not physical-speaker acceptance. Short mirrored look gestures are not
+sustained direct-finger/controller proof. Next direct controls, checkpoint/
+cold reload, sustained performance and matched affected/reference rendering.
+The goal remains incomplete; no IPA, upstream promotion or publication.
+See the [hardware ledger](XBOX-SIMULATOR-PASSES.md#physical-ipad-angle-preview-2026-10-02).
+
+**Historical 2026-10-02 blocked checkpoint (authorization resolved):** three consecutive no-progress audits after
 device-preview preparation retain the same missing coordinated hardware window.
 Goal remains incomplete. Do not run another identical Simulator gate as a
 substitute for physical graphics/audio/controllers. Resume when Chris confirms
@@ -12,13 +24,13 @@ shared-iPad availability; then follow the preservation/provisioning requirements
 below. Affected edition/map clarification remains necessary for the rendering
 comparison. No physical install, launch, pairing or acceptance is implied.
 
-Current experimental device-SDK preview is `af1be628…0dc436`, rebuilt from
+Prepared experimental device-SDK preview was `af1be628…0dc436`, rebuilt from
 `68cb779` with the touch-owner fix. Actual artifact/source/SDK checks pass;
-ad-hoc signing without a profile is not physical acceptance. No installation
-or IPA. A coordinated hardware window and complete Documents/Library backup
-and readback are prerequisites; `install-device.sh` does not back up data.
-Then establish memory/launch feasibility and graphics/audio/controller behavior
-on that exact build. The physical shading/focus complaint still needs its
+ad-hoc signing without a profile is not physical acceptance. The physical pass
+above supplies real provisioning, backup/readback and in-place installation of
+a separately signed copy. No IPA; `install-device.sh` does not back up data.
+Memory/launch feasibility is now observed, full graphics/audio/controller
+acceptance remains open. The physical shading/focus complaint still needs its
 edition/map identified; do not attribute it to Xbox based on Simulator images.
 
 Current installed Simulator app is `3a933fea…95e8a`, with the shared RT/A touch
@@ -39,9 +51,10 @@ change normally. Retained 62-second video is not sustained/multi-touch or full
 moving-image acceptance. Physical shading/focus still open; request the affected
 edition/map for a discriminating comparison, not another arithmetic-only gate.
 
-Chris's latest direction prioritizes the iPad Simulator on this Mac, one-app
+Chris's earlier direction prioritizes the iPad Simulator on this Mac, one-app
 Windows/Xbox edition selection, and focused passes against a frozen recent Xbox
-upstream build. This pass does not authorize physical installs, an Xbox IPA,
+upstream build. The subsequent explicit hardware authorization permits the
+bounded physical pass above, not an Xbox IPA,
 publication, or a recurring automation. The older physical-device work below is
 historical context, not the next automatic action.
 

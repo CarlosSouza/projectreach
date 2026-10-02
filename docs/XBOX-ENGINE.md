@@ -11,16 +11,21 @@ touch gestures and restores that newly reached checkpoint after Save and Quit
 and a cold launch (one grenade retained). This is bounded early progression,
 not sustained multi-touch, campaign completion or physical graphics acceptance.
 ANGLE/Metal remains an independently pinned opt-in PREVIEW, not the default.
-An iPhoneOS preview now compiles as a personal app, without installation or
-hardware acceptance; physical rendering is unchanged. The earlier build-59 real touch pass verified
+The current-source iPhoneOS ANGLE preview is now provisioned and installed in
+place on the authorized M2 iPad after complete backup/readback. Ordinary picker,
+Xbox menus and a fresh isolated a10 cryo-bay run are observed. Hardware guest
+allocation and non-silent stereo capture work; direct controls, speaker quality,
+sustained performance and matched rendering acceptance remain open. Default
+Apple rendering is unchanged; this installed build is still an opt-in preview.
+The earlier build-59 real touch pass verified
 navigation, cryo-bay training, tube exit, Save and Quit, and a same-build cold checkpoint
 reload with isolated saves. A copied build-59 checkpoint also loads through the
 normal build-60 menus; a copy of that fixture also reloads the cryo-bay in build 61.
 This is not general snapshot compatibility or full gameplay acceptance:
 geometry/texture artifacts, full campaign progression, split-screen, human system link,
-audio quality and physical performance remain open. No physical iPad changes in this pass.
+audio quality and physical performance remain open.
 The Simulator-only presentation fix remains narrow: temporarily neutralize texture unit/
-sampler 0 during final presentation, then restore it. Physical rendering is unchanged.
+sampler 0 during final presentation, then restore it. That diagnostic is not enabled on hardware.
 See [XBOX-SIMULATOR-PASSES.md](XBOX-SIMULATOR-PASSES.md).
 
 Latest installed local integration: executable `3a933fea…95e8a` is rebuilt and installed
@@ -29,8 +34,10 @@ The touch-owner follow-up keeps RT/A held until the last owning finger releases;
 24 actual-handler checks pass after two reproduced failures. Normal-menu copied
 outdoor checkpoint and single RT 60→59 verify after rebuilding/installing. Real
 saves remain untouched; final ordinary picker PID 74408. Simultaneous OS gestures
-and physical controls still require acceptance. The device preview must be
-rebuilt normally to include this runtime fix. Earlier integration evidence:
+and physical controls still require acceptance. The device preview was rebuilt
+from `68cb779` and is now installed as signed candidate `90437ca6…06362e`.
+See the [physical pass](XBOX-SIMULATOR-PASSES.md#physical-ipad-angle-preview-2026-10-02).
+Earlier integration evidence:
 The post-device-SDK source follow-up verifies picker/About/Done, a copied outdoor
 a30 checkpoint, finite touch look, weapon swap, 2x scope and Save and Quit.
 Normal Windows startup reaches its still-unaccepted EULA. A retained 62-second
@@ -43,8 +50,8 @@ This is not OS-held multi-touch or physical-controller interruption proof.
 The normal PC Files import verifies all 78 stock files and reaches its original
 EULA, left unaccepted pending user confirmation; this is not normal PC gameplay
 proof. Real Xbox data/saves are unchanged. Reported physical-iPad shading/focus
-problems remain unresolved; this pass neither changes the physical app nor
-promotes upstream beyond frozen build 64.
+problems remain unresolved; the bounded hardware pass does not promote upstream
+beyond frozen build 64 or establish PC visual fidelity.
 
 HaloPad now opens with a choice:
 
@@ -75,7 +82,8 @@ switching means closing HaloPad and opening it again; the picker appears at ever
 
 ## Opt-in renderer preview
 
-Apple OpenGL ES remains the default; physical-device rendering is unchanged.
+Apple OpenGL ES remains the default; ANGLE is installed only as the personal
+hardware-test preview described above, not promoted to the default.
 `HALOPAD_XBOX_RENDERER=angle-metal` builds a **preview** from the
 separately pinned [WebKit ANGLE source](https://github.com/WebKit/WebKit/tree/a1fb7ce122d0cd99f7d6cc82775f02565e266ece/Source/ThirdParty/ANGLE).
 [config/xbox-angle.lock.json](../config/xbox-angle.lock.json) records both source
