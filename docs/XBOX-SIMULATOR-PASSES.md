@@ -1,5 +1,81 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Build-66 repeatability and campaign capture (2026-10-02)
+
+Candidate `f2ba71d9af4c6fc65d7419cc22e8f4899b16da88` first passes all six
+Mac/Simulator cases (`20261002-121805-f2ba71d9`). The acceptance rerun
+`20261002-124403-f2ba71d9` passes Mac menu/campaign/match (2,106 ticks, 16 shots)
+and Simulator menu/match (1,560 ticks, 13 shots), but rejects campaign because
+the last periodic drawable PPM is entirely black. The pin correctly stays at
+build 64. Do not discard or relabel that failed result.
+
+Inspection shows `campaign/frame.ppm` at 12:51:50 and the independent
+`campaign/screen.png` at 12:51:59 showing the rendered a10 cinematic. This is
+consistent with capturing a cinematic transition, not proof of a persistent
+black-screen failure. The original check used only the last ten-second dump.
+The updated campaign check retains complete, distinct drawable samples from
+the last 30 seconds, including black samples, and requires at least two visible
+frames. It rejects stale/incomplete/concurrently changing PPMs. Map-load,
+renderer and signal checks remain; menu/match criteria are unchanged. Regression
+tests include all-black, one-visible, repeated/stale, malformed and incomplete
+samples. This tests bounded rendering, not full progression or material fidelity.
+
+Fresh acceptance run `20261002-125636-f2ba71d9` passes all six cases and moves
+the lock to build 66. Mac match: 2,100 ticks/17 shots. Simulator menu 30 seconds,
+campaign 60 seconds with three complete late frames (lit fractions 0.067, 0.401,
+0.177), match 65 seconds/1,565 ticks/13 shots. Campaign/match screenshots visually
+reviewed. 145 Xbox tests and current-tree safety check pass. Save backup is
+`ref/xbox-build/save-backups/20261002-125636-from-c55e4e2b.AqAskh/`, independently
+compared and checksummed by the gate.
+
+Rebuild the full combined app without the gate's PC scene fixture, install in
+place, and verify strict signature plus generated/installed executable SHA-256
+`e47cd8033c08fa20ae0a20aeeef36bcd3b5e3d5a0bc25a04d88cc463edd4fb31`.
+An additional ordinary rebuild after acceptance produces the same executable.
+About/Done shows `f2ba71d9`; ANGLE correctly retains the preview designation.
+Normal picker -> Xbox -> Campaign -> copied New001 -> Halo -> Normal restores
+the outdoor a30 checkpoint. Fire-and-drag turns left and changes rifle 60 to 59;
+Swap equips pistol, Zoom enters/exits 2x, Pause opens the game menu. Move stick
+navigates to Save and Quit; Jump accepts and the game returns to its main menu.
+Terminate and cold-launch the ordinary edition picker. PC gameplay is not
+newly tested, and no EULA is accepted. Full app and checkpoint screenshot retained
+as `HaloPad-build66-full.app` / `build66-checkpoint.png` in `shared-controls.cwPagg`.
+The brief initial load view has incomplete HUD/material state before settling;
+that transient is not proof that ongoing texture/shading issues are resolved.
+
+Final independent readback (`audit-final.log`) again finds 196 Documents files,
+only the application log changed, no added/removed files. Preferences and PC
+registry are unchanged; Library differences are OS snapshot replacements only.
+Original game/package/save inputs remain intact. No hardware, IPA, EULA, push
+or publication. The ordinary picker is left open on the dedicated Simulator.
+
+## Filtering comparison (2026-10-02)
+
+An isolated experiment builds upstream [PR 35](https://github.com/cybersecurity/halo-ce-universal/pull/35)
+at `f9a4eb5763cbde769f8396c0a58b884f88251382` (based on build 65). It does
+not change the accepted engine lock or import a patch into HaloPad's source.
+The patch applies configurable anisotropy to linear, mipmapped world samplers;
+the original path only enables it when the game explicitly requests anisotropic
+filtering. Keep this separate from both the release update and resolution work.
+
+Same full combined app, ANGLE revision, copied a30 checkpoint, initial camera,
+and 640x480 internal rendering; separate identical starting save copies. Launch
+with `HALO_ANISOTROPIC_FILTERING=1` then `16`. Logs confirm actual 1x/16x with
+GPU maximum 16x. Navigate normal campaign menus after a diagnostic Xbox-choice
+override; no move/look input before captures. Private evidence in
+`shared-controls.cwPagg`: `af-1.png`, `af-16.png`, `af-{1,16}.stderr`, and preserved
+`HaloPad-af-pr35.app`. Test configs/saves stay outside the real Documents tree.
+
+The 16x frame has more visible ground detail, especially on the right slope,
+but remains substantially soft. Camera/geometry match; live scene animation
+and HUD blink timing do not, so this is a visual comparison, not pixel-exact
+determinism or performance measurement. No conclusion about shading/popping,
+all material types or physical iPad performance. The experimental app is not
+the accepted release candidate. Next resolution experiment must scale actual
+color/depth targets and viewport, not merely upscale the final image; test HUD,
+scope, particles and depth behavior together. Android's `screen_mode_choose`
+currently forces both scale factors to 1; the desktop path already scales them.
+
 ## Shared PC and Xbox overlay (2026-10-02)
 
 Latest direction supersedes hardware work: dedicated Simulator only. The new

@@ -4,6 +4,19 @@ Updated 2026-10-02. **Simulator-only work: shared controls, texture compatibilit
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE4.md](HaloPad-GOAL-LOOP-PHASE4.md). Earlier device work remains in [phase 3](HaloPad-GOAL-LOOP-PHASE3.md).
 
+**Build 66 and texture investigation (2026-10-02).** Accepted guest pin advances
+to `f2ba71d9` after all six Mac/Simulator cases pass. A rejected intermediate
+run exposed a single-frame cinematic-fade false negative; the campaign check now
+retains late complete frames and requires two visible samples. 145 Xbox tests
+pass. Full combined app, not the PC scene fixture, reloads the copied a30
+checkpoint through normal picker/menus; fire-and-drag, swap, 2x zoom, pause and
+Save and Quit work. Executable `e47cd803…dd4fb31` matches the installed app.
+ANGLE still makes this a preview; accepted guest does not mean fidelity accepted.
+An isolated unmerged PR35 comparison at 1x/16x filtering shows more ground detail
+at 16x, but substantial 640x480 softness remains. No shading/popping fix claimed;
+the experiment is preserved separately, not included in the accepted pin.
+[Update evidence](XBOX-SIMULATOR-PASSES.md#build-66-repeatability-and-campaign-capture-2026-10-02).
+
 **Shared controls, Simulator (2026-10-02).** Combined Xbox now uses the existing
 PC `HPOverlay`, including sticks, fire-and-drag aim, layout and touch settings.
 A small Xbox adapter preserves independent Use/Reload ownership and cancels

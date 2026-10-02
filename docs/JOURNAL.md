@@ -4381,3 +4381,35 @@ occlusion scratch-query separation. No third-party code imported. Next: preserve
 control checkpoint, run the established build66 candidate gate separately, then
 use exact paired scene evidence for resolution versus material/filter defects.
 [Detailed evidence](XBOX-SIMULATOR-PASSES.md#shared-pc-and-xbox-overlay-2026-10-02).
+
+## 2026-10-02 — build 66, filtering experiment and repeatable capture
+
+Keep wrapper-owned shared controls separate from the guest update. Build 66 first
+passes all six candidate cases, then an acceptance rerun fails its single final
+campaign PPM while the later independent screenshot shows the cinematic. Retain
+the failure; lock correctly stays at 64. Replace campaign's single-image criterion
+with a retained late sequence requiring two complete visible frames, rejecting
+stale/partial/duplicate captures. Preserve renderer/map-load/signal checks and
+unchanged menu/match gates. 145 Xbox tests pass; focused capture fix is `7b253ab`.
+
+Fresh acceptance passes all six cases: Mac match 2,100 ticks/17 shots, Simulator
+match 1,565 ticks/13 shots, three visible late campaign samples. Pin 66 `f2ba71d9`.
+Rebuild full combined PC/Xbox app rather than leave the gate's PC scene fixture.
+Installed/generated executable `e47cd803…dd4fb31` and strict signature match.
+Normal picker/About/Done, copied a30 checkpoint, fire-and-drag 60→59, swap, 2x zoom,
+pause and Save and Quit work. Restore ordinary picker. ANGLE remains preview;
+accepting the guest is not full graphics/progression or hardware acceptance.
+
+Separate PR35 `f9a4eb57` experiment tests identical checkpoint/camera at 1x/16x
+anisotropy. More ground detail appears at 16x, but 640x480 softness persists.
+Preserve both captures/logs and full experiment app, do not promote the unmerged
+PR into the release pin. Other Apple ports provide resolution/alignment leads;
+no third-party code copied into tracked HaloPad source. Desktop menu-relative-
+mouse shortcut rejected because Android compiles a no-op menu callback.
+
+Final private-data audit: 196 Documents files, only log changed; original inputs,
+saves, packages, PC registry and preferences unchanged. Only OS snapshots differ
+in Library. No hardware access, EULA acceptance, IPA, push or publication. Full
+goal remains incomplete: A/B menu clarity, remapped profiles, sustained touch,
+higher internal resolution and temporal/material fidelity still need work.
+See [pass evidence](XBOX-SIMULATOR-PASSES.md#build-66-repeatability-and-campaign-capture-2026-10-02).

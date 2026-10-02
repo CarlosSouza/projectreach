@@ -211,13 +211,19 @@ process, so that image cannot run where it was linked. HaloPad therefore:
      OpenGL ES through ANGLE's Metal back end.
    - **iOS** ([xg_ios.m](../port/xbox/xg_ios.m)): no SDL. Apple's OpenGL ES 3.0 on a layer-backed
      framebuffer that stands in for framebuffer 0, the GameController framework, Remote I/O audio, the
-     game on its own thread. [xg_touch.m](../port/xbox/xg_touch.m) is an Xbox-layout touch gamepad merged
+     game on its own thread. The standalone test app's [xg_touch.m](../port/xbox/xg_touch.m) is an Xbox-layout touch gamepad merged
      into player 1 (floating move stick, drag to look, RT/LT, A/B/X/Y, RB/LB, crouch, zoom, Start, Back);
      it hides while a controller is connected. [xg_xiso.c](../port/xbox/xg_xiso.c) copies maps/ out of
      the player's disc image.
    - **HaloPad** ([port/ios/HaloPadXbox.m](../port/ios/HaloPadXbox.m)): the launch picker and the Xbox
-     screen (disc import, then the game). [HaloPadApp.m](../port/ios/HaloPadApp.m) uses the picker
-     through a weak reference.
+     screen (disc import, then the game). Both combined-app editions use
+     [HPOverlay](../port/ios/HaloPadOverlay.m), including layout and touch settings.
+     [xg_overlay_input.h](../port/xbox/xg_overlay_input.h) maps its actions into
+     the default Xbox pad layout; relative look uses the upstream mouse-motion
+     import. This adapter and overlay belong to HaloPad, not the upstream source
+     tree, so a guest update cannot replace the touch UI. Non-default Xbox profile
+     bindings and menu-aware A/B labels still need handling.
+     [HaloPadApp.m](../port/ios/HaloPadApp.m) uses the picker through a weak reference.
 
 Apple devices use 16 KiB pages and the game 4 KiB ones: inside the Xbox window and the image the game's
 own mapping calls are emulated, and Direct3D write tracking protects whole 16 KiB pages. The game's
@@ -282,9 +288,9 @@ freeze an exact commit for validation. Do not chase changing HEAD during a pass.
 local build/update workflow, not an in-app executable updater or a scheduled job already installed.
 
 ```sh
-scripts/xbox/update-pin.sh --to c55e4e2b9d90550b0e761eb78dfe9d7c74880cb9 --simulator <dedicated-simulator-UDID>
+scripts/xbox/update-pin.sh --to f2ba71d9af4c6fc65d7419cc22e8f4899b16da88 --simulator <dedicated-simulator-UDID>
 # Only after all checks and visual review pass:
-scripts/xbox/update-pin.sh --to c55e4e2b9d90550b0e761eb78dfe9d7c74880cb9 --simulator <dedicated-simulator-UDID> --accept
+scripts/xbox/update-pin.sh --to f2ba71d9af4c6fc65d7419cc22e8f4899b16da88 --simulator <dedicated-simulator-UDID> --accept
 ```
 
 The script lists upstream changes, backs up Mac and selected Simulator Xbox saves, builds the
@@ -297,6 +303,19 @@ Rebuild and install in place after accepting. Screenshots require human/agent vi
 just a nonblack-pixel check. An accepted pin is the repeatable development baseline,
 not full progression/fidelity or physical-device acceptance. The Xbox card continues to
 say **EXPERIMENTAL** even after a candidate's regression gates pass.
+
+The update gate packages a PC scene fixture to keep its Xbox checks independent
+of a private PC recompilation. Do not leave that gate app as the final combined
+app: rebuild with `scripts/build-ios-app.py --work <existing-PC-runtime-work>`
+without `--scene`, using the same renderer setting, then install in place and
+exercise the ordinary picker plus a copied checkpoint. Preserve the old full
+app/data first. Check shared control routing after every guest update; upstream
+gamepad/profile defaults can change even though our overlay source is untouched.
+
+Keep three independently reviewable layers: the guest commit in
+`config/xbox-engine.lock.json`, the ANGLE renderer pin, and HaloPad's shell/input
+adapter. Unmerged renderer experiments use an explicit `XBOX_REV` and isolated
+outputs/saves; they are not silently folded into the accepted release pin.
 
 Each attempt now uses a unique save-backup directory. Mac and Simulator copies
 must compare byte-for-byte with their source folders, and checksum creation and

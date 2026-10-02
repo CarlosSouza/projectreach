@@ -61,3 +61,25 @@ high-resolution fonts/titles and multiplayer player names, requiring renderer/
 asset review before promotion. Candidate iOS references are NicholasDominici's
 `halo-ce-ios` and zimm3rmann's `halo-ce-ios-macos`; implementation claims require
 source inspection and local reproduction.
+
+## First-pass checkpoint
+
+- Shared overlay is implemented in `94dfd39`, with 128 native assertions and
+  143 Xbox tests. Normal-menu copied a30 checkpoint verifies movement, look/fire,
+  swap, zoom, pause, settings, quit and cold reload. PC defaults remain intact;
+  actual PC gameplay and sustained human multi-touch are not newly accepted.
+- Unmerged upstream anisotropy PR 35 was tested separately at 1x and 16x on the
+  same checkpoint. More ground detail is visible at 16x, but considerable blur
+  remains at 640x480. Preserve the experiment, not as an accepted release pin.
+- Next control pass: make Xbox A/B menu prompts understandable without replacing
+  shared gameplay controls, and handle or clearly disclose non-default guest
+  profile bindings. Next graphics pass: independently test real render-target
+  scaling, including depth, scopes and HUD, then isolate remaining material and
+  temporal defects. Do not label these unresolved issues fixed by the overlay.
+
+Rejected shortcut for menu state: desktop `halo_ui_pointer_update` drives SDL
+relative-mouse capture, but the Android guest compiles a no-op implementation.
+Do not infer guest menu visibility from our existing relative-mouse import.
+A default-binding A/B label hint is simpler than pretending that callback is an
+authoritative menu signal. Any actual menu-state bridge needs a separately
+validated, versioned guest interface rather than hard-coded memory offsets.
