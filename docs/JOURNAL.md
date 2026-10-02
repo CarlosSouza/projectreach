@@ -5194,3 +5194,26 @@ real196 Documents only log, Library only OS scene-state change, preferences/PC
 registry exact. No hardware/IPA/publication/pin promotion. Next safe disk
 headroom then candidate build and exact-binary regression; source fix not yet
 accepted. Do not rerun the already confirmed debugger experiment as progress.
+
+## 2026-10-03 — first-blit fixed binary built and validated
+
+`present-build73.V8BrrS` preserves real container, outgoing app and guest output.
+Losslessly compressed456 completed BMPs in the prior border pass's two Sharper
+frame directories, verifying integrity and exact decompressed bytes before
+removing raw duplicates; .bmp.gz and SHA receipt retain recoverable evidence.
+This recovered about1.5GiB. Disk later independently reports166GiB free; that
+larger change is not attributed to this work. No unrelated cleanup.
+
+Built render-present-v1 pinned73/d1c7243c, codesign verified and installed in
+place: app ed257ad5…af30b, guest4ac7e842…b60. Cold30s menu/60s a10/65s local
+match pass with frame0 read1/draw0/error0, no startup0x502.202 Xbox tests pass.
+Normal PID16953 shared Fire/Swap/swipe Look/Pause and Save and Quit work on an
+isolated genuine save copy; PID22537 cold-loads that outside-pod a30 checkpoint
+via actual picker/menus. Not sustained multi-touch, online or broad-fidelity proof.
+
+Ordinary Original picker PID24556 restored. Real196 Documents only log changed;
+Library only two OS snapshots replaced; preferences/keyset/PC registry exact.
+Nested upstream clean, accepted66/upstream73 unchanged. No hardware/IPA/push.
+Next exact-binary Original/Sharper water/border regression, then a different
+remaining material/effect issue. Detailed hashes and evidence are in the pass
+ledger. Goal remains active; source-only disk blocker is superseded.

@@ -1,5 +1,62 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## First-blit fixed-build validation (2026-10-03)
+
+Previous turn made progress: confirmed ordering defect and guarded source fix.
+Private evidence `ref/xbox-build/passes/2026-10-03/present-build73.V8BrrS/` holds
+real-container backup, outgoing app/output clones, build logs, smoke evidence,
+isolated genuine Default save copy and normal/reload/picker logs.
+
+Disk initially fell to614MiB. Losslessly archived456 completed raw BMPs only in
+`border-accept73.vtqWlq/sharper/frames` and `sharper-bridge/frames`: gzip -6 -k,
+gzip integrity check, byte-for-byte decompression comparison and SHA256 receipt
+before removing each original BMP. Corresponding `.bmp.gz` files preserve every
+byte; old raw paths require decompression. `compressed-sha256.txt` and
+`compress-captures.sh` record the targets/verification. Recover an individual
+frame with `gzip -dk <exact-frame.bmp.gz>` after checking space. No saves, apps,
+logs or comparison PNGs removed. Recovered about1.5GiB to2.1GiB; later final
+filesystem check independently reports166GiB free (not attributed to this work).
+
+Built pinned73/d1c7243c with render-present-v1 and the existing pinned ANGLE
+source, then rebuilt the combined personal Simulator app. Codesign deep/strict
+verification passes; install was in place, not uninstall. New executable SHA
+`ed257ad5fce911fdca27796807c6f2610fc39001ad3384da24904ddb200af30b`, guest SHA
+`4ac7e8427fccaa18464ab9643a98ace6640aae8790a00cdec6c3e1609de74b60`, recipe
+`0b2ccebc00d023a9b665c979393dc6f51e582d8f0be2f0f15cc171102d94e3f8`.
+Old candidate/output retained as app-before/out-before. Guest source restored
+after generation. Existing optional Android-toolchain/availability warnings are
+retained in build logs; build completed. Accepted66 and upstream73 unchanged.
+
+`XG_GL_CHECK=1` smoke on dedicated Simulator DF51182F-1878-4A54-9AED-CC4AED86BEAB:
+menu30s, a10 campaign60s and local match65s all pass. Each has frame0 error0,
+complete0x8cd5, read1/draw0/drawable0; frames1/2/120 also error0. The prior startup
+blit0x502 is absent. Lit fractions .633/.581/.975; match tick1562 with13 scripted
+shots. Screenshots inspected: Keyes cinematic and Blood Gulch with plasma effects.
+This is fixed-binary startup proof, not all-scenes GL cleanliness, broad fidelity
+or second-human-client/online proof.202 Xbox tests rerun and pass; prior40 native
+launch/save/quality checks were not rerun in this build-only pass.
+
+Normal PID16953: actual picker -> Xbox -> Campaign -> New001 -> Halo in progress
+-> Normal loads outside-pod a30 checkpoint, with no forced edition/init/scripted
+input. Shared Fire lowers rifle60->59 without throwing; Swap changes to pistol;
+background swipe rotates view; Pause opens guest menu. Shared down/A navigation
+completes Save and Quit and returns to campaign menu. Cold PID22537 repeats the
+ordinary picker/menu route and reloads the outside-pod checkpoint (rifle60,
+reserve120, grenade1). Saving the last checkpoint does not persist intervening
+shot/swap/aim actions. Profile card still says The Maw/Legendary while the actual
+selected save is Halo/Normal; those card labels are not authoritative. Cyan
+skybeam seen during normal play remains an unresolved world-effect observation.
+
+Ordinary picker PID24556 restored, AX confirms Original quality. Audit of real
+196 Documents finds only HaloPad log changed; Library differs only by two OS
+SplashBoard snapshots replaced. Preferences/keyset and PC registry are exact;
+real saves/game/package files unchanged. Nested upstream checkout is clean.
+
+Next: exact-new-binary Original/Sharper water and bridge-border captures; retain
+the prior candidate's evidence as prior, not new acceptance. Sustained multi-touch
+feel, other scenes/effects and hardware remain unaccepted. No physical device,
+IPA, publication or pin promotion. Goal remains active, not complete.
+
 ## First-blit ordering confirmed (2026-10-03)
 
 Previous turn is progress: exact-candidate Sharper regression and concrete

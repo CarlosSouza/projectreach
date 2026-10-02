@@ -422,3 +422,17 @@ app still `48f118f3…213e`, pins unchanged. Disk1.2GiB; full build/install defe
 Next check headroom before building, preserve prior app/output and validate the
 new exact binary across cold menu/campaign/match, controls/save and both quality
 modes. The debugger A/B is not an installed fix; do not repeat it without cause.
+
+Fixed-build checkpoint: render-present-v1 now built, signed and installed in
+place as ed257ad5…af30b / guest4ac7e842…b60. Cold menu/campaign/local-match pass
+without startup0x502; actual normal shared Fire/Swap/swipe Look/Pause, Save and
+Quit and cold a30 checkpoint reload pass on isolated copied state.202 tests pass.
+Evidence present-build73.V8BrrS includes prior app/output and real-state backups.
+456 older completed raw BMPs were losslessly compressed with exact-byte/hash
+verification; .bmp.gz replaces their old raw paths. Real state preserved except
+app log/OS snapshots; ordinary Original picker restored; pins unchanged.
+Disk no longer blocks this checkpoint (final166GiB free; larger external change
+not attributed to our1.5GiB archival). Next exact-new-build Original/Sharper water
+and border acceptance; do not repeat the cold-start trace or short-drag tests as
+new progress. Broader materials/effects, sustained human multi-touch and physical
+acceptance remain open. Simulator only; no IPA/publication; goal incomplete.

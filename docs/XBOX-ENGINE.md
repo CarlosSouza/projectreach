@@ -30,7 +30,17 @@ The Simulator-only presentation fix remains narrow: temporarily neutralize textu
 sampler 0 during final presentation, then restore it. That diagnostic is not enabled on hardware.
 See [XBOX-SIMULATOR-PASSES.md](XBOX-SIMULATOR-PASSES.md).
 
-Latest Simulator candidate: build73 `d1c7243c`, executable `48f118f3…213e`,
+Latest Simulator candidate: build73 `d1c7243c`, executable `ed257ad5…af30b`,
+guest `4ac7e842…b60`, cumulative **render-present-v1**. Resolving the read
+framebuffer before selecting/clearing the presentation destination fixes the
+confirmed cold-cache ordering defect. Cold menu, a10 campaign and scripted local
+match all report frame0 read1/draw0/error0. Normal shared controls, Save and Quit
+and cold checkpoint reload pass on copied state;202 Xbox tests pass. Both-quality
+water/border regression on this exact binary is next. No accepted pin promotion,
+hardware or broad-fidelity claim.
+[Installed evidence](XBOX-SIMULATOR-PASSES.md#first-blit-fixed-build-validation-2026-10-03).
+
+Previous Simulator candidate: build73 `d1c7243c`, executable `48f118f3…213e`,
 guest `652fbebb…de17`, opt-in `shared-input-v1`. A guarded scalar guest import
 publishes resolved button/stick mappings and active-menu state before polling
 input. HaloPad normalizes its touch pad only; physical pad routing and saved
@@ -44,14 +54,14 @@ not equivalent runtime acceptance; legacy stick diagonal response remains guest
 behavior. Real saves/preferences/PC registry preserved, Original picker restored.
 [Input bridge evidence](XBOX-SIMULATOR-PASSES.md#southpaw-touch-mapping-bridge-2026-10-03).
 
-Source ahead of that installed candidate: opt-in **render-present-v1** resolves
+Earlier source-only diagnosis (now built above): opt-in **render-present-v1** resolves
 the read framebuffer before selecting/clearing the presentation destination.
 A cold-cache runtime trace and one-process debugger correction confirm the
 startup blit ordering defect.202 Xbox tests and40 native launch/save/quality
 checks pass; this cumulative adaptation retains all shared-input/graphics fixes
-and old recipe identities. It is **not built or installed yet**: only1.2GiB free
-disk remained. Next preserve outgoing artifacts and run exact-new-build gates
-when safe headroom is available. No accepted pin promotion.
+and old recipe identities. At that checkpoint it was not built or installed:
+only1.2GiB free disk remained. Outgoing artifacts are now preserved and the
+new candidate installed; see current evidence above. No accepted pin promotion.
 [Evidence](XBOX-SIMULATOR-PASSES.md#first-blit-ordering-confirmed-2026-10-03).
 
 Previous Simulator candidate: build73 `d1c7243c`, executable `dc469db1…5997d`,

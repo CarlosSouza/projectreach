@@ -4,7 +4,16 @@ Updated 2026-10-03. **Simulator-only work: shared controls, texture compatibilit
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE4.md](HaloPad-GOAL-LOOP-PHASE4.md). Earlier device work remains in [phase 3](HaloPad-GOAL-LOOP-PHASE3.md).
 
-**First-blit defect confirmed; source fix not yet installed (2026-10-03).**
+**First-blit fix built and verified in Simulator (2026-10-03).**
+Installed `ed257ad5…af30b` / guest `4ac7e842…b60`, cumulative
+`render-present-v1`, passes cold menu/campaign/local-match smoke with frame0
+read1/draw0/error0. Normal shared Fire/Swap/swipe Look/Pause, Save and Quit and
+cold checkpoint reload also pass on an isolated save copy.202 Xbox tests pass.
+Exact-candidate Original/Sharper water and border regression is next; broad
+texture/lighting fidelity and human multi-touch remain open. Accepted66/upstream73
+pins unchanged. [Evidence](XBOX-SIMULATOR-PASSES.md#first-blit-fixed-build-validation-2026-10-03).
+
+**Earlier first-blit diagnosis, superseded by the installed result above (2026-10-03).**
 Debugger trace proves cold framebuffer creation overwrites the selected draw
 target. A one-process draw-target correction removes startup0x502. New guarded
 `render-present-v1` moves read-FBO resolution before draw-target selection;
