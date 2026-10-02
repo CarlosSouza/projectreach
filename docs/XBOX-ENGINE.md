@@ -1,8 +1,10 @@
 # Xbox engine (second HaloPad engine)
 
 Status, 2026-10-02: **HaloPad offers Windows Custom Edition or Xbox Combat Evolved at launch.**
-The accepted **experimental development pin** is upstream **build 64, `c55e4e2b`**,
-which expands the high-resolution HUD/scopes and fixes meter alpha and flat menu fills.
+The accepted **experimental development pin** in `config/xbox-engine.lock.json`
+is upstream **build 66, `f2ba71d9`**. Newer releases are tested separately before
+promotion. Build 64 expanded the high-resolution HUD/scopes and fixed meter
+alpha and flat menu fills; the following paragraphs retain that earlier evidence.
 Save-backed candidate and acceptance Mac/ANGLE iPad Simulator menu/a10/scripted-match
 gates pass. A copied build-61 a30 checkpoint loads through normal menus; actual
 fire, pistol swap, 2x Zoom, Save and Quit and fresh-process pod reload work.
@@ -28,7 +30,14 @@ The Simulator-only presentation fix remains narrow: temporarily neutralize textu
 sampler 0 during final presentation, then restore it. That diagnostic is not enabled on hardware.
 See [XBOX-SIMULATOR-PASSES.md](XBOX-SIMULATOR-PASSES.md).
 
-Latest installed local integration: executable `3a933fea…95e8a` is rebuilt and installed
+Latest Simulator candidate: build 73 `d1c7243c`, executable `59764ae4…ac8c`,
+with `render-visibility-v1` and ANGLE/Metal. Menu/a10/scripted-match smoke and
+copied build-66 normal-menu save/quit/cold reload pass. Accepted lock stays 66;
+unadapted acceptance, new scoreboard touch pagination and graphics fidelity
+remain open. Prior app/output/data are backed up. See the
+[candidate pass](XBOX-SIMULATOR-PASSES.md#build-73-candidate-upgrade-2026-10-02).
+
+Earlier local integration: executable `3a933fea…95e8a` was rebuilt and installed
 in place on the dedicated iPad Simulator, with outgoing apps/data backed up.
 The touch-owner follow-up keeps RT/A held until the last owning finger releases;
 24 actual-handler checks pass after two reproduced failures. Normal-menu copied

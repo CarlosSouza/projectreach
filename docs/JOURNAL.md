@@ -4812,3 +4812,25 @@ progression or all-upgrade compatibility. Profile The Maw/Legendary summary stay
 incorrect; graphics complaint remains open. Real Documents retain all196 files
 with only app log changed; Library/preferences/PC registry identical. Ordinary
 Original-quality picker restored. No build/tests rerun/hardware/pin/IPA/publish.
+
+## 2026-10-02 — build 73 candidate and upgrade checkpoint
+
+Freeze upstream build73 `d1c7243c`; accepted lock remains66. Review changes to
+scoreboard, player names, postgame title and network protocol9->10; Android
+imports/renderer/saved-game source unchanged. Preserve installed app, full data
+and output tree in private `upstream73.NGS3eC`. Existing counted ANGLE recipe
+builds and packages normal combined Simulator app; codesign/install pass.
+Executable `59764ae4…ac8c`. Menu30s/a10 60s/scripted-match65s pass bounded gates;
+a10 last sample black, screenshot bridge visible, so no sustained-render claim.
+Copied build66 named checkpoint loads through ordinary picker/menu path. Shared
+Fire/Look/Pause/Save and Quit work; cold process restores60/120 and onegrenade.
+Original Documents only log changed, Library only SplashBoard replacements,
+preferences/PC registry unchanged. Ordinary picker PID77214 restored.
+
+Captured cyan shield-HUD line remains unexplained, absent on cold reload.
+New scoreboard scroll uses wheel/PageUp/Down with no current shared-touch route;
+overflow not yet runtime-reproduced. Next test that input/display gap and compare
+HUD artifact with66. Unadapted acceptance still required before pin promotion.
+No runtime edits, unit-suite rerun, hardware, IPA or publication. Earlier journal
+profile-summary wording is clarified by the already documented upstream unlock-all
+policy; no new save defect was found. Full evidence/limits in Simulator ledger.

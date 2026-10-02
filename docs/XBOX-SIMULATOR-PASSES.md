@@ -1,5 +1,77 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Build 73 candidate upgrade (2026-10-02)
+
+Freeze official [build 73](https://github.com/cybersecurity/halo-ce-universal/releases/tag/build-73)
+at `d1c7243cb20eab4488efa1266e259b1f4d5240f6`; do not chase later HEAD during
+this pass. Accepted lock remains build 66 `f2ba71d9`. Private evidence and
+rollback material: `ref/xbox-build/passes/2026-10-02/upstream73.NGS3eC/`.
+Before replacement, preserve full installed `HaloPad-before.app`, full
+`data-before/` and `out-before/` build output. No uninstall or hardware access.
+
+66-to-73 review: high-resolution postgame title, desktop-only vsync-off FPS cap,
+weapon-reticle-based enemy name range (maximum 70), smaller names, sanitized/
+bannable player names and duplicate handling, plus a rewritten scoreboard.
+Network protocol is 9 -> 10: do not assume cross-version multiplayer compatibility.
+Android guest import/build machinery, `d3d8_gl.c`, `nv2a_psh.c` and saved-game
+source have no diff. Existing renderer adaptation applies/restores cleanly;
+nested private source is clean at 73.
+
+Build with `XBOX_REV=d1c7243cb20eab4488efa1266e259b1f4d5240f6`,
+`HALOPAD_XBOX_GUEST_ADAPTATION=render-visibility-v1`,
+`HALOPAD_XBOX_RENDERER=angle-metal` and the existing pinned ANGLE source.
+Guest translation reports 699510 instructions, 192 imports and 98 GLES imports.
+Optional upstream Android compiler warning does not prevent translation/full
+app build. Existing availability/empty-object warnings remain in logs. Package
+the normal combined app, without a PC scene; strict codesign verification and
+in-place Simulator install pass. Executable SHA-256:
+`59764ae4139117e8567f61ae3eee12541af58b9152600ce962f5bf173468ac8c`;
+guest SHA-256 `109a9789b518b4f11afe8025c84303d05e9fbf2029770ad47b90fd1c4b1bb4a3`.
+
+`smoke/result.json`: menu 30s passes (lit .643); a10 60s passes the existing
+two-nonblack-samples gate (.0775, .4783, .0); scripted local match 65s passes
+(tick 1560, 13 shots, lit .98). Final a10 PPM is black; retained screenshot
+shows Keyes on the bridge. Do not call this sustained nonblack campaign play.
+Match screenshot shows Blood Gulch with the plasma weapon and shared overlay.
+Known startup GL 0x502 remains; sampled frames 1/2/120 report zero.
+
+Copy `normal-save66.vLJy5R/after-save-quit` into this pass's `checkpoint/save`.
+Use isolated XG_DATA/XG_SAVE and touch-show, disable network options, and omit
+init/scripted input/forced edition. PID 73519 follows picker -> Xbox -> Campaign
+-> New001 -> Halo in progress -> Normal and loads outside the pod (60/120,
+one grenade). Fire gives 59, Look turns, Pause and individually observed Move
+steps reach Save and Quit. Wait for main menu and preserve `after-save-quit/`.
+Its `z/savegame.bin` SHA-256 is
+`90eb0888306203f2fec28f07bce8fa9cd027a5e0e33578f0be71d8d708d7e456`.
+Cold PID 75752 follows the same normal menus and restores the checkpoint at
+60/120 and one grenade (`cold-resumed.png`). This is bounded upgrade/save
+evidence, not arbitrary-version compatibility or new progression.
+
+`checkpoint-controls.png` captures a cyan vertical line extending above/below
+the shield HUD. It is absent from the cold-resumed view. Origin is unresolved;
+do not attribute it to build 73 without a matched build-66 comparison. Terrain
+softness and overall fidelity remain open. No new graphics fix is claimed.
+
+New source-backed touch gap: upstream `platform_scoreboard_scroll` consumes
+mouse-wheel/Page Up/Page Down events. Our SDL event adapter emits touch-look
+motion/controller-added events, not these pagination inputs; shared Scoreboard
+maps to controller BACK. Overflow-page access has no current touch route.
+This has not been runtime-reproduced with an overflowing roster. Next isolate
+scoreboard display/overflow and design a small adapter-level touch path without
+changing ordinary gameplay controls or patching every upstream release.
+
+Do not promote yet: existing unadapted Mac/Simulator acceptance path has not
+run for 73, scoreboard interaction needs acceptance, and graphics issues persist.
+Keep accepted lock 66 separate from this installed preview. Private nested
+source/output and installed app are intentionally candidate 73; normal prepare
+without XBOX_REV returns to 66. Prior app/output copies remain available.
+Ordinary launch PID 77214 returns to the Original-quality edition picker.
+Readback: all 196 Documents files retained, only known app log changed;
+Library differences only added/removed SplashBoard snapshots. Preferences and
+PC registry identical. No runtime edits, new unit-suite run, hardware, IPA,
+push or publication. Corrected stale top-level accepted-pin documentation and
+linked the already established unlock-all explanation for profile summaries.
+
 ## Counted candidate normal-menu save/reload (2026-10-02)
 
 Private evidence: `ref/xbox-build/passes/2026-10-02/normal-save66.vLJy5R/`.
@@ -29,7 +101,8 @@ game in progress. First person restores the outside-pod checkpoint, original
 camera, rifle 60/120 and one grenade (`cold-resumed.png`), not the unsaved
 59-round/look state. This is last-checkpoint behavior, not save-anywhere.
 The profile card still says The Maw/Legendary, as in the source fixture;
-this pass does not fix profile-summary metadata or prove fresh-profile creation.
+the earlier profile analysis explains upstream's deliberate unlock-all defaults.
+This pass does not change that policy or prove fresh-profile creation.
 
 This closes the bounded normal-menu existing-profile save/quit/cold-reload gate
 for the current counted candidate. It does not prove a newly reached checkpoint,

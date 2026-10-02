@@ -4,13 +4,26 @@ Updated 2026-10-02. **Simulator-only work: shared controls, texture compatibilit
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE4.md](HaloPad-GOAL-LOOP-PHASE4.md). Earlier device work remains in [phase 3](HaloPad-GOAL-LOOP-PHASE3.md).
 
+**Build 73 candidate (2026-10-02).** Frozen upstream `d1c7243c` builds with the
+existing counted ANGLE adaptation and is installed on the dedicated Simulator.
+Menu/a10/scripted-match smoke passes; copied build-66 checkpoint loads, shared
+Fire/Look/Pause and Save and Quit work, and cold normal-menu reload succeeds.
+Accepted lock stays build 66: unadapted acceptance and the new scoreboard remain
+open. Source review finds no touch route for its wheel/Page Up/Down pagination;
+network protocol changes from 9 to 10. A cyan vertical HUD artifact is captured,
+not fixed or attributed to this upgrade. Original saves/preferences/PC registry
+preserved. Candidate and rollback copies remain private; ordinary picker restored.
+[Evidence and next gates](XBOX-SIMULATOR-PASSES.md#build-73-candidate-upgrade-2026-10-02).
+
 **Normal-menu save/reload (2026-10-02).** Current counted build-66 candidate
 loads a copied build-64 New001 checkpoint through the picker and normal menus.
 Shared fire/look/pause/menu controls work; Save and Quit completes and a cold
 process restores the outside-pod checkpoint. This closes that bounded existing-
 profile gate, not fresh-profile creation, new progression or all-version save
 compatibility. Original saves/PC state preserved; no runtime changes. Graphics
-fidelity and the profile card's incorrect summary remain open.
+fidelity remains open. The misleading profile summary is explained by upstream's
+deliberate unlock-all flags, not an unexplained save failure; see the earlier
+[profile analysis](XBOX-SIMULATOR-PASSES.md#upstream-profile-summary-and-xbox-touch-focus-loss-2026-10-02).
 [Evidence](XBOX-SIMULATOR-PASSES.md#counted-candidate-normal-menu-savereload-2026-10-02).
 
 **Water reflection trace (2026-10-02).** Actual b30 trace identifies the water

@@ -229,3 +229,15 @@ save/reload gate above; fresh-profile creation, newly reached progression and
 general cross-version compatibility are not established. No runtime change.
 Original app data preserved except known log. Next return to an actual material
 comparison or another unmet control/update gate, not repeated checkpoint reload.
+
+Upstream follow-up: freeze build 73 `d1c7243c` as a separate candidate; accepted
+lock remains 66. Full combined counted ANGLE Simulator app builds/installs and
+passes menu/a10/scripted-match smoke plus copied build-66 normal-menu save/quit/
+cold reload. Original state preserved; rollback app/output/data retained in
+`upstream73.NGS3eC`. Protocol moves 9 -> 10. New scoreboard pagination requires
+wheel/Page Up/Down inputs absent from our touch adapter. Next reproduce that
+overflow/display path and add a minimal touch bridge if confirmed. Separately
+compare the captured transient cyan shield-HUD line against build 66 before
+attributing it. No new rendering fix or pin promotion. Unadapted Mac/Simulator
+acceptance remains required for promotion; do not repeat completed save tests
+without another change. Candidate 73 is left installed at the ordinary picker.
