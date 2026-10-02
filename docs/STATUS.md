@@ -4,6 +4,18 @@ Updated 2026-10-03. **Simulator-only work: shared controls, texture compatibilit
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE4.md](HaloPad-GOAL-LOOP-PHASE4.md). Earlier device work remains in [phase 3](HaloPad-GOAL-LOOP-PHASE3.md).
 
+**Bridge shadow bands fixed in Simulator candidate (2026-10-03).** New opt-in
+`render-border-v1` restores border-color sampling for the single-level 2D textures
+implicated by the preceding draw trace. Matched bridge views lose the black floor
+bands while a nearby view retains the character shadow. Water reflections and
+exterior engine glow remain visible; 30-second menu and 65-second local-match smoke
+pass. 194 Xbox tests and 38 native launch/save/quality checks pass. Candidate app
+`dc469db1…5997d`, guest `2d03ab18…b6b6`; accepted66/upstream73 unchanged. Real saves,
+preferences and PC registry preserved; ordinary Original-quality picker restored.
+Next exact-candidate normal-menu controls/save/cold reload and Sharper regression.
+Full mip/cube border support, broad fidelity and human multi-touch remain open.
+[Evidence and limits](XBOX-SIMULATOR-PASSES.md#bridge-border-sampling-fix-2026-10-03).
+
 **Bridge shadow bands localized (2026-10-03).** New paired a10 opening capture
 finds long black floor bands on Simulator, absent in the corresponding pinned
 desktop view. Native before/after draws identify shadow projection, not the floor

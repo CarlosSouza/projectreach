@@ -30,14 +30,16 @@ The Simulator-only presentation fix remains narrow: temporarily neutralize textu
 sampler 0 during final presentation, then restore it. That diagnostic is not enabled on hardware.
 See [XBOX-SIMULATOR-PASSES.md](XBOX-SIMULATOR-PASSES.md).
 
-Latest Simulator candidate: build73 `d1c7243c`, executable `aa0c46d8…7077d`,
-guest `83dd49b6…45c5`, opt-in `render-water-v1`. Preserving framebuffer/scissor
-state during ES mip copies restores the missing water reflection layer, verified
-against independent desktop views and ordinary Simulator screen captures.
-188 Xbox tests, 37 launch/save-helper checks and menu/a10/local-match smoke pass.
-Broader fidelity, exact-candidate normal-save reload and hardware remain open.
+Latest Simulator candidate: build73 `d1c7243c`, executable `dc469db1…5997d`,
+guest `2d03ab18…b6b6`, opt-in `render-border-v1`. It includes the water correction
+and emulates border-color sampling for eligible single-level 2D textures. Matched
+bridge views lose the long black shadow bands while retaining character shadows;
+water and exterior engine glow remain visible. 194 Xbox tests, 38 native
+launch/save/quality checks, a10 cinematic, menu and local-match checks pass.
+Broader fidelity, exact-candidate normal-save/control reload, Sharper and hardware
+remain open. Earlier water-candidate save/control checks do not close these gates.
 No physical-device work is authorized until Chris makes the iPad available again.
-[Water fix evidence](XBOX-SIMULATOR-PASSES.md#water-mip-copy-state-fix-2026-10-03).
+[Border fix evidence](XBOX-SIMULATOR-PASSES.md#bridge-border-sampling-fix-2026-10-03).
 
 Previous Simulator candidate: build 73 `d1c7243c`, executable `39f06f77…7198e`,
 adds held Scoreboard drag to paired Page Up/Down inputs. 185 Xbox tests and
@@ -354,20 +356,29 @@ physical-performance acceptance.
 `render-water-v1` additionally preserves read/draw framebuffer bindings and
 scissor enable through the ES mip-copy fallback. It includes the counted
 visibility/quality recipe and currently requires the paired counted ANGLE
-**Simulator** backend, like `render-visibility-v1`. Set the same adaptation on
-both build commands; leave the accepted pin and default build unchanged:
+**Simulator** backend, like `render-visibility-v1`.
+
+`render-border-v1` inherits those fixes and restores border-color behavior when
+ANGLE cannot provide native border clamp. The bounded policy covers single-level
+2D textures with matching point/linear min and mag filters, excluding high-res
+replacements. It preserves half-texel/corner blending and the actual border color,
+not merely a UV discard. Mipmapped, anisotropic, mixed-filter, cube and 3D paths
+remain unchanged. A second strict source hash guards the pixel-shader generator;
+both temporary source edits are restored after a build. Upstream changes require
+review of both sources, not blind hash updates. Set the same adaptation on both
+build commands; leave the accepted pin and default build unchanged:
 
 ```sh
 XBOX_REV=d1c7243cb20eab4488efa1266e259b1f4d5240f6 \
-HALOPAD_XBOX_GUEST_ADAPTATION=render-water-v1 \
+HALOPAD_XBOX_GUEST_ADAPTATION=render-border-v1 \
 HALOPAD_XBOX_RENDERER=angle-metal scripts/xbox/build-ios.sh
 ```
 
 Supply the pinned `XBOX_ANGLE_SOURCE` as above, preserve the prior app/output and
 save data first, then package with those same variables using the normal app
 builder. The source guard currently matches builds66/73; never substitute a new
-upstream digest without reviewing the copy/draw ordering and rerunning the water
-comparison. Evidence is linked in the latest candidate paragraph above.
+upstream digest without reviewing the copy/draw ordering and border policy, then
+rerunning the water/shadow comparisons. Evidence is linked above.
 
 ## Updating the engine
 

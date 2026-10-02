@@ -5005,3 +5005,24 @@ All captures exit0; ordinary Original-quality picker PID90385 restored.196 real
 Documents unchanged except log; preferences/PC registry exact; Library Metal cache
 and OS scene state only. Installed app SHA unchanged, upstream clean. No runtime
 edit/build/install, unit rerun, hardware, pin change, IPA or publication. Goal active.
+
+## 2026-10-03 — correct bridge border sampling in private Simulator candidate
+
+Previous turn progress: shadow draw/material proof. New `border-fix73.zpl1rD`,
+full prior app/output/real-data backups. Implement narrowly guarded
+`render-border-v1`: single-level 2D point/linear border color, correct half-texel
+and corner blending, per-draw uniforms before serial shortcut. Other paths stay
+native/unchanged. Guard second shader source, restore both temporary inputs, keep
+old water identity; new module included in provenance. No depth changes or shadow
+suppression.194 Xbox tests/38 native launch-save-quality checks pass. Full build,
+codesign and in-place install succeed; app `dc469db1…5997d`, guest `2d03ab18…b6b6`.
+
+a10 PID6415,181.4469s/474 BMP/18 native captures: matched bridge view loses bands,
+nearby frame3204 retains character shadow; exterior glow remains. b30 Original
+PID8160,101.0809s/175 BMP/20 native captures retains detailed water and foreground.
+Local match65s passes tick1532/12 shots with reviewed screen; menu30s passes.
+Original-quality ordinary picker PID11624 restored. Real196 Documents unchanged
+except app log; preference dictionary/PC registry exact, Library only Metal/OS
+state. Nested upstream clean, accepted66 unchanged, candidate73 frozen. No hardware,
+IPA, publication or cleanup. Next exact-build normal controls/save/cold reload
+and Sharper regression; broad rendering/human multi-touch remain open. Goal active.

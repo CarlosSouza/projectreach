@@ -326,3 +326,14 @@ identified candidate, preserving half-texel blending and legitimate shadows.
 Do not change EQUAL or hide shadows. Full mip/cube support requires its own proof.
 Use `effects-reference73.xzSmz9` captures for the A/B; fixed frame numbers do not
 guarantee the same cinematic camera. Original state restored; no runtime/pin change.
+
+Border-fix follow-up: new guarded `render-border-v1` candidate emulates actual
+border color/half-texel blending for single-level 2D point/linear textures, leaving
+unsupported mip/cube/3D paths unchanged. Matched bridge bands disappear while
+nearby character shadow remains. Original water, exterior glow, menu and local
+match remain visible.194 Xbox tests/38 launch-save-quality checks pass; full build
+and in-place install verified, app `dc469db1…5997d`. Real state preserved and
+ordinary Original picker restored. Evidence `border-fix73.zpl1rD`; upstream73
+and accepted66 unchanged. Next exact-candidate normal controls/save/cold reload
+and Sharper regression, then a distinct unmet material/control gate. Do not use
+prior water-build acceptance to close these changed-build gates.

@@ -10,7 +10,8 @@ static inline BOOL HPXboxSupportsQuality(NSDictionary *build)
     return [adaptation isKindOfClass:NSDictionary.class] &&
         ([adaptation[@"name"] isEqual:@"render-quality-v1"] ||
          [adaptation[@"name"] isEqual:@"render-visibility-v1"] ||
-         [adaptation[@"name"] isEqual:@"render-water-v1"]);
+         [adaptation[@"name"] isEqual:@"render-water-v1"] ||
+         [adaptation[@"name"] isEqual:@"render-border-v1"]);
 }
 
 static inline BOOL HPXboxSharperSelected(NSUserDefaults *settings)

@@ -1,5 +1,70 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Bridge border-sampling fix (2026-10-03)
+
+Previous turn is progress: draw/material capture isolated the bridge bands to
+requested BORDER being substituted with edge clamp. Private evidence:
+`ref/xbox-build/passes/2026-10-03/border-fix73.zpl1rD/`. Complete real-data, prior
+app and generated-output backups retained before in-place Simulator installation.
+Only dedicated Simulator `DF51182F-1878-4A54-9AED-CC4AED86BEAB`; no hardware.
+
+New opt-in `render-border-v1` inherits water/quality/counted visibility and adds a
+guarded shader helper plus per-draw border state. Eligibility: no native border
+extension, single-level 2D, matching point/linear min and mag, no high-res texture
+replacement. Linear coverage includes the half-texel fringe and corner product;
+point uses the texture domain. Both use actual border color. Non-border axes
+retain ordinary sampling. No approximation for mipmapped, anisotropic, mixed
+min/mag, cube or 3D paths; those remain unchanged. Uniforms update before the
+ordinary-uniform serial early return to avoid stale per-draw masks. Do not claim
+full border emulation or change depth/shadow visibility as a workaround.
+
+Separate recipe SHA `eaa7d81b13ea041db40add5fcca82a628a22b6ce5073719c79979a8091f9fed6`.
+Renderer SHA `5c8c132048b1efaa57d322b9c8a0ef65df07c1755df653c0f1a178ce96831cc6`;
+new shader-generator guard `504d1d854e97612db322ce8e0f8bf89749ee63352067dfe190f3f1528b3dc054`.
+Both source inputs/anchors must match before any mutation; temporary changes
+restore after build/failure, preserving concurrent edits for manual review.
+Old water recipe identity remains unchanged. New module enters runtime provenance.
+Guest SHA `2d03ab1836a4aa687ac70062776966e7a2dcf795769297c5aa50013a39aea6b6`;
+installed executable SHA `dc469db18505a1a254502eed6d3427027003857a7a84b530085e226e3bf5997d`.
+Upstream candidate73 remains `d1c7243cb20eab4488efa1266e259b1f4d5240f6`;
+accepted66 lock unchanged. Nested checkout clean after restoration.
+
+194 Xbox tests pass in27.803s;38 native launch/save/quality checks pass in
+`generated/xbox-launch-tests/20261002T175534413432Z/`. New tests exercise unique
+anchors, strict identity, two-source restoration/concurrent edits, compiled C
+eligibility with ASan/UBSan, and an independent bilinear-border numeric oracle
+with arbitrary texels, nonzero color and axis/corner cases. The oracle is a CPU
+math check, not GPU pixel equivalence. Actual candidate shader compiles/renders.
+Full guest/library/combined app builds and strict codesign verification succeed;
+known upstream availability/libtool warnings retained in logs.
+
+a10 PID6415 completes181.4469s:474 BMPs and18 native screenshots, fresh isolated
+save, no optional draw observers. Counts include loading, not FPS. Camera-matched
+`bridge-comparison.png` uses prior desktop1336 / old Simulator2832 / new3312:
+the long floor bands disappear. Small floor box440:635,265:340 has RGB-mean<8 at
+5 desktop /936 old /8 new pixels, a local diagnostic only, not pixel parity.
+Nearby new3204 (`preserved-shadow.png`) retains the localized full character
+shadow. Native screen09 shows ordinary bridge corridor without the bands.
+Exterior engine glow remains in the corresponding comparison. Slight camera/
+animation differences persist; this is bounded defect acceptance, not fidelity.
+
+b30 Original PID8160 completes101.0809s:175 BMPs/20 native screenshots. Native
+screen04 shows restored detailed blue/ripple water behind the Pelicans; screen07
+shows ordinary cabin/marine/beach foreground. Sampled presentation checks report
+complete framebuffers and error0,640x480 source/filter1; not every-frame proof.
+65-second scripted local match passes (tick1532,12 shots, lit0.967), visually
+reviewed native screen retains world, weapon, HUD and shared controls.30-second
+menu passes (lit0.633). Bot smoke is not human-control/network acceptance.
+
+Cold ordinary picker PID11624, Original quality restored/unchanged. Real196
+Documents files remain except normal log changes; preference dictionary and PC
+registry exact. Library changes only Metal caches and OS snapshots/scene state.
+No IPA, publication, accepted-pin promotion or cleanup. Backups remain available.
+Next normal-menu shared controls/save-and-quit/cold checkpoint reload and Sharper
+on this exact executable. Prior water-candidate acceptance cannot substitute for
+those regressions. Full material fidelity, non-default controller profiles,
+sustained human multi-touch and hardware remain open; goal active.
+
 ## Bridge shadow-band localization (2026-10-03)
 
 Previous turn is progress: shared settings contracts verified. New private

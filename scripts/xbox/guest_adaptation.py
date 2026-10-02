@@ -9,12 +9,16 @@ import argparse
 from contextlib import contextmanager
 import fcntl
 import hashlib
+import importlib.util
 import json
 import os
 import pathlib
 import shutil
 import signal
 import subprocess
+_border_spec = importlib.util.spec_from_file_location('border_sampling', pathlib.Path(__file__).with_name('border_sampling.py'))
+border_sampling = importlib.util.module_from_spec(_border_spec)
+_border_spec.loader.exec_module(border_sampling)
 
 RENDERER = pathlib.Path('port/linux/src/d3d8_gl.c')
 SOURCE_SHA256 = '5c8c132048b1efaa57d322b9c8a0ef65df07c1755df653c0f1a178ce96831cc6'
@@ -85,8 +89,9 @@ WATER_RESTORE = b'''\tglBindFramebuffer(GL_READ_FRAMEBUFFER, (GLuint)saved_read)
 \telse glDisable(GL_SCISSOR_TEST);
 \t/* Preserve the in-progress draw; invalidate cached state for later calls. */
 '''
-QUALITY_ADAPTATIONS = ('render-quality-v1', 'render-visibility-v1', 'render-water-v1')
-COUNTED_ADAPTATIONS = ('render-visibility-v1', 'render-water-v1')
+QUALITY_ADAPTATIONS = ('render-quality-v1', 'render-visibility-v1', 'render-water-v1', 'render-border-v1')
+COUNTED_ADAPTATIONS = ('render-visibility-v1', 'render-water-v1', 'render-border-v1')
+WATER_ADAPTATIONS = ('render-water-v1', 'render-border-v1')
 
 
 def identity(name=None):
@@ -100,8 +105,10 @@ def identity(name=None):
         recipe += FILTER_ANCHOR + FILTER_INSERT
     if name in COUNTED_ADAPTATIONS:
         recipe += COUNT_ANCHOR + COUNT_INSERT + ATOMIC_ANCHOR + ATOMIC_REPLACE
-    if name == 'render-water-v1':
+    if name in WATER_ADAPTATIONS:
         recipe += WATER_SAVE_ANCHOR + WATER_SAVE + WATER_RESTORE_ANCHOR + WATER_RESTORE
+    if name == 'render-border-v1':
+        recipe += border_sampling.recipe()
     return {'name': name, 'upstream_renderer_sha256': SOURCE_SHA256,
             'recipe_sha256': hashlib.sha256(recipe).hexdigest()}
 
@@ -120,11 +127,13 @@ def adapted_source(original, name='render-scale-v1'):
             raise ValueError('Renderer visibility input changed; review upstream first')
         modified = modified.replace(COUNT_ANCHOR, COUNT_INSERT + COUNT_ANCHOR)
         modified = modified.replace(ATOMIC_ANCHOR, ATOMIC_REPLACE)
-    if name == 'render-water-v1':
+    if name in WATER_ADAPTATIONS:
         if original.count(WATER_SAVE_ANCHOR) != 1 or original.count(WATER_RESTORE_ANCHOR) != 1:
             raise ValueError('Renderer water input changed; review upstream first')
         modified = modified.replace(WATER_SAVE_ANCHOR, WATER_SAVE_ANCHOR + WATER_SAVE)
         modified = modified.replace(WATER_RESTORE_ANCHOR, WATER_RESTORE)
+    if name == 'render-border-v1':
+        modified = border_sampling.apply_edits(modified, border_sampling.RENDERER_EDITS)
     return modified
 
 
@@ -136,14 +145,25 @@ def renderer_adaptation(engine, adaptation):
     path = engine / RENDERER
     original = path.read_bytes()
     modified = adapted_source(original, adaptation['name'])
+    changes = [(path, original, modified)]
+    if adaptation['name'] == 'render-border-v1':
+        shader_path = engine / border_sampling.SHADER
+        shader = shader_path.read_bytes()
+        changes.append((shader_path, shader, border_sampling.adapt_shader(shader)))
     try:
-        path.write_bytes(modified)
+        for path, original, modified in changes:
+            path.write_bytes(modified)
         yield
     finally:
-        if path.read_bytes() != modified:
+        changed = []
+        for path, original, modified in changes:
+            if path.read_bytes() not in (original, modified):
+                changed.append(path)
+            else:
+                # Fresh mtime makes the next unadapted Ninja recompile it.
+                path.write_bytes(original)
+        if changed:
             raise RuntimeError('Renderer changed during build; preserving it for manual review')
-        # Fresh mtime also makes the next unadapted Ninja build recompile it.
-        path.write_bytes(original)
 
 
 def build(engine, ndk, compiler, out):
