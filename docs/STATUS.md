@@ -4,6 +4,16 @@ Updated 2026-10-02. **Simulator-only work: shared controls, texture compatibilit
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE4.md](HaloPad-GOAL-LOOP-PHASE4.md). Earlier device work remains in [phase 3](HaloPad-GOAL-LOOP-PHASE3.md).
 
+**Xbox menu clarity (2026-10-02).** Shared gameplay buttons now carry A/B/X/Y
+badges and accessibility hints; an Xbox Controls guide explains menu navigation
+and the required Default guest profile. PC presentation and all input mappings
+stay unchanged. 134 native assertions (including 270 layout combinations) and
+145 Xbox tests pass. Simulator verifies guide/Done, A/B navigation, copied a30
+gameplay, fire/drag, swap, scope, save/quit and cold picker. Original saves,
+PC registry and preferences preserved. Installed executable `077ca7c9…9f57c52`.
+No texture fix claimed; higher render resolution is the next graphics experiment.
+[Evidence](XBOX-SIMULATOR-PASSES.md#xbox-menu-labels-on-the-shared-overlay-2026-10-02).
+
 **Build 66 and texture investigation (2026-10-02).** Accepted guest pin advances
 to `f2ba71d9` after all six Mac/Simulator cases pass. A rejected intermediate
 run exposed a single-frame cinematic-fade false negative; the campaign check now

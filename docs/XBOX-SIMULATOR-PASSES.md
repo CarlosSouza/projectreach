@@ -1,5 +1,37 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Xbox menu labels on the shared overlay (2026-10-02)
+
+Add small A/B/X/Y badges to the existing Jump/Melee/Use+Reload/Swap buttons,
+with accessibility hints. Original gameplay captions, actions and hit targets
+stay unchanged. PC buttons have no badges. Badges remain visible with captions
+off. An Xbox Controls guide explains MOVE, A/B navigation, drag aim/fire and the
+Default profile requirement. Alternate guest profiles are disclosed, not adapted;
+this does not pretend to detect menu state or change guest bindings.
+
+134 native assertions pass, including badge containment and original-button hit
+testing over 270 phone/tablet/handedness/size/gap combinations. Evidence:
+`docs/artifacts/2026-10-02/G9/overlay-20261002T072747Z/`, including the rendered
+`xbox-labels.png`. All 145 Xbox Python tests pass. Full combined app builds and
+strict signature verification passes. Installed executable SHA-256:
+`077ca7c9285c622b92a823939feb1230dd57288b21110ab1c9d2fb2939f57c52`.
+Guest remains build 66, renderer remains ANGLE preview.
+
+Actual dedicated Simulator check: ordinary picker -> Xbox; guide opens with all
+text visible and Done restores controls. A enters Campaign/Select Profile; B
+returns to main menu. Copied New001 -> Halo -> Normal restores the outdoor a30
+checkpoint. Fire-and-drag turns and changes rifle 60 to 59; Y swaps to pistol,
+Zoom enters/exits 2x; Pause and MOVE navigate to Save and Quit, A accepts, and
+the game returns to main menu. A cold ordinary launch restores the edition picker.
+Private captures, logs, copied save, prior app/data and new full app are retained
+under `ref/xbox-build/passes/2026-10-02/menu-labels.qGJNj7/`.
+
+Independent audit: all 196 Documents files retained, only application log changed;
+preferences and PC registry unchanged. Library differences are OS snapshots only.
+No physical device, EULA acceptance, IPA, publication or upstream modification.
+Texture softness remains visible; this pass changes no rendering behavior.
+Sustained human multi-touch, non-default profiles and graphics fidelity remain open.
+
 ## Build-66 repeatability and campaign capture (2026-10-02)
 
 Candidate `f2ba71d9af4c6fc65d7419cc22e8f4899b16da88` first passes all six

@@ -51,6 +51,8 @@ typedef NS_ENUM(NSInteger, HPAspectMode) { HPAspectOriginal = 0, HPAspectFill = 
 - (instancetype)initWithFrame:(CGRect)frame inputHandler:(nullable void (^)(const hp_input *event))handler;
 @property(nonatomic, copy, nullable) BOOL (^controllerConnected)(void);
 @property(nonatomic, copy) NSArray<UIMenuElement *> *engineMenuItems;
+/* Optional engine labels; presentation only, never rewires an action or target. */
+- (void)setControllerLabel:(nullable NSString *)label hint:(nullable NSString *)hint forControl:(NSString *)identifier;
 @property(nonatomic, weak, nullable) id<HPOverlayDelegate> delegate;
 /* A gameplay map is loaded; Halo may also have its pause/child menu open. */
 @property(nonatomic) BOOL inGame;

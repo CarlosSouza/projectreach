@@ -4413,3 +4413,23 @@ in Library. No hardware access, EULA acceptance, IPA, push or publication. Full
 goal remains incomplete: A/B menu clarity, remapped profiles, sustained touch,
 higher internal resolution and temporal/material fidelity still need work.
 See [pass evidence](XBOX-SIMULATOR-PASSES.md#build-66-repeatability-and-campaign-capture-2026-10-02).
+
+## 2026-10-02 — Xbox menu labels without a second touch layout
+
+Add presentation-only A/B/X/Y badges and accessibility hints to shared controls;
+retain original icons, captions, action mapping and hit boxes. PC stays unlabelled.
+Xbox Controls guide documents MOVE/A/B, drag aim/fire and the Default guest profile
+limitation. No unsupported menu-state inference or hard-coded guest offsets.
+
+134 native assertions pass, including 270 layout combinations; 145 Xbox tests pass.
+Full combined build and strict signature pass. Actual Simulator verifies guide/Done,
+A/B navigation, copied a30 load, rifle fire/drag 60→59, Y swap, 2x scope, pause,
+Save and Quit, then cold ordinary picker. Installed executable `077ca7c9…9f57c52`;
+build 66 and ANGLE preview unchanged. Captures/app/data/checkpoint retained in
+`ref/xbox-build/passes/2026-10-02/menu-labels.qGJNj7/`.
+
+Audit again preserves all 196 Documents files (only log changes), preferences and
+PC registry; only OS snapshots differ in Library. No hardware, IPA or publication.
+Visible texture softness remains. Next discriminating graphics experiment is real
+render-target scaling, checking HUD/scopes/depth separately from filtering.
+Non-default guest profiles and sustained human multi-touch remain unaccepted.

@@ -260,6 +260,8 @@ static void trace_touches(UIView *view, NSSet<UITouch *> *touches, const char *p
 @property(nonatomic) BOOL bindingAvailable;
 @property(nonatomic, copy) void (^bindingHelp)(void);
 @property(nonatomic, strong) UILabel *label;
+@property(nonatomic, strong) UILabel *controllerLabel;
+@property(nonatomic, copy) NSString *controllerHint;
 @property(nonatomic, strong) UIImageView *icon;
 @property(nonatomic, copy) void (^lookBy)(CGFloat dx, CGFloat dy);
 @property(nonatomic, copy) void (^actionChanged)(int action, int down);
@@ -299,6 +301,15 @@ static void trace_touches(UIView *view, NSSet<UITouch *> *touches, const char *p
         _label.adjustsFontSizeToFitWidth = YES;
         _label.minimumScaleFactor = 0.6;
         [self addSubview:_label];
+        _controllerLabel = [UILabel new];
+        _controllerLabel.textAlignment = NSTextAlignmentCenter;
+        _controllerLabel.textColor = UIColor.whiteColor;
+        _controllerLabel.backgroundColor = [UIColor colorWithWhite:0.06 alpha:0.9];
+        _controllerLabel.layer.borderColor = [UIColor colorWithWhite:1 alpha:0.6].CGColor;
+        _controllerLabel.layer.borderWidth = 1;
+        _controllerLabel.clipsToBounds = YES;
+        _controllerLabel.hidden = YES;
+        [self addSubview:_controllerLabel];
         _bindingBadge = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@"exclamationmark.circle.fill"]];
         _bindingBadge.tintColor = UIColor.systemYellowColor;
         _bindingBadge.backgroundColor = UIColor.blackColor;
@@ -315,7 +326,7 @@ static void trace_touches(UIView *view, NSSet<UITouch *> *touches, const char *p
     _bindingAvailable = available;
     _bindingBadge.hidden = available;
     self.accessibilityValue = available ? nil : @"Needs a keyboard or mouse binding";
-    self.accessibilityHint = available ? nil : @"Pause, Change Settings, Controls Setup";
+    self.accessibilityHint = available ? self.controllerHint : @"Pause, Change Settings, Controls Setup";
 }
 - (void)setPrimary:(BOOL)primary { _primary = primary; [self paint]; }
 /* Quiet at rest; the larger FIRE target uses Halo's cool HUD palette. */
@@ -336,6 +347,10 @@ static void trace_touches(UIView *view, NSSet<UITouch *> *touches, const char *p
     _icon.frame = CGRectMake((self.bounds.size.width - iconSide) / 2, self.bounds.size.height / 2 - iconSide / 2 - (caption ? d * 0.08 : 0), iconSide, iconSide);
     _icon.preferredSymbolConfiguration = [UIImageSymbolConfiguration configurationWithPointSize:iconSide * 0.8 weight:UIImageSymbolWeightSemibold];
     _bindingBadge.frame = CGRectMake(d * 0.68 - 7, d * 0.22 - 7, 14, 14);
+    CGFloat badgeSide = fmax(14, d * 0.26);
+    _controllerLabel.frame = CGRectMake(d * 0.28 - badgeSide / 2, d * 0.23 - badgeSide / 2, badgeSide, badgeSide);
+    _controllerLabel.font = [UIFont systemFontOfSize:badgeSide * 0.72 weight:UIFontWeightBold];
+    _controllerLabel.layer.cornerRadius = badgeSide / 2;
     _label.hidden = !caption;
     _label.font = [UIFont systemFontOfSize:fmax(10, d * 0.15) weight:UIFontWeightSemibold];
     _label.frame = CGRectMake(d * 0.12, CGRectGetMaxY(_icon.frame) + d * 0.02, self.bounds.size.width - d * 0.24, d * 0.2);
@@ -527,6 +542,18 @@ static const hp_control_def CONTROLS[] = {
 {
     _engineMenuItems = [items copy];
     [self rebuildMenu];
+}
+- (void)setControllerLabel:(NSString *)label hint:(NSString *)hint forControl:(NSString *)identifier
+{
+    for (HPControlButton *button in _buttons) {
+        if (![button.accessibilityIdentifier isEqualToString:identifier]) continue;
+        button.controllerLabel.text = label;
+        button.controllerLabel.hidden = !label.length;
+        button.controllerHint = hint;
+        if (button.bindingAvailable) button.accessibilityHint = hint;
+        [button setNeedsLayout];
+        break;
+    }
 }
 
 /* ---- the controls ---- */

@@ -71,9 +71,11 @@ source inspection and local reproduction.
 - Unmerged upstream anisotropy PR 35 was tested separately at 1x and 16x on the
   same checkpoint. More ground detail is visible at 16x, but considerable blur
   remains at 640x480. Preserve the experiment, not as an accepted release pin.
-- Next control pass: make Xbox A/B menu prompts understandable without replacing
-  shared gameplay controls, and handle or clearly disclose non-default guest
-  profile bindings. Next graphics pass: independently test real render-target
+- Menu-clarity pass completed: A/B/X/Y badges preserve shared gameplay controls,
+  with a guide explicitly disclosing the Default profile requirement. 134 native
+  assertions and 145 Xbox tests pass; normal Simulator menus, copied checkpoint,
+  fire/drag, swap, scope and save/quit verified. Non-default profile adaptation
+  and sustained human multi-touch remain open. Next graphics pass: test real render-target
   scaling, including depth, scopes and HUD, then isolate remaining material and
   temporal defects. Do not label these unresolved issues fixed by the overlay.
 

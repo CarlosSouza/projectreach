@@ -219,12 +219,19 @@ static BOOL xbox_backup_saves(NSError **error)
 		}];
 		pad.analogMoveReady = YES;
 		pad.inGame = YES;
+		[pad setControllerLabel:@"A" hint:@"Xbox A. Select in menus." forControl:@"jump"];
+		[pad setControllerLabel:@"B" hint:@"Xbox B. Back in menus." forControl:@"melee"];
+		[pad setControllerLabel:@"X" hint:@"Xbox X. Use or reload with the default profile." forControl:@"action"];
+		[pad setControllerLabel:@"X" hint:@"Xbox X. Use or reload with the default profile." forControl:@"reload"];
+		[pad setControllerLabel:@"Y" hint:@"Xbox Y. Switch weapons or follow the menu prompt." forControl:@"switch"];
 		pad.controllerConnected = ^BOOL {
 			if (getenv("XG_TOUCH_SHOW")) return NO;
 			for (GCController *controller in GCController.controllers) if (controller.extendedGamepad) return YES;
 			return NO;
 		};
 		pad.engineMenuItems = @[
+			[UIAction actionWithTitle:@"Xbox Controls…" image:[UIImage systemImageNamed:@"gamecontroller"] identifier:nil
+				handler:^(__kindof UIAction *action) { [weak showControlsHelp]; }],
 			[UIAction actionWithTitle:@"System Link…" image:[UIImage systemImageNamed:@"network"] identifier:nil
 				handler:^(__kindof UIAction *action) { [weak showLink]; }]];
 		[pad refreshControllerVisibility];
@@ -243,6 +250,16 @@ static BOOL xbox_backup_saves(NSError **error)
 		setenv("XG_FRAME_DUMP", [xbox_root().stringByDeletingLastPathComponent stringByAppendingPathComponent:@"xbox-frame.ppm"].fileSystemRepresentation, 1);
 	if (xg_ios_start(image.fileSystemRepresentation, xbox_data().fileSystemRepresentation, xbox_saves().fileSystemRepresentation))
 		[self showProblem:@"The Xbox game could not start. Share the diagnostic log from Settings > HaloPad if this keeps happening."];
+}
+
+- (void)showControlsHelp
+{
+	[pad clearTouchInput];
+	UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Xbox Controls"
+		message:@"Menus: use MOVE to highlight an item. Tap A (Jump) to select or B (Melee) to go back. X and Y follow the game's prompts.\n\nPlaying: use the same touch layout as PC. Drag the screen to aim, or drag FIRE while shooting.\n\nUse the Default Xbox control profile. Other in-game button layouts do not match these labels yet. Touch size, layout and sensitivity are in Controls."
+		preferredStyle:UIAlertControllerStyleAlert];
+	[alert addAction:[UIAlertAction actionWithTitle:@"Done" style:UIAlertActionStyleDefault handler:nil]];
+	[self presentViewController:alert animated:YES completion:nil];
 }
 
 - (void)showProblem:(NSString *)text

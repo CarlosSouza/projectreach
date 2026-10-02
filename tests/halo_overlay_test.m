@@ -26,7 +26,37 @@ static void check_xbox_adapter(void)
             else xg_touch_publish(&buffer, &adapter.pad);
         }];
     view.inGame = YES; view.analogMoveReady = YES;
+    [view setControllerLabel:@"A" hint:@"Xbox A. Select in menus." forControl:@"jump"];
+    [view setControllerLabel:@"B" hint:@"Xbox B. Back in menus." forControl:@"melee"];
+    [view setControllerLabel:@"X" hint:@"Xbox X" forControl:@"action"];
+    [view setControllerLabel:@"X" hint:@"Xbox X" forControl:@"reload"];
+    [view setControllerLabel:@"Y" hint:@"Xbox Y" forControl:@"switch"];
     [view layoutIfNeeded];
+    UIView *jump = nil;
+    for (UIView *button in view.subviews)
+        if ([button.accessibilityIdentifier isEqualToString:@"jump"]) jump = button;
+    UILabel *badge = [jump valueForKey:@"controllerLabel"];
+    check("Xbox A badge explains Select without changing Jump's action label",
+          [badge.text isEqualToString:@"A"] && !badge.hidden &&
+          [jump.accessibilityLabel isEqualToString:@"Jump"] &&
+          [jump.accessibilityHint isEqualToString:@"Xbox A. Select in menus."]);
+    BOOL captions = HPSettings.shared.showCaptions;
+    HPSettings.shared.showCaptions = NO;
+    [jump setNeedsLayout]; [jump layoutIfNeeded];
+    check("Xbox letter remains visible with captions off and inside the original target",
+          !badge.hidden && [(UILabel *)[jump valueForKey:@"label"] isHidden] && CGRectContainsRect(jump.bounds, badge.frame));
+    HPSettings.shared.showCaptions = captions;
+    [jump setNeedsLayout]; [jump layoutIfNeeded];
+    const char *renderPath = getenv("HALOPAD_OVERLAY_RENDER_DIR");
+    if (renderPath) {
+        UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:view.bounds.size];
+        UIImage *image = [renderer imageWithActions:^(UIGraphicsImageRendererContext *context) {
+            [UIColor.blackColor setFill]; UIRectFill(view.bounds);
+            [view.layer renderInContext:context.CGContext];
+        }];
+        check("shared Xbox label preview written", [UIImagePNGRepresentation(image) writeToFile:
+            [@(renderPath) stringByAppendingPathComponent:@"xbox-labels.png"] atomically:YES]);
+    }
     [view driveMoveX:.5 y:1];
     [view driveControl:@"fire" down:YES];
     [view driveLookX:20 y:-10];
@@ -65,6 +95,15 @@ static void check_xbox_adapter(void)
         if (a.accessibilityIdentifier.length && [a.accessibilityIdentifier isEqualToString:b.accessibilityIdentifier])
             same &= CGRectEqualToRect(a.frame, b.frame);
     check("PC and Xbox share identical layout geometry and preference keys", same);
+    BOOL pcUnchanged = YES;
+    for (UIView *button in [pc valueForKey:@"buttons"])
+        pcUnchanged &= [(UILabel *)[button valueForKey:@"controllerLabel"] isHidden];
+    check("PC controls do not acquire Xbox badges", pcUnchanged);
+    int beforeLabelChange = count;
+    [view setControllerLabel:nil hint:nil forControl:@"jump"];
+    [view setControllerLabel:@"?" hint:@"Unused" forControl:@"unknown"];
+    check("clearing or unknown presentation labels never deliver input",
+          badge.hidden && jump.accessibilityHint == nil && count == beforeLabelChange);
 }
 
 @interface HPTestOverlay : HPOverlay
@@ -279,7 +318,7 @@ static void check_layouts(void)
     NSInteger savedSpacing = settings.ringSpacing;
     CGSize screens[] = {{667, 375}, {760, 354}, {844, 390}, {1024, 768}, {1376, 1032}};
     CGFloat sizes[] = {0.7, 1, 1.35};
-    int cases = 0, bad = 0, badReach = 0, badGrid = 0;
+    int cases = 0, bad = 0, badReach = 0, badGrid = 0, badBadge = 0;
     for (int form = 0; form < 5; form++) for (int hand = 0; hand < 2; hand++)
     for (int size = 0; size < 3; size++) for (int gap = 0; gap < 3; gap++) {
         settings.controlSize = sizes[size]; settings.leftHanded = hand; settings.ringSpacing = gap;
@@ -367,6 +406,14 @@ static void check_layouts(void)
             for (UIView *v in controls) reachable &= !CGRectIntersectsRect(v.frame, radar);
         }
         if (!reachable) badReach++;
+        CGRect targetBeforeBadge = jump.frame;
+        [view setControllerLabel:@"A" hint:@"Select" forControl:@"jump"];
+        [jump layoutIfNeeded];
+        UILabel *badge = [jump valueForKey:@"controllerLabel"];
+        CGPoint badgePoint = [jump convertPoint:badge.center toView:view];
+        if (badge.hidden || !CGRectContainsRect(jump.bounds, badge.frame) ||
+            !CGRectEqualToRect(jump.frame, targetBeforeBadge) || [view hitTest:badgePoint withEvent:nil] != jump)
+            badBadge++;
         cases++;
         if (!valid) { bad++; fprintf(stderr, "layout failed: %.0fx%.0f hand %d size %.2f gap %d controls %lu\n",
                                     screens[form].width, screens[form].height, hand, sizes[size], gap, (unsigned long)controls.count); }
@@ -376,6 +423,7 @@ static void check_layouts(void)
     check("phone/tablet defaults have separate targets, safe bounds and two reachable sticks", bad == 0);
     check("sticks have equal reach, aligned fire, movement-side crouch and tablet radar clearance", badReach == 0);
     check("action columns retain equal spacing and align around the aiming thumb", badGrid == 0);
+    check("Xbox label stays in its original tappable target across all phone/tablet layouts", badBadge == 0);
 }
 
 void halopad_host_post_input(const hp_input *e)
