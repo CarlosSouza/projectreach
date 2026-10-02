@@ -4939,3 +4939,24 @@ Final picker PID78201/Original AX-verified.196 Documents retained except known
 log, prefs/PC registry exact; Library changes only Metal cache and OS snapshots/
 scene state. Prior app/output remain private and recoverable; no real save marker
 advance. Repository safety and whitespace checks pass.
+
+## 2026-10-03 — water candidate shared controls, checkpoint and Sharper
+
+Private `water-accept73.wCglTA`; unchanged installed `aa0c46d8…7077d`/water-v1,
+source73/accepted66. Full real-data backup, isolated copy of existing checkpoint.
+Normal picker/Campaign/New001/Halo/Normal route restores a30 outside-pod state.
+Actual shared Fire/Look/Swap/2x Zoom/unzoom/Pause/Move-menu/A work. Save and Quit
+returns to main menu; cold PID99163 repeats the ordinary route and restores
+rifle60/120 and checkpoint camera. Recorded scope/menu/reload screenshots and
+before/after save hashes. Device Hub AX stalls once at picker; visible coordinate
+click dispatches successfully with no app fix. No new progression acceptance.
+
+UI-select Sharper, fresh isolated b30 PID4246:101.55 seconds,20 native screenshots,
+172 BMPs (not FPS). Actual1280x960/effective4x; complete sampled framebuffers and
+zero sampled GL errors. Restored detailed water and normal foreground occlusion
+visible in Pelican/cabin views. Not exhaustive depth/fidelity; ground remains
+soft. Fresh picker confirms persisted Sharper; restore Original through UI.
+Final picker PID16731.196 Documents retained except log, Library only OS scene
+state, preferences/PC registry exact, executable unchanged. No rebuild/unit
+rerun/install, pin change, hardware/IPA/publication. Next different moving
+material/effect against desktop or unmet controls/product gate. Goal active.

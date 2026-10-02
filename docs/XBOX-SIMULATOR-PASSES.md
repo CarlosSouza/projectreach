@@ -1,5 +1,58 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Water candidate controls, saves and Sharper (2026-10-03)
+
+Previous turn is progress: `render-water-v1` fixes the missing water layer.
+This pass tests that exact installed app `aa0c46d8…7077d` without rebuilding or
+changing source73, guest `83dd49b6…45c5`, counted ANGLE or accepted lock66.
+Private evidence: `ref/xbox-build/passes/2026-10-03/water-accept73.wCglTA/`.
+Full real container backup precedes testing. Normal-menu session uses linked
+trusted maps and a separate copy of `normal-save66.vLJy5R/after-save-quit`;
+no init script, forced edition, scripted player input or public network.
+
+PID82463: actual picker -> Xbox -> Campaign -> New001 -> Halo (game in progress)
+-> Normal restores outside-pod a30 checkpoint, rifle60/120 and one grenade.
+Shared Fire consumes one rifle round, background Look drag visibly rotates the
+camera, Swap selects pistol, Zoom produces the2x scope (`zoom.png`), second Zoom
+unscopes, and Pause opens the guest menu. Three individually observed Move-stick
+down gestures select Save and Quit; shared A returns to main menu (`save-quit.png`).
+Copy resulting isolated save tree before cold launch. Checkpoint SHA256 before
+run `050d594383ed1e8f718e0050c4ad75916f3fa68f2e9a2b62fddcaf72125fa6de`,
+after Save and Quit `b67a65d2dfca0e6ea91cf30be29caef3837e82cc0609fea89e89690ebabb837b`.
+
+Cold PID99163: same normal picker/menu route restores the outside-pod checkpoint
+with original camera and rifle60/120 (`cold-reload.png`). This is checkpoint
+semantics, not restoration of unsaved aiming/weapon state. Reloaded file becomes
+`927818a3dbab2f8c5102463f064f635144e52c75b3c7aa6264f13899422efeb9` as the
+running game rewrites it; byte identity is not the save-acceptance criterion.
+No fresh profile, new progression or all-version save claim. The known upstream
+unlock-all profile card still says The Maw/Legendary. Device Hub briefly stalls
+its AX observations and its first Xbox-card click does not dispatch (live process
+remains idle at picker, no Xbox startup log). Clicking the visible card by
+coordinates starts normally; no app restart/fix needed for that viewer hiccup.
+
+Return to normal picker and choose Sharper (Preview) in the actual quality UI.
+New isolated b30 process PID4246 uses that persisted choice, with no resolution
+or filtering environment override. `sharper-capture.py` captures101.55 seconds,
+20 native Simulator screenshots and172 upstream BMPs (includes loading, not an
+FPS measurement), then terminates normally. Actual source1280x960, effective4x
+world filtering, complete framebuffer0x8cd5 and sampled GL errors0. The saved
+choice is also AX-confirmed Sharper after a subsequent fresh picker launch.
+`sharper/screen-04.png` visibly shows detailed blue water behind the two Pelicans;
+`screen-08.png` shows the cabin/marine in front of the landing terrain. No
+foreground-through-water artifact in these samples. This is a bounded visible
+occlusion regression, not exhaustive depth correctness or exact desktop parity.
+Remaining ground softness is still visible; do not label Sharper a texture cure.
+
+Restore Original through UI; final picker PID16731 and `final-picker.png`.
+All196 original Documents files retained; only the normal log changes. Library
+changes only OS KnownSceneSessions state. Preferences and PC registry are exact;
+the installed executable hash is unchanged. No real save marker advance, app
+replacement, hardware, IPA or publication. No unit rerun for unchanged product
+code. Next pursue a different moving material/effect with the now-proven desktop
+reference, or an unmet product/control gate; do not repeat this checkpoint or
+water regression without a changed build or new concern. Full goal stays active.
+
 ## Water mip-copy state fix (2026-10-03)
 
 Previous turn is progress: independent upstream73 desktop reference works.

@@ -293,3 +293,14 @@ Installed candidate `aa0c46d8…7077d`, source73/accepted66 unchanged. Next exac
 candidate normal controls/save reload and Sharper water/depth, then another
 material defect. Do not repeat the previous mip-existence/HUD tests or treat
 this narrow Simulator correction as all graphics/hardware acceptance.
+
+Water candidate acceptance follow-up: unchanged `aa0c46d8…7077d` passes the
+normal-menu copied checkpoint, shared fire/look/swap/2x scope/pause/save-quit and
+cold checkpoint reload. UI-selected Sharper persists into fresh b30:1280x960,
+effective4x filtering and restored water in actual composited screenshots;
+foreground cabin/marines/Pelicans occlude the sampled scene normally. This is
+bounded regression evidence, not exhaustive depth, fresh progression or sustained
+multi-touch acceptance. Original quality restored, real state preserved, no
+pin/product change. Next different moving material/effect against independent
+desktop or an unmet product/control gate; do not repeat this completed water/
+checkpoint check without changed inputs. Evidence `water-accept73.wCglTA`.

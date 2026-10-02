@@ -4,6 +4,17 @@ Updated 2026-10-03. **Simulator-only work: shared controls, texture compatibilit
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE4.md](HaloPad-GOAL-LOOP-PHASE4.md). Earlier device work remains in [phase 3](HaloPad-GOAL-LOOP-PHASE3.md).
 
+**Water candidate regression checks passed (2026-10-03).** The exact installed
+`aa0c46d8…7077d` build passes ordinary picker/menu checkpoint loading, shared
+Fire/Look/Swap/Zoom/Pause, Save and Quit, and cold checkpoint reload. Sharper
+selected through the actual UI persists into a fresh b30 run: 1280x960 source,
+effective4x world filtering, detailed water and ordinary foreground occlusion
+visible in composited screenshots. This is bounded regression evidence, not all
+depth/fidelity, new progression or sustained multi-touch acceptance. Original
+quality restored; all real saves/preferences/PC registry preserved. No runtime,
+pin or hardware change. Next compare a different moving material/effect against
+the independent desktop reference. [Evidence](XBOX-SIMULATOR-PASSES.md#water-candidate-controls-saves-and-sharper-2026-10-03).
+
 **Missing water reflections fixed in Simulator candidate (2026-10-03).** Moving
 b30 reference views reveal a real difference: the prior candidate draws flat
 green water where upstream desktop draws reflections/ripples. The ES mip-copy
