@@ -64,6 +64,15 @@ class XboxManifestTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'adaptation differs'):
             builder.xbox_parts(builder.TARGET)
 
+    def test_quality_candidate_cannot_masquerade_as_scale_only(self):
+        self.manifest['guest_adaptation'] = builder.xbox_runtime_manifest.guest_adaptation.identity('render-quality-v1')
+        self.save_manifest()
+        with patch.dict(os.environ, {'HALOPAD_XBOX_GUEST_ADAPTATION': 'render-scale-v1'}):
+            with self.assertRaisesRegex(ValueError, 'adaptation differs'):
+                builder.xbox_parts(builder.TARGET)
+        with patch.dict(os.environ, {'HALOPAD_XBOX_GUEST_ADAPTATION': 'render-quality-v1'}):
+            self.assertIn(self.lib, builder.xbox_parts(builder.TARGET))
+
     def test_requested_adaptation_rejects_plain_guest(self):
         with patch.dict(os.environ, {'HALOPAD_XBOX_GUEST_ADAPTATION': 'render-scale-v1'}):
             with self.assertRaisesRegex(ValueError, 'adaptation differs'):

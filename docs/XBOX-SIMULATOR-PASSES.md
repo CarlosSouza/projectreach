@@ -1,5 +1,63 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## World filtering on the accepted guest (2026-10-02)
+
+Recheck [Tyberious's upstream PR 35](https://github.com/cybersecurity/halo-ce-universal/pull/35):
+still open at this pass, head `f9a4eb5`. Source review confirms that ordinary
+game filtering remains 1x unless the game requests anisotropy. Retain that pin
+boundary; do not merge the unreviewed config/UI patch or downgrade to its build-65
+base. Add an original, small `render-quality-v1` fragment to HaloPad's existing
+strictly checked build-66 adaptation. Credit PR35's filtering policy. Both source
+anchors and full renderer SHA must match; source restoration and exact guest
+identity remain mandatory. No upstream sources are added to tracked files.
+
+`HALO_TEST_ANISOTROPY=4` or `16` affects only non-hires, non-point, mipmapped
+samplers whose mip filter is enabled, only when the extension is supported.
+Requests clamp to the queried GPU cap. A stronger explicit game request is
+preserved. Other/unset values leave the original filtering. Resolution remains
+independent (`HALO_TEST_RENDER_SCALE=2`). Compiled tests execute the exact inserted
+fragment against inert GL boundaries for 13 cases: caps, unsupported extension,
+HUD, point/non-mip exclusions, malformed input and explicit game AF. Manifest
+tests reject treating quality as scale-only. Full Xbox suite: 170 tests pass.
+
+Actual candidate guest `a2f0709738df552d4ffa1b83b6c1f510d8f261a49b986dabcef731ae655d8599`
+is built on accepted `f2ba71d9`; upstream checkout is clean afterward. Full
+combined app installed in place on the dedicated Simulator with pre-install
+app/data backups. Three identical copied checkpoints enter a30 through normal
+menus, without camera input before the comparison screenshots. All three runs
+render at 1280x960; runtime reports GPU cap 16x and effective 1x, 4x and 16x
+respectively. Ground texture detail increases at 4x/16x, although some sloped
+areas stay soft. This is a visual comparison, not an animation-synchronized
+pixel-equivalence test or evidence that Xbox must match PC artwork/materials.
+
+At 16x: fire/drag turns the camera and rifle ammo changes 60 to 59; swap and
+centered pistol scope work; grenade count changes 1 to 0 and pause responds.
+No full explosion/flare fidelity claim from these sampled observations. Trace
+has 15/16/38 sampled source readbacks respectively, all 1280x960 with complete
+FBO and zero sampled prior/read errors. All three retain the pre-existing frame-0
+`0x502`. No performance conclusion from Simulator timing. Both filtering and
+resolution defaults remain unchanged pending broader effects/scene validation
+and a simple player-facing quality choice.
+
+Separate source finding, not a demonstrated cause of the reported shading:
+ES3.0's Android fallback converts an any-sample query to all-visible, while
+`rasterizer_lights.c` expects pixel coverage for gradual flare brightness.
+The atomic-counter path also bypasses desktop scale normalization. These remain
+independent visibility gates; anisotropy does not repair them.
+
+Private evidence: `ref/xbox-build/passes/2026-10-02/world-filtering.a3Zc93/`
+contains candidate app, 1x/4x/16x screenshots/raw frames/logs, launch recipe,
+scope/pause screenshots, tests and preservation audits. Default guest rebuild
+reproduces `a16a3271…8cc89`. Original 196 Documents files preserved (only log
+changed); preferences and PC registry unchanged. Library differences are OS
+snapshots and saved scene state. No hardware, IPA, push or publication.
+
+After the full default-app rebuild/install, installed/generated executable
+`eb1e2fb044c5b8de7c84838021678f5e70ca58d84b7e1da5d9914a5caaf1f66f`
+matches and passes strict signing. Ordinary edition picker verified. Final audit
+again preserves saves, registry and preferences; only log and OS snapshots differ
+from the pre-pass backup (intermediate scene-state change no longer differs).
+
 ## Reproducible guest adaptation and exact save identity (2026-10-02)
 
 Keep upstream build 66 (`f2ba71d9`) pinned. New `guest_adaptation.py` applies only

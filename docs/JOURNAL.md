@@ -4501,3 +4501,31 @@ and installed/generated executable `c54e09c6…cf5e608` verified; ordinary picke
 visible. Original saves, PC registry and preferences preserved; only log and OS
 snapshots changed. Private evidence `guest-adaptation.jrHaaE`. Next: effects and
 broader material/temporal rendering checks. No hardware, IPA, push or publication.
+
+## 2026-10-02 — World filtering candidate at fixed render resolution
+
+Keep upstream build 66 pinned. PR35 remains open; its source/policy supports
+anisotropy for world textures rather than the game's usual 1x sampling. Add a
+small original `render-quality-v1` adaptation with the existing strict input,
+restoration and manifest boundary. Opt-in `HALO_TEST_ANISOTROPY=4/16` clamps to
+GPU support and excludes high-res HUD, point and non-mipmapped paths. It does
+not weaken a stronger explicit game request. 170 Xbox tests pass, including
+13 compiled fragment cases and distinct quality/scale-only package identities.
+
+Candidate guest `a2f07097…655d8599`; private evidence `world-filtering.a3Zc93`.
+Three copied a30 checkpoints, same camera and 1280x960 targets: 4x/16x show more
+ground detail than 1x, with continued soft slopes. Runtime reports 16x GPU cap.
+Shared drag/fire (60→59), swap, centered scope, grenade (1→0) and pause respond.
+69 sampled presentation source readbacks are complete/error-free; pre-existing
+frame-0 GL error remains in each run. This does not accept flare/explosion
+fidelity, all materials or physical performance. Source still shows ES3.0
+boolean visibility fallback and missing Android atomic-count scale correction.
+
+Default guest rebuild again matches `a16a3271…8cc89`. Audit preserves original
+saves, PC registry and preferences; log, snapshots and saved scene state differ.
+Keep quality opt-in. Next: a small pre-launch original/sharper quality choice and
+broader effects/scene checks. No hardware, IPA, push or publication.
+
+Final default app restored to ordinary picker: installed/generated executable
+`eb1e2fb0…af1f66f` and strict signature verified. Post-restoration audit narrows
+differences to log and OS snapshots; original saves/registry/preferences intact.

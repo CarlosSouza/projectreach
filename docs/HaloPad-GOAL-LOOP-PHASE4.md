@@ -114,3 +114,12 @@ candidate. 167 Xbox tests and 26 Simulator save-helper assertions pass. Save
 backup identity now includes guest hash, covering same-pin adaptation/rollback.
 Default app restored. Next pass should inspect visibility effects, transparent
 materials and moving scene artifacts, not repeat adaptation/depth plumbing.
+
+Filtering follow-up: `render-quality-v1` retains accepted build 66 and adds
+opt-in bounded world filtering. Same-view 1x/4x/16x comparisons at 1280x960 show
+more ground detail at 4x/16x but continued slope softness; 170 tests pass and
+shared gameplay actions/scope/pause respond. Defaults remain unchanged. Next:
+turn validated resolution/filtering choices into one small pre-launch Xbox
+quality setting while retaining the original mode, then broaden visual checks.
+Do not claim the ES3.0 boolean flare-occlusion fallback or atomic-count scaling
+issue solved by texture filtering, or repeat the same checkpoint comparisons.

@@ -4,6 +4,17 @@ Updated 2026-10-02. **Simulator-only work: shared controls, texture compatibilit
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE4.md](HaloPad-GOAL-LOOP-PHASE4.md). Earlier device work remains in [phase 3](HaloPad-GOAL-LOOP-PHASE3.md).
 
+**World filtering candidate (2026-10-02).** New opt-in `render-quality-v1`
+adds bounded world anisotropy to the reproducible resolution experiment, without
+changing the accepted upstream pin. Fixed-view a30 comparisons at 1x/4x/16x
+filtering, all at 1280x960, show more ground detail at 4x/16x but continued
+softness on some slopes. Shared fire/drag, swap, scope, grenade and pause respond.
+170 tests pass, including compiled filtering exclusions and GPU-limit checks.
+Not a shading/popping or hardware-performance acceptance; defaults stay unchanged.
+Default app restored and signed/installed hash verified (`eb1e2fb0…af1f66f`);
+original saves, preferences and PC registry preserved.
+[Evidence](XBOX-SIMULATOR-PASSES.md#world-filtering-on-the-accepted-guest-2026-10-02).
+
 **Reproducible guest adaptation (2026-10-02).** The private 2x experiment is now
 an explicit `render-scale-v1` build option, separately identified from the
 upstream pin. Exact renderer-input checks reject upstream drift; packaging

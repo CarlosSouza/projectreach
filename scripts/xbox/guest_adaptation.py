@@ -26,22 +26,56 @@ INSERT = b'''\t/* HaloPad private experiment: retain logical layout, scale only 
 \t\t\tscale[0] = scale[1] = 2.0f;
 \t}
 '''
+# World-filtering policy follows the reviewed idea in Tyberious's upstream
+# PR 35, not its unmerged config/source patch. Keep HUD/point/non-mip paths intact.
+FILTER_ANCHOR = b'\tif (xgpu_capabilities.border_clamp)\n'
+FILTER_INSERT = b'''\t/* HaloPad opt-in world filtering, independent of target resolution. */
+\tif (xgpu_capabilities.anisotropy && !hires && mipmapped &&
+\t\tmin_filter != D3DTEXF_POINT && mip_filter != D3DTEXF_NONE)
+\t{
+\t\tstatic float requested;
+\t\tif (!requested)
+\t\t{
+\t\t\tconst char *value = getenv("HALO_TEST_ANISOTROPY");
+\t\t\tGLint maximum = 1;
+\t\t\trequested = value && !strcmp(value, "4") ? 4.0f :
+\t\t\t\tvalue && !strcmp(value, "16") ? 16.0f : 1.0f;
+\t\t\tglGetIntegerv(0x84ff /* GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT */, &maximum);
+\t\t\tif (maximum < 1) maximum = 1;
+\t\t\tif (requested > maximum) requested = (float)maximum;
+\t\t\tplatform_log("HaloPad world filtering: request %s, effective %.0fx (GPU %.0fx)",
+\t\t\t\tvalue ? value : "unset", requested, (float)maximum);
+\t\t}
+\t\tif (requested > 1.0f && (min_filter != D3DTEXF_ANISOTROPIC ||
+\t\t\tstate[D3DTSS_MAXANISOTROPY] < requested))
+\t\t\tglSamplerParameterf(sampler, GL_TEXTURE_MAX_ANISOTROPY_EXT, requested);
+\t}
+'''
 
 
 def identity(name=None):
     name = os.environ.get('HALOPAD_XBOX_GUEST_ADAPTATION', 'none') if name is None else name
     if name == 'none':
         return {'name': 'none'}
-    if name != 'render-scale-v1':
+    if name not in ('render-scale-v1', 'render-quality-v1'):
         raise ValueError('Unknown HALOPAD_XBOX_GUEST_ADAPTATION')
+    recipe = ANCHOR + INSERT
+    if name == 'render-quality-v1':
+        recipe += FILTER_ANCHOR + FILTER_INSERT
     return {'name': name, 'upstream_renderer_sha256': SOURCE_SHA256,
-            'recipe_sha256': hashlib.sha256(ANCHOR + INSERT).hexdigest()}
+            'recipe_sha256': hashlib.sha256(recipe).hexdigest()}
 
 
-def adapted_source(original):
+def adapted_source(original, name='render-scale-v1'):
+    identity(name)
     if hashlib.sha256(original).hexdigest() != SOURCE_SHA256 or original.count(ANCHOR) != 1:
         raise ValueError('Renderer adaptation input changed; review the new upstream source first')
-    return original.replace(ANCHOR, ANCHOR[:-len(b'#else\n')] + INSERT + b'#else\n')
+    if name == 'render-quality-v1' and original.count(FILTER_ANCHOR) != 1:
+        raise ValueError('Renderer filtering input changed; review the new upstream source first')
+    modified = original.replace(ANCHOR, ANCHOR[:-len(b'#else\n')] + INSERT + b'#else\n')
+    if name == 'render-quality-v1':
+        modified = modified.replace(FILTER_ANCHOR, FILTER_INSERT + FILTER_ANCHOR)
+    return modified
 
 
 @contextmanager
@@ -51,7 +85,7 @@ def renderer_adaptation(engine, adaptation):
         return
     path = engine / RENDERER
     original = path.read_bytes()
-    modified = adapted_source(original)
+    modified = adapted_source(original, adaptation['name'])
     try:
         path.write_bytes(modified)
         yield

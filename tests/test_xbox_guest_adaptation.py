@@ -70,6 +70,67 @@ class GuestAdaptationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'Unknown'):
             adapter.identity('render-scale-v2')
 
+    def test_quality_recipe_has_separate_identity_and_checks_both_anchors(self):
+        self.assertNotEqual(adapter.identity('render-scale-v1'), adapter.identity('render-quality-v1'))
+        for suffix in (b'', adapter.FILTER_ANCHOR * 2):
+            original = self.original + suffix
+            with patch.object(adapter, 'SOURCE_SHA256', hashlib.sha256(original).hexdigest()):
+                with self.assertRaisesRegex(ValueError, 'filtering input changed'):
+                    adapter.adapted_source(original, 'render-quality-v1')
+        original = self.original + adapter.FILTER_ANCHOR
+        with patch.object(adapter, 'SOURCE_SHA256', hashlib.sha256(original).hexdigest()):
+            modified = adapter.adapted_source(original, 'render-quality-v1')
+        self.assertIn(adapter.INSERT, modified)
+        self.assertIn(adapter.FILTER_INSERT, modified)
+
+    def test_filter_fragment_exclusions_cap_and_explicit_game_request(self):
+        # Compile the exact original fragment inserted by the adapter, with
+        # inert GL boundaries. Each process gets fresh one-time configuration.
+        source = '''
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <assert.h>
+typedef int GLint;
+#define D3DTEXF_POINT 1
+#define D3DTEXF_ANISOTROPIC 3
+#define D3DTEXF_NONE 0
+#define D3DTSS_MAXANISOTROPY 0
+#define GL_TEXTURE_MAX_ANISOTROPY_EXT 0x84fe
+static int maximum, queries, calls;
+static float observed;
+static void glGetIntegerv(int name, int *value) { assert(name == 0x84ff); queries++; *value = maximum; }
+static void glSamplerParameterf(int sampler, int name, float value) { assert(sampler == 7 && name == 0x84fe); calls++; observed = value; }
+static void platform_log(const char *format, ...) { (void)format; }
+int main(int argc, char **argv) {
+    assert(argc == 11);
+    setenv("HALO_TEST_ANISOTROPY", argv[1], 1);
+    maximum = atoi(argv[2]);
+    struct { int anisotropy; } xgpu_capabilities = {atoi(argv[3])};
+    int hires=atoi(argv[4]), mipmapped=atoi(argv[5]), min_filter=atoi(argv[6]);
+    int mip_filter=atoi(argv[7]), state[1]={atoi(argv[8])}, sampler=7;
+''' + adapter.FILTER_INSERT.decode() + '''
+    assert(calls == (atoi(argv[9]) > 0));
+    assert(observed == atoi(argv[9]));
+    assert(queries == atoi(argv[10]));
+    return 0;
+}
+'''
+        executable = self.root / 'filter-test'
+        subprocess.run(['clang', '-x', 'c', '-Wall', '-Wextra', '-Werror', '-o', str(executable), '-'],
+                       input=source, text=True, capture_output=True, check=True)
+        # request, cap, extension, hires, mipmapped, min, mip, game's AF, applied, queries
+        cases = [('4',16,1,0,1,2,2,1,4,1), ('16',8,1,0,1,2,2,1,8,1),
+                 ('16',0,1,0,1,2,2,1,0,1), ('1',16,1,0,1,2,2,1,0,1),
+                 ('invalid',16,1,0,1,2,2,1,0,1), ('4x',16,1,0,1,2,2,1,0,1),
+                 ('16',16,0,0,1,2,2,1,0,0), ('16',16,1,1,1,2,2,1,0,0),
+                 ('16',16,1,0,0,2,2,1,0,0), ('16',16,1,0,1,1,2,1,0,0),
+                 ('16',16,1,0,1,2,0,1,0,0), ('4',16,1,0,1,3,2,16,0,1),
+                 ('16',16,1,0,1,3,2,4,16,1)]
+        for case in cases:
+            with self.subTest(case=case):
+                subprocess.run([str(executable), *map(str, case)], check=True)
+
     def test_failed_build_does_not_publish_new_identity(self):
         out = self.root / 'out'
         out.mkdir()

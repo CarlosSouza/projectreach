@@ -308,6 +308,17 @@ changes, review the new code and repeat focused graphics tests before changing
 the input hash/recipe. Unsetting the option and rebuilding both guest and app
 returns to the original guest; that round-trip is hash-verified on build 66.
 
+The separately opt-in `render-quality-v1` uses the same source checks and scale
+switch, plus `HALO_TEST_ANISOTROPY=4` or `16` for world filtering. Choose the same
+adaptation in guest and app build commands. Other/unset anisotropy values keep
+original filtering; point, non-mipmapped and high-resolution HUD paths are
+excluded, unsupported GPUs are unchanged, and requests clamp to the GPU limit.
+It follows the reviewed policy of [Tyberious's PR35](https://github.com/cybersecurity/halo-ce-universal/pull/35)
+without importing that unmerged patch/configuration or changing the upstream pin.
+Same-view Simulator a30 comparisons show more ground detail, not full material,
+visibility or physical-device performance acceptance. Neither quality option is
+enabled by default or offered as an accepted player setting yet.
+
 ## Updating the engine
 
 Check upstream releases on a regular maintenance pass (weekly is the proposed cadence), then
