@@ -5269,3 +5269,19 @@ Real Documents only app log and Library only OS scene state changed; preferences
 and PC registry exact. No runtime/build/pin/public changes. Green Thumb remains
 next; directory name is not evidence it was tested. Broad rendering fidelity,
 sustained multi-touch feel and physical acceptance remain open.
+
+### 2026-10-03 — Green Thumb shared-touch preset runtime
+
+Unchanged Simulator ed257ad5…af30b, independent default-save copy. Normal settings
+UI saves Green Thumb buttons/Default sticks; mapping765f3240:1edc valid1 sticks0.
+Shared Melee swings pistol and Zoom separately enters/exits2x despite native
+Green Thumb's B/right-stick swap. Swap, Fire, Reload and Pause pass; reserve64→63
+after reloading the one fired round. Jump tap captured but not independently
+accepted. Save and Quit completes; cold process32078 loads the same outside-pod
+checkpoint and retains Green Thumb mapping. Original picker34933 restored.
+Private green73.Omi7kU retains86.0s video, settings/checkpoint images, action/melee
+sheets, real-data backup and audits. Real Documents only app log and Library only
+OS scene state changed; preferences and PC registry exact. Upstream checkout
+clean, no runtime/build/pin/public changes or unit rerun. Next controlled graphics
+comparison of another unresolved material/effect. Do not repeat passing preset
+checks as new progress. Broad fidelity and human multi-touch remain open.

@@ -4,6 +4,16 @@ Updated 2026-10-03. **Simulator-only work: shared controls, texture compatibilit
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE4.md](HaloPad-GOAL-LOOP-PHASE4.md). Earlier device work remains in [phase 3](HaloPad-GOAL-LOOP-PHASE3.md).
 
+**Green Thumb shared-touch runtime check passed (2026-10-03).**
+Unchanged presentation candidate `ed257ad5…af30b` correctly separates Melee and
+Zoom despite their native Green Thumb swap. Swap, Fire, Reload, Pause and menu
+selection also work; Save and Quit plus cold checkpoint reload retain the mapping.
+Only copied Xbox state changed; real saves/preferences/PC registry preserved.
+Original picker restored. Next investigate a different reproducible graphics
+discrepancy against the independent desktop reference. Broad fidelity and human
+multi-touch feel remain open; no new renderer or upstream-pin change.
+[Evidence](XBOX-SIMULATOR-PASSES.md#green-thumb-shared-touch-runtime-2026-10-03).
+
 **Boxer shared-touch runtime check passed (2026-10-03).**
 Unchanged presentation candidate `ed257ad5…af30b` keeps Melee/Throw separate
 under the genuine Boxer profile; Fire, Swap, Zoom, Pause and menu selection also

@@ -464,3 +464,13 @@ boxer-green73.40aZqB (only Boxer tested despite directory name). Real state
 preserved; Original picker restored. Next Green Thumb on a fresh default-save
 copy, especially Melee/Zoom separation. Do not count another Boxer repetition as
 new progress or infer multi-touch feel from this single-pointer pass.
+
+Green Thumb checkpoint: unchanged presentation candidate passes ordinary saved
+preset selection, distinct shared Melee/Zoom behavior, Swap/Fire/Reload/Pause,
+Save and Quit and cold checkpoint reload retaining mapping765f3240:1edc. Evidence
+green73.Omi7kU includes86.0s video and real-state audits. Real state preserved,
+Original picker restored; pins/runtime unchanged. Jump tap alone is not full
+motion acceptance. Next a different reproducible graphics discrepancy using
+the independent desktop reference; do not repeat passing Boxer/Green Thumb or
+beam-presence checks. Human sustained multi-touch remains a later acceptance
+gate. Simulator only, no IPA/publication, full goal incomplete.

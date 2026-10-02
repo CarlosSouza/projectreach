@@ -1,5 +1,55 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Green Thumb shared-touch runtime (2026-10-03)
+
+Progress after Boxer: exercise genuine Green Thumb buttons on an independent
+copy of the default save, without changing runtime. Private evidence root
+`ref/xbox-build/passes/2026-10-03/green73.Omi7kU/` contains the full real-data
+clone, isolated session/save, launch/audit helpers, settings/cold-checkpoint
+screenshots, green-profile-save, 86.0-second action video and contact sheets.
+Only the dedicated HaloPad Xbox iPad Simulator window received input. Its window
+was resized for inspection; device rendering and graphics quality were unchanged.
+
+Normal picker launch PID20275, no forced edition/init or scripted player input.
+Settings → New001 → Controller Setup → Default thumbsticks/Green Thumb buttons;
+Accept and Save Changes. Native diagram shows Scope Zoom on B and Melee Attack
+on right-stick click. Guest publishes `mapping=765f3240:1edc sticks=0 valid=1`.
+Ordinary Campaign/New001/Halo/Normal loads the outside-pod checkpoint. As before,
+the profile card's Default/The Maw/Legendary labels do not describe this actual
+runtime selection and must not be used as acceptance evidence.
+
+Observed shared-button behavior:
+
+- Swap equips the pistol from the checkpoint rifle.
+- Melee visibly swings the pistol, without entering the scope or spending a
+  grenade. Dense 15–30s video contact sheet preserves attack/recovery and the
+  later distinct scope transition.
+- Zoom enters the pistol's 2x scope; a second tap restores ordinary view.
+- Fire removes one magazine bullet. Reload visibly reloads and restores the
+  full magazine; reserve ammunition decreases64→63, grenade remains1.
+- Pause opens the expected menu; shared A selects Save and Quit. Wait through
+  Saving until the normal main menu returns before terminating the process.
+
+A Jump tap was also captured, but this pass does not independently accept its
+complete motion arc. Throw, Use, sustained sticks and multi-touch were not
+independently asserted here. No physical-controller or physical-device claim.
+
+Cold launch PID32078 follows the normal picker/Campaign/New001/Halo/Normal route.
+Same outside-pod checkpoint loads with checkpoint rifle60/one grenade; gameplay
+again publishes Green Thumb mapping765f3240:1edc. Last-checkpoint restoration,
+not persistence of transient pistol/ammo actions, is the expected save behavior.
+Both cold starts report frame0 read1/draw0/error0.
+
+Ordinary Original picker PID34933 restored and visually checked. Real Documents
+only HaloPad.log changed; Library only KnownSceneSessions/data.data changed.
+Preference keys/values and PC registry exact; no save/game/package adds, removals
+or changes. Installed executable SHA remains
+ed257ad5fce911fdca27796807c6f2610fc39001ad3384da24904ddb200af30b. Upstream checkout
+clean; build73 candidate and accepted66 pins unchanged. No build, unit rerun,
+renderer change, IPA or publication. Next another controlled graphics discrepancy
+against the independent desktop reference, not a repeat of these passing mapping
+checks. Broad fidelity and human multi-touch feel remain open; goal active.
+
 ## Boxer shared-touch runtime (2026-10-03)
 
 Progress after the independent desktop beam comparison: test another previously
