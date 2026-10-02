@@ -1,5 +1,54 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Boxer shared-touch runtime (2026-10-03)
+
+Progress after the independent desktop beam comparison: test another previously
+unaccepted button preset, without changing runtime. Private evidence root
+`ref/xbox-build/passes/2026-10-03/boxer-green73.40aZqB/` contains a full real-data
+clone, isolated session/save copied from present-build73.V8BrrS, launch/audit
+helpers, Boxer settings/checkpoint screenshots, video and melee contact sheets.
+Despite the directory name, **Green Thumb has not been exercised in this pass**.
+Device Hub initially showed another project's iPhone simulator; select only
+HaloPad Xbox iPad and use Open in New Window for a dedicated HaloPad window.
+No physical-device interaction or other app input.
+
+Normal picker launch PID76170, no forced edition/init or scripted player input.
+Use Settings → New001 → Controller Setup, keep Default thumbsticks and choose
+Boxer buttons; Accept and Save Changes through ordinary shared touch controls.
+The native menu explicitly shows Melee on LT and Throw on B. The guest publishes
+`mapping=71563240:fedc sticks=0 valid=1`, in menu and gameplay. Profile-card
+Default/The Maw/Legendary labels remain unreliable; actual saved Halo/Normal
+campaign loads the outside-pod checkpoint.
+
+Runtime observations, retained in boxer-actions.mp4 (434.9 seconds):
+
+- Shared Melee swings the rifle; grenade count stays1 and magazine stays60.
+  First18s contact sheet and denser0.75–2.75s sheet show the attack/recovery.
+- Fire changes magazine60→59, grenade count stays1.
+- Throw changes grenade1→0, rifle magazine stays59; it does not perform melee.
+- Swap selects the pistol; Zoom enters2x and a second tap returns to normal.
+- Pause opens the expected menu; shared A selects Save and Quit. Saving finishes
+  and the ordinary Xbox main menu returns.
+
+Preserve boxer-save, cold launch PID89489 and use the normal picker/Campaign/
+New001/Halo/Normal path again. The same outside-pod checkpoint loads, with the
+checkpoint's60-round rifle/one grenade, and the guest again publishes the Boxer
+mapping in gameplay. Save and Quit saves the last checkpoint, not the transient
+ammo/weapon state after our stationary actions. Both cold startups report
+frame0 read1/draw0/error0.
+
+Ordinary picker PID93343 restored with Original quality. Full real-state readback:
+Documents only HaloPad.log changed; Library only KnownSceneSessions/data.data
+changed. Preference keys/values and PC registry are exact; no save/game/package
+adds, removals or changes. Installed executable SHA remains
+ed257ad5fce911fdca27796807c6f2610fc39001ad3384da24904ddb200af30b; upstream checkout
+clean, pins unchanged. No build, unit rerun, IPA, publication or graphics change.
+
+Next Green Thumb shared Melee/Zoom runtime check on an independent copy of the
+default save. Boxer Jump/Reload/Use were not independently asserted here, and
+this single-pointer test does not prove sustained multi-touch comfort, physical
+controller behavior or complete graphics fidelity. Overall goal remains active.
+
 ## Cyan beam desktop reference (2026-10-03)
 
 Previous turn is progress: exact presentation-candidate both-quality regression.

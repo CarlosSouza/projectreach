@@ -5254,3 +5254,18 @@ to another project; no interaction there). Real saves/preferences/PC registry
 preserved; only app log/OS scene state differ. Pins/runtime unchanged, no hardware,
 publication or unit rerun. Next unaccepted Boxer/Green Thumb runtime mappings;
 overall fidelity and human multi-touch remain open.
+
+### 2026-10-03 — Boxer shared-touch preset runtime
+
+Unchanged Simulator ed257ad5…af30b, copied genuine save only. Dedicated HaloPad
+Device Hub window avoids sending input to the other project's iPhone simulator.
+Ordinary settings UI selects/saves Boxer; mapping71563240:fedc valid1 sticks0
+appears in gameplay. Recorded Melee swings rifle without spending grenade/ammo;
+Fire60→59, Throw1→0 with rifle59, Swap/2x Zoom/Pause pass. Save and Quit completes;
+cold launch89489 reloads checkpoint and retains Boxer mapping. Ordinary Original
+picker93343 restored. Private boxer-green73.40aZqB includes434.9s video, settings/
+cold-checkpoint images, melee contact sheets, real-data backup and audit reports.
+Real Documents only app log and Library only OS scene state changed; preferences
+and PC registry exact. No runtime/build/pin/public changes. Green Thumb remains
+next; directory name is not evidence it was tested. Broad rendering fidelity,
+sustained multi-touch feel and physical acceptance remain open.

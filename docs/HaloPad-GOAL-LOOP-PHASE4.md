@@ -456,3 +456,11 @@ closed, real state preserved, ordinary Original picker restored. Next remaining
 Boxer/Green Thumb touch-profile runtime checks on copied state; broad materials
 and human multi-touch remain open. Do not repeat the retired HUD/beam-presence
 hypothesis or claim all rendering fixed from this result.
+
+Boxer checkpoint: unchanged presentation candidate passes ordinary UI preset
+selection, shared Melee/Throw separation, Fire/Swap/Zoom/Pause, Save and Quit and
+cold checkpoint reload retaining mapping71563240:fedc. Evidence in
+boxer-green73.40aZqB (only Boxer tested despite directory name). Real state
+preserved; Original picker restored. Next Green Thumb on a fresh default-save
+copy, especially Melee/Zoom separation. Do not count another Boxer repetition as
+new progress or infer multi-touch feel from this single-pointer pass.

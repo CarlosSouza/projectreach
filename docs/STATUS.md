@@ -4,6 +4,15 @@ Updated 2026-10-03. **Simulator-only work: shared controls, texture compatibilit
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE4.md](HaloPad-GOAL-LOOP-PHASE4.md). Earlier device work remains in [phase 3](HaloPad-GOAL-LOOP-PHASE3.md).
 
+**Boxer shared-touch runtime check passed (2026-10-03).**
+Unchanged presentation candidate `ed257ad5…af30b` keeps Melee/Throw separate
+under the genuine Boxer profile; Fire, Swap, Zoom, Pause and menu selection also
+work. Save and Quit followed by cold checkpoint load retains the Boxer mapping.
+Only copied Xbox state changed; real saves/preferences/PC registry preserved.
+Original picker restored. Green Thumb is next, not yet runtime accepted; human
+multi-touch feel and broad graphics fidelity remain open.
+[Evidence](XBOX-SIMULATOR-PASSES.md#boxer-shared-touch-runtime-2026-10-03).
+
 **Cyan beam reproduced in independent desktop reference (2026-10-03).**
 The same debug-camera inputs show the narrow cyan beam and bright pulse in both
 desktop73 and unchanged Simulator `ed257ad5…af30b`. Its presence is not a
