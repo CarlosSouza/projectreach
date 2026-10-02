@@ -4,6 +4,16 @@ Updated 2026-10-03. **Simulator-only work: shared controls, texture compatibilit
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE4.md](HaloPad-GOAL-LOOP-PHASE4.md). Earlier device work remains in [phase 3](HaloPad-GOAL-LOOP-PHASE3.md).
 
+**Bridge shadow bands localized (2026-10-03).** New paired a10 opening capture
+finds long black floor bands on Simulator, absent in the corresponding pinned
+desktop view. Native before/after draws identify shadow projection, not the floor
+lightmap. Its128x128 shadow has bright edge texels and actual linear/CLAMP_TO_EDGE
+sampling, while upstream requests BORDER; ANGLE Metal advertises no border-clamp
+support. This is a concrete next fix target, not a completed fix: implement and
+A/B-test faithful border sampling, including shadow convolution, without disabling
+shadows or changing depth. Real state preserved; same candidate/accepted pin.
+[Evidence](XBOX-SIMULATOR-PASSES.md#bridge-shadow-band-localization-2026-10-03).
+
 **Shared settings regression coverage (2026-10-03).** Native overlay suite now
 passes153 assertions, including12 new checks for settings/editor cancellation,
 handedness, shared look sensitivity and PC/Xbox layout persistence with separate

@@ -1,5 +1,67 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Bridge shadow-band localization (2026-10-03)
+
+Previous turn is progress: shared settings contracts verified. New private
+`ref/xbox-build/passes/2026-10-03/effects-reference73.xzSmz9/`, full real-data backup,
+fresh isolated saves/maps links. Same installed water73 app `aa0c46d8…7077d`,
+accepted66 unchanged, and the independent official desktop73/Wine9/Mesa reference.
+No player input or public network. a10 init script starts the opening cinematic.
+Desktop PID66317 exits0 after187.80s/180 BMPs; Simulator PID66346 completes181.46s,
+410 BMPs plus18 native screenshots. Counts include loading, not FPS. Match camera
+geometry, not elapsed time or equal frame numbers. Coarse pair ranking excludes
+black frames;131 desktop/375 Simulator nonblack frames retained. No fidelity
+threshold claimed. Initial analysis venv lacks Pillow; use bundled runtime.
+
+Exterior engine glow/hull lighting/starfield broadly agree. Interior bridge
+desktop1336/Simulator2832 reveals long black floor bands only on Simulator
+(`desktop-bridge.png`, `simulator-bridge.png`, `pairs-2.png`). Camera/animation
+positions differ slightly; the absent-vs-present bands remain a concrete defect.
+
+Existing opt-in color timeline, no app changes: trace PID77945 completes181.53s.
+Frame2832 has235 complete before/after draw pairs, no reported GL errors. Draw0091,
+program212,1062 indices, EQUAL introduces a floor band. Its vertex shader bytes
+match `vs030_0.glsl` (SHA `2edbb969c7a8cdf15e147d8ce038a142b2468034e065d3661826bfbec58ddc61`).
+Guest trace identifies shadow projection with128x128 render-target texture and
+16x16 corner fade; source shadow pass requests BORDER for stage0 U/V. This is
+not the later program25 lightmap draw, which has a larger overall darkening count.
+Correct an initial diagnostic vertical flip before ranking/inspecting snapshots;
+the game's offscreen target pixels already have the image orientation used here.
+
+Reuse the exact-source material observer with private selector aliases: its
+historical `vs007_0.glsl`/`ps_0c014f79.glsl` filenames contain the captured program212
+sources, **not** claims that those historical shader IDs are the shadow program.
+Actual shader dumps remain in a separate directory. First material PID86772,
+181.23s/428 BMPs, captures an earlier close-up at frame2832; fourteen complete
+shadow draws, no floor-band proof in that view. Do not infer matched scene from
+a fixed frame number. Its camera correspondence occurs near frame3024 instead.
+
+Follow-up material2 PID89069,181.35s/442 BMPs: frame3100 has217 complete color
+pairs and25 complete shadow-material draws. Draw0073/program215/1068 indices
+visibly adds a black line across the floor (`material2-0073-before/after.png`).
+692 pixels in the diagnostic floor box darken by more than half; this count is
+localization, not correctness. Actual stage0 texture157 is128x128, maxlevel0,
+linear min/mag (`0x2601`), U/V CLAMP_TO_EDGE (`0x812f`); seven edge samples have
+nonzero RGB, up to255 (`material2-0073-texture0.png`). Stage1 is16x16 corner fade.
+Both projection and convolution request BORDER in upstream shadows source.
+ES address_mode substitutes edge clamp when border_clamp is false; startup
+reports0, and pinned ANGLE Metal explicitly leaves textureBorderClampOES disabled.
+These observations strongly support edge extension as the mechanism. A corrected
+sampling A/B is still required to establish the fix and preserve real shadows.
+
+Next implement a separately identified, guarded border-sampling candidate; handle
+the actual single-level linear shadow/convolution paths and half-texel boundary
+filtering faithfully. Do not hardcode scene geometry, remove shadows, alter EQUAL,
+advertise unsupported capabilities, or claim full mip/cube border emulation from
+a shadow-only test. Verify the captured bands disappear, legitimate shadows remain,
+then regress water, menus, controls/saves and quality modes on the changed build.
+
+All captures finished. Ordinary picker PID90385/Original visually and AX verified;
+all196 Documents retained except log, Library only Metal cache/OS scene state,
+preferences and PC registry exact. App hash unchanged and upstream clean. No
+runtime edit/rebuild/install/unit rerun, pin promotion, hardware, IPA or publication.
+Goal active; this pass yields a specific renderer defect and fix target.
+
 ## Shared settings and layout contracts (2026-10-03)
 
 Previous turn is progress: water-candidate controls/save/Sharper checks passed.

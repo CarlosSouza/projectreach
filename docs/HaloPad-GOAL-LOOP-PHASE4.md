@@ -315,3 +315,14 @@ after UI-off creates an explicit false key; cold picker and full save/PC audit
 pass. No runtime/pin change. Evidence `shared-settings73.ugJORz`. Next compare a
 different moving material/effect against desktop; do not repeat these unchanged
 settings or checkpoint tests absent a new concern.
+
+Bridge comparison follow-up: a10 exterior broadly matches desktop, but Simulator
+has long black bridge-floor bands absent in desktop. Actual per-draw before/after
+locates shadow projection; a matched material capture shows a128x128 single-level
+linear shadow with bright edge texels and CLAMP_TO_EDGE instead of requested
+BORDER. Both shadow projection and convolution depend on BORDER; ANGLE Metal
+does not expose it. Next implement/test faithful border sampling as a separately
+identified candidate, preserving half-texel blending and legitimate shadows.
+Do not change EQUAL or hide shadows. Full mip/cube support requires its own proof.
+Use `effects-reference73.xzSmz9` captures for the A/B; fixed frame numbers do not
+guarantee the same cinematic camera. Original state restored; no runtime/pin change.

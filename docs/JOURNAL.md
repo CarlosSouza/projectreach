@@ -4982,3 +4982,26 @@ except normal log; preference keys/values and PC registry identical; Library
 otherwise plist encoding/OS scene state only. App SHA unchanged. No runtime edit,
 rebuild/install, upstream pin change, hardware, IPA or publication. Goal active;
 next a different moving material/effect, not repeated settings/checkpoint tests.
+
+## 2026-10-03 — localize bridge bands to shadow sampling
+
+Private `effects-reference73.xzSmz9`, unchanged water73 candidate and desktop73
+reference, full backup/isolated saves. Paired a10 opening captures show similar
+exterior glow but long black bridge-floor bands only on Simulator. Native color
+timeline235 complete draw pairs:0091/program212/1062 indices introduces a band,
+VS30 shadow projection. Larger lightmap darkening is not the band-producing draw.
+Correct private image-orientation analysis; do not confuse largest change with cause.
+
+First exact-source material snapshot lands in a different camera shot; follow-up
+frame3100 captures217 color pairs/25 shadow draws. Actual0073/program215/1068
+indices adds a floor line. Bound128x128/maxlevel0 shadow has seven nonzero edge
+samples and linear/CLAMP_TO_EDGE sampling. Upstream projection/convolution request
+BORDER; ES fallback substitutes edge and ANGLE Metal lacks the extension. Strong
+mechanism evidence, no fix yet. Next separately identified faithful border-sampling
+candidate and visible A/B with legitimate shadows preserved, then water/control
+regressions. Avoid speculative depth changes or hiding effects.
+
+All captures exit0; ordinary Original-quality picker PID90385 restored.196 real
+Documents unchanged except log; preferences/PC registry exact; Library Metal cache
+and OS scene state only. Installed app SHA unchanged, upstream clean. No runtime
+edit/build/install, unit rerun, hardware, pin change, IPA or publication. Goal active.
