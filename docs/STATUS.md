@@ -4,6 +4,14 @@ Updated 2026-10-02. **Simulator-only work: shared controls, texture compatibilit
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE4.md](HaloPad-GOAL-LOOP-PHASE4.md). Earlier device work remains in [phase 3](HaloPad-GOAL-LOOP-PHASE3.md).
 
+**Blood Gulch visual follow-up (2026-10-02).** Three- and five-minute isolated
+match smoke checks pass. Manual background free-look reveals a sun flare and
+reversibly moves it across the viewport edge without firing. This establishes
+a specific visual test route, not incorrect brightness or a fix for texture
+popping. Capture its actual query rectangle/result or a matched reference next.
+No runtime/pin change. Returned to Original-quality picker; original saves,
+PC registry and preferences unchanged. [Evidence](XBOX-SIMULATOR-PASSES.md#blood-gulch-sun-flare-reproduction-route-2026-10-02).
+
 **Visibility-path investigation (2026-10-02).** New bounded, disabled-by-default
 query observer confirms boolean visibility results during the copied a30 run:
 11,866 zero and 103 one result reads, none above one, across 180 summaries.

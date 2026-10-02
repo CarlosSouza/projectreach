@@ -141,3 +141,12 @@ covered flare, so there is no user-defect reproduction or graphics fix yet.
 Next isolate one flare draw/area and occluder before implementing counted
 visibility; do not conflate this with general texture blur or rerun an aggregate
 query trace as if it established flare attribution. Observer is off by default.
+
+Blood Gulch follow-up: the stationary match passes 180 seconds/tick 5010 and
+manual background free-look locates a visible sun flare without firing. Small
+reversible drags reproduce edge-visible / outside-view / edge-visible states.
+This supplies a concrete scene/gesture route, not proof of bad brightness or
+world-geometry occlusion. Projected query area is not viewport-clamped in source;
+the visible corona is not necessarily that area. Next correlate this one test's
+rectangle/result with matched edge views or a reference before changing counting.
+No new runtime fix or pin import; the two reviewed iOS fork heads are unchanged.

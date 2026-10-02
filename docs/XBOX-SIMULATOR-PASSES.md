@@ -1,5 +1,60 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Blood Gulch sun-flare reproduction route (2026-10-02)
+
+Continue on the dedicated Simulator only, same installed `5a677b38…2d73201e`
+combined app and Original graphics. No build, pin, shader or quality changes.
+Fresh APFS data backup is verified before launch. Private evidence lives under
+`ref/xbox-build/passes/2026-10-02/flare-view.3Y5L6x/`.
+
+The stationary Blood Gulch host smoke passes 180 seconds, reaches tick 5010,
+records zero scripted shots and retains its presentation capture. This uses a
+local protocol stand-in, not a second playable client or online multiplayer
+acceptance. A second isolated run permits manual camera input. With the Device
+Hub window at 2200x1600 and game viewport approximately (583,234)–(2114,1382):
+
+1. This manual run spawns outside a base facing its entrance, with a plasma
+   pistol. Local position stays (29.604,-76.360,0.305), camera height about 0.9;
+   starting aim is (-20,0) degrees in the network diagnostic.
+2. Background free-look drag (1540,790) to (1540,640) reveals the sun and
+   colored lens reflections. No Fire press is needed; battery remains 100.
+3. Drag by (-50,+30), then (+80,0), then (+16,0). The sun approaches and is
+   partially clipped by the left viewport edge; colored reflections remain.
+4. Drag (+12,0): the central reflections disappear with the sun outside view.
+   Reverse (-12,0): the partly clipped sun and reflections return.
+
+These are reproduction coordinates for this exact window/layout and spawn, not
+a portable gesture test. The preceding run spawned at a different base; do not
+assume the smoke harness fixes position/yaw across launches. Native screenshots
+retain visible/edge/outside/edge-return views.
+This establishes a repeatable visible effect and reversible free-look input,
+not a brightness curve, partial world-geometry occlusion or a matched original
+Xbox/PC comparison. The smoke harness does not forward `XG_TRACE_QUERIES`, so
+there is no query-to-flare attribution in this run. Do not characterize the
+screen-edge transition alone as proof of incorrect rendering.
+
+Source inspection of `_rasterizer_widget_submit_occlusion_test` shows its
+denominator is the projected integer rectangle area, not clipped to viewport
+bounds (coordinates are only bounded to signed-short range). This makes the
+edge route useful for a future counted-versus-boolean comparison, but the
+visible corona size is not necessarily the query rectangle. Next capture that
+one test's geometry/area and result at matched edge positions, or a matched
+reference, before changing backend visibility behavior. Do not repeat aggregate
+query logging as a substitute. General texture/shading fidelity remains open.
+
+Read-only fork refresh finds NicholasDominici/halo-ce-ios still at `3f2c1410`
+and zimm3rmann/halo-ce-ios-macos still at `e55684aa`, the reviewed revisions.
+No additional upstream patch is imported. No hardware, Xbox IPA or publication.
+
+The manual run also passes its 300-second smoke gate, reaches tick 8580, records
+zero scripted shots and retains presentation images. The harness terminates
+its own helper and app in `finally`; explicitly relaunch the ordinary picker
+with tracing off and verify Original graphics. Audit all 196 original Documents
+files: only `HaloPad Logs/HaloPad.log` differs, none added/removed. Library changes
+only saved scene state. Preferences and PC registry are byte/value unchanged.
+Whitespace and tree/index safety checks pass. This documentation-only pass does
+not claim a fresh unit-suite run, app rebuild or physical touch acceptance.
+
 ## Boolean visibility observation (2026-10-02)
 
 Investigate the known visibility-count mismatch without changing shaders,

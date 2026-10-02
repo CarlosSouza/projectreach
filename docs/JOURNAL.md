@@ -4577,3 +4577,29 @@ hash `5a677b38…2d73201e` matches generated output. Restart with observer disab
 still reaches ordinary Xbox menu, then return to Original picker. Original
 saves/game files and PC registry preserved; only app log, last-engine selection,
 OS snapshots/scene state differ. No pin promotion, hardware, IPA or publication.
+
+## 2026-10-02 — Blood Gulch flare scene and free-look route
+
+Previous turn made progress by observing boolean visibility; this pass moves to
+a concrete visible sun effect rather than repeating aggregate query counts.
+Same installed app, Original quality, Simulator only. Fresh verified data backup,
+isolated saves and local protocol stand-in. Stationary 180-second smoke passes
+at tick 5010; manual-camera 300-second smoke passes at tick 8580, zero scripted
+shots and presentation captures in both. Background free-look, without Fire,
+reveals the sun. Small reversible yaw drags retain colored reflections with a
+partly clipped sun, remove them outside view, then restore them on reversal.
+Screenshots and exact spawn/gesture route: `flare-view.3Y5L6x` and the Simulator
+passes document. Spawns differ between runs; coordinates are not a portable test.
+
+Source rectangle area is not viewport-clamped. This is a useful edge-comparison
+route, not proof of wrong brightness: corona size need not equal query area,
+no per-flare query attribution or original-renderer reference is captured here.
+No speculative count/texture fix. Next correlate that rectangle/result with
+matched edge views or reference output; broader shading/focus defects stay open.
+The two reviewed iOS fork heads remain unchanged. No upstream import or pin move.
+
+Return to ordinary picker, Original graphics, trace off. Final audit: 196 original
+Documents files, only app log differs; no files added/removed. Only saved scene
+state differs in Library; preferences and PC registry unchanged. Documentation
+and evidence only, whitespace/tree safety checks pass; no fresh unit-suite/build,
+hardware, IPA, push or publication claim.
