@@ -272,3 +272,13 @@ not established; next obtain a matched pinned upstream desktop material/effect
 reference before changing shader behavior. No more repeated HUD toggle passes
 without a new discriminating hypothesis. Original state preserved,73 candidate
 unchanged, picker restored; goal and broader graphics/controls gates stay open.
+
+Independent-reference follow-up: upstream73's unmodified Windows Xbox-port
+binary now renders menu/b30 through a private Wine9 + Mesa26.2.3 llvmpipe setup,
+without HaloPad translation or ANGLE. Actual corresponding landing views show
+broad ground softness and distant waterfall blockiness on both paths. Regional
+differences remain, so no pixel/temporal fidelity gate is closed. Original
+Simulator state preserved after180-second pass; accepted66/adapted73 unchanged.
+Next reuse this proven independent path for a moving water/effect comparison;
+do not rebuild the Mac Android wrapper and call it an independent reference,
+repeat this static view, or dismiss all reported defects as upstream behavior.

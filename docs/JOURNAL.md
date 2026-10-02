@@ -4892,3 +4892,25 @@ Recordings stopped, read-only debugger detached, ordinary picker PID28067.
 All196 Documents preserved except log; Library OS scene state only; preferences
 and PC registry exact. No product edit/rebuild/install/unit rerun, accepted-pin
 change, hardware or publication. Full goal and graphics acceptance remain open.
+
+## 2026-10-03 — independent upstream desktop rendering reference
+
+Private `desktop73.Fi7gKD`: existing Mac wrapper is not independent and its66
+manifest does not match current73 guest output. Preserve it. Docker daemon is
+unavailable; no VM started. Download official pinned73 Windows release and
+Mesa26.2.3 MSVC software driver, verify both GitHub SHA256 digests, and deploy
+only per-app x86 DLLs in a new private Wine9 prefix. Actual OpenGL4.6 llvmpipe
+context renders menu, then b30 for244.39 seconds with16 screenshots and exit0.
+No translation/ANGLE on this reference, no default Wine-prefix/system install.
+
+Full app-data backup then unchanged73 Simulator b30 pass180s succeeds. The
+visually corresponding640x480 beach view shows the same broad ground softness
+and blocky waterfall on both paths. Static-region mean RGB differences3.19,
+5.91,9.94/255 (animated waterfall6.92), no pass threshold or exact camera/time
+identity claim. This narrows those particular symptoms, not temporal water,
+shading/focus or all graphics. Reuse the reference for moving materials next.
+
+Both test handles complete. Picker PID55014/Original AX verified. All196
+Documents retained except log; Library byte-identical, prefs/PC registry exact.
+Executable hash unchanged39f06f77…7198e. No runtime edit/rebuild/install/unit
+rerun, accepted-pin promotion, hardware, IPA or publication. Goal stays active.

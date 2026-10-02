@@ -4,6 +4,18 @@ Updated 2026-10-03. **Simulator-only work: shared controls, texture compatibilit
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE4.md](HaloPad-GOAL-LOOP-PHASE4.md). Earlier device work remains in [phase 3](HaloPad-GOAL-LOOP-PHASE3.md).
 
+**Independent desktop reference (2026-10-03).** Upstream build73's unmodified
+Windows executable runs locally under isolated Wine9/Mesa26.2.3 llvmpipe, reaches
+menu and Silent Cartographer, and produces real OpenGL4.6 frames. This is the
+Xbox port's desktop build, **not the HaloPad PC engine**, and does not use our
+guest translation or ANGLE. Its beach landing view and the unchanged Simulator
+candidate show the same broad terrain softness and blocky distant waterfall.
+Regional differences remain; this is not pixel parity or overall fidelity
+acceptance. The 180-second Simulator campaign pass succeeds, original state is
+preserved, and Original-quality picker is restored. Next use this reference for
+a corresponding moving water/effect view, not another HUD-toggle or static
+landing repeat. [Evidence and provenance](XBOX-SIMULATOR-PASSES.md#independent-desktop-reference-2026-10-03).
+
 **Cyan streak isolated (2026-10-03).** The suspected shield-HUD line reproduces
 with high-res HUD on and off, and moves with the world when the camera turns.
 Guest readback confirms the off setting. Map metadata contains the a30 beam

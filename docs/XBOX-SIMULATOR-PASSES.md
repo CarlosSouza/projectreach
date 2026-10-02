@@ -1,5 +1,82 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Independent desktop reference (2026-10-03)
+
+Previous turn is progress: it retired the replacement-HUD hypothesis. This pass
+establishes a separate desktop renderer instead of treating the translated
+Android guest's Mac wrapper as an independent reference. Private evidence:
+`ref/xbox-build/passes/2026-10-03/desktop73.Fi7gKD/`.
+
+The existing Mac executable manifest is build66 while the shared guest output
+is adapted73; do not run that stale pair or overwrite output just for this
+comparison. Upstream's desktop targets are 32-bit x86 Linux/Windows/OpenGL4.5,
+not native macOS. Docker's daemon socket is absent; no VM/service is started.
+Existing Wine9 is available. Use a **new private Wine prefix**, local per-app
+Mesa DLLs and upstream's official Windows release. No system driver install,
+default Wine-prefix change, upstream source patch, or HaloPad rebuild occurs.
+
+Provenance (release download hashes independently match GitHub asset digests):
+
+- [Upstream build73](https://github.com/cybersecurity/halo-ce-universal/releases/tag/build-73),
+  commit `d1c7243cb20eab4488efa1266e259b1f4d5240f6`.
+  `halo-windows-release.zip` SHA256
+  `5944157726fa5dd9c60e697e07efb7ceaa8bd3f2cb2a0afec50c366dc210517a`;
+  extracted, unmodified `halo.exe`
+  `3f0e2355332fb36f913ba0ca6d2c52832ffb17f8d183d58ed22b91a51db033c6`.
+- [Mesa Windows package26.2.3](https://github.com/pal1000/mesa-dist-win/releases/tag/26.2.3),
+  MSVC archive SHA256
+  `3f3613adb43cfd0f2e665ce2400b130c275f0b3317cb3a05566320a3a67589ed`.
+  Only x86 `opengl32.dll` and `libgallium_wgl.dll` are deployed beside halo.exe.
+  Actual context: OpenGL4.6 Core, Mesa26.2.3 (`afe29290a0`), llvmpipe
+  LLVM23.1.2/128bits, four software worker threads. This is an independent
+  software-renderer comparison, **not hardware/performance or original-Xbox proof**.
+
+`wine-menu.log` and `menu.png` verify real menu rendering, not merely launch.
+`run-reference.py b30` starts with an allowlisted shell environment, an isolated
+data/save root and the same trusted maps. Online/clipboard join/UPnP/auto-update
+are disabled. Windowed640x480, default HUD, no scripted player input. Upstream
+`init.txt` requests `map_name levels\b30\b30`; screenshot interval120 frames.
+PID38855 exits0 at244.39 wall seconds with16 BMP samples, using upstream's
+240-second exit setting. The private runner has a300-second watchdog scoped to
+this prefix only. Do not rerun into the same data/frame folders: it refuses
+existing directories; use another named pass when changing inputs.
+
+Before Simulator launch, copy the full real app-data container to `data-before`.
+Run the unchanged installed candidate with:
+
+```sh
+.venv/bin/python scripts/xbox/smoke-simulator.py \
+  --device DF51182F-1878-4A54-9AED-CC4AED86BEAB \
+  --out ref/xbox-build/passes/2026-10-03/desktop73.Fi7gKD/simulator \
+  --case campaign --campaign-map b30 --seconds 180 --render-diagnostics
+```
+
+Pass: correct ANGLE renderer, b30 load, four late nonblack samples, presentation
+capture, no scripted input or reported signal. This bounded smoke gate does not
+grade pixels. Installed app remains `39f06f77…7198e`, adapted73 guest unchanged,
+accepted lock66. Both sources draw640x480; compare source targets, not the larger
+Simulator screen or touch UI. `sim-upright.png` vertically flips the raw GL source
+readback for viewing; this is a diagnostic orientation conversion, not a runtime
+fix. `b30-landed.png` is upstream frame1080. The landing camera is visually
+aligned, **not verified identical matrices or synchronized simulation**.
+
+Both images show the broad blurry ground bands/detail transition and blocky
+distant waterfall. Neither symptom alone establishes a HaloPad/iOS regression.
+`compare.py` records regional mean absolute RGB differences on the0..255 scale:
+left cliff3.19, left ground5.91, ground detail9.94; animated waterfall6.92.
+These are measurements without an acceptance threshold, not a claim of exact
+parity. Actor positions, radar, clouds/waterfall animation, and subtle sampling
+differences are not time-matched. Do not dismiss the user's temporal shading,
+focus, water or other-scene complaints from this stationary view.
+
+Both run handles complete. Normal app PID55014 returns to picker; AX verifies
+Windows left, Xbox right, Original quality. Audit retains all196 Documents
+files, only normal app log changes; Library is byte-identical, preferences and
+PC registry exact. No reinstall, shader change, unit rerun for unchanged runtime,
+hardware, IPA, pin promotion or publication. Next use the now-working independent
+reference for matched moving water/effects; do not repeat the same static landing
+or infer all graphics accepted. Unadapted73 update gates remain separate.
+
 ## Cyan streak isolation (2026-10-03)
 
 Previous turn yielded guest Back/fade evidence (progress). This pass returns to
