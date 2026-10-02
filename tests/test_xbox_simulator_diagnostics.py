@@ -75,7 +75,7 @@ class SimulatorDiagnosticsTests(unittest.TestCase):
             'HALO_TEST_INPUT': 'bot:7', 'HALO_NETWORK_TEST_SHOOT': '4'})
 
     def test_campaign_init_and_gate_use_requested_map(self):
-        for map_name in ('a10', 'a30', 'a50'):
+        for map_name in ('a10', 'a30', 'a50', 'b30'):
             with self.subTest(map_name=map_name):
                 self.assertEqual(smoke.campaign_init(map_name),
                                  'map_name levels\\' + map_name + '\\' + map_name + '\n')
@@ -102,7 +102,7 @@ class SimulatorDiagnosticsTests(unittest.TestCase):
                 self.assertIn('--scripted-campaign requires', result.stderr)
 
     def test_later_campaign_map_requires_targeted_case(self):
-        for map_name in ('a30', 'a50'):
+        for map_name in ('a30', 'a50', 'b30'):
             for args in ([], ['--case', 'menu'], ['--case', 'match']):
                 with self.subTest(map_name=map_name, args=args):
                     result = subprocess.run([sys.executable, str(SCRIPT), '--device', 'unused',

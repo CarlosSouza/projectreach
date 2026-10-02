@@ -4,6 +4,14 @@ Updated 2026-10-02. **Simulator-only work: shared controls, texture compatibilit
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE4.md](HaloPad-GOAL-LOOP-PHASE4.md). Earlier device work remains in [phase 3](HaloPad-GOAL-LOOP-PHASE3.md).
 
+**Beach material route (2026-10-02).** Harness now supports Silent Cartographer;
+actual three-minute b30 run passes and reaches beach/ocean views. Water, shoreline
+bands and translucent exhaust are visible, not fidelity-accepted. Source review
+points the next focused check at generated water ripple mip levels, not another
+terrain-filtering change. 181 Xbox tests pass; original saves, preferences and PC
+registry preserved. Runtime/pins unchanged; no new graphics fix claimed.
+[Evidence](XBOX-SIMULATOR-PASSES.md#beach-material-reproduction-route-2026-10-02).
+
 **Geometry and night-scene follow-up (2026-10-02).** Six-minute stationary
 Blood Gulch run verifies a fully in-viewport light hidden by the foreground
 weapon (0/36 samples) and revealed again (25/25). This extends coverage evidence

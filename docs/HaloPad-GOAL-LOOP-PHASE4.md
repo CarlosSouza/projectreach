@@ -195,3 +195,10 @@ Returned to Original-quality picker; original saves/PC registry/preferences
 preserved. Next choose a distinct material or wall-occlusion scene with matched
 reference where available, not another sun-edge/sniper-button repeat. Full goal
 remains active; no hardware access or promotion to graphics/touch acceptance.
+
+Beach follow-up: b30 is now a tested harness choice; actual 180-second run passes
+and manual free-look exposes ocean, shoreline bands and translucent exhaust.
+No definite new defect isolated. Next inspect generated water ripple mip levels
+and composite sampler state in that scene, or obtain matched reference evidence,
+before changing rendering. 181 Xbox tests pass; state preserved; runtime/pins
+unchanged. Do not count visible water as complete material-fidelity acceptance.

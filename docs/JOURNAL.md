@@ -4749,3 +4749,17 @@ or removals; Library, preferences and PC registry unchanged. Documentation-only
 pass, no rebuild or unit-suite rerun. No hardware, pin promotion, IPA, push or
 publication. Next distinct transparent/material or wall-occlusion case, with
 reference comparison where practical. Broader rendering and touch goals remain.
+
+## 2026-10-02 — Silent Cartographer material route
+
+Extend smoke harness/map validation to b30. 181 Xbox Python tests pass. Actual
+180-second Original-quality Simulator run passes map/renderer/nonblack/presentation
+gates; manually turn from beach landing toward water with shared free-look.
+Preserve `beach-material.KCw0xS` screenshots/logs and data clone. Water, shoreline
+bands and translucent exhaust are visible, not reference-matched. Opening washout
+clears during the sequence; no definite new renderer failure or fix established.
+Pinned source uses separately rendered water ripple mips and a sampled composite;
+capture those levels/state next rather than changing terrain filtering blindly.
+Ordinary picker restored. Original Documents differ only in known log; preferences
+and PC registry unchanged; four Metal cache files changed. No runtime rebuild,
+pin promotion, hardware, IPA or publication. Normal-menu save/reload also remains.

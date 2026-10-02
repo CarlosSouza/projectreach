@@ -1,5 +1,39 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Beach material reproduction route (2026-10-02)
+
+Extend the bounded smoke harness allowlist to `b30` (Silent Cartographer),
+including init/load-gate and targeted-case validation tests. Keep installed
+candidate, Original quality and pins unchanged. Private evidence and data clone:
+`ref/xbox-build/passes/2026-10-02/beach-material.KCw0xS/`.
+
+Actual `--case campaign --campaign-map b30 --seconds 180 --render-diagnostics`
+passes with no scripted input: renderer/map gates true, three nonblack late
+frames (lit fractions .958/.955/.956), presentation pair retained. Opening
+washed-out view clears as the sequence progresses; do not diagnose it from that
+single transient frame. First-person landing shows sand, foliage, combatants,
+shield effects and moving dropship/exhaust. Background horizontal drags of
+300, 180 and 200 screen pixels turn toward the ocean without intentional player
+translation. `beach-arrival.png` and `shoreline.png` retain views. Water and
+shoreline bands are visible; this does not prove correct ripple detail, blending
+or temporal fidelity. The final attempted drag meets the harness deadline/Home,
+not a crash. The run is confirmed terminal before ordinary relaunch.
+
+Source review of the pinned engine identifies a distinct next diagnostic:
+`source/rasterizer/xbox/rasterizer_xbox_water.c` builds animated ripple mip levels;
+`port/linux/src/d3d8_gl.c:mip_composite_get` copies rendered levels into a sampled
+composite and generates the remaining levels. This is separate from terrain
+filtering. No missing mip or copy failure has been measured. Next capture the
+actual water mip chain and sampler state in a stable shoreline view, or compare
+that view with a matched reference, before proposing a renderer change. A normal
+menu profile/save/reload remains a separate unfinished acceptance gate.
+
+181 Xbox Python tests pass, including expanded b30 subcases. Cold launch returns
+to Original-quality picker. Preservation audit checks 196 original Documents
+files: only known app log changed, none added/removed; preferences and PC registry
+unchanged. Library changes are four Metal cache files. No runtime rebuild/install,
+hardware, upstream import, IPA, push or publication. No new graphics fix claimed.
+
 ## In-viewport light occlusion and night-scene follow-up (2026-10-02)
 
 Previous turn is progress: counted guest integration is committed as `44556bc`.

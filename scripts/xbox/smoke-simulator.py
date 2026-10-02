@@ -131,8 +131,8 @@ def main():
                         help='Capture four seconds of output-callback samples after ten seconds; not speaker acceptance')
     parser.add_argument('--stationary-match', action='store_true',
                         help='Rendering diagnostic only: no scripted movement, shooting or gathering')
-    parser.add_argument('--campaign-map', choices=('a10', 'a30', 'a50'), default='a10',
-                        help='Campaign map (a10: Pillar of Autumn; a30: Halo; a50: Truth and Reconciliation)')
+    parser.add_argument('--campaign-map', choices=('a10', 'a30', 'a50', 'b30'), default='a10',
+                        help='Campaign map (a10: Pillar of Autumn; a30: Halo; a50: Truth and Reconciliation; b30: Silent Cartographer)')
     parser.add_argument('--scripted-campaign', action='store_true',
                         help='Rendering diagnostic only: upstream bot movement/look/shoot, not human controls')
     args = parser.parse_args()
