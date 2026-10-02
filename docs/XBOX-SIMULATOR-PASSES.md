@@ -1,5 +1,54 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Shared-input Original rendering regression (2026-10-03)
+
+Previous pass is progress: Jumpy/Default controls run correctly. Unchanged
+installed app `48f118f3f2cb690c29a8978c8f213644c45ddfc0400cfdf26495add966d1213e`
+is verified before/after; guest `652fbebb…de17`, shared-input recipe and
+accepted66 unchanged. Read-only `git ls-remote` confirms upstream main remains
+`d1c7243cb20eab4488efa1266e259b1f4d5240f6`; nested source is clean. No new import.
+Private evidence: `ref/xbox-build/passes/2026-10-03/input-render73.wmTYV3/`.
+
+Full real-container backup precedes testing. Independent scene data/save roots,
+trusted map links and launch-only suppression of online/clipboard/UPnP/update
+checks. Campaigns use explicit init maps with no scripted player input: these
+are rendering diagnostics, not normal-menu or human gameplay acceptance.
+Original quality is preserved, actual640x480/effective1x filtering. Capture
+counts include loading and must not be interpreted as FPS.
+
+- b30 PID76028:100.858s,121 BMPs/20 composited screenshots. `b30/screen-04.png`
+  retains detailed reflective/ripple water behind the weapon and Pelican cabin;
+  screen07 shows the beach/enemies/effects with ordinary foreground occlusion.
+- a10 PID77037:180.696s,134 BMPs/36 composited screenshots. Approximate camera
+  ranking selects `frame03792.bmp` for the prior bridge02832/desktop01336 view.
+  `bridge-comparison.png` visibly retains the removal of long black floor bands.
+  Exterior `frame01536.bmp` retains bright engine glow; camera/ship position
+  differs, so this is not pixel parity. Reference desktop is the pinned Xbox
+  port, not HaloPad's Windows CE engine. The first comparison attempt lacked
+  Pillow in `.venv`; system `python3` runs the same helper successfully.
+- 65-second local-match smoke passes: last_tick1533,12 scripted shots, lit0.980,
+  expected ANGLE Metal renderer. `match/result.json` and `match/match/screen.png`
+  retained. Native capture shows textured terrain/base, weapon and HUD. The
+  stand-in network machine is not a second playable client or online acceptance.
+
+Campaign sampled frame/presentation checks report error0 and complete FBOs.
+Match retains the known startup `glBlitFramebuffer`0x502 diagnostic, despite
+frame0/1/2/120 subsequently reporting0. No blanket error-free claim.
+
+Small test-harness change: all smoke cases now include `HALO_UPDATE_AUTO=false`
+in their isolated launch environment; upstream's generated default is true.
+This explicitly excludes update prompts without changing saved configuration,
+image/progression gates or the installed app.31 focused diagnostics tests and
+199 Xbox tests pass; native overlay/launch suites are not newly rerun.
+
+Final ordinary Original picker PID81615 verified through actual UI.196 real
+Documents differ only by app log; Library changes only four Metal cache files.
+Preferences/keyset/PC registry exact. No hardware, IPA, publication or pin
+promotion. Disk was5.3GiB free during capture; no cleanup or rebuild performed.
+Next distinct gate: alternate-thumbstick runtime move/look semantics. Sharper on
+this exact executable, full preset feel and broader temporal fidelity remain
+unaccepted. Do not repeat unchanged Original captures without a new concern.
+
 ## Jumpy and Default runtime regression (2026-10-03)
 
 Previous pass is progress: the touch-only mapping bridge fixes Southpaw.

@@ -382,3 +382,12 @@ real state preserved and ordinary Original picker restored. Evidence
 water/border/local-match regression; do not repeat these unchanged preset checks.
 Boxer/Green Thumb, alternate stick runtime and sustained human multi-touch remain
 unaccepted. This bounded evidence is progress, not completion of the full goal.
+
+Shared-input Original graphics checkpoint: unchanged `48f118f3…213e` retains
+b30 water detail and a10 bridge-band fix/glow; scripted65s local match passes
+tick1533/12 shots.199 Xbox tests pass after explicitly disabling update prompts
+in smoke launch settings. Upstream remote main still73/d1c7243c; no pin change.
+Real state preserved, Original picker restored. Evidence `input-render73.wmTYV3`.
+Next alternate-thumbstick runtime move/look semantics, not unchanged Original
+graphics repetition. Exact-build Sharper, full preset feel and broad fidelity
+remain open; no physical device or completion claim.

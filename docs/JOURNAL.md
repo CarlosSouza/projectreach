@@ -5120,3 +5120,19 @@ picker PID73921 restored;196 real Documents differ only by app log, Library by
 one OS scene-state file. Preferences/keyset/PC registry exact. No runtime/build/
 unit rerun/pin change/hardware/publication. Next exact-build water/border/local
 match; all-preset runtime feel and sustained human multi-touch remain open.
+
+## 2026-10-03 — shared-input Original graphics and local match
+
+Previous turn progress. Same installed `48f118f3…213e` verified before/after;
+live remote main still73/d1c7243c, accepted66 unchanged. Private
+`input-render73.wmTYV3` full backup/isolated captures. Original b30 PID76028
+100.858s retains detailed water; a10 PID77037 180.696s retains engine glow and
+removal of bridge bands against prior/desktop comparison. Rendering diagnostics,
+not normal-menu or human-play claims. Local-match65s passes tick1533/12 scripted
+shots/lit.980; known startup blit0x502 retained. Smoke helper explicitly disables
+upstream update prompts;31 focused/199 Xbox tests pass. No app rebuild.
+
+Ordinary Original picker PID81615 restored. Real196 Documents differ only by
+app log; Library only four Metal cache files; preferences/keyset/PC registry
+exact. No hardware/pin promotion/IPA/publication. Next alternate-thumbstick
+runtime move/look check; exact-build Sharper and broad fidelity remain open.

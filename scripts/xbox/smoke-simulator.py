@@ -27,6 +27,15 @@ WORK = ROOT / 'ref/xbox-build'
 BUNDLE = 'dev.halopad.HaloPad'
 
 
+def isolated_environment(folder, frame):
+    # Exercise the installed candidate, without online joins or update prompts.
+    return {'HALOPAD_CHOOSE': 'xbox', 'HALO_NET_ONLINE': 'false',
+            'HALO_NET_JOIN_FROM_CLIPBOARD': 'false', 'HALO_NET_ALLOW_UPNP': 'false',
+            'HALO_UPDATE_AUTO': 'false', 'XG_DATA': str(folder),
+            'XG_SAVE': str(folder / 'save'), 'XG_TOUCH_SHOW': '1',
+            'XG_FRAME_DUMP': str(frame), 'XG_FRAME_DUMP_SECONDS': '10'}
+
+
 def query_environment(diagnostics=False, environ=None):
     environ = os.environ if environ is None else environ
     return {key: '1' if diagnostics and environ.get(key) == '1' else ''
@@ -266,10 +275,7 @@ def main():
         if depth_pair:
             control.write_text('equal\n')
         env = {k: v for k, v in os.environ.items() if not k.startswith('SIMCTL_CHILD_')}
-        child = {'HALOPAD_CHOOSE': 'xbox', 'HALO_NET_ONLINE': 'false',
-                 'HALO_NET_JOIN_FROM_CLIPBOARD': 'false', 'HALO_NET_ALLOW_UPNP': 'false',
-                 'XG_DATA': str(folder), 'XG_SAVE': str(folder / 'save'), 'XG_TOUCH_SHOW': '1',
-                 'XG_FRAME_DUMP': str(frame), 'XG_FRAME_DUMP_SECONDS': '10'}
+        child = isolated_environment(folder, frame)
         child['XG_AUDIO_CAPTURE'] = '1' if args.audio_diagnostics else ''
         child.update(campaign_environment(name == 'campaign' and args.scripted_campaign))
         child.update(query_environment(args.render_diagnostics))

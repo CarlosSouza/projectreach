@@ -4,6 +4,15 @@ Updated 2026-10-03. **Simulator-only work: shared controls, texture compatibilit
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE4.md](HaloPad-GOAL-LOOP-PHASE4.md). Earlier device work remains in [phase 3](HaloPad-GOAL-LOOP-PHASE3.md).
 
+**Shared-input graphics regression passed at Original quality (2026-10-03).**
+Exact `48f118f3…213e` candidate retains detailed b30 water and the bridge shadow
+fix; 65-second scripted local match passes. 199 Xbox tests pass. Smoke tests now
+explicitly disable upstream update prompts. Live upstream main still resolves to
+build73's `d1c7243c`; accepted66 is unchanged. Real saves/preferences/PC registry
+preserved, Original picker restored. Next alternate-thumbstick runtime checks;
+Sharper on this candidate, broader fidelity and human multi-touch remain open.
+[Evidence](XBOX-SIMULATOR-PASSES.md#shared-input-original-rendering-regression-2026-10-03).
+
 **Jumpy and Default runtime checks passed (2026-10-03).** The unchanged
 `48f118f3…213e` shared-input candidate keeps Jump/Throw semantics under Jumpy's
 alternate A/trigger mapping. Default Fire/Throw/Swap/Look/Pause also respond

@@ -16,6 +16,18 @@ spec.loader.exec_module(smoke)
 
 
 class SimulatorDiagnosticsTests(unittest.TestCase):
+    def test_all_cases_isolate_saves_and_disable_online_updates(self):
+        folder = pathlib.Path('/private/test/case')
+        frame = folder / 'frame.ppm'
+        settings = smoke.isolated_environment(folder, frame)
+        for key in ('HALO_NET_ONLINE', 'HALO_NET_JOIN_FROM_CLIPBOARD',
+                    'HALO_NET_ALLOW_UPNP', 'HALO_UPDATE_AUTO'):
+            self.assertEqual(settings[key], 'false')
+        self.assertEqual(settings['XG_DATA'], str(folder))
+        self.assertEqual(settings['XG_SAVE'], str(folder / 'save'))
+        self.assertEqual(settings['XG_FRAME_DUMP'], str(frame))
+        self.assertEqual(settings['HALOPAD_CHOOSE'], 'xbox')
+
     def test_query_traces_require_diagnostics_and_exact_opt_in(self):
         keys = ('XG_TRACE_QUERIES', 'XG_TRACE_QUERY_RECTS')
         for value in ('', '0', 'true', '1'):
