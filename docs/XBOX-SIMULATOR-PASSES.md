@@ -1,5 +1,66 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Build 73 scoreboard touch bridge (2026-10-02)
+
+Previous turn was progress: new candidate built and existing checkpoint upgrade
+verified. This pass keeps build 73 `d1c7243c`, counted guest and ANGLE unchanged.
+Private evidence: `ref/xbox-build/passes/2026-10-02/scoreboard73.ctwOYT/`.
+Full app/data copied before replacement; no hardware, original-save selection,
+network alias changes, upstream patch, accepted-pin promotion or IPA.
+
+Source review confirms new full-screen scoreboard uses only wheel/Page Up/Down
+for pagination. Add an optional shared-overlay roster-drag callback; Xbox enables
+it on Scoreboard only. Keep the same held BACK action and layout; vertical drag
+of 80 points queues one page, positive down. PC defaults remain hold-only, and
+ordinary surface/Fire aiming is not redirected. Accessibility hint and Xbox
+Controls guide describe the gesture. Use paired SDL Page Up/Down events rather
+than wheel events, which upstream could consume as weapon switching outside the
+scoreboard. Queue is bounded, preserves fractional displacement, cancels pending
+pages on release/focus loss, and retains any required key-up after a delivered
+key-down. No change to the guest's own scoreboard implementation.
+
+Validation: 185 Xbox tests pass, including the actual paging helper under
+ASan/UBSan. Native overlay suite passes 141 assertions plus its existing layout/
+render checks (`docs/artifacts/2026-10-02/G9/overlay-20261002T141738Z`). New checks
+cover held score/no aim, final displacement, cancellation, inactive input and
+removing the optional adapter. The initial build found the event block inserted
+in the wrong function; corrected to `xh_host_sdl_poll_event`. Initial two native
+failures were a PC-default fixture that does not subscribe to engine lifecycle
+notifications; use the engine-handler initializer for that test. Retain both
+failed logs, not as reproduced pre-existing product regressions.
+
+Full library and normal combined app build, strict codesign and in-place install
+pass. Installed executable SHA-256:
+`39f06f77934f518f29219d84456437f9dc39f78e4265f56099f49c9d7757198e`.
+Known eight availability warnings and startup GL 0x502 remain. No new graphics
+fix. Real local two-player Blood Gulch fixture uses one upstream stand-in machine
+(no game simulation) at this Mac's existing address and a loopback host; online,
+clipboard joins and UPnP disabled. No extra local addresses were configured, so
+overflow rosters are not established. Both before/after runs need actual shared
+Jump/A to start the 30-second lobby countdown despite the host test start log.
+Before run reaches the rendered two-player postgame report when its helper exits.
+
+After PID 86042: actual CUA drag from Scoreboard downwards publishes BACK then
+four Page Down key-down/key-up pairs, then releases BACK (after-stderr lines
+131-140). Camera and plasma weapon remain unchanged; subsequent Fire reduces
+charge from 100 to 99 (`after-fire.png`). No additional page events follow.
+Retained `scoreboard-drag.mp4` is 53.42s / 246606715 bytes; scene samples, later
+4Hz frames and a 2Hz contact sheet show ordinary gameplay/idle animation, without
+establishing the scoreboard's visible response. Do NOT claim end-to-end roster
+paging or scoreboard display acceptance from input logs. This negative visual
+result is a concrete next target: distinguish short-hold/fade timing, BACK
+consumption, and the new guest scoreboard's font/layout/render path. Compare
+against build 66 if needed; do not toggle held semantics solely for automation.
+
+Final ordinary launch PID 5172 visibly returns to Original-quality picker.
+Readback: all 196 Documents files retained; only known app log changed.
+Library differences are SplashBoard snapshots and OS KnownSceneSessions state;
+preference dictionary and PC registry unchanged. Both helper handles complete
+exit 0, video recording stopped. Original inputs/saves and pre-pass app preserved.
+This is an implemented/input-verified bridge with visual/overflow acceptance
+open, not a resolved-controls or graphics claim. Cyan shield-HUD comparison also
+remains pending; no matched test was performed in this pass.
+
 ## Build 73 candidate upgrade (2026-10-02)
 
 Freeze official [build 73](https://github.com/cybersecurity/halo-ce-universal/releases/tag/build-73)

@@ -30,7 +30,14 @@ The Simulator-only presentation fix remains narrow: temporarily neutralize textu
 sampler 0 during final presentation, then restore it. That diagnostic is not enabled on hardware.
 See [XBOX-SIMULATOR-PASSES.md](XBOX-SIMULATOR-PASSES.md).
 
-Latest Simulator candidate: build 73 `d1c7243c`, executable `59764ae4…ac8c`,
+Latest Simulator candidate: build 73 `d1c7243c`, executable `39f06f77…7198e`,
+adds held Scoreboard drag to paired Page Up/Down inputs. 185 Xbox tests and
+141 native overlay assertions pass; actual Simulator drag emits paired inputs
+without moving the camera, and Fire still works. Visible scoreboard response
+and overflow paging are not accepted. See the
+[input bridge pass](XBOX-SIMULATOR-PASSES.md#build-73-scoreboard-touch-bridge-2026-10-02).
+
+Previous Simulator candidate: build 73 `d1c7243c`, executable `59764ae4…ac8c`,
 with `render-visibility-v1` and ANGLE/Metal. Menu/a10/scripted-match smoke and
 copied build-66 normal-menu save/quit/cold reload pass. Accepted lock stays 66;
 unadapted acceptance, new scoreboard touch pagination and graphics fidelity

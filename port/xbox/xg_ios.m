@@ -598,6 +598,16 @@ static uint8_t pad_announced[PADS + 1];
 static pthread_mutex_t pad_lock = PTHREAD_MUTEX_INITIALIZER;
 static struct xg_touch_input touch_input;
 static float touch_look_x, touch_look_y;
+#include "xg_scoreboard_input.h"
+static struct xg_scoreboard_input touch_scoreboard;
+
+void xg_ios_scroll_scoreboard(float points)
+{
+	pthread_mutex_lock(&pad_lock);
+	if (touch_input.current.buttons & (1u << SDL_GAMEPAD_BUTTON_BACK))
+		xg_scoreboard_drag(&touch_scoreboard, points);
+	pthread_mutex_unlock(&pad_lock);
+}
 
 void xg_ios_add_touch_look(float dx, float dy)
 {
@@ -620,6 +630,7 @@ void xg_ios_set_touch_pad(const struct xg_touch_pad *state)
 		fprintf(stderr, "[xbox] touch publish buttons=%x move=%.2f,%.2f look=%.2f,%.2f\n",
 			state->buttons, state->axes[0], state->axes[1], state->axes[2], state->axes[3]);
 	xg_touch_publish(&touch_input, state);
+	if (!(state->buttons & (1u << SDL_GAMEPAD_BUTTON_BACK))) xg_scoreboard_clear(&touch_scoreboard);
 	pthread_mutex_unlock(&pad_lock);
 }
 
@@ -630,6 +641,7 @@ void xg_ios_clear_touch_pad(void)
 		touch_input.current.buttons, touch_input.pending.buttons);
 	xg_touch_clear(&touch_input);
 	touch_look_x = touch_look_y = 0;
+	xg_scoreboard_clear(&touch_scoreboard);
 	pthread_mutex_unlock(&pad_lock);
 }
 
@@ -773,6 +785,23 @@ int xh_host_sdl_poll_event(uint32_t event)
 	SDL_Event *out = G(SDL_Event *, event);
 	int index;
 	pthread_mutex_lock(&pad_lock);
+	int down = 0;
+	int page = xg_scoreboard_next(&touch_scoreboard, &down);
+	if (page)
+	{
+		memset(out, 0, sizeof(*out));
+		/* Unlike wheel events, these cannot become weapon switching when the
+		 * guest has not yet opened (or has just closed) its scoreboard. */
+		out->key.type = down ? SDL_EVENT_KEY_DOWN : SDL_EVENT_KEY_UP;
+		out->key.timestamp = (Uint64)xh_host_sdl_ticks() * 1000000ull;
+		out->key.windowID = 1;
+		out->key.scancode = page > 0 ? SDL_SCANCODE_PAGEDOWN : SDL_SCANCODE_PAGEUP;
+		out->key.key = page > 0 ? SDLK_PAGEDOWN : SDLK_PAGEUP;
+		out->key.down = down;
+		if (touch_trace) fprintf(stderr, "[xbox] scoreboard page=%d down=%d\n", page, down);
+		pthread_mutex_unlock(&pad_lock);
+		return 1;
+	}
 	if (touch_look_x != 0 || touch_look_y != 0)
 	{
 		memset(out, 0, sizeof(*out));

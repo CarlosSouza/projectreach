@@ -227,6 +227,10 @@ static BOOL xbox_backup_saves(NSError **error)
 		}];
 		pad.analogMoveReady = YES;
 		pad.inGame = YES;
+		/* One finger owns both the held board and scrolling; no guest patch.
+		 * Eighty points is one Page Up/Down; ordinary aim remains independent. */
+		pad.scoreboardScroll = ^(CGFloat dy) { xg_ios_scroll_scoreboard(dy); };
+		[pad setControllerLabel:nil hint:@"Hold to show scores. Drag up or down to scroll the roster." forControl:@"scores"];
 		[pad setControllerLabel:@"A" hint:@"Xbox A. Select in menus." forControl:@"jump"];
 		[pad setControllerLabel:@"B" hint:@"Xbox B. Back in menus." forControl:@"melee"];
 		[pad setControllerLabel:@"X" hint:@"Xbox X. Use or reload with the default profile." forControl:@"action"];
@@ -265,7 +269,7 @@ static BOOL xbox_backup_saves(NSError **error)
 {
 	[pad clearTouchInput];
 	UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Xbox Controls"
-		message:@"Menus: use MOVE to highlight an item. Tap A (Jump) to select or B (Melee) to go back. X and Y follow the game's prompts.\n\nPlaying: use the same touch layout as PC. Drag the screen to aim, or drag FIRE while shooting.\n\nUse the Default Xbox control profile. Other in-game button layouts do not match these labels yet. Touch size, layout and sensitivity are in Controls."
+		message:@"Menus: use MOVE to highlight an item. Tap A (Jump) to select or B (Melee) to go back. X and Y follow the game's prompts.\n\nPlaying: use the same touch layout as PC. Drag the screen to aim, or drag FIRE while shooting. Hold Scoreboard and drag down or up to scroll its roster.\n\nUse the Default Xbox control profile. Other in-game button layouts do not match these labels yet. Touch size, layout and sensitivity are in Controls."
 		preferredStyle:UIAlertControllerStyleAlert];
 	[alert addAction:[UIAlertAction actionWithTitle:@"Done" style:UIAlertActionStyleDefault handler:nil]];
 	[self presentViewController:alert animated:YES completion:nil];

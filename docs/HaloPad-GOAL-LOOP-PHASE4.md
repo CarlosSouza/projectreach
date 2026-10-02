@@ -241,3 +241,13 @@ compare the captured transient cyan shield-HUD line against build 66 before
 attributing it. No new rendering fix or pin promotion. Unadapted Mac/Simulator
 acceptance remains required for promotion; do not repeat completed save tests
 without another change. Candidate 73 is left installed at the ordinary picker.
+
+Scoreboard follow-up: optional shared-overlay drag hook plus a small Xbox paging
+queue implemented without upstream changes. 185 Xbox tests/141 overlay assertions
+pass; real drag produces paired Page Down events and no camera displacement.
+Fire still works. Visual scoreboard response is NOT established by retained
+video/sampled frames, and two players do not exercise overflow. Next discriminate
+BACK consumption/fade timing from new guest font/layout/rendering failure before
+calling pagination accepted. Do not repeat queue-only checks as end-to-end proof.
+Current installed candidate `39f06f77…7198e`; accepted lock 66 unchanged. Original
+state preserved and ordinary picker restored. Cyan HUD comparison still pending.

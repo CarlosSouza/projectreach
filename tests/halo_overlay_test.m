@@ -190,7 +190,8 @@ static void check_drag_tracking(void)
     [drag move:a to:CGPointMake(50, 50)]; [drag end:a at:CGPointMake(80, 80) cancelled:NO];
     check("cleared drag ignores late move and end callbacks", x == 3 && y == 12 && deltas == 3);
 
-    HPOverlay *overlay = [[HPOverlay alloc] initWithFrame:CGRectMake(0, 0, 1024, 768)];
+    HPOverlay *overlay = [[HPOverlay alloc] initWithFrame:CGRectMake(0, 0, 1024, 768)
+        inputHandler:^(const hp_input *event) { halopad_host_post_input(event); }];
     HPLookDrag *surface = [overlay valueForKey:@"lookDrag"];
     count = 0;
     [surface begin:a at:CGPointZero]; [surface end:a at:CGPointMake(20, 0) cancelled:NO];
@@ -206,6 +207,34 @@ static void check_drag_tracking(void)
     [overlay clearTouchInput];
     [surface end:a at:CGPointMake(20, 0) cancelled:NO]; [fireDrag end:b at:CGPointMake(0, 20) cancelled:NO];
     check("overlay interruption clears both surface and FIRE drag endpoints", count == 0);
+
+    UIView *scores = nil;
+    for (UIView *v in overlay.subviews) if ([v.accessibilityIdentifier isEqualToString:@"scores"]) scores = v;
+    HPLookDrag *scoreDrag = [scores valueForKey:@"drag"];
+    check("PC scoreboard defaults to hold only", ![[scores valueForKey:@"looks"] boolValue]);
+    __block CGFloat scroll = 0;
+    overlay.scoreboardScroll = ^(CGFloat dy) { scroll += dy; };
+    check("optional roster scrolling enables only the scoreboard drag", [[scores valueForKey:@"looks"] boolValue]);
+    count = 0;
+    [overlay driveControl:@"scores" down:YES];
+    [scoreDrag begin:a at:CGPointZero];
+    [scoreDrag move:a to:CGPointMake(100, 80)];
+    check("scoreboard drag preserves held action and does not aim", scroll == 80 && count == 1 &&
+          events[0].kind == HPI_ACTION && events[0].action == 12 && events[0].down);
+    [scoreDrag end:a at:CGPointMake(100, 100) cancelled:NO];
+    [overlay driveControl:@"scores" down:NO];
+    check("final roster displacement and release delivered once", scroll == 100 && count == 2 && !events[1].down);
+    [scoreDrag begin:a at:CGPointZero];
+    [overlay clearTouchInput];
+    [scoreDrag end:a at:CGPointMake(0, 80) cancelled:NO];
+    check("cancel drops unread scoreboard drag endpoint", scroll == 100);
+    [NSNotificationCenter.defaultCenter postNotificationName:UIApplicationWillResignActiveNotification object:nil];
+    [scoreDrag begin:a at:CGPointZero]; [scoreDrag move:a to:CGPointMake(0, 80)];
+    check("inactive overlay refuses roster scrolling", scroll == 100);
+    [NSNotificationCenter.defaultCenter postNotificationName:UIApplicationDidBecomeActiveNotification object:nil];
+    overlay.scoreboardScroll = nil;
+    [scoreDrag begin:a at:CGPointZero]; [scoreDrag end:a at:CGPointMake(0, 80) cancelled:NO];
+    check("removing roster adapter restores hold-only and no aim", ![[scores valueForKey:@"looks"] boolValue] && scroll == 100);
 }
 
 /* Exercise the real stick geometry without fabricating UIKit touch objects. */

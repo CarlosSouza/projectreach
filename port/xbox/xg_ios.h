@@ -18,6 +18,7 @@ void xg_ios_set_touch_pad(const struct xg_touch_pad *state);
 void xg_ios_clear_touch_pad(void);
 /* Relative touch look is delivered through upstream's SDL mouse path. */
 void xg_ios_add_touch_look(float dx, float dy);
+void xg_ios_scroll_scoreboard(float points);
 /* nonzero while a game controller is player 1's */
 int xg_ios_controller_connected(void);
 

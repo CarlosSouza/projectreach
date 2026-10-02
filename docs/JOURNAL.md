@@ -4834,3 +4834,24 @@ HUD artifact with66. Unadapted acceptance still required before pin promotion.
 No runtime edits, unit-suite rerun, hardware, IPA or publication. Earlier journal
 profile-summary wording is clarified by the already documented upstream unlock-all
 policy; no new save defect was found. Full evidence/limits in Simulator ledger.
+
+## 2026-10-02 — build 73 scoreboard touch bridge, visual gate open
+
+Implement held Scoreboard vertical drag in shared overlay as optional engine
+hook. Xbox maps 80 points/page to paired Page Up/Down; PC stays hold-only.
+Cancel pending pages on release/interruption but retain required key-up. Wheel
+route rejected because guest may consume it as weapon switching when closed.
+185 Xbox tests pass, including ASan/UBSan queue checks; 141 native overlay
+assertions pass. Correct initial misplaced event block and wrong-lifecycle
+fixture; failure logs retained privately. Normal app rebuilt/signed/installed,
+SHA `39f06f77…7198e`. No guest/pin/renderer change.
+
+Private `scoreboard73.ctwOYT`: app/data backup, local two-player fixture (one
+stand-in, no roster overflow), before postgame screenshot. Actual after drag
+emits BACK/four PageDown press-release pairs/BACK release; camera/weapon stable,
+Fire charge100->99. 53.42s capture and samples do not establish scoreboard
+visibility. Next isolate BACK/fade versus guest rendering; do not claim working
+end-to-end paging. Full record in Simulator ledger. Both helpers exit0 and
+recording stopped; ordinary picker PID5172. All196 Documents preserved except
+known log; Library OS snapshots/scene state only, prefs/PC registry identical.
+No hardware, IPA, push, publication or accepted-pin promotion. Graphics open.

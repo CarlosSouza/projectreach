@@ -556,6 +556,14 @@ static const hp_control_def CONTROLS[] = {
     }
 }
 
+- (void)setScoreboardScroll:(void (^)(CGFloat))handler
+{
+    [self clearTouchInput];
+    _scoreboardScroll = [handler copy];
+    for (HPControlButton *button in _buttons)
+        if (button.action == 12) button.looks = handler != nil;
+}
+
 /* ---- the controls ---- */
 
 - (void)buildControls
@@ -589,7 +597,13 @@ static const hp_control_def CONTROLS[] = {
             (strcmp(d->ident, "menu") == 0 ? @"Pause" : @"Scoreboard");
         NSString *name = b.accessibilityLabel;
         b.bindingHelp = ^{ [weak showBindingHelp:name]; };
-        b.lookBy = ^(CGFloat dx, CGFloat dy) { [weak lookX:dx y:dy]; };
+        if (d->action == 12) {
+            b.lookBy = ^(CGFloat dx, CGFloat dy) {
+                HPOverlay *owner = weak;
+                if (owner && !owner->_inputInactive && owner.scoreboardScroll && isfinite(dy))
+                    owner.scoreboardScroll(dy);
+            };
+        } else b.lookBy = ^(CGFloat dx, CGFloat dy) { [weak lookX:dx y:dy]; };
         b.actionChanged = ^(int action, int down) {
             hp_input event = {.kind = action < 0 ? HPI_KEY : HPI_ACTION, .flags = HPI_TOUCH,
                 .action = (uint32_t)action, .down = down, .vk = 0x1b, .side_vk = 0x1b, .scan = 0x01};

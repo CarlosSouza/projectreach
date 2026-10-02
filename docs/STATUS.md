@@ -4,6 +4,16 @@ Updated 2026-10-02. **Simulator-only work: shared controls, texture compatibilit
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE4.md](HaloPad-GOAL-LOOP-PHASE4.md). Earlier device work remains in [phase 3](HaloPad-GOAL-LOOP-PHASE3.md).
 
+**Scoreboard input bridge (2026-10-02).** Xbox Scoreboard now supports held
+vertical drag via paired Page Up/Down inputs; shared PC controls stay unchanged.
+185 Xbox tests and 141 native overlay assertions pass. Installed build-73
+candidate `39f06f77…7198e` produces four paired page events from an actual drag;
+camera/weapon stay unchanged and subsequent Fire works. Captured frames do not
+establish visible scoreboard response, and the local roster has only two players.
+Next diagnose scoreboard display/hold consumption before claiming paging acceptance.
+Saves/preferences/PC registry preserved; ordinary picker restored; pin stays 66.
+[Evidence and limits](XBOX-SIMULATOR-PASSES.md#build-73-scoreboard-touch-bridge-2026-10-02).
+
 **Build 73 candidate (2026-10-02).** Frozen upstream `d1c7243c` builds with the
 existing counted ANGLE adaptation and is installed on the dedicated Simulator.
 Menu/a10/scripted-match smoke passes; copied build-66 checkpoint loads, shared
