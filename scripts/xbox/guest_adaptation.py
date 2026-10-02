@@ -52,16 +52,34 @@ FILTER_INSERT = b'''\t/* HaloPad opt-in world filtering, independent of target r
 \t}
 '''
 
+# Private host-bridge token, never forwarded to a GLES implementation. The
+# paired host/backend is required; normal GL_QUERY_RESULT remains boolean.
+COUNT_ANCHOR = b'\tglGetQueryObjectuiv(device.queries[index], GL_QUERY_RESULT, &samples);\n#ifdef HALO_ANDROID\n'
+COUNT_INSERT = b'''#ifdef HALO_ANDROID
+\tglGetQueryObjectuiv(device.queries[index], 0x48504356u /* HaloPad counted bridge v1 */, &samples);
+\t{
+\t\tfloat area = device.query_area[index];
+\t\tif (area > 1.0f) samples = (GLuint)((double)samples / area + 0.5);
+\t}
+\tif (result) *result = samples;
+\treturn S_OK;
+#endif
+'''
+ATOMIC_ANCHOR = b'xgpu_capabilities.atomic_counters = counters > 0;'
+ATOMIC_REPLACE = b'xgpu_capabilities.atomic_counters = FALSE; /* paired counted query backend */'
+
 
 def identity(name=None):
     name = os.environ.get('HALOPAD_XBOX_GUEST_ADAPTATION', 'none') if name is None else name
     if name == 'none':
         return {'name': 'none'}
-    if name not in ('render-scale-v1', 'render-quality-v1'):
+    if name not in ('render-scale-v1', 'render-quality-v1', 'render-visibility-v1'):
         raise ValueError('Unknown HALOPAD_XBOX_GUEST_ADAPTATION')
     recipe = ANCHOR + INSERT
-    if name == 'render-quality-v1':
+    if name in ('render-quality-v1', 'render-visibility-v1'):
         recipe += FILTER_ANCHOR + FILTER_INSERT
+    if name == 'render-visibility-v1':
+        recipe += COUNT_ANCHOR + COUNT_INSERT + ATOMIC_ANCHOR + ATOMIC_REPLACE
     return {'name': name, 'upstream_renderer_sha256': SOURCE_SHA256,
             'recipe_sha256': hashlib.sha256(recipe).hexdigest()}
 
@@ -70,11 +88,16 @@ def adapted_source(original, name='render-scale-v1'):
     identity(name)
     if hashlib.sha256(original).hexdigest() != SOURCE_SHA256 or original.count(ANCHOR) != 1:
         raise ValueError('Renderer adaptation input changed; review the new upstream source first')
-    if name == 'render-quality-v1' and original.count(FILTER_ANCHOR) != 1:
+    if name in ('render-quality-v1', 'render-visibility-v1') and original.count(FILTER_ANCHOR) != 1:
         raise ValueError('Renderer filtering input changed; review the new upstream source first')
     modified = original.replace(ANCHOR, ANCHOR[:-len(b'#else\n')] + INSERT + b'#else\n')
-    if name == 'render-quality-v1':
+    if name in ('render-quality-v1', 'render-visibility-v1'):
         modified = modified.replace(FILTER_ANCHOR, FILTER_INSERT + FILTER_ANCHOR)
+    if name == 'render-visibility-v1':
+        if original.count(COUNT_ANCHOR) != 1 or original.count(ATOMIC_ANCHOR) != 1:
+            raise ValueError('Renderer visibility input changed; review upstream first')
+        modified = modified.replace(COUNT_ANCHOR, COUNT_INSERT + COUNT_ANCHOR)
+        modified = modified.replace(ATOMIC_ANCHOR, ATOMIC_REPLACE)
     return modified
 
 

@@ -56,6 +56,7 @@ def main():
              "void xg_gl_trace_query(int begin, GLuint id, GLenum name, GLuint value);", "",
              "void xg_gl_trace_query_end(GLenum target);",
              "void xg_gl_trace_query_draw(GLenum mode, GLint first, GLsizei count);", "",
+             "void xg_gl_query_samples(GLuint id, GLuint *result);", "",
              "/* XG_GL_CHECK=1: log the first OpenGL ES errors, naming the call */",
              "static int check_errors = -1;",
              "static GLenum (*check_get_error)(void);",
@@ -100,6 +101,9 @@ def main():
                 args.append("(%s)a%d" % (rt, index) if rt != t else "a%d" % index)
         lines.append("%s xh_hostgl_%s(%s)" % (ret, name, ", ".join(params) or "void"))
         lines.append("{")
+        if name == "glGetQueryObjectuiv":
+            lines.append("\t/* Private HaloPad bridge token, never sent to GLES. */")
+            lines.append("\tif (a1 == 0x48504356u) { xg_gl_query_samples(a0, a2 ? G(GLuint *, a2) : NULL); return; }")
         if name == "glShaderSource":
             # upstream's guest widens the string pointers to 64 bits
             lines.append("\tconst GLchar *strings[16];")

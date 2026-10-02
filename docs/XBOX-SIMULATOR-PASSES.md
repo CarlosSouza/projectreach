@@ -1,5 +1,87 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Counted guest integration (2026-10-02)
+
+The explicit `render-visibility-v1` guest now pairs with the isolated counted
+ANGLE backend. It includes the existing resolution/filtering recipe and disables
+the guest atomic-counter branch. After the normal availability check, a private
+bridge token requests raw counts; the host intercepts it before GLES. Ordinary
+GL_QUERY_RESULT remains boolean. The guest divides by the recorded target-scale
+area before returning logical pixels, preserving the upstream desktop behavior.
+Exact input/anchor checks and temporary source restoration remain enforced.
+
+Build explicitly with `HALOPAD_XBOX_GUEST_ADAPTATION=render-visibility-v1`,
+`HALOPAD_XBOX_RENDERER=angle-metal` and the pinned `XBOX_ANGLE_SOURCE`; then package
+with the same first two settings. This candidate is Simulator-only; other SDKs
+and Apple GLES are rejected before build. It has a separate `iphonesimulator-angle-counted`
+library directory and records the backend's complete generated identity in
+`build.json`. Packaging rejects mismatched guest/backend metadata or a counted
+backend on an ordinary guest. Normal builds keep the backend option explicitly
+OFF. Do not run different guest build workflows concurrently: the generated guest
+output is shared. This is not a new upstream pin or default rendering policy.
+
+Private evidence: `ref/xbox-build/passes/2026-10-02/counted-game.X2E6Wq/`.
+The combined app builds, passes strict signing verification and installs in
+place after an APFS app/data backup with readback. Generated and installed
+executable SHA256: `a5a8c6449b6545ee06256aadfa1541f4867e029520a132c486245691061f807e`.
+Guest SHA256: `27700a002ff4cc23069e5fa34c03cc171ef72190e797f7be72884e2139773dd7`.
+181 Xbox Python tests pass, including compiled/sanitized actual normalization
+fragment at 1x/2x, missing/duplicate anchors, bridge dispatch before GLES and
+manifest rejection. 36 native Simulator save/launch/quality checks pass in
+`generated/xbox-launch-tests/20261002T113800918597Z/`, including failed-backup
+refusal and same-pin guest-change/rollback recovery. This is not proof of
+cross-version save compatibility.
+
+Actual isolated Blood Gulch `live1` run, Original quality, manual background
+free-look without firing, correlates the far-depth sun rectangles below.
+The observer now reports **raw sample counts for the private bridge**, not
+booleans; interpret traces using the recorded build variant. Rectangle coordinates
+remain logical pixels. Query IDs rotate and do not identify Halo flare tags.
+
+| View | Logical rectangle | Area | Raw count at 1x |
+| --- | --- | ---: | ---: |
+| Inside | (127,310)–(178,361) | 2601 | 2601 |
+| Narrow edge slice | (-51,230)–(7,288) | 3364 | 406 |
+| Outside | (-75,215)–(-16,274) | 3481 | 0 |
+| Return to partial | (-27,244)–(30,301) | 3249 | 1710 |
+
+The edge counts exactly match 7*58 and 30*57 in-viewport pixels. The four saved
+screenshots show the sun-associated reflections fade at the edge and return on
+reversal. This removes the all-or-nothing coverage loss in this in-game route;
+it is not a matched original-renderer comparison, a measured brightness ratio,
+world-geometry occlusion acceptance or a fix for the broader texture complaint.
+Temporal smoothing and angular factors still affect visible flare intensity.
+
+Original run passes 300 seconds through tick 8490 with zero shots. Select
+Sharper through the actual picker, not quality environment overrides, for
+`live2`. Presentation reads 1280x960 and world filtering reports 4x. The inside
+rectangle (128,306)–(178,357), logical area 2550, returns 10200 raw samples.
+The narrow slice (-51,226)–(7,284), logical area 3364, returns 1624 raw samples:
+exactly 4*7*58. Outside (-75,211)–(-16,270) returns zero. Retained screenshots
+show the reflections fade rather than staying fully visible. Camera vertical
+alignment differs slightly between runs; these are not pixel-identical A/B
+frames. The trace is before guest normalization; the divided logical result is
+established by the exact compiled adaptation-fragment test, not directly logged
+from the running guest. Both runs retain the pre-existing startup frame-0
+GL 0x502; sampled frames 1, 2 and 120 show zero. Do not call every frame error-free.
+
+Sharper passes 240 seconds through tick 6780 with zero shots. Both harness runs
+terminate their owned app/helper at the deadline; return to Home is expected,
+not a crash. Original quality is restored through the picker. Post-run readback
+checks all 196 original Documents files: only the known app log differs, none
+added/removed. PC registry and full preference dictionary are unchanged. Library
+differences are reviewed Metal caches, OS snapshots and saved scene state.
+Keep the candidate installed for further Simulator checks; the prior app/data
+backup remains in the private pass directory. No hardware, upstream pin change,
+Xbox IPA, push or publication. Next validate world-geometry occlusion and another
+material/effects scene; a viewport-edge fix is not general graphics acceptance.
+
+Final observer-off isolated menu smoke passes 30 seconds, screenshot inspected;
+no rectangle/query trace rows. Cold launch returns to the edition picker with
+Original displayed. The post-menu preservation audit passes again. Current
+tree/index private-path safety and whitespace checks pass; no public-artifact
+or hardware acceptance is implied.
+
 ## Counted Metal backend candidate (2026-10-02)
 
 The preceding rectangle pass established coverage loss. Implement the necessary

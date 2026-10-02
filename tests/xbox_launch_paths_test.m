@@ -176,6 +176,7 @@ int main(int argc, char **argv)
         check("invalid identity leaves marker and current save untouched", [[fixture_defaults stringForKey:@"HaloPadXboxSaveRevision"] isEqualToString:accepted] &&
             [[NSData dataWithContentsOfFile:[save stringByAppendingPathComponent:@"profile.bin"]] isEqualToData:profile]);
         NSDictionary *qualityBuild = @{@"guest_adaptation": @{@"name": @"render-quality-v1"}};
+        check("counted guest retains shared quality choices", HPXboxSupportsQuality(@{@"guest_adaptation": @{@"name": @"render-visibility-v1"}}));
         check("only quality-adapted guests expose quality options", HPXboxSupportsQuality(qualityBuild) &&
             !HPXboxSupportsQuality(@{}) && !HPXboxSupportsQuality(@{@"guest_adaptation": @"invalid"}) &&
             !HPXboxSupportsQuality(@{@"guest_adaptation": @{@"name": @"render-scale-v1"}}));

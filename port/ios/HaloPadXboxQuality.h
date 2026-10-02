@@ -8,7 +8,8 @@ static inline BOOL HPXboxSupportsQuality(NSDictionary *build)
 {
     id adaptation = build[@"guest_adaptation"];
     return [adaptation isKindOfClass:NSDictionary.class] &&
-        [adaptation[@"name"] isEqual:@"render-quality-v1"];
+        ([adaptation[@"name"] isEqual:@"render-quality-v1"] ||
+         [adaptation[@"name"] isEqual:@"render-visibility-v1"]);
 }
 
 static inline BOOL HPXboxSharperSelected(NSUserDefaults *settings)

@@ -19,6 +19,38 @@ PIN = json.loads((ROOT / 'config/xbox-engine.lock.json').read_text())['revision'
 
 
 class XboxManifestTests(unittest.TestCase):
+    def test_counted_candidate_requires_matching_guest_backend_and_simulator(self):
+        self.angle_fixture()
+        self.lib = self.out / 'iphonesimulator-angle-counted/libhalopad-xbox.a'
+        self.lib.parent.mkdir()
+        self.lib.write_bytes(b'fixture library, not game code')
+        self.manifest['guest_adaptation'] = builder.xbox_runtime_manifest.guest_adaptation.identity('render-visibility-v1')
+        identity = {'name': 'counted-visibility-v1', 'recipe_sha256': 'fixture recipe'}
+        metadata = self.out / 'angle-counted-simulator/counted-visibility-v1/identity.json'
+        metadata.parent.mkdir(parents=True)
+        metadata.write_text(json.dumps(identity))
+        self.save_manifest()
+        with patch.dict(os.environ, {'HALOPAD_XBOX_GUEST_ADAPTATION': 'render-visibility-v1'}):
+            with self.assertRaisesRegex(ValueError, 'identity mismatch'):
+                builder.xbox_parts(builder.TARGET)
+            self.manifest['visibility_backend'] = identity
+            self.save_manifest()
+            self.assertIn(self.lib, builder.xbox_parts(builder.TARGET))
+            with self.assertRaisesRegex(ValueError, 'Simulator candidate'):
+                builder.xbox_parts(builder.DEVICE_TARGET)
+            with patch.dict(os.environ, {'HALOPAD_XBOX_RENDERER': 'apple-gles'}):
+                with self.assertRaisesRegex(ValueError, 'Simulator candidate'):
+                    builder.xbox_parts(builder.TARGET)
+            metadata.write_text(json.dumps({'name': 'counted-visibility-v1', 'recipe_sha256': 'different'}))
+            with self.assertRaisesRegex(ValueError, 'identity mismatch'):
+                builder.xbox_parts(builder.TARGET)
+
+    def test_counted_backend_rejected_for_plain_guest(self):
+        self.manifest['visibility_backend'] = {'name': 'counted-visibility-v1'}
+        self.save_manifest()
+        with self.assertRaisesRegex(ValueError, 'explicit guest'):
+            builder.xbox_parts(builder.TARGET)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)

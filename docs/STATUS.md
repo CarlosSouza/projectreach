@@ -4,13 +4,24 @@ Updated 2026-10-02. **Simulator-only work: shared controls, texture compatibilit
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE4.md](HaloPad-GOAL-LOOP-PHASE4.md). Earlier device work remains in [phase 3](HaloPad-GOAL-LOOP-PHASE3.md).
 
+**Counted guest integrated (2026-10-02).** Explicit Simulator-only
+`render-visibility-v1` pairs the guest with the counted backend and preserves
+ordinary GLES boolean results. In-game Blood Gulch sun tests now return full,
+partial and zero coverage: 2601 / 406 / 0 samples at Original; a corresponding
+narrow edge slice returns 1624 at Sharper (2x dimensions). Reflections fade and
+return at the viewport edge. 181 Xbox tests and 36 native launch/save/quality
+checks pass; this is a specific coverage fix, not overall graphics acceptance.
+Broader texture/shading issues, matched reference images, geometry occlusion and
+physical touch feel remain open. Upstream pin/default policy unchanged.
+[Integration evidence](XBOX-SIMULATOR-PASSES.md#counted-guest-integration-2026-10-02).
+
 **Counted backend candidate (2026-10-02).** An isolated ANGLE candidate now
 returns exact visible-pixel counts through a private bridge, while ordinary
 GLES queries remain boolean. 56 actual Simulator GPU cases pass across both
 verified render-pass accumulation paths, including the measured sun-edge
 rectangle (928 pixels), depth occlusion, query reuse and 2x target dimensions.
 177 Xbox Python tests pass. This is not yet connected to the Xbox guest or
-installed in HaloPad, so no in-game graphics fix is claimed. Next wire an
+installed in HaloPad at that stage, so no in-game graphics fix was claimed. Next was to wire an
 explicit, separately identified guest/backend capability and validate scale
 normalization plus the same Blood Gulch view.
 [Evidence](XBOX-SIMULATOR-PASSES.md#counted-metal-backend-candidate-2026-10-02).

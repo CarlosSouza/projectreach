@@ -169,3 +169,15 @@ Next integrate the explicit private capability, separately fingerprint backend
 and guest, normalize scaled counts, then validate the actual sun view and rollback.
 Do not repeat these same synthetic tests in lieu of game integration, and do not
 mark the visual defect fixed from this backend-only evidence.
+
+Counted guest integration follow-up: explicit `render-visibility-v1` now pairs
+the private query token, normalized guest result and counted ANGLE identity.
+181 Xbox tests and 36 native Simulator launch/save/quality checks pass. Actual
+Blood Gulch sun-edge views return full/partial/zero counts and reflections fade
+and return. At Sharper, the narrow slice returns 1624 raw samples versus 406 at
+Original; exact compiled guest normalization passes. This is the specific
+coverage-loss fix, not resolution of broader texture/shading defects. Do not
+repeat aggregate tracing or backend-only fixtures as the next experiment.
+Next test world-geometry occlusion in game and a different effects/material
+scene, with a matched reference where available. Keep this Simulator candidate
+opt-in; hardware/MSAA/performance and sustained multi-finger touch remain open.

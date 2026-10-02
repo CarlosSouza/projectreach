@@ -14,6 +14,56 @@ import guest_adaptation as adapter
 
 
 class GuestAdaptationTests(unittest.TestCase):
+    def test_visibility_requires_unique_query_and_capability_anchors(self):
+        for count, atomic in ((0, 1), (2, 1), (1, 0), (1, 2)):
+            original = (adapter.ANCHOR + adapter.FILTER_ANCHOR +
+                        adapter.COUNT_ANCHOR * count + adapter.ATOMIC_ANCHOR * atomic)
+            with patch.object(adapter, 'SOURCE_SHA256', hashlib.sha256(original).hexdigest()):
+                with self.assertRaisesRegex(ValueError, 'visibility input changed'):
+                    adapter.adapted_source(original, 'render-visibility-v1')
+
+    def test_visibility_recipe_and_normalization(self):
+        original = adapter.ANCHOR + adapter.FILTER_ANCHOR + adapter.COUNT_ANCHOR + adapter.ATOMIC_ANCHOR
+        with patch.object(adapter, 'SOURCE_SHA256', hashlib.sha256(original).hexdigest()):
+            modified = adapter.adapted_source(original, 'render-visibility-v1')
+        self.assertIn(adapter.COUNT_INSERT, modified)
+        self.assertIn(adapter.ATOMIC_REPLACE, modified)
+        self.assertNotEqual(adapter.identity('render-visibility-v1'), adapter.identity('render-quality-v1'))
+        binary = self.root / 'normalize'
+        source = r'''
+#include <assert.h>
+#include <stdint.h>
+typedef unsigned GLuint;
+#define HALO_ANDROID 1
+#define S_OK 0
+static struct { unsigned queries[1]; float query_area[1]; } device;
+static unsigned raw;
+static void glGetQueryObjectuiv(unsigned id, unsigned token, unsigned *out) {
+    assert(id == 9 && token == 0x48504356u); *out = raw;
+}
+static int query(unsigned *result) {
+    unsigned index = 0, samples = 0;
+''' + adapter.COUNT_INSERT.decode() + r'''
+}
+int main(void) {
+    device.queries[0] = 9;
+    unsigned result;
+    for (unsigned scale = 1; scale <= 2; scale++) {
+        device.query_area[0] = scale * scale;
+        raw = 928 * scale * scale; assert(query(&result) == S_OK && result == 928);
+        raw = 2401 * scale * scale; assert(query(&result) == S_OK && result == 2401);
+        raw = 0; assert(query(&result) == S_OK && !result);
+    }
+    raw = 7; device.query_area[0] = 4; assert(query(&result) == S_OK && result == 2);
+    assert(query(0) == S_OK);
+}
+'''
+        result = subprocess.run(['clang', '-x', 'c', '-', '-std=c11', '-Wall', '-Werror',
+                                 '-fsanitize=address,undefined', '-o', str(binary)],
+                                input=source, text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        subprocess.run([str(binary)], check=True, capture_output=True)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)

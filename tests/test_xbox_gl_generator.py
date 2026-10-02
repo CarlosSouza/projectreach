@@ -21,6 +21,9 @@ class XboxGLGeneratorTests(unittest.TestCase):
             subprocess.run([sys.executable, str(ROOT / 'scripts/xbox/gen-host-gl.py'),
                             str(source), str(output)], check=True, capture_output=True)
             generated = output.read_text()
+            self.assertLess(generated.index('if (a1 == 0x48504356u)'),
+                            generated.index('p_glGetQueryObjectuiv(a0, a1, (GLuint *)GP(a2));'))
+            self.assertIn('xg_gl_query_samples(a0, a2 ? G(GLuint *, a2) : NULL); return;', generated)
             self.assertLess(generated.index('p_glBeginQuery(a0, a1);'),
                             generated.index('xg_gl_trace_query(1, a1, a0, 0);'))
             self.assertLess(generated.index('p_glGetQueryObjectuiv(a0, a1, (GLuint *)GP(a2));'),

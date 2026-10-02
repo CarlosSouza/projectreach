@@ -53,8 +53,9 @@ class CountedVisibilityTests(unittest.TestCase):
                         counted.adapt(name, bad)
 
     def test_normal_ios_builder_resets_cached_candidate_option(self):
-        self.assertIn('-DHALOPAD_ANGLE_COUNTED_VISIBILITY=OFF',
-                      (ROOT / 'scripts/xbox/build-ios.sh').read_text())
+        script = (ROOT / 'scripts/xbox/build-ios.sh').read_text()
+        self.assertIn('COUNTED=OFF', script)
+        self.assertIn('-DHALOPAD_ANGLE_COUNTED_VISIBILITY=$COUNTED', script)
 
 
 if __name__ == '__main__':

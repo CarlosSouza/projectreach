@@ -4672,3 +4672,51 @@ Next wire a separately identified private guest/backend capability, normalize
 scaled-target counts, then compare the actual Blood Gulch sun and world occluder
 with fallback/rollback. Do not substitute more identical synthetic checks for
 that integration or claim the user's broader texture/shading report resolved.
+
+## 2026-10-02 — counted guest integration and actual sun-edge verification
+
+**Hypothesis:** the tested counted Metal backend can replace the guest's boolean
+fallback through an explicit private bridge and maintain correct logical-pixel
+scaling at both quality settings, without changing ordinary GLES semantics.
+
+Implement `render-visibility-v1` as a distinct, exact-input-checked guest recipe.
+Intercept its private query token in the generated host wrapper before GLES;
+require the paired backend, and normalize counts by recorded target-scale area
+in the guest. Disable atomic counting for this recipe. Require Simulator/ANGLE,
+separate the library directory and bind backend identity into the build/package
+manifest. Missing/mismatched identities fail packaging. Default backend stays
+OFF and accepted upstream pin is unchanged. Upstream checkout is clean after
+the temporary recipe build. Generated code/game inputs stay private.
+
+181 Xbox Python tests pass, including sanitized compiled normalization, unique
+anchors, interception and manifest refusal; 36 native Simulator save/launch/
+quality checks pass (`generated/xbox-launch-tests/20261002T113800918597Z`).
+Combined app builds, strict signature verifies, installed/generated executable
+matches `a5a8c6449b6545ee06256aadfa1541f4867e029520a132c486245691061f807e`.
+App and original data backed up/read back before in-place installation.
+
+Private `counted-game.X2E6Wq/live1`: Original Blood Gulch passes 300 seconds,
+tick 8490, no shots. Manual free-look correlates the sun with full 2601, narrow
+edge 406, outside 0, return-partial 1710 raw samples. The partial counts exactly
+match in-viewport test pixels. Actual reflections fade and return. `live2` uses
+the real picker Sharper choice: 1280x960/4x filtering, 240 seconds/tick 6780.
+Full area 2550 returns 10200; the narrow slice returns 1624, outside zero. This
+is raw-count evidence; guest division is separately exercised by the exact
+compiled fragment, not logged directly in game. Camera views differ slightly.
+Both runs retain startup GL 0x502; later sampled frames are zero. No assertion
+of all-frame correctness, performance, original-renderer parity or world-depth
+acceptance. The specific all-or-nothing sun coverage loss is corrected on this
+route; broader texture/shading complaints remain unresolved.
+
+Restore Original through the picker. Readback finds all 196 original Documents
+files intact except the known log; PC registry/preferences unchanged. Reviewed
+Library differences are Metal caches and OS scene/snapshot state. Preserve app/
+data backup and screenshots/logs. No hardware, Xbox IPA, pin promotion, push or
+publication. Next world-geometry occlusion and a different effects/material
+scene, not another identical observer or synthetic fixture pass.
+
+Final observer-off 30-second menu smoke passes, retained screenshot shows the
+Xbox menu, and cold launch returns to Original-quality edition picker. No query
+trace rows. Preservation audit passes again after this run. Current tree/index
+safety and whitespace checks pass. Candidate remains installed for Simulator
+follow-up; no promotion to full gameplay/graphics acceptance.

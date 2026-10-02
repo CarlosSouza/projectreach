@@ -15,6 +15,22 @@
 void *xg_gl_proc(const char *name);
 GLuint xg_gl_framebuffer(GLuint framebuffer);
 
+/* Private guest bridge, not a GL query pname exposed to other clients. */
+void xg_gl_query_samples(GLuint id, GLuint *result)
+{
+#ifdef XG_COUNTED_VISIBILITY
+	extern int halopad_angle_query_samples(unsigned, unsigned *);
+	if (!result || !halopad_angle_query_samples(id, result))
+		xg_fatal("Counted visibility bridge failed for query %u", id);
+	/* The rectangle observer now reports a count for this explicit bridge;
+	 * ordinary query reads still report GL booleans. */
+	xg_query_rect_result(id, 0x8866, *result);
+#else
+	(void)result;
+	xg_fatal("Counted visibility guest requires its paired backend (query %u)", id);
+#endif
+}
+
 static const GLubyte *(*p_glGetString)(GLenum);
 static const GLubyte *(*p_glGetStringi)(GLenum, GLuint);
 static void (*p_glGetIntegerv)(GLenum, GLint *);
