@@ -5155,3 +5155,22 @@ Real196 Documents differ only by app log, Library only four Metal cache files;
 preferences/keyset/PC registry exact. No hardware/IPA/publication. Next Sharper
 on this exact candidate, not repetition of the zero-duration gesture. Sustained
 multi-touch and broader graphics fidelity remain unaccepted.
+
+## 2026-10-03 — exact shared-input Sharper regression
+
+Previous turn progress. UI-selected Sharper on unchanged `48f118f3…213e` runs
+b30 PID95027 for101.053s and a10 PID95776 for181.716s, at1280x960/effective4x.
+Private `sharper-input73.30PwZ5`: full real backup, independent scene state,
+20/36 composited screenshots, no periodic BMP/video. Water detail, bridge-band
+fix and engine glow remain visible. No pixel/full-fidelity or human-play claim.
+Startup blit0x502 persists with first swap read1/draw1 rather than drawable0.
+Pinned source reveals Present's draw0 binding precedes a potentially stateful
+framebuffer_get(read-source) cache miss. Targeted runtime attribution/order-fix
+A/B is the next experiment, not another unchanged graphics repeat.
+
+Original restored through UI; ordinary picker PID97340. Real196 Documents differ
+only by app log, Library only one OS scene-state file; preferences/keyset/PC
+registry exact. App SHA unchanged; nested source clean; pins unchanged. No new
+unit run, rebuild, hardware or publication. Free space fell2.7->1.8GiB; private
+scene roots occupy730MiB combined including generated state. Capture guard was
+1GiB. Avoid another large capture/build without rechecking disk; no deletion.

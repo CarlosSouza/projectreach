@@ -401,3 +401,13 @@ Evidence `sticks73.gpETY0`; real state preserved, Original picker restored,
 accepted66/upstream73 unchanged. Next exact-build Sharper graphics with bounded
 disk usage. Do not repeat identical zero-duration gestures or extend gameplay
 input solely for automation; human multi-touch/feel stays an explicit later gate.
+
+Exact-candidate Sharper checkpoint: same `48f118f3…213e` at1280x960/effective4x
+retains water detail, bridge-band fix and engine glow in bounded b30/a10 runs.
+Evidence `sharper-input73.30PwZ5`; real state exact apart from app log/OS scene
+state; Original picker restored, pins unchanged. No new runtime/unit/hardware
+claim. Next first-blit ordering investigation: Present binds draw0 before a
+framebuffer_get cache miss can replace both targets; first swap actually logs
+read1/draw1 and blit0x502. Confirm call path before a minimal correction and A/B.
+Free disk1.8GiB; do not start a large build/capture without rechecking headroom.
+Broader fidelity and human multi-touch remain open; goal is incomplete.

@@ -1,5 +1,51 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Shared-input Sharper regression (2026-10-03)
+
+Previous turn is progress: Southpaw routing and gesture-duration evidence plus
+regression assertions. This pass closes the exact-candidate Sharper water/border
+check, not overall rendering acceptance. Installed app SHA before/after remains
+`48f118f3f2cb690c29a8978c8f213644c45ddfc0400cfdf26495add966d1213e`; guest/adaptation,
+accepted66 and upstream73 unchanged. Nested source remains clean. No rebuild,
+new upstream import, unit-suite rerun or physical device.
+
+Private evidence `ref/xbox-build/passes/2026-10-03/sharper-input73.30PwZ5/`.
+Full real-container APFS backup precedes UI selection of **Sharper (Preview)**.
+Independent a10/b30 data/save roots with trusted map links; explicit init maps
+and forced Xbox only in diagnostics. No scripted player input; network/UPnP/
+clipboard joins/update prompts disabled at launch. These are rendering tests,
+not normal-menu play or new progression. Native composited screenshots every
+approximately5s, no periodic guest BMPs or video. A1GiB free-space guard aborts
+capture safely. Counts include loading/cinematic cuts, not FPS measurements.
+
+- b30 PID95027,101.053s,20 screenshots. `screen-04.png` shows restored detailed
+  water behind the rifle/Pelican. `screen-08.png` shows beach terrain shading,
+  distant shield effects and normal foreground occlusion. Actual1280x960,
+  filtering request4/effective4x in stderr.
+- a10 PID95776,181.716s,36 screenshots. `screen-13.png` shows the corresponding
+  bridge floor without the old long black shadow bands, compared visually with
+  the previous Original/desktop comparison. Camera timing differs; no pixel
+  parity claim. `screen-05.png` retains bright exterior engine glow; screen18
+  retains the translucent bridge display. Same actual1280x960/effective4x.
+
+Both runs retain one initial `glBlitFramebuffer`0x502. Their first swap reports
+read1/draw1 despite drawable0; subsequent sampled swaps report draw0/error0.
+Source lead in pinned `port/linux/src/d3d8_gl.c`: `D3DDevice_Present` binds draw0
+before evaluating `framebuffer_get(back_buffer->target.texture,0)` for the read
+binding. On a cache miss, `framebuffer_get` binds `GL_FRAMEBUFFER`, changing both
+targets. On a hit it does not. This explains the observed state asymmetry as a
+plausible cold-cache ordering defect; no targeted breakpoint or fixed-build A/B
+yet proves attribution. Do not swallow the error or call this the cause of all
+reported texture issues. Next inspect the first blit's actual bindings/call path
+and validate the smallest ordering correction if confirmed.
+
+Ordinary picker PID97340 restored; UI returns quality to **Original**, readback
+confirms preferences/keyset exact.196 real Documents differ only by app log;
+Library only one OS KnownSceneSessions state file; PC registry exact. Free space
+2.7GiB at start,1.8GiB at end; isolated a10/b30 roots occupy372/358MiB including
+generated game state. No cleanup, IPA, publication or pin promotion. Sustained
+human multi-touch, broader material/temporal fidelity and hardware remain open.
+
 ## Southpaw thumbsticks and gesture duration (2026-10-03)
 
 Previous pass is progress: exact-candidate Original rendering/local match pass.

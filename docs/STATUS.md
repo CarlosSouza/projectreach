@@ -4,6 +4,15 @@ Updated 2026-10-03. **Simulator-only work: shared controls, texture compatibilit
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE4.md](HaloPad-GOAL-LOOP-PHASE4.md). Earlier device work remains in [phase 3](HaloPad-GOAL-LOOP-PHASE3.md).
 
+**Exact shared-input candidate retains fixes in Sharper (2026-10-03).**
+UI-selected Sharper runs at1280x960/effective4x on `48f118f3…213e`. Bounded b30
+and a10 captures retain detailed water, the bridge-band fix and engine glow.
+No new runtime change or full fidelity claim. Startup blit0x502 persists; source
+inspection identifies a cold framebuffer-creation ordering hypothesis for the
+next targeted check. Real state preserved, Original picker restored. Free disk
+is1.8GiB: avoid large captures/rebuilds without checking available space. Pins
+unchanged. [Evidence](XBOX-SIMULATOR-PASSES.md#shared-input-sharper-regression-2026-10-03).
+
 **Southpaw thumbstick routing verified; sustained feel still open (2026-10-03).**
 Genuine saved Southpaw sticks/Default buttons reload on the unchanged
 `48f118f3…213e` candidate. Shared swipe Look and Fire work; trace proves Move
