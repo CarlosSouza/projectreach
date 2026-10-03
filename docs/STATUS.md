@@ -4,6 +4,17 @@ Updated 2026-10-03. **Simulator-only work: shared controls, texture compatibilit
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE4.md](HaloPad-GOAL-LOOP-PHASE4.md). Earlier device work remains in [phase 3](HaloPad-GOAL-LOOP-PHASE3.md).
 
+**Adapted upstream74 passes smoke and copied-save controls (2026-10-03).**
+Installed candidate `4e42dc6d…11175` carries the unchanged cumulative
+render-present-v1 recipe against the reviewed74 renderer hash. Historical66/73
+identities remain intact;206 Xbox tests pass. Menu/a10/match smoke and normal
+Green Thumb Melee/Zoom/Swap/Fire/Reload/Pause, Save and Quit and cold checkpoint
+reload pass. Frame0 is read1/draw0/error0. Real saves/preferences/PC registry
+remain exact; ordinary Original picker restored. Accepted66 is unchanged.
+Next exact74 Original/Sharper water/shadow regression, not pin promotion or a
+claim that all graphics and sustained multi-touch are fixed.
+[Evidence](XBOX-SIMULATOR-PASSES.md#adapted74-controls-and-save-regression-2026-10-03).
+
 **Unadapted upstream74 passes Mac and Simulator smoke (2026-10-03).**
 Live release/main now resolve to74/80d30410. Fresh Mac and ANGLE Simulator builds
 pass menu/a10/scripted-match checks. This is not adapted-preview or save-compatibility

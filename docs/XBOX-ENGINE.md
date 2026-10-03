@@ -30,7 +30,16 @@ The Simulator-only presentation fix remains narrow: temporarily neutralize textu
 sampler 0 during final presentation, then restore it. That diagnostic is not enabled on hardware.
 See [XBOX-SIMULATOR-PASSES.md](XBOX-SIMULATOR-PASSES.md).
 
-Latest Simulator candidate: build73 `d1c7243c`, executable `ed257ad5…af30b`,
+Latest Simulator candidate: build74 `80d30410`, executable `4e42dc6d…11175`,
+guest `8fb0112f…0a5e`, cumulative **render-present-v1**. Reviewed revision-aware
+renderer identity preserves historical66/73 manifests and all source guards.
+206 Xbox tests, cold menu/a10/match smoke, copied73 Green Thumb shared controls,
+Save and Quit and cold checkpoint reload pass. First frame read1/draw0/error0;
+real saves/preferences/PC registry preserved. Exact74 Original/Sharper water
+and shadow regression is next; accepted66 and broad-fidelity gates unchanged.
+[Installed evidence](XBOX-SIMULATOR-PASSES.md#adapted74-controls-and-save-regression-2026-10-03).
+
+Previous Simulator candidate: build73 `d1c7243c`, executable `ed257ad5…af30b`,
 guest `4ac7e842…b60`, cumulative **render-present-v1**. Resolving the read
 framebuffer before selecting/clearing the presentation destination fixes the
 confirmed cold-cache ordering defect. Cold menu, a10 campaign and scripted local
@@ -366,8 +375,9 @@ the existing ANGLE options). Default is `none`. This adaptation only enables
 Use copied `XG_SAVE` data for experiments. It is tested on Simulator ANGLE ES3.0,
 not accepted for physical-device performance or all visibility/effects paths.
 
-`guest_adaptation.py` checks the complete renderer input against build 66 before
-temporarily inserting six original lines. Ninja runs under an exclusive guest
+`guest_adaptation.py` checks the complete renderer input against the reviewed
+revision-specific hash (shared66/73 bytes, distinct74 bytes) before temporarily
+applying the selected recipe. Ninja runs under an exclusive guest
 build lock; normal completion, failures and handled interrupts restore the
 original source. Concurrent edits are preserved and stop the build. A hard kill
 may leave edits: inspect/preserve them manually; never reset as a recovery shortcut.
@@ -423,7 +433,7 @@ HALOPAD_XBOX_RENDERER=angle-metal scripts/xbox/build-ios.sh
 
 Supply the pinned `XBOX_ANGLE_SOURCE` as above, preserve the prior app/output and
 save data first, then package with those same variables using the normal app
-builder. The source guard currently matches builds66/73; never substitute a new
+builder. The source guard currently supports reviewed builds66/73/74; never substitute a new
 upstream digest without reviewing the copy/draw ordering and border policy, then
 rerunning the water/shadow comparisons. Evidence is linked above.
 
@@ -457,7 +467,9 @@ the old full app/data first, use the intended renderer setting, and exercise the
 ordinary picker plus a copied checkpoint. Check shared control routing after
 every guest update; upstream gamepad/profile defaults can change even though
 our overlay source is untouched. Build74 unadapted Mac/ANGLE Simulator smoke
-passes, but its adapted preview is not yet built and accepted66 remains unchanged.
+passes; its adapted Simulator preview also passes smoke and copied73 Green Thumb
+controls/save/reload. Exact74 quality-mode regression remains open, and accepted66
+remains unchanged.
 See [update evidence](XBOX-SIMULATOR-PASSES.md#upstream74-unadapted-update-gates-2026-10-03).
 
 Keep three independently reviewable layers: the guest commit in

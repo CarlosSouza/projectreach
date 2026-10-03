@@ -498,3 +498,16 @@ Original picker; real saves/prefs/PC registry preserved. Shared output and clean
 upstream checkout are74, accepted lock66 unchanged. Next minimal revision-aware
 adaptation identity with old identities intact, then actual adapted74 controls/
 save/graphics regression. Unadapted smoke does not imply full fidelity/promotion.
+
+Adapted74 checkpoint: revision-aware renderer identity accepts the reviewed74
+digest while old66/73 identities remain exact. Recipe unchanged;206 tests pass.
+Installed4e42dc6d…11175/guest8fb0112f…0a5e passes menu/a10/match smoke with
+frame0 error0 and normal-menu copied73 Green Thumb controls/save/cold reload.
+Melee swings separately from Zoom; Fire/Reload reserve64->63; mapping survives
+cold launch. Evidence adapted74.VMMEFa, outgoing app/output/data preserved.
+Real saves/preferences/PC registry exact; ordinary Original picker62231.
+Shared outputs/installed app and clean upstream checkout are74, accepted lock66
+unchanged. Next exact-candidate Original/Sharper a10/b30 water/border regression.
+Do not reuse73 screenshots as74 acceptance or repeat this completed controls
+pass without a changed binary. Human multi-touch, broad fidelity and hardware
+remain separate gates. No IPA/publication, goal incomplete.

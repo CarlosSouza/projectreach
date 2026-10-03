@@ -25,6 +25,13 @@ _input_spec.loader.exec_module(profile_input)
 
 RENDERER = pathlib.Path('port/linux/src/d3d8_gl.c')
 SOURCE_SHA256 = '5c8c132048b1efaa57d322b9c8a0ef65df07c1755df653c0f1a178ce96831cc6'
+# Build74 adds desktop-only Mesa Intel flushing; the Android draw path and our
+# insertion sites are unchanged. Keep the historical66/73 identity intact.
+REVIEWED_RENDERERS = {
+    '80d30410c8db28f4008b92f4e012a1b046ece14e':
+        'ad03056fbbce7162e044622fdd17ee0b307706c26844ca5605aed803bdb77ab8',
+}
+ENGINE_LOCK = pathlib.Path(__file__).resolve().parents[2] / 'config/xbox-engine.lock.json'
 ANCHOR = b'\tscale[0] = scale[1] = 1.0f;\n#else\n'
 INSERT = b'''\t/* HaloPad private experiment: retain logical layout, scale only targets. */
 \t{
@@ -109,12 +116,14 @@ COUNTED_ADAPTATIONS = ('render-visibility-v1', 'render-water-v1', *BORDER_ADAPTA
 WATER_ADAPTATIONS = ('render-water-v1', *BORDER_ADAPTATIONS)
 
 
-def identity(name=None):
+def identity(name=None, revision=None):
     name = os.environ.get('HALOPAD_XBOX_GUEST_ADAPTATION', 'none') if name is None else name
     if name == 'none':
         return {'name': 'none'}
     if name not in ('render-scale-v1', *QUALITY_ADAPTATIONS):
         raise ValueError('Unknown HALOPAD_XBOX_GUEST_ADAPTATION')
+    if revision is None:
+        revision = os.environ.get('XBOX_REV') or json.loads(ENGINE_LOCK.read_text())['revision']
     recipe = ANCHOR + INSERT
     if name in QUALITY_ADAPTATIONS:
         recipe += FILTER_ANCHOR + FILTER_INSERT
@@ -128,13 +137,13 @@ def identity(name=None):
         recipe += profile_input.recipe()
     if name == 'render-present-v1':
         recipe += PRESENT_ANCHOR + PRESENT_REPLACE
-    return {'name': name, 'upstream_renderer_sha256': SOURCE_SHA256,
+    return {'name': name, 'upstream_renderer_sha256': REVIEWED_RENDERERS.get(revision, SOURCE_SHA256),
             'recipe_sha256': hashlib.sha256(recipe).hexdigest()}
 
 
 def adapted_source(original, name='render-scale-v1'):
-    identity(name)
-    if hashlib.sha256(original).hexdigest() != SOURCE_SHA256 or original.count(ANCHOR) != 1:
+    expected = identity(name)['upstream_renderer_sha256']
+    if hashlib.sha256(original).hexdigest() != expected or original.count(ANCHOR) != 1:
         raise ValueError('Renderer adaptation input changed; review the new upstream source first')
     if name in QUALITY_ADAPTATIONS and original.count(FILTER_ANCHOR) != 1:
         raise ValueError('Renderer filtering input changed; review the new upstream source first')
@@ -165,6 +174,8 @@ def renderer_adaptation(engine, adaptation):
     if adaptation['name'] == 'none':
         yield
         return
+    if adaptation != identity(adaptation['name']):
+        raise ValueError('Renderer adaptation identity differs from the requested revision/recipe')
     path = engine / RENDERER
     original = path.read_bytes()
     modified = adapted_source(original, adaptation['name'])

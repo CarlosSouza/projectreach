@@ -1,5 +1,55 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Adapted74 controls and save regression (2026-10-03)
+
+Extend only the reviewed renderer-input identity for frozen upstream74
+80d30410c8db28f4008b92f4e012a1b046ece14e. Its desktop-only flushing additions
+were reviewed in the previous pass. Full renderer hash and insertion-anchor
+guards remain; old66/73 identities are byte-identical. Identity resolves explicit
+revision, XBOX_REV, then accepted lock. Transactions reject stale identity before
+mutation. Three new asset-free tests cover historical identity, selection and
+wrong-revision/concurrent-edit rejection; all206 Xbox tests pass.
+
+Private `ref/xbox-build/passes/2026-10-03/adapted74.VMMEFa/` preserves outgoing
+73 HaloPad-before.app, unadapted74 out-before, and full real data-before. Initial
+backup used an obsolete container path and failed; rediscovered the live path,
+cloned it, and verified exact Documents/Library before install. No uninstall or
+reset. Normal-entry combined build, independently pinned ANGLE; no --scene.
+
+Actual signed/installed identities:
+
+- Executable4e42dc6d4e58ea81cb4ce9cb34817bb4898de715e4b1a9ce804d8d867fe11175.
+- Guest8fb0112f359467f89526897c3911d36848cc448ad465052583929b7a4ab60a5e.
+- Library668a6b9fcdc14c694d1ec30b4f625caf43b4c566d89d7bd2fd89373da407131a.
+- render-present-v1 recipe remains
+  0b2ccebc00d023a9b665c979393dc6f51e582d8f0be2f0f15cc171102d94e3f8;
+  renderer input is ad03056fbbce7162e044622fdd17ee0b307706c26844ca5605aed803bdb77ab8.
+
+Fresh Simulator menu30s/a10 campaign60s/scripted match65s pass; match tick1531,
+12 shots. All three cold starts show read1/draw0/error0. Campaign PPM samples
+include a black transition, but the subsequent composited screen shows the
+Captain Keyes interior; do not describe the single black sample as a persistent
+blackout or infer comprehensive temporal fidelity from this smoke.
+
+Normal-menu copied Green Thumb build73 profile/checkpoint loads on74. Campaign
+selection, New001, Halo in-progress, Normal reaches the existing outside-pod a30
+checkpoint. Mapping765f3240:1edc/sticks0/valid1 publishes in menu and gameplay.
+The profile card still says Default/The Maw/Legendary; this stale card is not
+evidence of the resolved mapping or loaded checkpoint. Shared Swap selects the
+pistol, Melee visibly swings without scoping, Zoom enters/exits2x, Fire and Reload
+consume one reserve round64->63, Pause/menu selection and Save and Quit work.
+157.137s actions.mp4 plus dense22-28s melee contact sheet inspected. Cold process
+61308 loads the same checkpoint with mapping intact and checkpoint rifle60/
+reserve120/grenade1; save semantics restore checkpoint ammo, not temporary shots.
+No sustained multi-touch, Jump/Throw runtime or full campaign acceptance claimed.
+
+Final ordinary Original picker62231. Full real-state audit: Documents only
+HaloPad.log changed; Library only two OS snapshot replacements. Preferences and
+keyset, PC registry, real saves/game/package files exact. Nested upstream remains
+clean74; installed/shared outputs are adapted74, accepted lock66 unchanged.
+No hardware, IPA, publication or pin promotion. Next water/border regression at
+Original and Sharper on this exact new binary; prior73 images do not accept74.
+
 ## Upstream74 unadapted update gates (2026-10-03)
 
 Previous night-reference turn is progress. GitHub releases API and git ls-remote

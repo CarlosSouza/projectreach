@@ -5316,3 +5316,21 @@ picker50980 verified. Real saves/preferences/PC registry exact; app log/OS cache
 and snapshots differ. Shared outputs and clean checkout remain74, accepted66
 unchanged; both candidate/outgoing artifacts preserved. Next review-aware74
 adaptation identity preserving historical manifests, then runtime/save regression.
+
+### 2026-10-03 — adapted74 input identity and copied-save runtime
+
+Add reviewed74 renderer digest keyed by exact revision; retain historical66/73
+identity and recipe hash. Strict source/anchor and transaction identity checks
+remain; three new tests,206 Xbox tests pass. Built/signed/installed adapted74
+4e42dc6d…11175, guest8fb0112f…0a5e with normal PC entry and pinned ANGLE.
+Private adapted74.VMMEFa preserves outgoing app/output/full real data. A stale
+container backup path failed before install; rediscovery/clone/exact audit fixed it.
+Menu30/a1060/match65(tick1531/12 shots) pass with frame0 read1/draw0/error0.
+Black campaign sample is followed by visible Keyes interior, not persistent loss.
+Copied73 Green Thumb normal-menu checkpoint, shared Melee/Zoom separation,
+Swap/Fire/Reload/Pause, Save and Quit and cold reload pass; mapping765f3240:1edc
+retained.157.137s recorded actions and dense melee sequence inspected. Real saves,
+preferences/keyset and PC registry exact; only app log and OS snapshots differ.
+Installed/shared candidate remains74 at ordinary Original picker62231; accepted66
+unchanged, clean nested source. Next exact74 Original/Sharper water/shadow checks,
+not broad graphics/multi-touch acceptance or promotion. Simulator only; no IPA.
