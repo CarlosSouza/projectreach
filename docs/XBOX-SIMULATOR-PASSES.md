@@ -1,5 +1,21 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Corruption detector run and stopping point (2026-10-03)
+
+`soak9-trace4`: private `sound-trace-v4` (guest 86be7ff4…) adds shadows of every
+loop identifier and every loop-track sound's `source_identifier`, written only at
+the legitimate create/delete sites and compared at each `sound_render` and
+`sound_idle` entry. Stopped deliberately after 1,091 s (8 sweeps, 105,000 frames):
+0 integrity differences, 0 orphan escapes, no signal. No stray write to the failing
+fields was observed. Shared output rebuilt to normal (guest 8fb0112f…, identical
+`guest.s`), reporter build 6bea0684… reinstalled, picker and real data verified.
+
+Decision: further replays/soaks are not justified without a new trigger. Across
+about 2.3 traced hours the delete/stop invariant and field integrity hold; the
+single original fault stays unexplained and **unfixed**. Next evidence must come from
+a natural recurrence: the fixed reporter now names the real fault and its guest
+callers, and `diag_build.py` (v4) can be rebuilt to capture the event history.
+
 ## 60-minute traced recurrence soak (2026-10-03)
 
 `sound-life.abYmaG/soak8-trace3`: preserved private trace v3 app (5d5c3479…,
