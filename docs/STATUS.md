@@ -4,6 +4,18 @@ Updated 2026-10-03. **Simulator-only work: shared controls, texture compatibilit
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE4.md](HaloPad-GOAL-LOOP-PHASE4.md). Earlier device work remains in [phase 3](HaloPad-GOAL-LOOP-PHASE3.md).
 
+**Build74 normal multiplayer menu route verified (2026-10-03).**
+Unchanged adapted `4e42dc6d…11175`: copied New001/Green Thumb profile -> System
+Link -> Create Game -> Battle Creek/Slayer -> lobby -> rendered match -> Leave
+Game -> main menu. Shared Fire, Melee, Throw and Pause work; raw A/Y menu actions
+remain independent of the gameplay preset. One local stand-in peer, not another
+full game client, so real multiplayer compatibility is not accepted. Real saves,
+preferences and PC registry preserved; ordinary Original picker restored.
+Next compare a moving Battle Creek water/foliage view with the pinned desktop
+reference before treating its appearance as a new renderer defect. No runtime
+change; broad graphics, held-score/multi-touch and hardware gates remain open.
+[Evidence](XBOX-SIMULATOR-PASSES.md#build74-normal-multiplayer-menu-route-2026-10-03).
+
 **Build74 is the accepted development pin (2026-10-03).**
 Actual update-pin --accept workflow verifies save backups, passes Mac and ANGLE
 Simulator menu/campaign/match gates, then advances66->74/80d30410. Preserved the

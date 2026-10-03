@@ -1,5 +1,52 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Build74 normal multiplayer menu route (2026-10-03)
+
+Previous accepted-update pass is progress. This pass closes a different bounded
+gate: ordinary profile/lobby entry rather than scripted combat. Private evidence
+`ref/xbox-build/passes/2026-10-03/menu-match74.LOkrFn/`; full real-data backup and
+preflight audit exact. Installed adapted74 `4e42dc6d…11175` unchanged. Copy the
+genuine New001/Green Thumb session from adapted74.VMMEFa; no init.txt, forced
+level/edition, network-test or test-input. Disable online/UPnP/clipboard joins/
+auto-update for the private launch. PID90317, Original640x480/1x.
+
+Actual CUA progression: picker Xbox -> Multiplayer -> System Link Play -> join
+controller -> existing New001 -> game browser -> Y/Create Game -> Battle Creek
+-> Slayer -> enlisted players. The existing profile passes name validation;
+this does not cover new/duplicate/invalid-name error paths. A cannot start until
+another console joins. Use one local stand-in machine, host127.0.0.1 and this
+Mac's existing192.168.0.27 address, with no network aliases. Direct upstream
+system_link_bots.py first fails join decoding because it still omits the32-byte
+hardware ID. Existing scripts/xbox/network-bot.py supplies that reviewed layout
+and joins successfully; no source modification needed. Both attempts retained.
+Normal game host listens on all interfaces during this test; this was not a
+loopback-only listener. Online/UPnP remain off and all sockets close on exit.
+
+Shared Jump/A starts the visible30-second countdown. Battle Creek renders with
+two players/two machines; stand-in receives updates through2040 before the
+deliberate leave. It does not simulate gameplay/distributed peer input. Fire
+reduces plasma charge100->99, Melee visibly swings, Throw reduces grenades4->3.
+Pause -> Move down -> A/Leave Game returns to main menu, with network client/
+server disposal logged. Gameplay mapping remains765f3240:1edc/sticks0/valid1;
+menu context returns correctly. No claim about online servers, real peer play,
+held scoreboard pixels/paging, sustained movement or multi-touch feel.
+
+Retained menu-match.mp4 is237.260s/1134140391bytes; CUA screenshots verify each
+route and control result, and the12-frame contact sheet was inspected.
+Water/rock/foliage are visible, but appearance alone
+is not matched-reference fidelity evidence. Startup frame0 read1/draw0/error0;
+no renderer changes made. Helper completes exit0 after host leaves; recording
+stopped. Ordinary launch95285 restores Original edition picker, visually/AX
+verified. Real Documents differ only by HaloPad log; Library changes during the
+pass are Metal cache and OS scene state (final readback only Metal cache), with
+preferences/keyset/PC registry and saves/game/
+package files exact. No unit rerun for unchanged source/runtime. No hardware,
+IPA, publication or pin change;74 remains accepted development baseline.
+
+Next a matched moving Battle Creek material reference, not repetition of this
+now-verified menu route. Keep the shared control architecture and held-score
+semantics unchanged without a reproduced defect. Full goal remains incomplete.
+
 ## Build74 accepted update workflow (2026-10-03)
 
 Previous material pass is progress. This executes the real helper, not another

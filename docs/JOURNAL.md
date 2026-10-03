@@ -5365,3 +5365,17 @@ Real saves/prefs/keyset/PC registry exact; only logs/OS snapshots/scene state
 differ. Nested source clean74, ANGLE unchanged. Next normal-menu multiplayer
 profile/lobby/shared controls, which scripted combat bypasses. Full goal remains
 open; no physical iPad, IPA or publication.
+
+### 2026-10-03 — normal build74 multiplayer menu/control route
+
+Unchanged adapted4e42dc6d…11175; copied New001/Green Thumb session, no scripted
+scene/network-test input. Actual CUA profile/System Link/Create Game/Battle
+Creek/Slayer/lobby/A-start reaches rendered match. Existing network-bot.py handles
+the hardware-ID field omitted by upstream's raw test bot; initial failed join
+retained. One local stand-in only, not real full-client multiplayer proof. Fire
+100->99, Melee swing, Throw4->3, Pause/down/A Leave Game and main-menu return
+verified. Evidence menu-match74.LOkrFn,237.260s recording. Real saves/preferences/
+PC registry exact; only log/Metal cache/scene state differ. Original picker95285
+restored; peer/recording stopped, game sockets closed. No runtime/build/pin change
+or unit rerun. Next matched moving Battle Creek material reference; broad graphics,
+PC gameplay, held-score/human multi-touch and hardware gates remain open.

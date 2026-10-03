@@ -39,11 +39,14 @@ real saves/preferences/PC registry preserved. Subsequent four100s a10/b30
 captures retain water/shadow/display fixes at Original640x480/1x and UI-selected
 Sharper1280x960/4x. The real update-helper workflow now accepts74 after fresh
 unadapted Mac/Simulator gates; this exact adapted preview is restored in place.
-Broad-fidelity gates remain open; next normal-menu multiplayer profile/lobby
-progression rather than relying only on scripted combat.
+Normal New001/Green Thumb System Link profile/lobby progression also reaches
+Battle Creek/Slayer and returns to the menu using shared controls. The second
+machine is a local stand-in, not full peer-gameplay compatibility. Broad-fidelity
+gates remain open; next matched moving Battle Creek water/foliage reference.
 [Installed evidence](XBOX-SIMULATOR-PASSES.md#adapted74-controls-and-save-regression-2026-10-03).
 [Quality regression](XBOX-SIMULATOR-PASSES.md#build74-both-quality-material-regression-2026-10-03).
 [Accepted update](XBOX-SIMULATOR-PASSES.md#build74-accepted-update-workflow-2026-10-03).
+[Normal multiplayer route](XBOX-SIMULATOR-PASSES.md#build74-normal-multiplayer-menu-route-2026-10-03).
 
 Previous Simulator candidate: build73 `d1c7243c`, executable `ed257ad5…af30b`,
 guest `4ac7e842…b60`, cumulative **render-present-v1**. Resolving the read

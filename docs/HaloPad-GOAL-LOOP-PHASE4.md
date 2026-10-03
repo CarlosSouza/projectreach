@@ -535,3 +535,16 @@ multiplayer profile/lobby/shared-control progression on copied state, since the
 new name-validation route is bypassed by scripted combat. Preserve held-score
 semantics; earlier short-drag evidence is not final scoreboard/overflow proof.
 Broad graphics/PC gameplay/human multi-touch/hardware remain open. No publication.
+
+Normal-menu74 checkpoint: unchanged4e42dc6d…11175, copied New001/Green Thumb,
+actual CUA System Link profile/Create Game/Battle Creek/Slayer/lobby/match/Leave
+Game route passes. A starts countdown; Fire100->99, Melee swing, Throw4->3,
+Pause/down/A returns to main menu. One local stand-in peer, not a full second
+game simulation. Upstream raw bot omits hardware ID; existing network-bot.py
+wrapper resolves it without a product change. Evidence menu-match74.LOkrFn,
+237.260s recording. Real saves/preferences/PC registry exact; ordinary Original
+picker95285 restored; helper/recording stopped and host sockets closed. No build,
+unit rerun, pin change, hardware or publication. This is bounded validation
+progress, not a new texture fix or full multiplayer acceptance. Next compare a
+moving Battle Creek water/foliage view with the pinned desktop reference; do not
+change rendering based on one unmatched screenshot or repeat this menu route.
