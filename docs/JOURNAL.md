@@ -5334,3 +5334,18 @@ preferences/keyset and PC registry exact; only app log and OS snapshots differ.
 Installed/shared candidate remains74 at ordinary Original picker62231; accepted66
 unchanged, clean nested source. Next exact74 Original/Sharper water/shadow checks,
 not broad graphics/multi-touch acceptance or promotion. Simulator only; no IPA.
+
+### 2026-10-03 — build74 both-quality material regression
+
+Unchanged installed4e42dc6d…11175, private quality74.ZECDgx. Full real-data
+backup/preflight exact. Four100s a10/b30 captures/80 PNGs and contact sheets show
+water detail, corrected bridge shadows, glow and translucent displays retained
+at Original640x480/1x and UI-selected Sharper1280x960/4x. All four cold starts
+read1/draw0/error0; no nonzero logged GL error/crash marker. Bounded material
+evidence, not all-frame/all-scene fidelity, performance or new input acceptance.
+Original restored through picker and cold launch73038. Real saves/prefs/keyset/
+PC registry exact; only app log and OS scene-state file changed. Source/runtime/
+pins unchanged; no unit rerun. Next actual reviewed74 update-helper acceptance
+and adapted-preview restoration, preserving full app/output/data and checking
+66->74 dependency/save deltas. Do not edit the pin around the workflow or repeat
+unchanged material scenes. Simulator only, no IPA/publication, full goal open.

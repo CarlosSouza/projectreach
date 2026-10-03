@@ -511,3 +511,15 @@ unchanged. Next exact-candidate Original/Sharper a10/b30 water/border regression
 Do not reuse73 screenshots as74 acceptance or repeat this completed controls
 pass without a changed binary. Human multi-touch, broad fidelity and hardware
 remain separate gates. No IPA/publication, goal incomplete.
+
+Build74 both-quality checkpoint: exact4e42dc6d…11175 retains b30 water and a10
+bridge-shadow/display fixes in Original640x480/1x and UI-selected Sharper1280x960/
+4x. Four100s captures/80 PNGs inspected in quality74.ZECDgx; starts error0/read1/
+draw0. Real saves/preferences/PC registry exact; ordinary Original picker73038.
+No source/build/pin changes. Next actual frozen74 update-helper acceptance and
+adapted-preview restoration with full outgoing app/output/data protected and
+66->74 dependency/save changes reviewed. Existing unadapted smoke and adapted
+controls/material passes are evidence; fixtures alone do not prove the real
+accept/restore workflow. Do not chase a new release mid-pass or bypass the helper
+by editing the lock. Broader graphics, PC gameplay, human multi-touch and hardware
+remain open; do not treat pin promotion as completion of the whole goal.

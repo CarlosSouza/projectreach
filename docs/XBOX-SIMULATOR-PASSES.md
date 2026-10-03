@@ -1,5 +1,49 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Build74 both-quality material regression (2026-10-03)
+
+Previous pass is progress: reviewed74 adaptation and copied73 controls/save
+acceptance. This pass closes its exact-binary Original/Sharper material gate.
+Installed SHA remains4e42dc6d4e58ea81cb4ce9cb34817bb4898de715e4b1a9ce804d8d867fe11175,
+build74/80d30410, render-present-v1, pinned Simulator ANGLE. No build/source or
+upstream/ANGLE pin changes; no unit rerun claimed. Physical iPad not used.
+
+Private evidence `ref/xbox-build/passes/2026-10-03/quality74.ZECDgx/`: full live
+data-container APFS clone with exact preflight audit, four independent scene/save
+roots, reused bounded capture/launch/audit helpers,80 native PNGs and four contact
+sheets. Network/UPnP/clipboard joins/updates/scripted input disabled.100s per scene,
+roughly5s screenshot cadence,1GiB free-space abort guard. Captures are material/
+cinematic checks, not new normal-menu progression or sustained touch acceptance.
+
+- Original a10 PID65321,100.639s/20 PNGs, actual640x480/effective1x.
+- Original b30 PID66042,101.101s/20 PNGs, actual640x480/effective1x.
+- Sharper a10 PID67475,101.307s/20 PNGs, actual1280x960/effective4x.
+- Sharper b30 PID68297,101.025s/20 PNGs, actual1280x960/effective4x.
+
+Both a10 screen13 images retain the bridge floor without the old long black
+bands, compared visually with border-fix73.zpl1rD/bridge-comparison.png; screen18
+retains the translucent display. Exterior glow remains. Both b30 screen04 images
+show detailed water; screen08 shows beach terrain shading, foreground occlusion
+and distant shield effects. All four complete contact sheets inspected. Timing/
+camera/effect phases differ, including a10 cinematic black transitions: no pixel
+parity, temporal-fidelity or FPS claim. All four frame0 logs report error0,
+complete0x8cd5/read1/draw0; sampled presentation reads remain error0. No nonzero
+logged GL error, assertion, fatal or crash marker found. Not every-frame proof.
+
+Sharper was selected in the real picker and persisted through cold launches;
+then Original was selected and cold picker73038 verified. Final full readback:
+Documents only HaloPad.log changed; Library only OS scene-state data changed.
+Preferences/keyset and PC registry exact; real saves/game/package files intact.
+Nested upstream clean74; accepted lock66 unchanged, adapted74 installed.
+
+Next actual frozen74 update-helper acceptance with full outgoing app/output/data
+backups and reviewed66->74 dependency/save deltas. Unadapted gates and adapted
+control/material evidence now exist, but an executed helper acceptance/restore
+workflow is still distinct from its fixtures. Do not promote merely by editing
+the lock or rerun unchanged scenes as progress. Preserve the working adapted
+preview during the unadapted update workflow. Broad graphics, sustained human
+multi-touch, PC gameplay and hardware acceptance remain separate open gates.
+
 ## Adapted74 controls and save regression (2026-10-03)
 
 Extend only the reviewed renderer-input identity for frozen upstream74

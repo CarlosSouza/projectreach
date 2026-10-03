@@ -4,6 +4,17 @@ Updated 2026-10-03. **Simulator-only work: shared controls, texture compatibilit
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE4.md](HaloPad-GOAL-LOOP-PHASE4.md). Earlier device work remains in [phase 3](HaloPad-GOAL-LOOP-PHASE3.md).
 
+**Build74 retains material fixes in both graphics modes (2026-10-03).**
+Exact `4e42dc6d…11175` passes four100s a10/b30 captures: Original640x480/1x
+and picker-selected Sharper1280x960/4x retain detailed water, corrected bridge
+shadows and translucent displays. All four starts report read1/draw0/error0.
+Real saves/preferences/PC registry exact; Original picker restored. No source
+change or broad-fidelity claim. Next exercise the real reviewed74 pin-update
+workflow with outgoing app/output/data protected, then restore/rebuild the adapted
+preview as needed. Accepted66 is still unchanged; do not chase another release
+mid-acceptance or repeat these same graphics checks without a changed input.
+[Evidence](XBOX-SIMULATOR-PASSES.md#build74-both-quality-material-regression-2026-10-03).
+
 **Adapted upstream74 passes smoke and copied-save controls (2026-10-03).**
 Installed candidate `4e42dc6d…11175` carries the unchanged cumulative
 render-present-v1 recipe against the reviewed74 renderer hash. Historical66/73

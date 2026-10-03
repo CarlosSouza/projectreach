@@ -35,9 +35,12 @@ guest `8fb0112f…0a5e`, cumulative **render-present-v1**. Reviewed revision-awa
 renderer identity preserves historical66/73 manifests and all source guards.
 206 Xbox tests, cold menu/a10/match smoke, copied73 Green Thumb shared controls,
 Save and Quit and cold checkpoint reload pass. First frame read1/draw0/error0;
-real saves/preferences/PC registry preserved. Exact74 Original/Sharper water
-and shadow regression is next; accepted66 and broad-fidelity gates unchanged.
+real saves/preferences/PC registry preserved. Subsequent four100s a10/b30
+captures retain water/shadow/display fixes at Original640x480/1x and UI-selected
+Sharper1280x960/4x. Accepted66 and broad-fidelity gates remain unchanged; next
+execute the actual frozen74 update-helper acceptance/preview-restoration workflow.
 [Installed evidence](XBOX-SIMULATOR-PASSES.md#adapted74-controls-and-save-regression-2026-10-03).
+[Quality regression](XBOX-SIMULATOR-PASSES.md#build74-both-quality-material-regression-2026-10-03).
 
 Previous Simulator candidate: build73 `d1c7243c`, executable `ed257ad5…af30b`,
 guest `4ac7e842…b60`, cumulative **render-present-v1**. Resolving the read
@@ -468,8 +471,8 @@ ordinary picker plus a copied checkpoint. Check shared control routing after
 every guest update; upstream gamepad/profile defaults can change even though
 our overlay source is untouched. Build74 unadapted Mac/ANGLE Simulator smoke
 passes; its adapted Simulator preview also passes smoke and copied73 Green Thumb
-controls/save/reload. Exact74 quality-mode regression remains open, and accepted66
-remains unchanged.
+controls/save/reload and exact74 Original/Sharper water/shadow regression.
+Accepted66 remains unchanged pending actual update-helper acceptance.
 See [update evidence](XBOX-SIMULATOR-PASSES.md#upstream74-unadapted-update-gates-2026-10-03).
 
 Keep three independently reviewable layers: the guest commit in
