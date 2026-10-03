@@ -1,5 +1,38 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Sound-lifetime pass 2: traced replays, no recurrence (2026-10-03)
+
+Same private folder (`sound-life.abYmaG`). Diagnostic guests came from
+`diag_build.py`: render-present-v1 plus a temporary `sound-trace-v1..v3` guard on
+`sound_manager.c` (reviewed hash ec1bdb07…, unique anchors, restored with fresh
+mtime, checkout verified clean). The trace records loop create/delete, sound
+stop, `sound_idle` and channel events; it reports, never skips, the failing access.
+v3 guest c898a820…; identities in `diag/identity*.json`. Never a normal build.
+
+| Run | Condition | Result |
+|---|---|---|
+| run3-load | 8 CPU burners | alive 300 s |
+| run4-trace2 | trace v2 | alive; 31,116 orphaned loop-track sounds, all stopped |
+| run5-trace3 | trace v3 | alive; 0 survivors/outside-window orphans/count mismatches |
+| run6-dual | official build74 under Wine/llvmpipe concurrently (`dual.py`) | both exit normally |
+| soak7-trace3 | 30 min, 12 back-and-forth sweeps (`soak.py`) | alive; 212,876 orphans, all stopped, all checks 0 |
+
+Finding: on Battle Creek about 340 looping sounds a second are created, and most
+are deleted within frames (upstream behavior). `process_looping_sounds` deletes
+stale loops without stopping their sounds; `refresh_sounds` stops every such
+orphan in the same `sound_render`. Across about 360,000 traced frames no orphan
+survived that step, reached a channel, existed at `sound_render` or `sound_idle`
+entry, or followed a zero-count deletion. Completion callbacks run on the game
+thread; `datum_get`/`datum_try_and_get` and `count` maintenance are consistent.
+The original fault is not reproduced and its cause is not proven. No sound fix
+is made: a null guard would mask an unexplained lifetime violation.
+
+Restored normal output: guest 8fb0112f…0a5e, `guest.s` identical to before.
+Installed reporter build 6bea0684…6041 (differs from 93093a69… only in link
+UUID/stamp). Checks on it: 208 Xbox tests, 40 native launch/save checks, and
+`smoke-simulator.py` menu/a10 campaign/Battle Creek match passing with screens
+inspected. Real Documents/preferences/PC registry unchanged; only logs/caches differ.
+
 ## Sound-lifetime pass 1 and fault-report hardening (2026-10-03)
 
 Private evidence: `ref/xbox-build/passes/2026-10-03/sound-life.abYmaG/`.
