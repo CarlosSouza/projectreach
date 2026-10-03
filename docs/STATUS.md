@@ -1,5 +1,10 @@
 # HaloPad status
 
+**PAUSED by Chris on 2026-10-03.** No further goal execution in this chat.
+Replacement-bot instructions and bounded priorities:
+[focused handoff](HaloPad-NEXT-BOT-HANDOFF-2026-10-03.md).
+The chronology below is evidence, not permission to resume or repeat old passes.
+
 Updated 2026-10-03. **Simulator-only work: shared controls, texture compatibility and upstream updates.** The full goal is incomplete. Physical-device testing remains out of scope until Chris makes the iPad available again.
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE4.md](HaloPad-GOAL-LOOP-PHASE4.md). Earlier device work remains in [phase 3](HaloPad-GOAL-LOOP-PHASE3.md).
