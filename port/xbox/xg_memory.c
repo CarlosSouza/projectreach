@@ -16,6 +16,7 @@
  * 16 KiB granularity, which only makes it more conservative.
  */
 #include "xg_host.h"
+#include "xg_fault_frames.h"
 
 #include <errno.h>
 #include <dlfcn.h>
@@ -360,6 +361,8 @@ static void name_of(const char *label, uint64_t address)
 	if (dladdr((void *)address, &info) && info.dli_sname)
 		xg_log("  %s %p = %s+0x%llx (%s)", label, (void *)address, info.dli_sname,
 			(unsigned long long)(address - (uint64_t)info.dli_saddr), info.dli_fname);
+	else
+		xg_log("  %s %p", label, (void *)address);
 }
 
 static void report(int number, siginfo_t *information, void *context)
@@ -378,21 +381,18 @@ static void report(int number, siginfo_t *information, void *context)
 	name_of("pc", pc);
 	name_of("lr", uc->uc_mcontext->__ss.__lr);
 	{
-		/* host frame records, to find the import that was running */
-		uint64_t fp = uc->uc_mcontext->__ss.__fp;
-		for (index = 0; index < 12 && fp && (fp & 7) == 0; index++)
-		{
-			uint64_t *frame = (uint64_t *)fp;
-			if (fp - xg_base < SPAN && fp - xg_base < 0x10000000u)
-				break;
-			name_of("frame", frame[1]);
-			fp = frame[0];
-		}
+		/* guest and host frame records, to find the callers */
+		uint64_t returns[24];
+		int count = xg_walk_frames(uc->uc_mcontext->__ss.__fp, xg_base, returns, 24,
+			xg_read_frame_record);
+		for (index = 0; index < count; index++)
+			name_of("frame", returns[index]);
 	}
 }
 
 static void fault(int number, siginfo_t *information, void *context)
 {
+	static volatile sig_atomic_t reporting;
 	uint64_t address = (uint64_t)information->si_addr - xg_base;
 	if (watch_active && address - XG_WINDOW_BASE < XG_WINDOW_SIZE)
 	{
@@ -403,7 +403,16 @@ static void fault(int number, siginfo_t *information, void *context)
 			return;
 		}
 	}
+	if (reporting)
+	{
+		/* the reporter itself faulted: never recurse; the default action ends it */
+		signal(number, SIG_DFL);
+		return;
+	}
+	reporting = 1;
 	report(number, information, context);
+	/* returning re-runs the original instruction under the default action,
+	   so the system's crash report names the first fault, not the reporter */
 	signal(number, SIG_DFL);
 }
 

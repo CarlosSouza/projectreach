@@ -1,5 +1,43 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Sound-lifetime pass 1 and fault-report hardening (2026-10-03)
+
+Private evidence: `ref/xbox-build/passes/2026-10-03/sound-life.abYmaG/`.
+Before install: signed `HaloPad-installed.app` (4e42dc6d…11175), APFS full data
+container `data-before` and `out-before`, read back identical. Installed
+diagnostic executable 93093a691877b00f7b0ee578c5bf9845a8a8caf4b9e40be2e82264579b4c8ce2:
+host fault reporter only. Guest 8fb0112f…0a5e, `guest.s`, render-present-v1 and
+the ANGLE pin are unchanged; translated offsets are identical (`map_frames.py`).
+
+Reporter fix (separate from any sound fix): translated code keeps 32-bit guest
+addresses in x29, so the walk now maps a guest frame pointer through xg_base and
+reads records with a kernel copy (`xg_fault_frames.h`), stopping on null,
+misaligned, unreadable or non-ascending links. A reporting guard prevents
+SA_NODEFER recursion; the original instruction then re-faults under the default
+action so the OS report names the first fault. `test_xbox_fault_frames.py`
+covers the observed 0x11013840 chain and a real unmapped read. 208 Xbox tests pass.
+
+Replay: two Simulator-only 300 s runs (`run1`, `run2`, `replay.py`), same
+settings and 25 poses as the failing sweep, without Wine. Readiness now needs a
+logged rendered frame after the HUD marker; the PID is polled every 0.5 s. Both
+stayed alive to 300 s with no signal, assertion or crash report. This is not a
+fix. The failing run shared the Mac with Wine/llvmpipe; these did not.
+
+Source narrowing (native source, matching guest disassembly): the stale datum is
+`sound->source_identifier` of a non-impulse sound still on a channel.
+`update_channels` has two callers, `sound_render` and `sound_idle` (texture
+stalls >132 ms). Loops are deleted only by stale flip-flop in
+`process_looping_sounds` (dependents then stopped by `refresh_sounds`) or by
+`sound_refresh_looping` when `component_sound_count` is zero. The only static
+escape found is `refresh_sound` skipping its check when `start_time >=
+render_time`, which needs two renders in one millisecond. The guest mixer is
+serialized by its own `mixer_lock`. Cause not proven.
+
+Next discriminating experiment: a diagnostic-only guest adaptation with a small
+ring of loop delete/sound stop/`sound_idle` events, checked at
+`update_channels`, run under comparable host load. The fixed reporter's guest
+backtrace will distinguish `sound_render` from `sound_idle` on any recurrence.
+
 ## Build74 Battle Creek reference and late sound fault (2026-10-03)
 
 Previous normal-menu pass is progress. Private evidence:
