@@ -4,6 +4,17 @@ Updated 2026-10-03. **Simulator-only work: shared controls, texture compatibilit
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE4.md](HaloPad-GOAL-LOOP-PHASE4.md). Earlier device work remains in [phase 3](HaloPad-GOAL-LOOP-PHASE3.md).
 
+**Unadapted upstream74 passes Mac and Simulator smoke (2026-10-03).**
+Live release/main now resolve to74/80d30410. Fresh Mac and ANGLE Simulator builds
+pass menu/a10/scripted-match checks. This is not adapted-preview or save-compatibility
+acceptance: the renderer-source guard rejects74, and the unmodified guest retains
+startup blit0x502. Build73 presentation preview restored exactly; accepted66
+unchanged. Fixed update helper to retain normal PC startup/device-local state,
+with a reproduced failing regression and203 passing Xbox tests. Next extend the
+reviewed adaptation identity for74 without weakening source checks or changing
+historical identities, then verify the adapted candidate and copied saves.
+[Evidence](XBOX-SIMULATOR-PASSES.md#upstream74-unadapted-update-gates-2026-10-03).
+
 **Night landing compared with independent desktop73 (2026-10-03).**
 Unchanged `ed257ad5…af30b` and official Windows73/Mesa both show a50's bright
 landing transition, exhaust and spotlight pools. Selected settled terrain/tree

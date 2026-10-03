@@ -450,13 +450,15 @@ just a nonblack-pixel check. An accepted pin is the repeatable development basel
 not full progression/fidelity or physical-device acceptance. The Xbox card continues to
 say **EXPERIMENTAL** even after a candidate's regression gates pass.
 
-The update gate packages a PC scene fixture to keep its Xbox checks independent
-of a private PC recompilation. Do not leave that gate app as the final combined
-app: rebuild with `scripts/build-ios-app.py --work <existing-PC-runtime-work>`
-without `--scene`, using the same renderer setting, then install in place and
-exercise the ordinary picker plus a copied checkpoint. Preserve the old full
-app/data first. Check shared control routing after every guest update; upstream
-gamepad/profile defaults can change even though our overlay source is untouched.
+The update gate retains the normal PC entry point (no development `--scene`)
+and launches with `--device-data`, without redirecting the PC edition to Mac
+development state. It requires the existing private PC runtime work. Preserve
+the old full app/data first, use the intended renderer setting, and exercise the
+ordinary picker plus a copied checkpoint. Check shared control routing after
+every guest update; upstream gamepad/profile defaults can change even though
+our overlay source is untouched. Build74 unadapted Mac/ANGLE Simulator smoke
+passes, but its adapted preview is not yet built and accepted66 remains unchanged.
+See [update evidence](XBOX-SIMULATOR-PASSES.md#upstream74-unadapted-update-gates-2026-10-03).
 
 Keep three independently reviewable layers: the guest commit in
 `config/xbox-engine.lock.json`, the ANGLE renderer pin, and HaloPad's shell/input

@@ -486,3 +486,15 @@ the next candidate; preserve current adapted app/output/data before builds or
 updates. Check the update script's backend/install settings rather than silently
 replacing the working ANGLE preview with a different backend. Do not promote
 from this reference comparison or repeat passing static scenes as new progress.
+
+Upstream74 checkpoint: live release/main80d30410 supersedes73. Reviewed change
+is desktop-only Mesa Intel flush support, not an iOS material fix. Unadapted74
+Mac and ANGLE Simulator menu/a10/scripted-match gates pass; adaptation correctly
+rejects changed renderer input. Unmodified startup still has0x502. Fixed update
+helper's PC entry replacement (--scene removed, --device-data added); regression
+reproduced before fix,203 Xbox tests pass. Evidence upstream74.p84GNQ preserves
+outgoing/candidate apps/outputs and real data. Restored installed73/ed257ad5 exactly,
+Original picker; real saves/prefs/PC registry preserved. Shared output and clean
+upstream checkout are74, accepted lock66 unchanged. Next minimal revision-aware
+adaptation identity with old identities intact, then actual adapted74 controls/
+save/graphics regression. Unadapted smoke does not imply full fidelity/promotion.

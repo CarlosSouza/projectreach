@@ -128,8 +128,8 @@ fi
 if [ $RESULT -eq 0 ] && [ -n "$SIMULATOR" ]; then
 	RESULT=1
 	if XBOX_REV="$TARGET" "$ROOT/scripts/xbox/build-ios.sh" > "$WORK/update-simulator-build.log" 2>&1 && \
-		XBOX_REV="$TARGET" "$ROOT/.venv/bin/python" "$ROOT/scripts/build-ios-app.py" --scene "$ROOT/tests/halo_app_scene.c" \
-		--device "$SIMULATOR" --launch --wait 3 >> "$WORK/update-simulator-build.log" 2>&1 && \
+		XBOX_REV="$TARGET" "$ROOT/.venv/bin/python" "$ROOT/scripts/build-ios-app.py" \
+		--device "$SIMULATOR" --device-data --launch --wait 3 >> "$WORK/update-simulator-build.log" 2>&1 && \
 		python3 "$ROOT/scripts/xbox/smoke-simulator.py" --device "$SIMULATOR" \
 		--out "$WORK/simulator-results/$STAMP-$(echo "$TARGET" | cut -c1-8)"; then
 		RESULT=0

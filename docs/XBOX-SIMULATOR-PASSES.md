@@ -1,5 +1,63 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Upstream74 unadapted update gates (2026-10-03)
+
+Previous night-reference turn is progress. GitHub releases API and git ls-remote
+now resolve to [build74](https://github.com/cybersecurity/halo-ce-universal/releases/tag/build-74),
+commit80d30410c8db28f4008b92f4e012a1b046ece14e, published2026-10-02T22:35:43Z.
+Freeze that exact revision. Relative to73, four files add41 lines: desktop Mesa
+Intel draw flushing, glMemoryBarrier declaration/alias and desktop config/docs.
+Device fields/init/body are excluded under HALO_ANDROID; prepare_draw calls an
+empty draw_flush there. No diff in Android build/import scripts, posix.h or
+cache/save sources relative to73. This is not an upstream iOS texture fix.
+
+Private root `ref/xbox-build/passes/2026-10-03/upstream74.p84GNQ/` preserves
+app-before, out-before and full real data before work. Existing checkout and
+shared outputs, serial build/test workflows, independent smoke data/save roots.
+No physical iPad, IPA, publication or task worktree. Accepted lock remains66.
+
+Unadapted74 identities and actual gates:
+
+- Guest1373456e1442f5f1d5102987a0c3e0c6e534d52b5bc9095281de4dc32f9f5a66,
+  adaptation none; translation699450 instructions/192 imports,98 GL imports.
+- Mac9cf6fe7c668eff81fa2e5b8e4d7c7572c82d4d20f9358127842db5767d01529b.
+  Menu25s, a10 load35s, scripted match75s pass; match tick2130/17 shot events.
+  Existing Mac ANGLE falls back after EGL_BAD_MATCH, then successfully renders
+  with ES3.0. Campaign exterior and first-person match captures inspected.
+- Combined Simulator81e4b04e6caed645ebf666d4be058d4fece9511dec961f47348c69593255343a,
+  independently pinned ANGLE without counted adaptation. Signed/verified and
+  installed in place. Menu30s, a10 load60s, scripted match65s pass; match tick1530/
+  12 shot events. Campaign/match composited screenshots inspected. Unmodified
+  startup still logs frame0 read1/draw1/error0x502: smoke is not correct first-frame
+  presentation, normal human controls or broad rendering-fidelity acceptance.
+
+render-present-v1 preflight rejects74 with "Renderer adaptation input changed".
+Reviewed new renderer SHA is
+ad03056fbbce7162e044622fdd17ee0b307706c26844ca5605aed803bdb77ab8.
+Next support this input with an accurate separate identity while preserving old
+66/73 identities and strict anchors, then test the cumulative adapted candidate.
+No adapted74 build or copied-checkpoint compatibility claim yet.
+
+Update-helper correction: --scene tests/halo_app_scene.c replaced the normal
+Windows entry point and startup used Mac development state. New executed
+inert-boundary regression fails on the old command; remove --scene and add
+--device-data. Actual74 combined build here also uses the normal entry point.
+All11 update-flow tests and full203 Xbox tests pass. Fixtures prove command/save/
+rollback control flow, not Windows gameplay or a real --accept run. No license
+or product-key changes. Diff check and repository safety pass.
+
+Retain app-unadapted74/out-unadapted74 alongside outgoing backups. Initial restore
+install of app-before fails because it lacks an .app suffix. Clone it as
+RestoredHaloPad.app, verify signature and install successfully in place, without
+uninstall/reset. Final installed SHA is exactly
+ed257ad5fce911fdca27796807c6f2610fc39001ad3384da24904ddb200af30b, build73 preview.
+Ordinary Original picker PID50980 visually verified. Full real-state readback:
+Documents only HaloPad.log changes; Library only OS snapshots/scene state and
+Metal caches differ. Preferences/keyset and PC registry exact, real saves and
+game/package files unchanged. Nested checkout clean at74; shared out and generated
+combined app are unadapted74, installed app is restored73. Preserve this distinction
+on the next build. No promotion; adapted74 regression and full goal remain open.
+
 ## Night landing desktop reference (2026-10-03)
 
 Previous Green Thumb turn is progress. This pass compares a different moving

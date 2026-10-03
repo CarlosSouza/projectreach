@@ -38,7 +38,11 @@ echo "build $XBOX_REV" >> "$UPDATE_FIXTURE_CALLS"
 if [ "${UPDATE_FIXTURE_BUILD_FAIL:-}" = 1 ] && [ "$XBOX_REV" = new-pin ]; then exit 9; fi
 ''', True)
         for name in ('scripts/xbox/smoke-mac.py', 'scripts/xbox/smoke-simulator.py', 'scripts/build-ios-app.py'):
-            self.write(name, 'import os\nwith open(os.environ["UPDATE_FIXTURE_CALLS"], "a") as f: f.write("gate\\n")\n')
+            self.write(name, '''import json, os, pathlib, sys
+with open(os.environ["UPDATE_FIXTURE_CALLS"], "a") as f: f.write("gate\\n")
+path = pathlib.Path(os.environ["UPDATE_FIXTURE_ROOT"]) / (pathlib.Path(sys.argv[0]).name + '.argv.json')
+path.write_text(json.dumps(sys.argv[1:]))
+''')
         self.bin.mkdir(exist_ok=True)
         (self.root / '.venv/bin').mkdir(parents=True)
         (self.root / '.venv/bin/python').symlink_to(shutil.which('python3'))
@@ -171,6 +175,15 @@ fi
         self.assertEqual(self.events(), ['build new-pin', 'gate', 'build new-pin', 'gate', 'gate'])
         self.assertEqual(json.loads(self.lock.read_text())['revision'], 'new-pin')
         self.assertEqual((self.root / 'engine-state.txt').read_text().strip(), 'new-pin')
+
+    def test_update_preserves_normal_pc_entry_and_device_state(self):
+        result = self.run_update('--simulator', 'fixture-sim')
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        args = json.loads((self.root / 'build-ios-app.py.argv.json').read_text())
+        self.assertNotIn('--scene', args, 'Xbox updates must not replace the PC entry point')
+        self.assertIn('--device-data', args, 'Do not redirect the PC edition to development state')
+        self.assertEqual(args[args.index('--device') + 1], 'fixture-sim')
+        self.assert_old_pin()
 
 
 if __name__ == '__main__':

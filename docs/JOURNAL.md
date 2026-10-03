@@ -5300,3 +5300,19 @@ source clean, executable hash unchanged, no unit/build/pin/public changes.
 Next missing update gate: Mac manifest is still66, unadapted73 acceptance remains
 open. Recheck live upstream, freeze candidate, preserve adapted app/shared output
 and data before that separate workflow. Do not repeat this settled night view.
+
+### 2026-10-03 — upstream74 baseline and PC-safe updater
+
+Live release/main moved to74/80d30410: desktop Mesa Intel draw flush, excluded
+from the Android guest path. Freeze revision, preserve full real data and outgoing
+app/output in upstream74.p84GNQ. Unadapted guest1373456e…5a66 builds; Mac9cf6fe7c
+passes menu/a10/match(tick2130/17 shots). Normal-entry combined Simulator81e4b04e
+passes the same gates(tick1530/12 shots) on ANGLE. Known startup0x502 remains;
+render-present-v1 source guard rejects74. No adapted74 or save compatibility claim.
+Updater regression reproduces --scene replacement of the PC entry point; remove
+it, add --device-data. All11 update fixtures/203 Xbox tests pass. Restore exact
+73/ed257ad5 preview in place after giving backup clone an .app suffix; Original
+picker50980 verified. Real saves/preferences/PC registry exact; app log/OS caches
+and snapshots differ. Shared outputs and clean checkout remain74, accepted66
+unchanged; both candidate/outgoing artifacts preserved. Next review-aware74
+adaptation identity preserving historical manifests, then runtime/save regression.
