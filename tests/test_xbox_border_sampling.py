@@ -40,6 +40,7 @@ class BorderSamplingTests(unittest.TestCase):
                               *(a for a, _ in border.RENDERER_EDITS)))
         shader = b'\n'.join(a for a, _ in border.SHADER_EDITS)
         with tempfile.TemporaryDirectory() as tmp, \
+             patch.dict('os.environ', {'XBOX_REV': 'synthetic-fixture'}), \
              patch.object(guest, 'SOURCE_SHA256', hashlib.sha256(renderer).hexdigest()), \
              patch.object(border, 'SHADER_SHA256', hashlib.sha256(shader).hexdigest()):
             root = pathlib.Path(tmp)

@@ -134,6 +134,8 @@ int main(void) {
         self.original = b'/* synthetic fixture */\n' + adapter.ANCHOR
         self.source.write_bytes(self.original)
         self.addCleanup(patch.stopall)
+        # Synthetic bytes use the fallback digest, not the current accepted pin.
+        patch.dict('os.environ', {'XBOX_REV': 'synthetic-fixture'}).start()
         patch.object(adapter, 'SOURCE_SHA256', hashlib.sha256(self.original).hexdigest()).start()
         self.identity = adapter.identity('render-scale-v1')
 

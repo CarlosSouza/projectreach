@@ -4,6 +4,17 @@ Updated 2026-10-03. **Simulator-only work: shared controls, texture compatibilit
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE4.md](HaloPad-GOAL-LOOP-PHASE4.md). Earlier device work remains in [phase 3](HaloPad-GOAL-LOOP-PHASE3.md).
 
+**Build74 is the accepted development pin (2026-10-03).**
+Actual update-pin --accept workflow verifies save backups, passes Mac and ANGLE
+Simulator menu/campaign/match gates, then advances66->74/80d30410. Preserved the
+unadapted result and restored exact shared-controls preview `4e42dc6d…11175` in
+place. Real saves/preferences/PC registry exact; Original picker restored.
+206 Xbox tests pass both with explicit74 and the new default lock after isolating
+synthetic fixtures from the production pin. No graphics/runtime change or public
+release. Next normal-menu multiplayer profile/lobby/shared-control check; scripted
+combat does not cover that route. Broad fidelity/human multi-touch/hardware open.
+[Evidence](XBOX-SIMULATOR-PASSES.md#build74-accepted-update-workflow-2026-10-03).
+
 **Build74 retains material fixes in both graphics modes (2026-10-03).**
 Exact `4e42dc6d…11175` passes four100s a10/b30 captures: Original640x480/1x
 and picker-selected Sharper1280x960/4x retain detailed water, corrected bridge

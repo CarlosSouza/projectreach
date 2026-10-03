@@ -1,5 +1,63 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Build74 accepted update workflow (2026-10-03)
+
+Previous material pass is progress. This executes the real helper, not another
+fixture or manual lock edit. Frozen74/80d30410 remains the target; no newer release
+is folded into the middle of acceptance. Full66->74 diff reviewed:26 files,
+1173 additions/62 deletions. Network protocol9->10 adds distributed ping messages;
+scoreboard layout/paging/text clipping, player-name cleaning/uniqueness/error UI,
+name range/scale, postgame title assets and desktop pacing/Intel flushing change.
+Android import/build sources, posix.h, cache and save sources have no diff. No
+claim of cross-version multiplayer compatibility or all-save compatibility.
+
+Private `ref/xbox-build/passes/2026-10-03/accept74.D58wri/` contains full exact
+preflight data-before, signed HaloPad-before.app and APFS out-before clone.
+Run update-pin.sh --to80d30410... --simulatorDF51182F... --accept with adaptation
+none, angle-metal and the existing pinned ANGLE source. Helper creates verified
+save-backups/20261003-100148-from-f2ba71d9.M8gVnQ plus checked SHA manifest;
+Mac data/save, save-ios and available Simulator save data are preserved. Full
+real container backup is additional protection, not provided by that helper.
+
+Actual helper gates all pass and exit0:
+
+- Mac SHA ff3664cd3815afd25ac39bbd347e5eef05a4b53cb94becb2810cab72258519dd;
+  guest1373456e1442f5f1d5102987a0c3e0c6e534d52b5bc9095281de4dc32f9f5a66.
+  Menu25s, a1035s, match75s; tick2130/17 shots. Results in
+  smoke-results/20261003-100148-80d30410.
+- Unadapted combined Simulator SHA
+  f7f6e90d7e9027bae35c1e1a21e2cacf5dafccbf07e515d459e6f28afde25b9c.
+  Normal PC entry and --device-data launch verified in actual build log.
+  Menu30s/a1060s/match65s; tick1530/12 shots. Campaign composited screenshot
+  inspected. Results in simulator-results/20261003-100148-80d30410.
+- Only after those passes, helper writes accepted lock74, dated2026-10-03.
+  This is experimental development acceptance, not publication or full gameplay.
+
+Selected74 exposed a synthetic-fixture bug: guest adaptation tests patched the
+fallback hash while identity selected the real74 hash (3 failures/5 errors in15
+tests reproduced). Give synthetic source transactions an explicit synthetic
+revision in four test files. Real source guards and reviewed-revision tests stay
+unchanged. All206 tests pass with XBOX_REV74 (38.671s) and, after promotion,
+without an override (40.320s). No runtime change or rebuilt-preview claim.
+
+Preserve actual unadapted app/logs and move completed shared output to this pass's
+out-unadapted. APFS-clone out-before back to shared out, verify outgoing signature,
+and install HaloPad-before.app in place. Restored executable exactly4e42dc6d…11175;
+installed About shows80d30410/2026-10-03, and ordinary Original picker86078 verified.
+No uninstall/reset or overwrite of real save data. Shared guest/output is the
+adapted preview again; the matching unadapted Mac validation artifacts remain in
+out-unadapted (the shared guest image changes when switching build adaptations).
+Final data audit: only Documents/HaloPad.log, two OS snapshot replacements and
+OS scene-state file differ; preferences/keyset/PC registry and real saves/game/
+package files exact. Nested source clean74. Accepted pin now74, ANGLE unchanged.
+
+Next normal-menu multiplayer profile selection/lobby/shared-control progression
+on isolated state: scripted match does not exercise that route, particularly the
+new upstream name-validation path. Sustained scoreboard/overflow final pixels
+remain separately unproved; retain held semantics, not a CUA-specific toggle.
+Broad rendering, PC gameplay, human multi-touch and hardware gates remain open.
+No physical iPad, IPA or publication; goal incomplete.
+
 ## Build74 both-quality material regression (2026-10-03)
 
 Previous pass is progress: reviewed74 adaptation and copied73 controls/save

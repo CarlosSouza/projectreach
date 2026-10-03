@@ -523,3 +523,15 @@ controls/material passes are evidence; fixtures alone do not prove the real
 accept/restore workflow. Do not chase a new release mid-pass or bypass the helper
 by editing the lock. Broader graphics, PC gameplay, human multi-touch and hardware
 remain open; do not treat pin promotion as completion of the whole goal.
+
+Accepted74 checkpoint: actual update-pin --accept completes verified unique save
+backups and Mac/ANGLE Simulator menu/a10/match gates, then writes74/80d30410.
+Full outgoing app/output/data protected in accept74.D58wri; unadapted result
+retained, exact adapted4e42dc6d…11175 and outputs restored. Ordinary Original
+picker86078/About74 verified; real saves/preferences/PC registry exact.
+Synthetic fixtures no longer depend on current accepted pin;206 tests pass under
+explicit74 and default lock. No runtime or ANGLE change. Next normal-menu
+multiplayer profile/lobby/shared-control progression on copied state, since the
+new name-validation route is bypassed by scripted combat. Preserve held-score
+semantics; earlier short-drag evidence is not final scoreboard/overflow proof.
+Broad graphics/PC gameplay/human multi-touch/hardware remain open. No publication.

@@ -5349,3 +5349,19 @@ pins unchanged; no unit rerun. Next actual reviewed74 update-helper acceptance
 and adapted-preview restoration, preserving full app/output/data and checking
 66->74 dependency/save deltas. Do not edit the pin around the workflow or repeat
 unchanged material scenes. Simulator only, no IPA/publication, full goal open.
+
+### 2026-10-03 — actual build74 pin acceptance and preview restoration
+
+Reviewed66->74 dependency/save/network changes (protocol9->10). Full app/output/
+real-data backups exact in accept74.D58wri. Real update-pin --accept with ANGLE
+and unadapted guest passes Mac menu/a10/match2130/17 and Simulator menu/a10/
+match1530/12, then writes pin74. Helper's unique save backups and SHA checks pass.
+Synthetic fixture failure reproduced under explicit74; isolated four source
+transaction fixtures from current production revision.206 tests pass with74
+override and default new lock, no source-guard weakening or runtime change.
+Preserve unadapted app/output and build logs, restore exact adapted4e42dc6d…11175
+and shared adapted outputs in place. About revision74; Original picker86078.
+Real saves/prefs/keyset/PC registry exact; only logs/OS snapshots/scene state
+differ. Nested source clean74, ANGLE unchanged. Next normal-menu multiplayer
+profile/lobby/shared controls, which scripted combat bypasses. Full goal remains
+open; no physical iPad, IPA or publication.

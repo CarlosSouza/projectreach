@@ -19,7 +19,8 @@ class PresentOrderTests(unittest.TestCase):
             *(a for a, _ in guest.border_sampling.RENDERER_EDITS)))
         for count in (0, 1, 2):
             original = base + guest.PRESENT_ANCHOR * count
-            with patch.object(guest, 'SOURCE_SHA256', hashlib.sha256(original).hexdigest()):
+            with patch.dict('os.environ', {'XBOX_REV': 'synthetic-fixture'}), \
+                 patch.object(guest, 'SOURCE_SHA256', hashlib.sha256(original).hexdigest()):
                 if count != 1:
                     with self.assertRaisesRegex(ValueError, 'presentation input changed'):
                         guest.adapted_source(original, 'render-present-v1')

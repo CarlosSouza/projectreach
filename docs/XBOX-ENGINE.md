@@ -2,7 +2,7 @@
 
 Status, 2026-10-03: **HaloPad offers Windows Custom Edition or Xbox Combat Evolved at launch.**
 The accepted **experimental development pin** in `config/xbox-engine.lock.json`
-is upstream **build 66, `f2ba71d9`**. Newer releases are tested separately before
+is upstream **build 74, `80d30410`**. Newer releases are tested separately before
 promotion. Build 64 expanded the high-resolution HUD/scopes and fixed meter
 alpha and flat menu fills; the following paragraphs retain that earlier evidence.
 Save-backed candidate and acceptance Mac/ANGLE iPad Simulator menu/a10/scripted-match
@@ -37,10 +37,13 @@ renderer identity preserves historical66/73 manifests and all source guards.
 Save and Quit and cold checkpoint reload pass. First frame read1/draw0/error0;
 real saves/preferences/PC registry preserved. Subsequent four100s a10/b30
 captures retain water/shadow/display fixes at Original640x480/1x and UI-selected
-Sharper1280x960/4x. Accepted66 and broad-fidelity gates remain unchanged; next
-execute the actual frozen74 update-helper acceptance/preview-restoration workflow.
+Sharper1280x960/4x. The real update-helper workflow now accepts74 after fresh
+unadapted Mac/Simulator gates; this exact adapted preview is restored in place.
+Broad-fidelity gates remain open; next normal-menu multiplayer profile/lobby
+progression rather than relying only on scripted combat.
 [Installed evidence](XBOX-SIMULATOR-PASSES.md#adapted74-controls-and-save-regression-2026-10-03).
 [Quality regression](XBOX-SIMULATOR-PASSES.md#build74-both-quality-material-regression-2026-10-03).
+[Accepted update](XBOX-SIMULATOR-PASSES.md#build74-accepted-update-workflow-2026-10-03).
 
 Previous Simulator candidate: build73 `d1c7243c`, executable `ed257ad5…af30b`,
 guest `4ac7e842…b60`, cumulative **render-present-v1**. Resolving the read
@@ -472,7 +475,9 @@ every guest update; upstream gamepad/profile defaults can change even though
 our overlay source is untouched. Build74 unadapted Mac/ANGLE Simulator smoke
 passes; its adapted Simulator preview also passes smoke and copied73 Green Thumb
 controls/save/reload and exact74 Original/Sharper water/shadow regression.
-Accepted66 remains unchanged pending actual update-helper acceptance.
+Actual update-helper acceptance advances the development pin to74, with the
+adapted preview restored and real state preserved. Upstream network protocol is
+now10 (was9 at66); do not promise interoperability with older Xbox-port peers.
 See [update evidence](XBOX-SIMULATOR-PASSES.md#upstream74-unadapted-update-gates-2026-10-03).
 
 Keep three independently reviewable layers: the guest commit in

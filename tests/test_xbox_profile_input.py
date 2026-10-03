@@ -27,6 +27,7 @@ class XboxProfileInputTests(unittest.TestCase):
         # guest_adaptation loads its own module object; patch that exact boundary.
         recipe = guest.profile_input
         with tempfile.TemporaryDirectory() as tmp, \
+             patch.dict('os.environ', {'XBOX_REV': 'synthetic-fixture'}), \
              patch.object(guest, 'SOURCE_SHA256', hashlib.sha256(fixtures[guest.RENDERER]).hexdigest()), \
              patch.object(border, 'SHADER_SHA256', hashlib.sha256(fixtures[border.SHADER]).hexdigest()), \
              patch.dict(recipe.HASHES, {p: hashlib.sha256(fixtures[p]).hexdigest() for p in recipe.HASHES}):
