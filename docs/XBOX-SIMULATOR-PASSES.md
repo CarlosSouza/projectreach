@@ -1,5 +1,16 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## 60-minute traced recurrence soak (2026-10-03)
+
+`sound-life.abYmaG/soak8-trace3`: preserved private trace v3 app (5d5c3479…,
+guest c898a820…) installed only for this run, then the reporter build 6bea0684…
+was reinstalled. `soak.py`, 3600 s, 24 back-and-forth sweeps, screenshots every 600
+frames. Alive at the limit; no signal, trace anomaly or crash report. Over
+345,000 frames: 427,412 orphaned loop-track sounds, all stopped; 0 survivors,
+outside-window orphans or count mismatches. Total traced runtime is now about two
+hours without recurrence. The fault is still unexplained; no fix is claimed.
+Ordinary picker restored; real Documents/preferences/PC registry unchanged.
+
 ## Reporter build: campaign controls, save/reload, PC gate, 10-minute match (2026-10-03)
 
 Private `sound-life.abYmaG/p3/`. Installed reporter build 6bea0684…6041, guest
