@@ -176,6 +176,22 @@ switching means closing HaloPad and opening it again; the picker appears at ever
   Bungie material ([REVIEW-HALO1-DECOMP.md](REVIEW-HALO1-DECOMP.md)). That is why the engine stays a
   personal build, and why this document is not a rights clearance.
 
+## Ideas from other ports (reviewed 2026-10-03)
+
+Read-only review of the most-starred forks of the upstream engine. All trail upstream
+(build 74 is the latest release and `main`), so none is a newer engine. No code was copied;
+each idea needs its own design and test in HaloPad's shared overlay.
+
+| Idea | Seen in | HaloPad today | Worth doing |
+| --- | --- | --- | --- |
+| Optional gyroscope aim, off by default, using look sensitivity, paused in menus | [theLlamaNet/halo-ce-android](https://github.com/theLlamaNet/halo-ce-android) | Not present | Yes, a strong fit for iPad and iPhone |
+| Phone haptics for the game's rumble when no controller is connected | theLlamaNet/halo-ce-android | Not present | Yes, small and contained |
+| Export and import of a touch layout file; per-button size and duplicate buttons | theLlamaNet/halo-ce-android | Move and resize exist | Export/import yes; duplicates later |
+| Drop a disc image into the app's Files folder and import it automatically | [NicholasDominici/halo-ce-ios](https://github.com/NicholasDominici/halo-ce-ios) | Import from the Files picker | Yes, alongside the existing safe staged importer |
+| Native-resolution rendering on iPad | NicholasDominici/halo-ce-ios | Original and Sharper choices | Only after real-iPad performance is measured |
+| Profile-guided optimisation | Upstream | Already used: the guest build applies upstream's `pgo/halo_linux.profdata` | No action |
+| Cheats menu | theLlamaNet/halo-ce-android | Not present | No: changes gameplay, low priority |
+
 ## Opt-in renderer preview
 
 Apple OpenGL ES remains the default; ANGLE is installed only as the personal
