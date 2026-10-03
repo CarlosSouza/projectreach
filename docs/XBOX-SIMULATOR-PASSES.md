@@ -1,5 +1,26 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Release candidate installed on the physical iPad (2026-10-03)
+
+Chris asked for the latest build on his iPad. Private `ipad-release.JMTgJE/`.
+Commit `06263cc`; Chris' iPad Pro 12.9-inch (6th gen, iPad14,5), iPadOS 27.0,
+wired. Only HaloPad was stopped (BlueWake untouched).
+
+Device engine: build 74 `80d30410`, ANGLE/Metal with automatic device features,
+guest adaptation `render-quality-v1` (Original/Sharper picker), guest
+`ba075341…1ced21`, library `92c9406b…5b15`. The Simulator's `render-present-v1`
+water/border/present and shared-input-context recipe needs the counted ANGLE
+backend, which the build allows only on the Simulator, so the device build omits them.
+App executable `89581f07…e4c0`, signed with the existing `dev.halopad.HaloPad`
+development profile (both memory entitlements), iOS platform, no IPA.
+
+Before install: wired `afcclient` copies of Documents and Library (255 files,
+4.0 GB) and an independent second copy match exactly. Installed in place; a third
+copy before launch shows only OS snapshot/dyld cache changes. Ordinary launch, PID
+9247; the device log shows startup and the app active at the picker. Shared build
+output restored to the Simulator recipe (guest 8fb0112f…, identical `guest.s`).
+Not yet observed: Xbox or PC gameplay on this install, touch feel, performance.
+
 ## Corruption detector run and stopping point (2026-10-03)
 
 `soak9-trace4`: private `sound-trace-v4` (guest 86be7ff4…) adds shadows of every
