@@ -4,6 +4,18 @@ Updated 2026-10-03. **Simulator-only work: shared controls, texture compatibilit
 
 Operating loop: [HaloPad-GOAL-LOOP-PHASE4.md](HaloPad-GOAL-LOOP-PHASE4.md). Earlier device work remains in [phase 3](HaloPad-GOAL-LOOP-PHASE3.md).
 
+**Battle Creek reference agrees; longer run exposes a sound crash (2026-10-03).**
+Same-revision official Windows74/Mesa and unchanged Simulator `4e42dc6d…11175`
+show matching water appearance, rock shading and foliage over22 usable stepped
+camera poses. This is not continuous-motion or all-scene fidelity acceptance.
+Simulator later crashes at about184s: stale looping-sound datum -> null dereference
+in inlined sound-channel update; crash reporter recursively faults on guest FP.
+Stationary final-pose control survives240s, so trigger remains unresolved. Preserve
+the failed capture; next reproduce/isolate sound lifecycle and harden diagnostic
+unwinding, not another speculative shader edit. Real saves/preferences/PC registry
+exact, Original picker restored. No runtime/pin change or hardware access.
+[Evidence](XBOX-SIMULATOR-PASSES.md#build74-battle-creek-reference-and-late-sound-fault-2026-10-03).
+
 **Build74 normal multiplayer menu route verified (2026-10-03).**
 Unchanged adapted `4e42dc6d…11175`: copied New001/Green Thumb profile -> System
 Link -> Create Game -> Battle Creek/Slayer -> lobby -> rendered match -> Leave

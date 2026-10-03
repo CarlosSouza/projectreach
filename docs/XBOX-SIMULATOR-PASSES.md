@@ -1,5 +1,73 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Build74 Battle Creek reference and late sound fault (2026-10-03)
+
+Previous normal-menu pass is progress. Private evidence:
+`ref/xbox-build/passes/2026-10-03/creek-reference74.7rz74B/`. No rebuild/install/
+runtime edit, hardware or pin change. Full real container backup retained.
+Installed executable remains4e42dc6d…11175; guest8fb0112f…0a5e.
+
+Independent reference is [official Windows build74](https://github.com/cybersecurity/halo-ce-universal/releases/tag/build-74),
+same80d30410 commit, downloaded through GitHub release API. ZIP SHA256 matches
+asset digest e07e4fe2205933e371b074bc279618d027e2a90a412869e533be785ad5ce70fc;
+unmodified halo.exe SHA256
+7fa1af62db1e144c9c60efe2796c213746c829b45a9f82182a77e55b49757281.
+APFS-copy existing private Wine prefix; copy the already-reviewed per-app Mesa
+DLLs, no system driver/default-prefix changes. Actual OpenGL4.6 Mesa26.2.3
+llvmpipe, four workers. Same extracted maps and Original640x480. Online, UPnP,
+clipboard joining and updater disabled. Diagnostic consoles verified bound only
+to127.0.0.1:13373/13374; all close after processes finish.
+
+Direct beavercreek map load initially leaves camera at0,0,0 outside playable
+space: retain initial desktop/Simulator captures, not as material acceptance.
+Read scenario player coordinates from the runtime's decompressed cache003.map
+(source-defined tag header/scenario players block/0x34 location records).
+Then send identical25 diagnostic poses across x10..17.2/y15/z1.5 with yaw sweep,
+pitch-0.18 and FOV1.221730; about3s holds, not continuous movement or touch input.
+Read back final cameras identically from both engines. Original compressed map
+cannot be read using its decompressed file offsets; failed attempt retained in
+tool evidence, no inputs modified.
+
+Five paired contact sheets inspected. Desktop poses0..2 are startup/stale frames
+and explicitly excluded. Usable poses3..24 show the same bright blue-purple creek,
+rocks, base entrance and close foliage transitions. Upper330-row RGB mean absolute
+differences for selected poses3..10/15/20/24 are0.306..0.623 on a0..255 scale.
+Water-region animation is not phase-synchronized: whole-frame differences up to
+7.403 are not a correctness threshold. No missing-material or iOS-only blue-water
+defect established. This does not prove all-frame temporal stability, original
+Xbox parity, physical GPU quality or performance.
+
+**Stability failure retained, not a passing graphics soak.** Desktop exits0 after
+245.961s/333 BMPs. Simulator PID1393 dies about184s after launch, last frame16920;
+capture helper reports exit1 when its240s termination finds no process. The first
+fault is SIGBUS at host0x300000004/guest4, translated xg_text+0x91024. Exact
+installed Mach-O dispatch table maps this to guest0x88076870 (`ldr w1,[x0,#4]`),
+inside update_channels' inlined update_channel_for_looping_sound. Matching guest
+ELF hash/disassembly and debug.txt identify datum_get returning null for stale
+looping-sound index0xf98f0000, then dereferencing its definition_index. This is
+a sound-lifecycle failure, not a GL call; why the owner becomes stale is not yet
+proved. Do not substitute shared intermediate .o addresses: those are not the
+installed executable's authoritative translation table.
+
+Secondary failure: xg_memory.c report() treats guest FP0x11013840 as a host frame
+and reads0x11013848. SA_NODEFER permits recursive SIGSEGV reports, so the OS .ips
+ends at fault+0x314 instead of the original guest null dereference. Preserve
+HaloPad-crash.ips, stderr, debug log and fault-translation.json/trace_fault.py.
+Do not claim that making reporting safe would fix the original sound bug.
+
+Control: fresh independent Simulator save, same final camera loaded once, no
+sweep. PID5161 completes240.353s/397 BMPs, exit0; final foliage view inspected,
+no logged signal/assertion. It narrows the test but does not establish that the
+sweep causes the failure or that normal gameplay is unaffected. Next repeat the
+sweep with lifecycle diagnostics and isolate guest/native differences; keep the
+failed case and short passing control distinct.
+
+All helpers terminal; ordinary launch7879 shows Original picker by AX/pixels.
+Real Documents only HaloPad log changed; final Library only Metal cache changed.
+Preferences/keyset, PC registry and real saves/game/package files exact. Source/
+runtime unchanged, so no unit rerun. No IPA/publication. Goal incomplete; sound
+reproduction and safe fault reporting supersede another unmatched texture pass.
+
 ## Build74 normal multiplayer menu route (2026-10-03)
 
 Previous accepted-update pass is progress. This pass closes a different bounded

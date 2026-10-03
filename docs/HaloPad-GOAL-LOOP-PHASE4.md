@@ -548,3 +548,20 @@ unit rerun, pin change, hardware or publication. This is bounded validation
 progress, not a new texture fix or full multiplayer acceptance. Next compare a
 moving Battle Creek water/foliage view with the pinned desktop reference; do not
 change rendering based on one unmatched screenshot or repeat this menu route.
+
+Battle Creek74 checkpoint: exact official Windows74/Mesa reference and unchanged
+Simulator4e42dc6d…11175 agree on22 usable stepped camera poses (3..24;0..2 are
+desktop startup/stale frames). Blue-purple water, rock shading and close foliage
+transitions appear in both. Same final camera readback, Original640x480; water
+animation phase differs, no continuous-motion/all-scene acceptance. Private
+creek-reference74.7rz74B retains images, hashes, camera path and comparisons.
+Crucially the Simulator later crashes around184s: stale looping-sound datum in
+inlined update_channel_for_looping_sound, null read at guest4. Exact installed
+dispatch table maps offset0x91024 to guest0x88076870. report() then recursively
+faults treating guest FP0x11013840 as host memory. Desktop completes246s; fresh
+stationary final-pose control completes240s without the fault. No runtime change
+or trigger/fix claim. Real saves/preferences/PC registry preserved; ordinary
+Original picker7879 restored; all helpers stopped. Next isolate/reproduce sound
+ownership across sweep/render-idle paths and harden reporting separately. This
+new concrete stability failure takes precedence over more unmatched graphics
+scenes. No pin/hardware/publication change; full goal remains incomplete.

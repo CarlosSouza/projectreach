@@ -5379,3 +5379,20 @@ PC registry exact; only log/Metal cache/scene state differ. Original picker95285
 restored; peer/recording stopped, game sockets closed. No runtime/build/pin change
 or unit rerun. Next matched moving Battle Creek material reference; broad graphics,
 PC gameplay, held-score/human multi-touch and hardware gates remain open.
+
+### 2026-10-03 — build74 Battle Creek reference and late sound failure
+
+Official Windows74 archive digest verified; separate Wine prefix/Mesa software
+reference, same maps, Original640x480. Unchanged Simulator4e42dc6d…11175 and
+desktop agree over22 usable stepped poses in creek-reference74.7rz74B. Startup
+poses0..2 rejected; identical final camera readback. Upper static-scene selected
+differences0.306..0.623/255; water is not phase-synchronized. No shader change.
+Simulator then dies about184s in sound update: looping-sound datum0xf98f0000 is
+stale, datum_get returns null, guest0x88076870 dereferences offset4. Exact app
+dispatch-table mapping saved. Reporter recursively faults on guest-frame pointer;
+preserve original SIGBUS/logs and OS .ips, not merely terminal SIGSEGV. Desktop
+246s passes; fresh stationary final-camera240s control passes, so trigger is not
+proved. Next sound lifecycle reproduction and separate safe diagnostics fix.
+Real saves/preferences/PC registry exact; ordinary Original picker7879 restored,
+listeners/helpers stopped. No source/runtime/pin changes or unit rerun. Simulator
+only, no IPA/publication; stability gate explicitly failed, goal still active.

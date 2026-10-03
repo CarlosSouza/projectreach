@@ -41,12 +41,16 @@ Sharper1280x960/4x. The real update-helper workflow now accepts74 after fresh
 unadapted Mac/Simulator gates; this exact adapted preview is restored in place.
 Normal New001/Green Thumb System Link profile/lobby progression also reaches
 Battle Creek/Slayer and returns to the menu using shared controls. The second
-machine is a local stand-in, not full peer-gameplay compatibility. Broad-fidelity
-gates remain open; next matched moving Battle Creek water/foliage reference.
+machine is a local stand-in, not full peer-gameplay compatibility. Same-revision
+desktop reference agrees on22 usable stepped Battle Creek material views, but
+the longer Simulator run exposes a stale looping-sound crash at about184s.
+A stationary240s control passes; trigger unresolved. Next sound-lifecycle
+reproduction and safe crash reporting. Broad-fidelity/stability gates remain open.
 [Installed evidence](XBOX-SIMULATOR-PASSES.md#adapted74-controls-and-save-regression-2026-10-03).
 [Quality regression](XBOX-SIMULATOR-PASSES.md#build74-both-quality-material-regression-2026-10-03).
 [Accepted update](XBOX-SIMULATOR-PASSES.md#build74-accepted-update-workflow-2026-10-03).
 [Normal multiplayer route](XBOX-SIMULATOR-PASSES.md#build74-normal-multiplayer-menu-route-2026-10-03).
+[Reference and sound fault](XBOX-SIMULATOR-PASSES.md#build74-battle-creek-reference-and-late-sound-fault-2026-10-03).
 
 Previous Simulator candidate: build73 `d1c7243c`, executable `ed257ad5…af30b`,
 guest `4ac7e842…b60`, cumulative **render-present-v1**. Resolving the read
