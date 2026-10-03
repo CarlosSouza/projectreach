@@ -1,5 +1,39 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Reporter build: campaign controls, save/reload, PC gate, 10-minute match (2026-10-03)
+
+Private `sound-life.abYmaG/p3/`. Installed reporter build 6bea0684…6041, guest
+8fb0112f…0a5e, Original. Isolated copies of adapted74's New001 session; online,
+UPnP, clipboard joins and auto-update off; no init, forced edition or test input.
+Device Hub dedicated HaloPad Xbox iPad window. CUA drag coordinates are about
+0.88x screenshot pixels: the Move stick at screenshot (191,1211) is (217,1373).
+Uncorrected drags landed above the stick and did nothing; corrected single drags
+each moved one menu row. Input timing was not changed.
+
+Campaign PID59492: picker -> Xbox -> Campaign -> New001 -> Halo (in progress) ->
+Normal restores the a30 outside-pod checkpoint (rifle 60/120, one grenade).
+Shared Fire 60->59, Swap to pistol (64), Zoom 2x and exit, Melee swing, Throw
+1->0 with explosion, Pause, three observed Move steps, A Save and Quit -> main
+menu. Checkpoint 9162fda3… unchanged (last-checkpoint semantics). Cold PID65066,
+same menus, restores 60/120 and one grenade. No signal or exception.
+
+PC route: ordinary picker -> Halo Custom Edition validates files and reopens the
+original unaccepted Custom Edition EULA (`pc-eula-unaccepted.png`). Neither
+button touched; process ended. Opening PC set HaloPadLastEngine to pc; restored
+to xbox via the container plist path. A mistaken `simctl spawn defaults write`
+without a path left an empty 42-byte `dev.halopad.HaloPad.plist` in the
+Simulator user Preferences (outside the app container, no keys).
+
+System Link PID74863: Multiplayer -> System Link -> New001 -> Create Game ->
+Battle Creek -> Slayer; one `network-bot.py` stand-in (127.0.0.1, existing
+192.168.0.27). About 12 minutes in game (updates through 21,540), alive in every
+minute poll, no signal/exception. Fire 100->99, Throw 4->3; Pause -> Leave Game ->
+main menu, client/server disposed, peer exit 0, no 5150 sockets left. Host
+stability with a stand-in only: not network interoperability or human feel.
+
+Final: ordinary picker; Documents differ only by the log, preferences and PC
+registry byte-identical, saves/game/package files intact.
+
 ## Sound-lifetime pass 2: traced replays, no recurrence (2026-10-03)
 
 Same private folder (`sound-life.abYmaG`). Diagnostic guests came from
