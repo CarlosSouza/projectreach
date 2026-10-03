@@ -107,9 +107,9 @@ Start with `scripts/doctor.sh`, then follow [Installing on iPhone or iPad](docs/
 for signing, building, packaging your game files and first launch. Today this is a developer workflow
 with private input preparation, not a one-command build.
 
-A one-command personal build through [PadForge](https://github.com/chrissotraidis/padforge) is planned.
-PadForge runs HaloPad's own builder against your verified game files on your Mac; game files,
-translated code and signing material never leave it. HaloPad's [draft manifest](padforge.json) marks
+A one-command personal build through [PadMint](https://github.com/chrissotraidis/padmint) is planned.
+PadMint runs HaloPad's own builder against your verified game files on your Mac; game files,
+translated code and signing material never leave it. HaloPad's [draft manifest](padmint.json) marks
 iOS as planned.
 
 The [HaloPad icon](assets/Assets.xcassets/AppIcon.appiconset/AppIcon.png) is an original orbital-arc design;
