@@ -5410,3 +5410,13 @@ only, no IPA/publication; stability gate explicitly failed, goal still active.
   bundle) and read back byte-identical. The Windows edition then passed the product-ID check:
   Direct3D 800x600, Halo's main menu, controller assigned to player 1, process live.
   In-place updates keep this state; a fresh install or the Simulator needs the same step.
+
+## 2026-10-04 — Device rendering parity, shared menu, new picker
+
+- The Xbox Simulator rendering fixes (render-present-v1 with the counted ANGLE backend) now
+  build for devices; build 85 also gained a missing device include. Installed in place on
+  Chris' iPad after a verified backup; Silent Cartographer renders with 0 GL errors.
+- Xbox engine messages, the GL renderer, GL errors and frame timing now reach HaloPad.log.
+- Both editions share one three-dot menu; Switch Edition closes HaloPad to the picker.
+- New edition picker with versions, status, graphics choice and the Project Reach link.
+  Details: XBOX-SIMULATOR-PASSES.md, "Device rendering parity…".

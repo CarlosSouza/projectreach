@@ -55,14 +55,24 @@ STATE = ROOT / 'generated' / 'halopad-disk-ios'
 # the Xbox engine, when it was built on this Mac (scripts/xbox/build-ios.sh; docs/XBOX-ENGINE.md)
 XBOX_OUT = ROOT / 'ref' / 'xbox-build' / 'out'
 
+def xbox_release_tag(revision):
+    """Upstream's release tag (build-85) for the picker and About; None when untagged or unavailable."""
+    try:
+        tags = subprocess.run(['git', '-C', str(ROOT / 'ref/xbox-build/vol/engine'), 'tag', '--points-at', revision],
+                              capture_output=True, text=True, timeout=10).stdout.split()
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return next((tag for tag in tags if tag.startswith('build-')), None)
+
+
 def xbox_build_folder(target):
     renderer = os.environ.get('HALOPAD_XBOX_RENDERER', 'apple-gles')
     if renderer not in ('apple-gles', 'angle-metal'):
         raise ValueError('Unknown HALOPAD_XBOX_RENDERER')
     sdk = 'iphonesimulator' if 'simulator' in target else 'iphoneos'
     if xbox_runtime_manifest.guest_adaptation.identity()['name'] in xbox_runtime_manifest.guest_adaptation.COUNTED_ADAPTATIONS:
-        if renderer != 'angle-metal' or sdk != 'iphonesimulator':
-            raise ValueError('Counted visibility requires the ANGLE iPad Simulator candidate')
+        if renderer != 'angle-metal':
+            raise ValueError('Counted visibility requires the ANGLE renderer')
         return XBOX_OUT / (sdk + '-angle-counted')
     return XBOX_OUT / (sdk + '-angle' if renderer == 'angle-metal' else sdk)
 
@@ -97,7 +107,8 @@ def xbox_parts(target):
     if manifest.get('guest_adaptation') != adaptation:
         raise ValueError('Xbox guest adaptation differs or is unrecorded; rebuild with the intended adaptation')
     if adaptation['name'] in xbox_runtime_manifest.guest_adaptation.COUNTED_ADAPTATIONS:
-        expected_visibility = json.loads((XBOX_OUT / 'angle-counted-simulator/counted-visibility-v1/identity.json').read_text())
+        counted = 'angle-counted-simulator' if sdk == 'iphonesimulator' else 'angle-counted-iphoneos'
+        expected_visibility = json.loads((XBOX_OUT / counted / 'counted-visibility-v1/identity.json').read_text())
         if expected_visibility.get('name') != 'counted-visibility-v1' or manifest.get('visibility_backend') != expected_visibility:
             raise ValueError('Xbox counted guest/backend identity mismatch')
     elif manifest.get('visibility_backend'):
@@ -163,6 +174,7 @@ def package(exe, out, work, target=TARGET, identity=None, provisioning=None):
         pin = json.loads((ROOT / 'config/xbox-engine.lock.json').read_text())['revision']
         build['candidate'] = (build['revision'] != pin or build.get('renderer') == 'angle-metal'
                               or build['guest_adaptation']['name'] != 'none')
+        build['release'] = xbox_release_tag(build['revision'])
         (data / 'xbox' / 'build.json').write_text(json.dumps(build, indent=2) + '\n')
     for m in sorted((run_core.IMAGE.parent / 'modules').iterdir()):
         if (m / 'image.bin').is_file():

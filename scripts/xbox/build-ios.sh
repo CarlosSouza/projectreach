@@ -31,8 +31,8 @@ RENDERER=${HALOPAD_XBOX_RENDERER:-apple-gles}
 COUNTED=OFF
 case "${HALOPAD_XBOX_GUEST_ADAPTATION:-none}" in
 render-visibility-v1|render-water-v1|render-border-v1|shared-input-v1|render-present-v1)
-    [ "$RENDERER" = angle-metal ] && [ "$SDK" = iphonesimulator ] || {
-        echo "Counted visibility currently requires the ANGLE iPad Simulator candidate" >&2; exit 2;
+    [ "$RENDERER" = angle-metal ] || {
+        echo "Counted visibility requires the ANGLE renderer" >&2; exit 2;
     }
     COUNTED=ON
 ;;
@@ -63,11 +63,14 @@ if [ "$RENDERER" = angle-metal ]; then
     APP="$OUT/$BUILD_SDK/HaloPadXbox.app"
     ANGLE_BUILD="$OUT/angle-simulator"
     [ "$SDK" != iphoneos ] || ANGLE_BUILD="$OUT/angle-iphoneos"
+    # The counted backend has its own ANGLE build per SDK (same reviewed recipe).
+    COUNTED_BUILD="$OUT/angle-counted-simulator"
+    [ "$SDK" != iphoneos ] || COUNTED_BUILD="$OUT/angle-counted-iphoneos"
     if [ "$COUNTED" = ON ]; then
         BUILD_SDK=$SDK-angle-counted
         OBJ="$OUT/obj-$BUILD_SDK"
         APP="$OUT/$BUILD_SDK/HaloPadXbox.app"
-        ANGLE_BUILD="$OUT/angle-counted-simulator"
+        ANGLE_BUILD="$COUNTED_BUILD"
     fi
     cmake -S "$ROOT/scripts/xbox/angle" -B "$ANGLE_BUILD" -G Ninja \
         -DHALOPAD_ANGLE_COUNTED_VISIBILITY=$COUNTED \
@@ -120,7 +123,8 @@ if sys.argv[4] == 'angle-metal':
     manifest['angle_source'] = json.loads(pathlib.Path(sys.argv[5]).read_text())
     manifest['angle_feature_overrides'] = ['hasTextureSwizzle'] if manifest['sdk'] == 'iphonesimulator' else []
 if manifest['guest_adaptation']['name'] in guest_adaptation.COUNTED_ADAPTATIONS:
-    manifest['visibility_backend'] = json.loads((out / 'angle-counted-simulator/counted-visibility-v1/identity.json').read_text())
+    counted = 'angle-counted-iphoneos' if manifest['sdk'] == 'iphoneos' else 'angle-counted-simulator'
+    manifest['visibility_backend'] = json.loads((out / counted / 'counted-visibility-v1/identity.json').read_text())
 (out / sdk / 'build.json').write_text(json.dumps(manifest, indent=2) + '\n')
 PY
 GL_LINK="-framework OpenGLES"

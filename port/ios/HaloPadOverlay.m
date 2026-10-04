@@ -3,8 +3,10 @@
 #import "HaloPadOverlay.h"
 #import <GameController/GameController.h>
 #include <math.h>
+#include <unistd.h>
 
 #include "../runtime/halopad_input.h"
+#include "../runtime/halopad_log.h"
 
 /* ---- settings (NSUserDefaults, HaloPad-owned keys) ---- */
 
@@ -543,6 +545,13 @@ static const hp_control_def CONTROLS[] = {
     _engineMenuItems = [items copy];
     [self rebuildMenu];
 }
+
+/* Delegate-provided items (custom maps, Switch Edition) appear as soon as it is set. */
+- (void)setDelegate:(id<HPOverlayDelegate>)delegate
+{
+    _delegate = delegate;
+    if (_menuButton) [self rebuildMenu];
+}
 - (void)setControllerLabel:(NSString *)label hint:(NSString *)hint forControl:(NSString *)identifier
 {
     for (HPControlButton *button in _buttons) {
@@ -962,47 +971,47 @@ static const hp_control_def CONTROLS[] = {
 static NSString * const HPRepositoryURL = @"https://github.com/chrissotraidis/projectreach";
 
 /* The three-dot menu, grouped the way a player looks for things: play, controls,
-   chat, display, maps, help. Everything Halo's own menus already do stays there. */
+   chat, display, maps, help. Everything Halo's own menus already do stays there.
+   Both editions share this menu. Only what an edition cannot do differs: the Xbox
+   game has no server browser, chat keyboard, console or 4:3 choice, and adds its
+   own play items (System Link) through engineMenuItems. */
 - (void)rebuildMenu
 {
     __weak HPOverlay *weak = self;
     HPSettings *s = HPSettings.shared;
     UIImage *(^icon)(NSString *) = ^UIImage *(NSString *name) { return [UIImage systemImageNamed:name]; };
+    BOOL pc = !_inputHandler;
 
-    NSMutableArray<UIMenuElement *> *recent = [NSMutableArray array];
-    for (NSString *addr in s.recentServers)
-        [recent addObject:[UIAction actionWithTitle:addr image:nil identifier:nil handler:^(__kindof UIAction *a) { [weak joinServer:addr password:@""]; }]];
-    if (!recent.count) {
-        UIAction *none = [UIAction actionWithTitle:@"No Recent Servers" image:nil identifier:nil handler:^(__kindof UIAction *a) {}];
-        none.attributes = UIMenuElementAttributesDisabled;
-        [recent addObject:none];
+    NSMutableArray<UIMenuElement *> *play = [NSMutableArray array];
+    if (pc) {
+        NSMutableArray<UIMenuElement *> *recent = [NSMutableArray array];
+        for (NSString *addr in s.recentServers)
+            [recent addObject:[UIAction actionWithTitle:addr image:nil identifier:nil handler:^(__kindof UIAction *a) { [weak joinServer:addr password:@""]; }]];
+        if (!recent.count) {
+            UIAction *none = [UIAction actionWithTitle:@"No Recent Servers" image:nil identifier:nil handler:^(__kindof UIAction *a) {}];
+            none.attributes = UIMenuElementAttributesDisabled;
+            [recent addObject:none];
+        }
+        [play addObject:[UIAction actionWithTitle:@"Join Server by Address…" image:icon(@"network") identifier:nil handler:^(__kindof UIAction *a) { [weak promptJoin]; }]];
+        [play addObject:[UIMenu menuWithTitle:@"Recent Servers" image:icon(@"clock.arrow.circlepath") identifier:nil options:0 children:recent]];
     }
-    NSMutableArray<UIMenuElement *> *play = [NSMutableArray arrayWithObjects:
-        [UIAction actionWithTitle:@"Join Server by Address…" image:icon(@"network") identifier:nil handler:^(__kindof UIAction *a) { [weak promptJoin]; }],
-        [UIMenu menuWithTitle:@"Recent Servers" image:icon(@"clock.arrow.circlepath") identifier:nil options:0 children:recent], nil];
-    if (self.inGame) {
+    [play addObjectsFromArray:self.engineMenuItems ?: @[]];
+    if (pc && self.inGame) {
         UIAction *leave = [UIAction actionWithTitle:@"Open Leave Game Menu…" image:icon(@"rectangle.portrait.and.arrow.right") identifier:nil
                                             handler:^(__kindof UIAction *a) { [weak leaveGame]; }];
         [play addObject:leave];
     }
 
-    NSMutableArray<UIMenuElement *> *controlItems = [NSMutableArray arrayWithArray:@[
+    UIMenu *controls = [UIMenu menuWithTitle:@"Controls" image:icon(@"gamecontroller") identifier:nil options:0 children:@[
         [UIAction actionWithTitle:@"Look Speed & Touch Settings…" image:icon(@"slider.horizontal.3") identifier:nil handler:^(__kindof UIAction *a) { [weak togglePanel]; }],
         [UIAction actionWithTitle:@"Edit Touch Layout" image:icon(@"hand.draw") identifier:nil handler:^(__kindof UIAction *a) { [weak beginEditing]; }],
         [self check:@"Hide Touch Controls" on:s.hideTouchControls handler:^{
             HPSettings.shared.hideTouchControls = !HPSettings.shared.hideTouchControls; [weak clearTouchInput]; [weak updateAppearance]; [weak rebuildMenu]; }],
         [self check:@"Hide Touch Controls with a Controller" on:s.hideWithController handler:^{
-            HPSettings.shared.hideWithController = !HPSettings.shared.hideWithController; [weak refreshControllerVisibility]; [weak rebuildMenu]; }]]];
-    if (!_inputHandler)
-        [controlItems addObject:[UIAction actionWithTitle:@"Controller Guide" image:icon(@"gamecontroller.fill") identifier:nil handler:^(__kindof UIAction *a) { [weak showControllerLayout]; }]];
-    UIMenu *controls = [UIMenu menuWithTitle:@"Controls" image:icon(@"gamecontroller") identifier:nil options:0 children:controlItems];
-    if (_inputHandler) {
-        _menuButton.menu = [UIMenu menuWithTitle:@"HaloPad" children:@[
-            [UIMenu menuWithTitle:@"" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:self.engineMenuItems], controls]];
-        return;
-    }
+            HPSettings.shared.hideWithController = !HPSettings.shared.hideWithController; [weak refreshControllerVisibility]; [weak rebuildMenu]; }],
+        [UIAction actionWithTitle:@"Controller Guide" image:icon(@"gamecontroller.fill") identifier:nil handler:^(__kindof UIAction *a) { [weak showControllerLayout]; }]]];
 
-    UIMenu *chat = [UIMenu menuWithTitle:@"Keyboard & Chat" image:icon(@"keyboard") identifier:nil options:0 children:@[
+    UIMenu *chat = !pc ? nil : [UIMenu menuWithTitle:@"Keyboard & Chat" image:icon(@"keyboard") identifier:nil options:0 children:@[
         [UIAction actionWithTitle:@"All Chat" image:icon(@"bubble.left.and.bubble.right") identifier:nil
                           handler:^(__kindof UIAction *a) { [HPOverlay tapKey:'T' scan:0x14]; [weak.delegate overlayRequestsKeyboard:weak]; }],
         [UIAction actionWithTitle:@"Team Chat" image:icon(@"bubble.left") identifier:nil
@@ -1012,13 +1021,17 @@ static NSString * const HPRepositoryURL = @"https://github.com/chrissotraidis/pr
         [UIAction actionWithTitle:@"Halo Console" image:icon(@"terminal") identifier:nil
                           handler:^(__kindof UIAction *a) { [HPOverlay tapKey:0xC0 scan:0x29]; [weak.delegate overlayRequestsKeyboard:weak]; }]]];
 
-    UIMenu *display = [UIMenu menuWithTitle:@"Display" image:icon(@"display") identifier:nil options:0 children:@[
-        [UIMenu menuWithTitle:@"" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[
+    NSMutableArray<UIMenuElement *> *displayItems = [NSMutableArray array];
+    if (pc)
+        [displayItems addObject:[UIMenu menuWithTitle:@"" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[
             [self check:@"Original 4:3" on:s.aspect == HPAspectOriginal handler:^{ HPSettings.shared.aspect = HPAspectOriginal; [weak displayChanged]; }],
-            [self check:@"Stretch to Fill" on:s.aspect == HPAspectFill handler:^{ HPSettings.shared.aspect = HPAspectFill; [weak displayChanged]; }]]],
-        [self check:@"Show FPS Counter" on:s.showFPS handler:^{ HPSettings.shared.showFPS = !HPSettings.shared.showFPS; [weak displayChanged]; }]]];
+            [self check:@"Stretch to Fill" on:s.aspect == HPAspectFill handler:^{ HPSettings.shared.aspect = HPAspectFill; [weak displayChanged]; }]]]];
+    [displayItems addObject:[self check:@"Show FPS Counter" on:s.showFPS handler:^{ HPSettings.shared.showFPS = !HPSettings.shared.showFPS; [weak displayChanged]; }]];
+    UIMenu *display = [UIMenu menuWithTitle:@"Display" image:icon(@"display") identifier:nil options:0 children:displayItems];
 
-    NSMutableArray<UIMenuElement *> *setup = [NSMutableArray arrayWithObjects:controls, chat, display, nil];
+    NSMutableArray<UIMenuElement *> *setup = [NSMutableArray arrayWithObject:controls];
+    if (chat) [setup addObject:chat];
+    [setup addObject:display];
     if ([self.delegate respondsToSelector:@selector(overlayRequestsCustomMaps:)])
         [setup addObject:[UIAction actionWithTitle:@"Add Custom Maps…" image:icon(@"map") identifier:nil
                                            handler:^(__kindof UIAction *a) { [weak.delegate overlayRequestsCustomMaps:weak]; }]];
@@ -1029,11 +1042,40 @@ static NSString * const HPRepositoryURL = @"https://github.com/chrissotraidis/pr
         [UIAction actionWithTitle:@"HaloPad on GitHub" image:icon(@"safari") identifier:nil handler:^(__kindof UIAction *a) {
             [UIApplication.sharedApplication openURL:[NSURL URLWithString:HPRepositoryURL] options:@{} completionHandler:nil]; }],
         [UIAction actionWithTitle:@"About HaloPad" image:icon(@"info.circle") identifier:nil handler:^(__kindof UIAction *a) { [weak showAbout]; }]]];
+    NSMutableArray<UIMenuElement *> *last = [NSMutableArray arrayWithObject:help];
+    if ([self.delegate respondsToSelector:@selector(overlayEditionSwitchNote:)] && [self.delegate overlayEditionSwitchNote:self])
+        [last addObject:[UIAction actionWithTitle:@"Switch Edition…" image:icon(@"arrow.left.arrow.right") identifier:nil
+                                          handler:^(__kindof UIAction *a) { [weak confirmEditionSwitch]; }]];
 
-    _menuButton.menu = [UIMenu menuWithTitle:@"HaloPad" children:@[
-        [UIMenu menuWithTitle:@"" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:play],
-        [UIMenu menuWithTitle:@"" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:setup],
-        [UIMenu menuWithTitle:@"" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[help]]]];
+    NSMutableArray<UIMenuElement *> *groups = [NSMutableArray array];
+    for (NSArray<UIMenuElement *> *group in @[play, setup, last])
+        if (group.count)
+            [groups addObject:[UIMenu menuWithTitle:@"" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:group]];
+    _menuButton.menu = [UIMenu menuWithTitle:@"HaloPad" children:groups];
+}
+
+/* iOS apps cannot relaunch themselves, and one engine owns the process's guest memory
+   per launch. Settings are already stored; HaloPad closes and shows the edition picker
+   when the player opens it again. */
+- (void)confirmEditionSwitch
+{
+    [self clearTouchInput];
+    NSString *note = [self.delegate overlayEditionSwitchNote:self] ?: @"";
+    UIAlertController *a = [UIAlertController alertControllerWithTitle:@"Switch Edition"
+        message:[note stringByAppendingString:@"\n\nHaloPad will close. Open it again to choose Windows or Xbox."]
+        preferredStyle:UIAlertControllerStyleAlert];
+    [a addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+    [a addAction:[UIAlertAction actionWithTitle:@"Close HaloPad" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *x) {
+        [HPOverlay closeForEditionSwitch];
+    }]];
+    [self.presenter presentViewController:a animated:YES completion:nil];
+}
+
++ (void)closeForEditionSwitch
+{
+    HP_LOG("App: closing to switch edition (player request)");
+    fflush(NULL);
+    _exit(0);                                           /* no atexit teardown under a running engine */
 }
 
 - (void)displayChanged
@@ -1183,12 +1225,12 @@ static NSString * const HPRepositoryURL = @"https://github.com/chrissotraidis/pr
     title.font = [UIFont systemFontOfSize:22 weight:UIFontWeightBold];
     [stack addArrangedSubview:title];
     UILabel *setup = [UILabel new];
-    setup.text = @"Connect the controller before opening HaloPad. If you connect during play, close and reopen the app.";
+    setup.text = self.controllerGuideIntro ?: @"Connect the controller before opening HaloPad. If you connect during play, close and reopen the app.";
     setup.textColor = UIColor.lightGrayColor;
     setup.font = [UIFont systemFontOfSize:14];
     setup.numberOfLines = 0;
     [stack addArrangedSubview:setup];
-    NSArray<NSArray *> *sections = @[
+    NSArray<NSArray *> *sections = self.controllerGuideSections ?: @[
         @[@"Movement & View", @[@"Left stick", @"Move"], @[@"Right stick", @"Look"],
           @[@"Left stick click", @"Crouch"], @[@"Right stick click", @"Zoom"]],
         @[@"Combat & Actions", @[@"RT", @"Fire"], @[@"LT", @"Throw grenade"],
@@ -1223,7 +1265,7 @@ static NSString * const HPRepositoryURL = @"https://github.com/chrissotraidis/pr
         }
     }
     UILabel *note = [UILabel new];
-    note.text = @"Change bindings in Halo → Settings → Controls Setup.";
+    note.text = self.controllerGuideFootnote ?: @"Change bindings in Halo → Settings → Controls Setup.";
     note.textColor = UIColor.lightGrayColor;
     note.font = [UIFont systemFontOfSize:13];
     note.numberOfLines = 0;
@@ -1561,6 +1603,17 @@ static NSString * const HPRepositoryURL = @"https://github.com/chrissotraidis/pr
     [self setNeedsLayout];
 }
 
+/* development: the three-dot menu as text, for comparing the editions' menus */
+- (void)printMenu:(UIMenu *)menu depth:(int)depth
+{
+    for (UIMenuElement *element in menu.children) {
+        BOOL group = [element isKindOfClass:UIMenu.class];
+        if (!(group && !element.title.length))
+            fprintf(stderr, "HALOPAD MENU: %*s%s%s\n", depth * 2, "", element.title.UTF8String, group ? " ›" : "");
+        if (group) [self printMenu:(UIMenu *)element depth:element.title.length ? depth + 1 : depth];
+    }
+}
+
 /* development: open a part of the overlay for an unattended screenshot (HALOPAD_OVERLAY_DEMO) */
 - (void)didMoveToWindow
 {
@@ -1572,6 +1625,10 @@ static NSString * const HPRepositoryURL = @"https://github.com/chrissotraidis/pr
         if (!strcmp(demo, "layout")) { [self beginEditing]; }
         if (!strcmp(demo, "lefthanded")) { HPSettings.shared.leftHanded = YES; [self setNeedsLayout]; }
         if (!strcmp(demo, "spread")) { HPSettings.shared.ringSpacing = 2; HPSettings.shared.showCaptions = NO; [self setNeedsLayout]; }
+        if (!strcmp(demo, "menu")) [self printMenu:self->_menuButton.menu depth:0];
+        if (!strcmp(demo, "guide")) [self showControllerLayout];
+        if (!strcmp(demo, "switch")) [self confirmEditionSwitch];
+        if (!strcmp(demo, "switch-close")) [HPOverlay closeForEditionSwitch];
         fprintf(stderr, "HALOPAD OVERLAY: demo \"%s\" open\n", demo);
     });
     /* join:ADDRESS: the menu's Join Server, once Halo's menu is up */

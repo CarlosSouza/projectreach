@@ -1327,6 +1327,13 @@ static NSString *custom_map_problem(NSURL *url, NSString **name)
             "Game files: Files app → HaloPad → Halo Custom Edition\nCustom maps installed: %lu\n\n"
             "HaloPad needs your own copy of Halo. It includes no game data.", ver, build, (unsigned long)maps.count];
 }
+/* Only builds with the edition picker (HaloPadXbox.m) offer Switch Edition. */
+extern UIViewController *HPEngineChooserMake(UIViewController *(^makePC)(void)) __attribute__((weak));
+- (NSString *)overlayEditionSwitchNote:(HPOverlay *)o
+{
+    if (!HPEngineChooserMake) return nil;
+    return @"Your Halo profile, settings, custom maps and touch layout are already saved. If you are in a match, you leave it.";
+}
 /* ---- input: hardware keyboard, touch and pointer, queued for Halo's thread ---- */
 - (BOOL)canBecomeFirstResponder { return YES; }
 

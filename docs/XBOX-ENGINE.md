@@ -26,8 +26,12 @@ normal build-60 menus; a copy of that fixture also reloads the cryo-bay in build
 This is not general snapshot compatibility or full gameplay acceptance:
 geometry/texture artifacts, full campaign progression, split-screen, human system link,
 audio quality and physical performance remain open.
-The Simulator-only presentation fix remains narrow: temporarily neutralize texture unit/
-sampler 0 during final presentation, then restore it. That diagnostic is not enabled on hardware.
+The Apple-GLES presentation workaround remains narrow: temporarily neutralize texture unit/
+sampler 0 during final presentation, then restore it. ANGLE builds (Simulator and device) do not use it.
+Since 2026-10-04 device builds use the same cumulative `render-present-v1` fixes and counted
+ANGLE backend as the Simulator (`angle-counted-iphoneos`); installed and observed on Chris' iPad
+(Silent Cartographer, 0 GL errors). Engine, renderer, GL-error and frame-timing lines are in
+HaloPad Logs/HaloPad.log.
 See [XBOX-SIMULATOR-PASSES.md](XBOX-SIMULATOR-PASSES.md).
 
 Latest Simulator candidate: build74 `80d30410`, executable `4e42dc6d…11175`,

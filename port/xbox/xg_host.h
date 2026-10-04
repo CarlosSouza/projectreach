@@ -63,6 +63,9 @@ extern __thread int xg_errno;
 /* logging */
 void xg_log(const char *format, ...) __attribute__((format(printf, 1, 2)));
 void xg_fatal(const char *format, ...) __attribute__((format(printf, 1, 2), noreturn));
+/* Optional host sink for finished log lines (HaloPad's shareable diagnostic
+ * log). Set once before the game starts; called from any thread. */
+extern void (*xg_log_sink)(const char *line);
 
 /* the platform (xg_main_*.c): data and save folders, display width */
 struct xg_paths

@@ -21,6 +21,8 @@ void xg_ios_add_touch_look(float dx, float dy);
 void xg_ios_scroll_scoreboard(float points);
 /* nonzero while a game controller is player 1's */
 int xg_ios_controller_connected(void);
+/* frames presented since the game started (any thread) */
+int xg_ios_frames_presented(void);
 
 /* the Xbox-layout touch gamepad; add it above the game view */
 @interface XGTouchPad : UIView

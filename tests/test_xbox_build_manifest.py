@@ -48,10 +48,11 @@ class XboxManifestTests(unittest.TestCase):
             self.manifest['visibility_backend'] = identity
             self.save_manifest()
             self.assertIn(self.lib, builder.xbox_parts(builder.TARGET))
-            with self.assertRaisesRegex(ValueError, 'Simulator candidate'):
+            # A device build needs its own counted library; the Simulator one never substitutes.
+            with self.assertRaisesRegex(ValueError, 'library is missing'):
                 builder.xbox_parts(builder.DEVICE_TARGET)
             with patch.dict(os.environ, {'HALOPAD_XBOX_RENDERER': 'apple-gles'}):
-                with self.assertRaisesRegex(ValueError, 'Simulator candidate'):
+                with self.assertRaisesRegex(ValueError, 'ANGLE renderer'):
                     builder.xbox_parts(builder.TARGET)
             metadata.write_text(json.dumps({'name': 'counted-visibility-v1', 'recipe_sha256': 'different'}))
             with self.assertRaisesRegex(ValueError, 'identity mismatch'):

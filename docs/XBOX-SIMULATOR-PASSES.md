@@ -1,5 +1,47 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Device rendering parity, shared menu, new picker, Switch Edition (2026-10-04)
+
+Private `ref/xbox-build/passes/2026-10-04/ipad-ui.dXLDtu/`. Chris asked for the
+Simulator fixes on the real iPad, more rendering logs, a better edition picker
+with a Project Reach link, a way back to the picker from either game, and a three-dot
+menu that is nearly identical in both editions.
+
+- **Device rendering.** The counted-visibility ANGLE backend has nothing
+  Simulator-specific (its identity hashes only ANGLE inputs), so device builds now
+  get their own `angle-counted-iphoneos` output and the full `render-present-v1`
+  set (water mip copy, border sampling, present order, shared input). Device ANGLE
+  feature overrides stay empty. Build 85 also could not compile for devices at all:
+  `xg_scancode_names.h` was included only for the Simulator; fixed.
+- **Logging.** Engine `xg_log` lines now also go to `HaloPad Logs/HaloPad.log`
+  (prefixed `Xbox:`, 2000-line session cap), plus the GL vendor/renderer/version,
+  GL errors (first 20, then counted), frames over 250 ms (first 30) and a 30 s
+  fps/worst-frame/slow-frame/GL-error summary. One `glGetError` per presented frame.
+- **Menu.** One builder for both editions: Controls (incl. Controller Guide),
+  Display, Help (Report a Problem, Share Diagnostic Log, GitHub, About) and Switch
+  Edition. Only Join Server/Recent, Keyboard & Chat, 4:3/Stretch and Custom Maps
+  are PC-only; System Link is Xbox-only. The Xbox guide uses the shared layout with
+  the Default profile (LB = White flashlight, RB = Black grenade switch, as upstream maps).
+- **Switch Edition.** Confirmation, log line, `_exit(0)`; the next open shows the picker.
+- **Picker.** Two cards with platform, exact version (`halo-ce-universal build 85`,
+  stamped from the upstream tag at packaging), Ready/needs-files status, Last
+  Played, inline Original/Sharper on Xbox, About These Builds and Project Reach on GitHub.
+
+Evidence: 270 tests pass (16 skipped). Simulator: picker, both menu trees
+(`HALOPAD_OVERLAY_DEMO=menu`), Xbox guide, Switch Edition alert, and close then
+reopen to the picker; Simulator Xbox menu 34.6 fps, 0 GL errors.
+iPad (iPad14,5, iPadOS 27.0): before-install backup and independent readback
+identical (335 files); signed app executable 90f3b77e…, guest dcc13747…, build 85,
+counted backend. Xbox menu about 120 fps, 0 GL errors; same menu tree as the
+Simulator. Silent Cartographer (b30, via a temporary `init.txt` and isolated
+`XG_SAVE`) renders sky, shadows, HUD and AI; about 115 fps, 0 GL errors over two
+minutes, 6–21 frames per 30 s over 50 ms while loading and while the development
+frame dump was writing. `init.txt` and `xbox-frame.ppm` were restored, and the
+throwaway save folder was removed.
+Not verified: hands-on touch feel, water in motion on hardware, long sessions,
+and the late looping-sound crash. Switch Edition's button tap and the Windows
+menu on the iPad need a human tap.
+
 ## Build 85 accepted (2026-10-04)
 
 Private `ref/xbox-build/passes/2026-10-04/update85.4ho9KP/` (outgoing Simulator app

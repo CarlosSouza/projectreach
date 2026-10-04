@@ -6,7 +6,8 @@
  * PC game as before.
  *
  * One engine runs per launch: both claim the same guest memory, so choosing
- * the other game means closing HaloPad and opening it again.
+ * the other game means closing HaloPad and opening it again (the shared menu's
+ * Switch Edition…).
  */
 #import <UIKit/UIKit.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
@@ -14,12 +15,28 @@
 #include <arpa/inet.h>
 #include <ifaddrs.h>
 #include <net/if.h>
+#include <stdatomic.h>
+#include <sys/utsname.h>
 #include "xg_ios.h"
 #include "xg_xiso.h"
 #import "HaloPadOverlay.h"
 #import "HaloPadXboxSaveIdentity.h"
 #import "HaloPadXboxQuality.h"
 #include "xg_overlay_input.h"
+#include "../runtime/halopad_log.h"
+
+/* the engine's log lines, also written to HaloPad's shareable log (xg_syscall.c) */
+extern void (*xg_log_sink)(const char *line);
+
+static void xbox_log_sink(const char *line)
+{
+	static atomic_int count;
+	int n = atomic_fetch_add(&count, 1);
+	if (n < 2000)
+		HP_LOG("Xbox: %s", line);
+	else if (n == 2000)
+		HP_LOG("Xbox: later engine messages are not logged this session");
+}
 
 /* system link: iOS lets apps broadcast only with a restricted entitlement, so
  * the game searches the addresses the player lists instead (upstream's
@@ -76,6 +93,20 @@ static NSDictionary *xbox_build(void)
 	return data ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : @{};
 }
 
+/* "build 85" for an upstream release tag, else the short revision */
+static NSString *xbox_release(NSDictionary *build)
+{
+	NSString *release = build[@"release"], *revision = build[@"revision"] ?: @"";
+	if ([release isKindOfClass:NSString.class] && [release hasPrefix:@"build-"])
+		return [@"build " stringByAppendingString:[release substringFromIndex:6]];
+	return revision.length ? [revision substringToIndex:MIN((NSUInteger)8, revision.length)] : @"unknown build";
+}
+
+static NSString *xbox_graphics_name(void)
+{
+	return HPXboxSharperSelected(NSUserDefaults.standardUserDefaults) ? @"Sharper (Preview)" : @"Original";
+}
+
 /* Preserve a copy before a different guest opens snapshot saves. */
 static BOOL xbox_backup_saves(NSError **error)
 {
@@ -112,7 +143,7 @@ static BOOL xbox_backup_saves(NSError **error)
 
 /* ---------- the Xbox game */
 
-@interface HPXboxViewController : UIViewController <UIDocumentPickerDelegate>
+@interface HPXboxViewController : UIViewController <UIDocumentPickerDelegate, HPOverlayDelegate>
 @property(nonatomic, copy) void (^returnToChooser)(void);
 @end
 
@@ -127,6 +158,7 @@ static BOOL xbox_backup_saves(NSError **error)
 	UIProgressView *import_progress;
 	UIButton *import_button;
 	UIButton *back_button;
+	NSTimer *fps_timer;
 	BOOL started;
 }
 
@@ -241,15 +273,23 @@ static BOOL xbox_backup_saves(NSError **error)
 			for (GCController *controller in GCController.controllers) if (controller.extendedGamepad) return YES;
 			return NO;
 		};
+		pad.delegate = self;
 		pad.engineMenuItems = @[
-			[UIAction actionWithTitle:@"Xbox Controls…" image:[UIImage systemImageNamed:@"gamecontroller"] identifier:nil
-				handler:^(__kindof UIAction *action) { [weak showControlsHelp]; }],
 			[UIAction actionWithTitle:@"System Link…" image:[UIImage systemImageNamed:@"network"] identifier:nil
 				handler:^(__kindof UIAction *action) { [weak showLink]; }]];
+		[self configureControllerGuide];
 		[pad refreshControllerVisibility];
 		pad.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
 		[self.view insertSubview:pad belowSubview:link_button];
 		link_button.hidden = YES;
+		fps_timer = [NSTimer scheduledTimerWithTimeInterval:1 repeats:YES block:^(NSTimer *timer) {
+			static int last;
+			HPXboxViewController *owner = weak;
+			if (!owner) { [timer invalidate]; return; }
+			int now = xg_ios_frames_presented();
+			[owner->pad setFramesPerSecond:now - last];
+			last = now;
+		}];
 	}
 	[NSFileManager.defaultManager createDirectoryAtPath:xbox_saves() withIntermediateDirectories:YES attributes:nil error:nil];
 	{
@@ -261,23 +301,88 @@ static BOOL xbox_backup_saves(NSError **error)
 	if (getenv("XG_FRAME_DUMP_DOCUMENTS"))
 		setenv("XG_FRAME_DUMP", [xbox_root().stringByDeletingLastPathComponent stringByAppendingPathComponent:@"xbox-frame.ppm"].fileSystemRepresentation, 1);
 	HPXboxApplyQuality(xbox_build(), NSUserDefaults.standardUserDefaults);
+	{
+		NSDictionary *build = xbox_build();
+		xg_log_sink = xbox_log_sink;
+		HP_LOG("Xbox: starting halo-ce-universal %s (%s), %s, renderer %s, graphics %s",
+			xbox_release(build).UTF8String, [build[@"revision"] ?: @"?" UTF8String],
+			[build[@"guest_adaptation"][@"name"] ?: @"no adaptation" UTF8String],
+			[build[@"renderer"] ?: @"apple-gles" UTF8String], xbox_graphics_name().UTF8String);
+	}
 	if (xg_ios_start(image.fileSystemRepresentation, xbox_data().fileSystemRepresentation, xbox_saves().fileSystemRepresentation))
-		[self showProblem:@"The Xbox game could not start. Share the diagnostic log from Settings > HaloPad if this keeps happening."];
+	{
+		HP_LOG("Xbox: the game could not start");
+		[self showProblem:@"The Xbox game could not start. Its diagnostic log is in Files → HaloPad → HaloPad Logs."];
+	}
 }
 
-- (void)showControlsHelp
+/* The shared Controller Guide, with the Xbox game's Default profile and touch notes. */
+- (void)configureControllerGuide
 {
-	[pad clearTouchInput];
 	NSString *adaptation = xbox_build()[@"guest_adaptation"][@"name"];
 	BOOL profileBridge = [adaptation isEqual:@"shared-input-v1"] || [adaptation isEqual:@"render-present-v1"];
-	NSString *profileHelp = profileBridge
-		? @"Touch buttons keep their gameplay actions when you change the Xbox button preset. Controller settings stay separate. Touch size, layout and sensitivity are in Controls."
-		: @"Use the Default Xbox control profile. Other in-game button layouts do not match these labels yet. Touch size, layout and sensitivity are in Controls.";
-	UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Xbox Controls"
-		message:[@"Menus: use MOVE to highlight an item. Tap A (Jump) to select or B (Melee) to go back. X and Y follow the game's prompts.\n\nPlaying: use the same touch layout as PC. Drag the screen to aim, or drag FIRE while shooting. Hold Scoreboard and drag down or up to scroll its roster.\n\n" stringByAppendingString:profileHelp]
-		preferredStyle:UIAlertControllerStyleAlert];
-	[alert addAction:[UIAlertAction actionWithTitle:@"Done" style:UIAlertActionStyleDefault handler:nil]];
-	[self presentViewController:alert animated:YES completion:nil];
+	pad.controllerGuideIntro = @"Touch: MOVE highlights menu items, A (Jump) selects and B (Melee) goes back. In play, drag the screen to aim or drag FIRE while shooting. Hold Scoreboard and drag to scroll its roster.";
+	pad.controllerGuideSections = @[
+		@[@"Movement & View", @[@"Left stick", @"Move"], @[@"Right stick", @"Look"],
+		  @[@"Left stick click", @"Crouch"], @[@"Right stick click", @"Zoom"]],
+		@[@"Combat & Actions", @[@"RT", @"Fire"], @[@"LT", @"Throw grenade"],
+		  @[@"A", @"Jump"], @[@"B", @"Melee"], @[@"X", @"Action / reload"],
+		  @[@"Y", @"Switch weapon"], @[@"LB (White)", @"Flashlight"], @[@"RB (Black)", @"Switch grenade"]],
+		@[@"Menus", @[@"Left stick / D-pad", @"Move selection"], @[@"A", @"Select"],
+		  @[@"B", @"Back"], @[@"View (Back)", @"Scoreboard"], @[@"Menu (Start)", @"Pause"]]];
+	pad.controllerGuideFootnote = profileBridge
+		? @"This is the Default profile. Touch buttons keep their actions when you pick another preset in Halo → Settings → Controls; controller presets follow the game."
+		: @"This is the Default profile. Other in-game presets do not match the touch labels yet.";
+}
+
+/* ---- the shared menu (HPOverlayDelegate) */
+
+- (void)overlayDisplayChanged:(HPOverlay *)overlay { (void)overlay; }
+- (void)overlayRequestsKeyboard:(HPOverlay *)overlay { (void)overlay; }
+
+- (NSURL *)overlayDiagnosticLog:(HPOverlay *)overlay
+{
+	const char *path = halopad_log_path();
+	return path ? [NSURL fileURLWithPath:@(path)] : nil;
+}
+
+- (NSString *)overlayDiagnostics:(HPOverlay *)overlay
+{
+	struct utsname machine;
+	NSDictionary *build = xbox_build();
+	NSMutableArray *pads = [NSMutableArray array];
+	CGSize screen = UIScreen.mainScreen.bounds.size;
+	uname(&machine);
+	for (GCController *controller in GCController.controllers) [pads addObject:controller.vendorName ?: @"controller"];
+	return [NSString stringWithFormat:@"HaloPad %@ (build %@), Xbox edition\nEngine: halo-ce-universal %@ (%@), %@, renderer %@, graphics %@\n"
+		@"Device: %s, %@ %@, %.0fx%.0f points\nFrames presented: %d\nControllers: %@\nTouch controls: %@\nSystem link addresses: %@",
+		[NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"?",
+		[NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleVersion"] ?: @"?",
+		xbox_release(build), [build[@"revision"] ?: @"?" substringToIndex:MIN((NSUInteger)8, [build[@"revision"] ?: @"?" length])],
+		build[@"guest_adaptation"][@"name"] ?: @"no adaptation", build[@"renderer"] ?: @"apple-gles", xbox_graphics_name(),
+		machine.machine, UIDevice.currentDevice.systemName, UIDevice.currentDevice.systemVersion, screen.width, screen.height,
+		xg_ios_frames_presented(), pads.count ? [pads componentsJoinedByString:@", "] : @"none",
+		HPSettings.shared.hideTouchControls ? @"hidden" : @"shown",
+		[[NSUserDefaults.standardUserDefaults stringForKey:link_key] length] ? @"set" : @"none"];
+}
+
+- (NSString *)overlayAbout:(HPOverlay *)overlay
+{
+	NSDictionary *build = xbox_build();
+	return [NSString stringWithFormat:@"HaloPad %@ (%@)\nHalo: Combat Evolved for the original Xbox, running on halo-ce-universal %@ (built %@).\n"
+		@"Graphics: %@. Rendering: %@.\n\nGame files: Files app → HaloPad → Halo Xbox\nSaves are backed up whenever the engine changes.\n\n"
+		@"HaloPad needs your own copy of Halo. It includes no game data.",
+		[NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"?",
+		[NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleVersion"] ?: @"?",
+		xbox_release(build), build[@"built"] ?: @"locally", xbox_graphics_name(),
+		[build[@"renderer"] isEqual:@"angle-metal"] ? @"Metal (ANGLE)" : @"OpenGL ES"];
+}
+
+- (NSString *)overlayEditionSwitchNote:(HPOverlay *)overlay
+{
+	if (!self.returnToChooser)
+		return nil;
+	return @"Your settings and touch layout are saved. The campaign continues from its last checkpoint; to be certain, pause and choose Save and Quit first.";
 }
 
 - (void)showProblem:(NSString *)text
@@ -410,55 +515,188 @@ static void import_progress_update(double fraction, void *context)
 
 /* ---------- the launch picker */
 
-@interface HPEngineChooser : UIViewController
+static BOOL pc_has_files(void)
+{
+	const char *root = getenv("HALOPAD_GAME_ROOT");
+	NSString *documents = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
+	NSString *folder = root && *root ? @(root) : [documents stringByAppendingPathComponent:@"Halo Custom Edition"];
+	return [NSFileManager.defaultManager fileExistsAtPath:[folder stringByAppendingPathComponent:@"maps/ui.map"]];
+}
+
+static NSString *const HPProjectURL = @"https://github.com/chrissotraidis/projectreach";
+
+@interface HPEngineChooser : UIViewController <UIGestureRecognizerDelegate>
 @property(nonatomic, copy) UIViewController *(^makePC)(void);
 @end
 
 @implementation HPEngineChooser
 {
 	UIStackView *cards;
-	UIButton *quality;
+	UIButton *pc_play, *xbox_play;
 	BOOL choosing;
 }
 
-- (UIButton *)cardWithTitle:(NSString *)title subtitle:(NSString *)subtitle symbol:(NSString *)symbol action:(SEL)action
+static UILabel *chooser_label(NSString *text, UIFontTextStyle style, UIFontWeight weight, UIColor *color)
 {
+	UILabel *label = [UILabel new];
+	UIFontDescriptor *descriptor = [UIFontDescriptor preferredFontDescriptorWithTextStyle:style];
+	label.text = text;
+	label.font = [[UIFontMetrics metricsForTextStyle:style] scaledFontForFont:[UIFont systemFontOfSize:descriptor.pointSize weight:weight]];
+	label.adjustsFontForContentSizeCategory = YES;
+	label.textColor = color;
+	label.numberOfLines = 0;
+	return label;
+}
+
+static UIView *chooser_pill(NSString *text, UIColor *color)
+{
+	UILabel *label = chooser_label(text, UIFontTextStyleCaption1, UIFontWeightBold, color);
+	UIView *pill = [UIView new];
+	label.translatesAutoresizingMaskIntoConstraints = NO;
+	pill.backgroundColor = [color colorWithAlphaComponent:0.14];
+	pill.layer.cornerRadius = 10;
+	[pill addSubview:label];
+	[NSLayoutConstraint activateConstraints:@[
+		[label.leadingAnchor constraintEqualToAnchor:pill.leadingAnchor constant:10],
+		[label.trailingAnchor constraintEqualToAnchor:pill.trailingAnchor constant:-10],
+		[label.topAnchor constraintEqualToAnchor:pill.topAnchor constant:4],
+		[label.bottomAnchor constraintEqualToAnchor:pill.bottomAnchor constant:-4]]];
+	return pill;
+}
+
+/* One edition: what it is, its exact version, whether it is ready, and how to play it. */
+- (UIView *)cardTitle:(NSString *)title platform:(NSString *)platform symbol:(NSString *)symbol accent:(UIColor *)accent
+	version:(NSString *)version about:(NSString *)about ready:(BOOL)ready status:(NSString *)status
+	play:(NSString *)play identifier:(NSString *)identifier action:(SEL)action last:(BOOL)last extra:(UIView *)extra
+	button:(UIButton * __strong *)button
+{
+	UIView *card = [UIView new];
+	UIColor *muted = [UIColor colorWithWhite:0.72 alpha:1];
+	UIImageView *icon = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:symbol
+		withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:26 weight:UIImageSymbolWeightSemibold]]];
+	UIView *spacer = [UIView new];
+	NSMutableArray *tags = [NSMutableArray arrayWithObjects:icon, spacer, nil];
+	UIStackView *header, *statusRow, *info, *stack;
+	UIView *dot = [UIView new];
+	UIColor *statusColor = ready ? [UIColor colorWithRed:0.38 green:0.85 blue:0.45 alpha:1] : [UIColor colorWithRed:1 green:0.74 blue:0.28 alpha:1];
 	UIButtonConfiguration *configuration = [UIButtonConfiguration filledButtonConfiguration];
-	UIButton *button;
-	configuration.title = title;
-	configuration.subtitle = subtitle;
-	configuration.titleAlignment = UIButtonConfigurationTitleAlignmentLeading;
-	configuration.baseBackgroundColor = [UIColor colorWithRed:0.065 green:0.105 blue:0.15 alpha:1];
-	configuration.baseForegroundColor = UIColor.whiteColor;
-	configuration.image = [UIImage systemImageNamed:symbol withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:32 weight:UIImageSymbolWeightRegular]];
-	configuration.imagePlacement = NSDirectionalRectEdgeTop;
-	configuration.imagePadding = 22;
-	configuration.titlePadding = 12;
+
+	card.backgroundColor = [UIColor colorWithRed:0.06 green:0.095 blue:0.135 alpha:0.96];
+	card.layer.cornerRadius = 22;
+	card.layer.borderWidth = 1;
+	card.layer.borderColor = [accent colorWithAlphaComponent:last ? 0.75 : 0.28].CGColor;
+	icon.tintColor = accent;
+	icon.contentMode = UIViewContentModeScaleAspectFit;
+	[spacer setContentHuggingPriority:UILayoutPriorityDefaultLow forAxis:UILayoutConstraintAxisHorizontal];
+	if (last)
+		[tags addObject:chooser_pill(@"LAST PLAYED", UIColor.whiteColor)];
+	[tags addObject:chooser_pill(platform, accent)];
+	header = [[UIStackView alloc] initWithArrangedSubviews:tags];
+	header.spacing = 8;
+	header.alignment = UIStackViewAlignmentCenter;
+
+	[dot.widthAnchor constraintEqualToConstant:9].active = YES;
+	[dot.heightAnchor constraintEqualToConstant:9].active = YES;
+	dot.layer.cornerRadius = 4.5;
+	dot.backgroundColor = statusColor;
+	statusRow = [[UIStackView alloc] initWithArrangedSubviews:@[ dot, chooser_label(status, UIFontTextStyleSubheadline, UIFontWeightSemibold, statusColor) ]];
+	statusRow.spacing = 8;
+	statusRow.alignment = UIStackViewAlignmentCenter;
+
+	info = [[UIStackView alloc] initWithArrangedSubviews:@[
+		header,
+		chooser_label(title, UIFontTextStyleTitle1, UIFontWeightBold, UIColor.whiteColor),
+		chooser_label(version, UIFontTextStyleSubheadline, UIFontWeightMedium, accent),
+		chooser_label(about, UIFontTextStyleBody, UIFontWeightRegular, muted),
+		statusRow ]];
+	info.axis = UILayoutConstraintAxisVertical;
+	info.spacing = 10;
+	[info setCustomSpacing:18 afterView:header];
+	[info setCustomSpacing:4 afterView:info.arrangedSubviews[1]];
+	[info setCustomSpacing:16 afterView:info.arrangedSubviews[3]];
+	info.userInteractionEnabled = NO;
+
+	configuration.title = play;
+	configuration.baseBackgroundColor = accent;
+	configuration.baseForegroundColor = [UIColor colorWithRed:0.02 green:0.04 blue:0.06 alpha:1];
 	configuration.cornerStyle = UIButtonConfigurationCornerStyleLarge;
-	configuration.contentInsets = NSDirectionalEdgeInsetsMake(28, 24, 28, 24);
+	configuration.image = [UIImage systemImageNamed:ready ? @"play.fill" : @"plus"];
+	configuration.imagePadding = 8;
+	configuration.contentInsets = NSDirectionalEdgeInsetsMake(14, 18, 14, 18);
 	configuration.titleTextAttributesTransformer = ^NSDictionary *(NSDictionary *in) {
 		NSMutableDictionary *out = [in mutableCopy];
-		out[NSFontAttributeName] = [UIFont preferredFontForTextStyle:UIFontTextStyleTitle1];
+		out[NSFontAttributeName] = [UIFont systemFontOfSize:[UIFont preferredFontForTextStyle:UIFontTextStyleHeadline].pointSize weight:UIFontWeightBold];
 		return out;
 	};
-	configuration.subtitleTextAttributesTransformer = ^NSDictionary *(NSDictionary *in) {
-		NSMutableDictionary *out = [in mutableCopy];
-		out[NSFontAttributeName] = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
-		out[NSForegroundColorAttributeName] = [UIColor colorWithWhite:0.85 alpha:1];
-		return out;
-	};
+	*button = [UIButton buttonWithConfiguration:configuration primaryAction:nil];
+	(*button).accessibilityIdentifier = identifier;
+	(*button).accessibilityHint = @"Opens this edition of Halo";
+	[*button addTarget:self action:action forControlEvents:UIControlEventTouchUpInside];
+
+	UIView *fill = [UIView new];
+	[fill setContentHuggingPriority:UILayoutPriorityFittingSizeLevel forAxis:UILayoutConstraintAxisVertical];
+	stack = [[UIStackView alloc] initWithArrangedSubviews:extra ? @[ info, fill, extra, *button ] : @[ info, fill, *button ]];
+	stack.axis = UILayoutConstraintAxisVertical;
+	stack.spacing = 18;
+	stack.translatesAutoresizingMaskIntoConstraints = NO;
+	[card addSubview:stack];
+	[NSLayoutConstraint activateConstraints:@[
+		[stack.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:24],
+		[stack.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-24],
+		[stack.topAnchor constraintEqualToAnchor:card.topAnchor constant:24],
+		[stack.bottomAnchor constraintEqualToAnchor:card.bottomAnchor constant:-24]]];
+
+	/* the whole card plays, except its own controls (the graphics switch) */
+	UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc] initWithTarget:self action:action];
+	tap.delegate = self;
+	[card addGestureRecognizer:tap];
+	card.accessibilityIdentifier = [identifier stringByAppendingString:@".card"];
+	return card;
+}
+
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)recognizer shouldReceiveTouch:(UITouch *)touch
+{
+	for (UIView *view = touch.view; view && view != recognizer.view; view = view.superview)
+		if ([view isKindOfClass:UIControl.class])
+			return NO;
+	return YES;
+}
+
+/* Xbox only: Original or Sharper, applied the next time Xbox starts. */
+- (UIView *)graphicsChoice
+{
+	UISegmentedControl *choice = [[UISegmentedControl alloc] initWithItems:@[ @"Original", @"Sharper (Preview)" ]];
+	UILabel *caption = chooser_label(@"Graphics", UIFontTextStyleFootnote, UIFontWeightSemibold, [UIColor colorWithWhite:0.72 alpha:1]);
+	UILabel *note = chooser_label(@"Sharper renders at twice the resolution with 4× texture filtering and needs more GPU power.",
+		UIFontTextStyleCaption1, UIFontWeightRegular, [UIColor colorWithWhite:0.58 alpha:1]);
+	UIStackView *stack;
+	choice.selectedSegmentIndex = HPXboxSharperSelected(NSUserDefaults.standardUserDefaults) ? 1 : 0;
+	choice.accessibilityIdentifier = @"engine.xbox.quality";
+	choice.accessibilityLabel = @"Xbox graphics";
+	choice.selectedSegmentTintColor = [UIColor colorWithRed:0.42 green:0.8 blue:0.36 alpha:1];
+	[choice setTitleTextAttributes:@{ NSForegroundColorAttributeName: UIColor.blackColor } forState:UIControlStateSelected];
+	[choice setTitleTextAttributes:@{ NSForegroundColorAttributeName: UIColor.whiteColor } forState:UIControlStateNormal];
+	[choice addAction:[UIAction actionWithHandler:^(__kindof UIAction *action) {
+		UISegmentedControl *control = action.sender;
+		[NSUserDefaults.standardUserDefaults setObject:control.selectedSegmentIndex ? @"sharper" : @"original" forKey:HPXboxQualityKey];
+	}] forControlEvents:UIControlEventValueChanged];
+	stack = [[UIStackView alloc] initWithArrangedSubviews:@[ caption, choice, note ]];
+	stack.axis = UILayoutConstraintAxisVertical;
+	stack.spacing = 6;
+	return stack;
+}
+
+- (UIButton *)footerButton:(NSString *)title symbol:(NSString *)symbol identifier:(NSString *)identifier action:(SEL)action
+{
+	UIButtonConfiguration *configuration = [UIButtonConfiguration plainButtonConfiguration];
+	UIButton *button;
+	configuration.title = title;
+	configuration.image = [UIImage systemImageNamed:symbol];
+	configuration.imagePadding = 6;
+	configuration.baseForegroundColor = [UIColor colorWithRed:0.6 green:0.78 blue:0.95 alpha:1];
 	button = [UIButton buttonWithConfiguration:configuration primaryAction:nil];
-	button.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeading;
-	button.titleLabel.numberOfLines = 0;
-	button.subtitleLabel.numberOfLines = 0;
-	button.titleLabel.adjustsFontForContentSizeCategory = YES;
-	button.subtitleLabel.adjustsFontForContentSizeCategory = YES;
-	button.layer.borderWidth = 1;
-	button.layer.borderColor = [UIColor colorWithRed:0.19 green:0.31 blue:0.42 alpha:1].CGColor;
-	button.accessibilityLabel = title;
-	button.accessibilityValue = subtitle;
-	button.accessibilityHint = @"Opens this edition of Halo";
-	button.accessibilityIdentifier = action == @selector(choosePC) ? @"engine.pc" : @"engine.xbox";
+	button.accessibilityIdentifier = identifier;
+	[button.heightAnchor constraintGreaterThanOrEqualToConstant:44].active = YES;
 	[button addTarget:self action:action forControlEvents:UIControlEventTouchUpInside];
 	return button;
 }
@@ -466,61 +704,63 @@ static void import_progress_update(double fraction, void *context)
 - (void)loadView
 {
 	UIView *root = [UIView new];
-	UILabel *brand = [UILabel new], *title = [UILabel new], *note = [UILabel new];
-	UIStackView *stack;
-	root.backgroundColor = [UIColor colorWithRed:0.015 green:0.03 blue:0.05 alpha:1];
-	brand.text = @"HALOPAD";
-	brand.font = [UIFont systemFontOfSize:15 weight:UIFontWeightSemibold];
-	brand.textColor = [UIColor colorWithRed:0.55 green:0.77 blue:0.94 alpha:1];
-	brand.textAlignment = NSTextAlignmentCenter;
-	title.text = @"Choose an edition";
-	title.font = [UIFont preferredFontForTextStyle:UIFontTextStyleLargeTitle];
-	title.adjustsFontForContentSizeCategory = YES;
-	title.numberOfLines = 0;
-	title.textColor = UIColor.whiteColor;
-	title.textAlignment = NSTextAlignmentCenter;
-	cards = [[UIStackView alloc] initWithArrangedSubviews:@[
-		[self cardWithTitle:@"Halo Custom Edition" subtitle:@"WINDOWS • 1.10\nMultiplayer on PC community servers\n\nPlay Custom Edition →" symbol:@"desktopcomputer" action:@selector(choosePC)],
-		[self cardWithTitle:@"Halo: Combat Evolved" subtitle:[NSString stringWithFormat:@"%@\nOriginal Xbox campaign\n\n%@ →", [xbox_build()[@"candidate"] boolValue] ? @"XBOX • PREVIEW" : @"XBOX • EXPERIMENTAL", xbox_has_maps() ? @"Play Xbox" : @"Add your Xbox disc"] symbol:@"gamecontroller" action:@selector(chooseXbox)] ]];
-	cards.axis = UILayoutConstraintAxisHorizontal;
-	cards.spacing = 24;
+	NSDictionary *build = xbox_build();
+	NSString *last = [NSUserDefaults.standardUserDefaults stringForKey:@"HaloPadLastEngine"];
+	NSString *app = [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"?";
+	BOOL pc_ready = pc_has_files(), xbox_ready = xbox_has_maps();
+	UIColor *blue = [UIColor colorWithRed:0.42 green:0.7 blue:1 alpha:1], *green = [UIColor colorWithRed:0.42 green:0.8 blue:0.36 alpha:1];
+	UILabel *brand = chooser_label(@"HALOPAD  ·  PROJECT REACH", UIFontTextStyleFootnote, UIFontWeightBold, [UIColor colorWithRed:0.55 green:0.77 blue:0.94 alpha:1]);
+	UILabel *title = chooser_label(@"Choose your edition", UIFontTextStyleLargeTitle, UIFontWeightBold, UIColor.whiteColor);
+	UILabel *subtitle = chooser_label(@"Each edition keeps its own saves, settings and multiplayer. You can switch later from ⋯ › Switch Edition.",
+		UIFontTextStyleSubheadline, UIFontWeightRegular, [UIColor colorWithWhite:0.7 alpha:1]);
+	UIView *pc, *xbox;
+	UIStackView *heading, *footer, *stack;
+	CAGradientLayer *gradient = [CAGradientLayer layer];
+
+	gradient.colors = @[ (id)[UIColor colorWithRed:0.04 green:0.085 blue:0.13 alpha:1].CGColor,
+		(id)[UIColor colorWithRed:0.008 green:0.02 blue:0.035 alpha:1].CGColor ];
+	root.backgroundColor = [UIColor colorWithRed:0.008 green:0.02 blue:0.035 alpha:1];
+	[root.layer insertSublayer:gradient atIndex:0];
+
+	pc = [self cardTitle:@"Halo Custom Edition" platform:@"WINDOWS" symbol:@"desktopcomputer" accent:blue
+		version:@"Version 1.10 · runs natively on Apple silicon"
+		about:@"Online multiplayer on community servers, custom maps and the PC game's own menus."
+		ready:pc_ready status:pc_ready ? @"Ready to play" : @"Add your game files first"
+		play:pc_ready ? @"Play Custom Edition" : @"Set Up Custom Edition" identifier:@"engine.pc" action:@selector(choosePC)
+		last:[last isEqual:@"pc"] extra:nil button:&pc_play];
+	xbox = [self cardTitle:@"Halo: Combat Evolved" platform:[build[@"candidate"] boolValue] ? @"XBOX · PREVIEW" : @"XBOX · EXPERIMENTAL"
+		symbol:@"gamecontroller" accent:green
+		version:[NSString stringWithFormat:@"halo-ce-universal %@ · Metal", xbox_release(build)]
+		about:@"The original Xbox campaign and system link, from your own disc."
+		ready:xbox_ready status:xbox_ready ? @"Ready to play" : @"Add your Xbox disc image first"
+		play:xbox_ready ? @"Play Xbox" : @"Add Your Xbox Disc" identifier:@"engine.xbox" action:@selector(chooseXbox)
+		last:[last isEqual:@"xbox"] extra:HPXboxSupportsQuality(build) ? [self graphicsChoice] : nil button:&xbox_play];
+	cards = [[UIStackView alloc] initWithArrangedSubviews:@[ pc, xbox ]];
+	cards.spacing = 20;
 	cards.distribution = UIStackViewDistributionFillEqually;
-	note.text = @"Each edition has its own saves and multiplayer. Reopen HaloPad to switch editions.";
-	note.numberOfLines = 0;
-	note.textAlignment = NSTextAlignmentCenter;
-	note.textColor = [UIColor colorWithWhite:0.75 alpha:1];
-	note.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
-	note.adjustsFontForContentSizeCategory = YES;
-	UIButton *builds = [UIButton buttonWithType:UIButtonTypeSystem];
-	[builds setTitle:@"About these builds" forState:UIControlStateNormal];
-	builds.titleLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
-	builds.titleLabel.adjustsFontForContentSizeCategory = YES;
-	[builds setTitleColor:brand.textColor forState:UIControlStateNormal];
-	[builds.heightAnchor constraintGreaterThanOrEqualToConstant:44].active = YES;
-	[builds addTarget:self action:@selector(showBuilds) forControlEvents:UIControlEventTouchUpInside];
-	builds.accessibilityIdentifier = @"engine.builds";
-	stack = [[UIStackView alloc] initWithArrangedSubviews:@[ brand, title, cards, note, builds ]];
-	if (HPXboxSupportsQuality(xbox_build()))
-	{
-		quality = [UIButton buttonWithType:UIButtonTypeSystem];
-		quality.titleLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
-		quality.titleLabel.adjustsFontForContentSizeCategory = YES;
-		quality.titleLabel.numberOfLines = 0;
-		[quality setTitleColor:brand.textColor forState:UIControlStateNormal];
-		[quality.heightAnchor constraintGreaterThanOrEqualToConstant:44].active = YES;
-		[quality addTarget:self action:@selector(showQuality) forControlEvents:UIControlEventTouchUpInside];
-		quality.accessibilityIdentifier = @"engine.xbox.quality";
-		[self updateQualityTitle];
-		[stack insertArrangedSubview:quality atIndex:3];
-	}
+	cards.alignment = UIStackViewAlignmentFill;
+
+	heading = [[UIStackView alloc] initWithArrangedSubviews:@[ brand, title, subtitle ]];
+	heading.axis = UILayoutConstraintAxisVertical;
+	heading.spacing = 6;
+	footer = [[UIStackView alloc] initWithArrangedSubviews:@[
+		[self footerButton:@"About These Builds" symbol:@"info.circle" identifier:@"engine.builds" action:@selector(showBuilds)],
+		[self footerButton:@"Project Reach on GitHub" symbol:@"arrow.up.right.square" identifier:@"engine.github" action:@selector(openProject)],
+		[UIView new],
+		chooser_label([NSString stringWithFormat:@"HaloPad %@ · Bring your own copy of Halo; no game data is included.", app],
+			UIFontTextStyleCaption1, UIFontWeightRegular, [UIColor colorWithWhite:0.5 alpha:1]) ]];
+	footer.spacing = 8;
+	footer.alignment = UIStackViewAlignmentCenter;
+	((UILabel *)footer.arrangedSubviews.lastObject).textAlignment = NSTextAlignmentRight;
+
+	stack = [[UIStackView alloc] initWithArrangedSubviews:@[ heading, cards, footer ]];
 	stack.axis = UILayoutConstraintAxisVertical;
 	stack.spacing = 24;
-	[stack setCustomSpacing:8 afterView:brand];
-	[stack setCustomSpacing:4 afterView:note];
 	stack.translatesAutoresizingMaskIntoConstraints = NO;
 	UIScrollView *scroll = [UIScrollView new];
 	UIView *content = [UIView new];
 	scroll.translatesAutoresizingMaskIntoConstraints = NO;
+	scroll.alwaysBounceVertical = NO;
 	content.translatesAutoresizingMaskIntoConstraints = NO;
 	[root addSubview:scroll];
 	[scroll addSubview:content];
@@ -540,22 +780,22 @@ static void import_progress_update(double fraction, void *context)
 		[stack.centerYAnchor constraintEqualToAnchor:content.centerYAnchor],
 		[stack.topAnchor constraintGreaterThanOrEqualToAnchor:content.topAnchor constant:24],
 		[stack.bottomAnchor constraintLessThanOrEqualToAnchor:content.bottomAnchor constant:-24],
-		[stack.widthAnchor constraintLessThanOrEqualToConstant:960],
-		[stack.leadingAnchor constraintGreaterThanOrEqualToAnchor:root.safeAreaLayoutGuide.leadingAnchor constant:24],
-		[stack.trailingAnchor constraintLessThanOrEqualToAnchor:root.safeAreaLayoutGuide.trailingAnchor constant:-24]]];
+		[stack.widthAnchor constraintLessThanOrEqualToConstant:1040],
+		[stack.leadingAnchor constraintGreaterThanOrEqualToAnchor:content.leadingAnchor constant:24],
+		[stack.trailingAnchor constraintLessThanOrEqualToAnchor:content.trailingAnchor constant:-24]]];
 	NSLayoutConstraint *height = [content.heightAnchor constraintEqualToAnchor:scroll.frameLayoutGuide.heightAnchor];
 	height.priority = UILayoutPriorityDefaultLow;
 	height.active = YES;
-	self.view = root;
-	NSLayoutConstraint *width = [stack.widthAnchor constraintEqualToAnchor:root.safeAreaLayoutGuide.widthAnchor constant:-64];
+	NSLayoutConstraint *width = [stack.widthAnchor constraintEqualToAnchor:content.widthAnchor constant:-64];
 	width.priority = UILayoutPriorityDefaultHigh;
 	width.active = YES;
+	self.view = root;
 	/* development: HALOPAD_CHOOSE=pc or xbox presses that card once the picker is up */
 	if (getenv("HALOPAD_CHOOSE") && (!strcmp(getenv("HALOPAD_CHOOSE"), "pc") || !strcmp(getenv("HALOPAD_CHOOSE"), "xbox")))
 	{
-		UIButton *card = cards.arrangedSubviews[strcmp(getenv("HALOPAD_CHOOSE"), "xbox") ? 0 : 1];
+		UIButton *play = strcmp(getenv("HALOPAD_CHOOSE"), "xbox") ? pc_play : xbox_play;
 		dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-			[card sendActionsForControlEvents:UIControlEventTouchUpInside];
+			[play sendActionsForControlEvents:UIControlEventTouchUpInside];
 		});
 	}
 }
@@ -563,44 +803,28 @@ static void import_progress_update(double fraction, void *context)
 - (void)viewDidLayoutSubviews
 {
 	[super viewDidLayoutSubviews];
-	BOOL narrow = self.view.bounds.size.width < 650 || UIContentSizeCategoryIsAccessibilityCategory(self.traitCollection.preferredContentSizeCategory);
+	self.view.layer.sublayers.firstObject.frame = self.view.bounds;
+	BOOL narrow = self.view.bounds.size.width < 700 || UIContentSizeCategoryIsAccessibilityCategory(self.traitCollection.preferredContentSizeCategory);
 	cards.axis = narrow ? UILayoutConstraintAxisVertical : UILayoutConstraintAxisHorizontal;
+}
+
+- (void)openProject
+{
+	[UIApplication.sharedApplication openURL:[NSURL URLWithString:HPProjectURL] options:@{} completionHandler:nil];
 }
 
 - (void)showBuilds
 {
 	NSDictionary *build = xbox_build();
 	NSString *revision = build[@"revision"] ?: @"unknown";
-	NSString *message = [NSString stringWithFormat:@"Windows: Halo Custom Edition 1.10.\n\nXbox: halo-ce-universal %@ (built %@).%@\n\nThe Xbox port is experimental. Full campaign progression, split-screen and system link remain unverified in HaloPad. Xbox and Windows editions cannot play together.\n\nUpdates are validated on the Mac and iPad Simulator before the accepted pin moves. Saves are backed up when the engine changes.", [revision substringToIndex:MIN((NSUInteger)8, revision.length)], build[@"built"] ?: @"locally", [build[@"candidate"] boolValue] ? @"\nPreview candidate; validation is incomplete." : @""];
-	UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Installed builds" message:message preferredStyle:UIAlertControllerStyleAlert];
+	NSString *message = [NSString stringWithFormat:@"Windows: Halo Custom Edition 1.10, translated to run natively on Apple silicon with Metal.\n\n"
+		@"Xbox: Halo: Combat Evolved on halo-ce-universal %@ (%@, built %@), drawn through Metal.%@ The Xbox edition is experimental; full campaign progression and every system link setup are not yet verified on iPad.\n\n"
+		@"The two editions cannot play together. Each keeps its own saves; Xbox saves are backed up whenever its engine changes.\n\nProject Reach: %@",
+		xbox_release(build), [revision substringToIndex:MIN((NSUInteger)8, revision.length)], build[@"built"] ?: @"locally",
+		[build[@"candidate"] boolValue] ? @" This is a preview build." : @"", HPProjectURL];
+	UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"About These Builds" message:message preferredStyle:UIAlertControllerStyleAlert];
+	[alert addAction:[UIAlertAction actionWithTitle:@"Open GitHub" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) { [self openProject]; }]];
 	[alert addAction:[UIAlertAction actionWithTitle:@"Done" style:UIAlertActionStyleCancel handler:nil]];
-	[self presentViewController:alert animated:YES completion:nil];
-}
-
-- (void)updateQualityTitle
-{
-	NSString *name = HPXboxSharperSelected(NSUserDefaults.standardUserDefaults) ? @"Sharper (Preview)" : @"Original";
-	[quality setTitle:[@"Xbox graphics: " stringByAppendingString:name] forState:UIControlStateNormal];
-	quality.accessibilityLabel = @"Xbox graphics";
-	quality.accessibilityValue = name;
-	quality.accessibilityHint = @"Choose graphics quality before launching Xbox. Does not change Windows graphics.";
-}
-
-- (void)showQuality
-{
-	UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Xbox graphics"
-		message:@"Original keeps the game's resolution and filtering. Sharper doubles the resolution and uses 4× world-texture filtering. This preview needs more GPU power and does not fix all rendering issues.\n\nApplies to Xbox only, on its next launch."
-		preferredStyle:UIAlertControllerStyleAlert];
-	for (NSString *mode in @[@"original", @"sharper"])
-	{
-		[alert addAction:[UIAlertAction actionWithTitle:[mode isEqual:@"sharper"] ? @"Sharper (Preview)" : @"Original"
-			style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
-				(void)action;
-				[NSUserDefaults.standardUserDefaults setObject:mode forKey:HPXboxQualityKey];
-				[self updateQualityTitle];
-			}]];
-	}
-	[alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
 	[self presentViewController:alert animated:YES completion:nil];
 }
 

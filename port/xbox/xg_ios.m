@@ -29,14 +29,15 @@
 #include <mach/mach_time.h>
 #include <pthread.h>
 #include <math.h>
+#include <stdatomic.h>
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include "xg_host.h"
 #include "xg_ios.h"
+#include "xg_scancode_names.h"
 #if TARGET_OS_SIMULATOR
 #include "xg_audio_capture.h"
-#include "xg_scancode_names.h"
 static void audio_capture_flush(void);
 #endif
 
@@ -534,10 +535,54 @@ int xh_host_sdl_gl_set_swap_interval(int interval) {
 #endif
 }
 
+/* Renderer health for the shareable log: GL errors (the first twenty, then
+ * counted), frames slower than a quarter second, and a summary every thirty
+ * seconds. Main-thread presentation only; costs one glGetError per frame. */
+static atomic_int presented_frames;
+
+int xg_ios_frames_presented(void) { return atomic_load(&presented_frames); }
+
+static void render_health(int frame)
+{
+	static double window_start, last, worst;
+	static int window_frames, slow, errors, reported_errors, hitches;
+	double now = CACurrentMediaTime();
+	GLenum error;
+	for (int guard = 0; guard < 8 && (error = glGetError()) != GL_NO_ERROR; guard++)
+	{
+		errors++;
+		if (reported_errors < 20 && ++reported_errors)
+			xg_log("render: GL error 0x%x before frame %d%s", error, frame,
+				reported_errors == 20 ? " (later errors are only counted)" : "");
+	}
+	if (last > 0)
+	{
+		double ms = (now - last) * 1000;
+		if (ms > worst) worst = ms;
+		if (ms > 50) slow++;
+		if (ms > 250 && hitches < 30 && ++hitches)
+			xg_log("render: frame %d took %.0f ms%s", frame, ms, hitches == 30 ? " (later hitches are only counted)" : "");
+	}
+	if (window_start == 0) window_start = now;
+	window_frames++;
+	last = now;
+	if (now - window_start >= 30)
+	{
+		xg_log("render: %.1f fps over %.0f s, worst frame %.0f ms, %d frames over 50 ms, %d GL errors, drawable %dx%d",
+			window_frames / (now - window_start), now - window_start, worst, slow, errors, drawable_width, drawable_height);
+		window_start = now;
+		window_frames = slow = errors = 0;
+		worst = 0;
+	}
+}
+
 int xh_host_sdl_gl_swap_window(uint32_t window)
 {
 	static int frames;
 	(void)window;
+	if (frames == 0)
+		xg_log("renderer: %s | %s | %s", (const char *)glGetString(GL_VENDOR), (const char *)glGetString(GL_RENDERER),
+			(const char *)glGetString(GL_VERSION));
 	if (frames < 3 || frames == 120)
 	{
 		GLint read = 0, draw = 0;
@@ -550,7 +595,9 @@ int xh_host_sdl_gl_swap_window(uint32_t window)
 			glGetError(), glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER), read, draw, drawable_framebuffer,
 			pixel[0], pixel[1], pixel[2]);
 	}
+	render_health(frames);
 	frames++;
+	atomic_store(&presented_frames, frames);
 #if TARGET_OS_SIMULATOR
 	void xg_draw_capture_present(void);
 	xg_draw_capture_present();

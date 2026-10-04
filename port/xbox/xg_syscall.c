@@ -85,29 +85,46 @@ static long result_of(long value)
 /* ---------- logging */
 
 static pthread_mutex_t log_lock = PTHREAD_MUTEX_INITIALIZER;
+void (*xg_log_sink)(const char *line);
+
+static void log_to_sink(const char *prefix, const char *format, va_list arguments)
+{
+	char line[512];
+	int used = snprintf(line, sizeof line, "%s", prefix);
+	vsnprintf(line + used, sizeof line - (size_t)used, format, arguments);
+	xg_log_sink(line);
+}
 
 void xg_log(const char *format, ...)
 {
-	va_list arguments;
+	va_list arguments, copy;
+	va_start(arguments, format);
+	va_copy(copy, arguments);
 	pthread_mutex_lock(&log_lock);
 	fputs("[xbox] ", stderr);
-	va_start(arguments, format);
 	vfprintf(stderr, format, arguments);
-	va_end(arguments);
 	fputc('\n', stderr);
 	pthread_mutex_unlock(&log_lock);
+	va_end(arguments);
+	if (xg_log_sink)
+		log_to_sink("", format, copy);
+	va_end(copy);
 }
 
 void xg_fatal(const char *format, ...)
 {
-	va_list arguments;
+	va_list arguments, copy;
+	va_start(arguments, format);
+	va_copy(copy, arguments);
 	pthread_mutex_lock(&log_lock);
 	fputs("[xbox] fatal: ", stderr);
-	va_start(arguments, format);
 	vfprintf(stderr, format, arguments);
-	va_end(arguments);
 	fputc('\n', stderr);
 	pthread_mutex_unlock(&log_lock);
+	va_end(arguments);
+	if (xg_log_sink)
+		log_to_sink("fatal: ", format, copy);
+	va_end(copy);
 	abort();
 }
 
