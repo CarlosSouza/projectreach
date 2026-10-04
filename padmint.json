@@ -8,9 +8,9 @@
   "inputs": [
     {
       "type": "pc-game-installer",
-      "formats": ["folder"],
+      "formats": ["exe"],
       "when": "build",
-      "description": "A folder with your own Halo Custom Edition installer (HaloCESetup.exe), the official 1.10 update (haloce-patch-1.0.10.exe, needed for the first build only) and, optionally, product-key.txt holding your Halo PC product key. Both files are checked by hash."
+      "description": "Your own Halo Custom Edition installer (HaloCESetup.exe). Put the official 1.10 update (haloce-patch-1.0.10.exe, needed for the first build only) and, optionally, product-key.txt with your Halo PC product key in the same folder. Both files are checked by hash."
     }
   ],
   "targets": {

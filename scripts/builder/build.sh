@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # HaloPad's one-command personal build (PadMint's entry point; padmint.json).
 #
-#   scripts/builder/build.sh <folder> --ipa HaloPad.ipa [--out DIR] [--product-key-file FILE]
+#   scripts/builder/build.sh <folder or HaloCESetup.exe> --ipa HaloPad.ipa [--out DIR] [--product-key-file FILE]
 #
-# <folder> holds your own Halo Custom Edition installer (HaloCESetup.exe) and the official
-# 1.10 update (haloce-patch-1.0.10.exe); both are checked against the recorded hashes. It
+# The folder (or the installer's own folder) holds your Halo Custom Edition installer
+# (HaloCESetup.exe) and the official 1.10 update (haloce-patch-1.0.10.exe); both are checked
+# against the recorded hashes. It
 # runs HaloPad's existing steps in order: tool build, 1.10 patch (CrossOver), translation of
 # Halo and its four DLLs, the app, its game package and an unsigned IPA. Install the IPA with
 # your own signing, then import the game package in HaloPad (Files).
@@ -31,7 +32,8 @@ while [ $# -gt 0 ]; do
 	esac
 	shift
 done
-[ -d "$INPUT" ] || { echo "usage: scripts/builder/build.sh <folder with HaloCESetup.exe and haloce-patch-1.0.10.exe> --ipa FILE" >&2; exit 2; }
+[ -f "$INPUT" ] && INPUT=$(dirname "$INPUT")          # PadMint passes the installer itself
+[ -d "$INPUT" ] || { echo "usage: scripts/builder/build.sh <HaloCESetup.exe, beside haloce-patch-1.0.10.exe> --ipa FILE" >&2; exit 2; }
 [ -n "$IPA" ] || IPA="$OUT/HaloPad.ipa"
 mkdir -p "$OUT"
 mkdir -p "$(dirname "$IPA")"
