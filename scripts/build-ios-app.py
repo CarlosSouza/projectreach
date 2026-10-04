@@ -79,6 +79,8 @@ def xbox_build_folder(target):
 
 def xbox_parts(target):
     """Link inputs for the launch picker and the Xbox engine, or [] without a local engine build."""
+    if os.environ.get('HALOPAD_XBOX') == 'off':       # the Windows edition alone (scripts/builder/build.sh)
+        return []
     adaptation = xbox_runtime_manifest.guest_adaptation.identity()
     lib = xbox_build_folder(target) / 'libhalopad-xbox.a'
     if not lib.exists():
@@ -136,7 +138,26 @@ def compile_icon(app, out, target):
     return plistlib.loads(partial.read_bytes())
 
 
-def package(exe, out, work, target=TARGET, identity=None, provisioning=None):
+PRODUCT_ID_PATH = 'HKLM\\Software\\Microsoft\\Microsoft Games\\Halo CE'
+PRODUCT_ID_NAMES = {'504944', '4469676974616c50726f647563744944'}     # PID, DigitalProductID
+
+
+def checked_product_id(path):
+    """The two values scripts/product-id.sh writes, and nothing else."""
+    lines = [l for l in path.read_text().splitlines() if l and not l.startswith('#')]
+    names = set()
+    for line in lines:
+        fields = line.split(' ')
+        if (len(fields) < 5 or fields[0] != 'value' or ' '.join(fields[1:-3]) != PRODUCT_ID_PATH
+                or fields[-2] not in PRODUCT_ID_NAMES or fields[-3] not in ('1', '3')):
+            raise ValueError(f'{path} is not a product ID from scripts/product-id.sh')
+        names.add(fields[-2])
+    if names != PRODUCT_ID_NAMES:
+        raise ValueError(f'{path} needs both PID and DigitalProductID')
+    return '\n'.join(lines) + '\n'
+
+
+def package(exe, out, work, target=TARGET, identity=None, provisioning=None, product_id=None):
     app = out / 'HaloPad.app'
     if app.exists():
         shutil.rmtree(app)
@@ -183,6 +204,9 @@ def package(exe, out, work, target=TARGET, identity=None, provisioning=None):
     shutil.copytree(ROOT / 'ref' / 'inputs' / 'reference-machine', data / 'reference')
     (data / 'config' / 'runtime').mkdir(parents=True)
     shutil.copy2(ROOT / 'config' / 'runtime' / 'registry-machine.txt', data / 'config' / 'runtime' / 'registry-machine.txt')
+    if product_id:
+        # this player's own product ID, added where missing at launch (halopad_registry.c)
+        (data / 'config' / 'runtime' / 'product-id.txt').write_text(checked_product_id(product_id))
     shutil.copy2(ROOT / 'config' / 'profiles' / 'custom-en-1.0.10.0621.json', data / 'profile.json')
     profile = json.loads((data / 'profile.json').read_text())
     stock = json.loads((ROOT / profile['original_root'] / 'MANIFEST.json').read_text())
@@ -235,6 +259,8 @@ def main():
     ap.add_argument('--iphoneos', action='store_true', help='build for a physical iPhone/iPad (Xbox personal builds produce an app only)')
     ap.add_argument('--identity', help='codesign identity for --iphoneos, e.g. "Apple Development: Name (TEAMID)"')
     ap.add_argument('--profile', type=pathlib.Path, help='provisioning profile for --iphoneos')
+    ap.add_argument('--product-id', type=pathlib.Path,
+                    help="your Halo product ID from scripts/product-id.sh (personal builds only; never share the app)")
     a = ap.parse_args()
     if a.profile and not a.identity:
         ap.error('--profile requires --identity')
@@ -253,7 +279,7 @@ def main():
     extra += ['-Wl,-U,_HPEngineChooserMake', *xbox_parts(DEVICE_TARGET if a.iphoneos else TARGET)]
     target = DEVICE_TARGET if a.iphoneos else TARGET
     exe, _ = run_core.build(work, target, ROOT / 'port' / 'ios' / 'HaloPadApp.m', extra=extra)
-    app = package(exe, work / f'ios-app-{target}', work, target, a.identity, a.profile)
+    app = package(exe, work / f'ios-app-{target}', work, target, a.identity, a.profile, a.product_id)
     print('built', app.relative_to(ROOT))
     if a.iphoneos:
         return 0

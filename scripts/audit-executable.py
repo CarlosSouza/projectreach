@@ -16,6 +16,7 @@ import bisect
 import collections
 import datetime
 import hashlib
+import os
 import json
 import pathlib
 import re
@@ -1009,7 +1010,8 @@ def main():
                         for (d, dl), c in sorted(mods.items(), key=lambda x: (x[0][1], x[0][0]))],
             'verdict': 'PASS' if r['unclassified_bytes'] < 0.02 * r['text_size'] else 'INCOMPLETE (unclassified code remains)'}
     if mod.primary:
-        write_markdown(ROOT / 'docs' / 'EXECUTION-MODEL.md', r, meta)
+        if os.environ.get('HALOPAD_BUILDER') != '1':   # player builds leave tracked docs alone
+            write_markdown(ROOT / 'docs' / 'EXECUTION-MODEL.md', r, meta)
     else:
         print('relocation-table check:', {k: v for k, v in r['pe_relocation_check'].items() if not k.endswith('sample') and not k.endswith('table')})
     print(f"{meta['verdict']}: {r['instructions']:,} instructions, {r['functions']:,} functions, "

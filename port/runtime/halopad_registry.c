@@ -82,11 +82,15 @@ static int unhex(const char *s, uint8_t *out, size_t max)
     return (int)n;
 }
 
-static void load_file(const char *file, int required)
+/* only_missing: skip values that already exist (the player's own product ID added to an
+   existing installation must not duplicate or replace what Halo already has). Returns the
+   number of values added. */
+static int load_file(const char *file, int required, int only_missing)
 {
     FILE *f = fopen(file, "r");
-    if (!f) { if (required) hp_unsupported("registry", "cannot read %s", file); return; }
+    if (!f) { if (required) hp_unsupported("registry", "cannot read %s", file); return 0; }
     char line[8192];
+    int added = 0;
     while (fgets(line, sizeof line, f)) {
         line[strcspn(line, "\r\n")] = 0;
         if (!line[0] || line[0] == '#') continue;
@@ -107,16 +111,19 @@ static void load_file(const char *file, int required)
             int dn = strcmp(datahex, "-") ? unhex(datahex, data, sizeof data) : 0;
             if (nn < 0 || dn < 0) hp_unsupported("registry", "malformed line in %s: %s", file, line);
             name[nn] = 0;
+            if (only_missing && find_value(path, (char *)name) >= 0) continue;
             add_key(path);
             vals = realloc(vals, (nvals + 1) * sizeof *vals);
             vals[nvals] = (rvalue){strdup(path), strdup((char *)name), type, (uint32_t)dn, malloc((size_t)dn + 1)};
             memcpy(vals[nvals].data, data, (size_t)dn);
             nvals++;
+            added++;
             continue;
         }
         hp_unsupported("registry", "malformed line in %s: %s", file, line);
     }
     fclose(f);
+    return added;
 }
 
 static void save(void)
@@ -148,11 +155,21 @@ static void ensure_loaded(void)
     const char *root = getenv("HALOPAD_REPO_ROOT");
     if (s) snprintf(state_path, sizeof state_path, "%s", s);
     else snprintf(state_path, sizeof state_path, "%s/generated/runtime-state/registry.txt", root ? root : ".");
+    /* the product ID Halo's installer would write, from scripts/product-id.sh for this player's
+       personal build (build-ios-app.py --product-id); added only where missing */
+    char product[1100];
+    snprintf(product, sizeof product, "%s/config/runtime/product-id.txt", root ? root : ".");
     FILE *f = fopen(state_path, "r");
-    if (f) { fclose(f); load_file(state_path, 1); return; }
+    if (f) {
+        fclose(f);
+        load_file(state_path, 1, 0);
+        if (load_file(product, 0, 1)) save();
+        return;
+    }
     char seed[1100];
     snprintf(seed, sizeof seed, "%s/config/runtime/registry-machine.txt", root ? root : ".");
-    load_file(seed, 1);
+    load_file(seed, 1, 0);
+    load_file(product, 0, 1);
     save();
 }
 

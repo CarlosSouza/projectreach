@@ -130,14 +130,24 @@ You need:
 - an Apple development profile for HaloPad's bundle ID that allows **Extended Virtual Addressing** and
   **Increased Memory Limit** (the runtime reserves Halo's full 32-bit address space)
 
-Start with `scripts/doctor.sh`, then follow [Installing on iPhone or iPad](docs/INSTALL-IPHONE.md)
-for signing, building, packaging your game files and first launch. Today this is a developer workflow
-with private input preparation, not a one-command build.
+Start with `scripts/doctor.sh`. Then put your own `HaloCESetup.exe`, the official
+`haloce-patch-1.0.10.exe` update and, optionally, a `product-key.txt` with your Halo PC key in one
+folder and run:
 
-A one-command personal build through [PadMint](https://github.com/chrissotraidis/padmint) is planned.
-PadMint runs HaloPad's own builder against your verified game files on your Mac; game files,
-translated code and signing material never leave it. HaloPad's [draft manifest](padmint.json) marks
-iOS as planned.
+```sh
+scripts/builder/build.sh /path/to/that/folder --ipa HaloPad.ipa
+```
+
+It checks both files by hash, applies the 1.10 update, translates Halo, builds the app and writes an
+unsigned IPA plus `Halo-CE.halopad.zip`. Install the IPA with your own signing (see
+[Installing on iPhone or iPad](docs/INSTALL-IPHONE.md)), open HaloPad and choose the game package.
+Halo needs the product ID its installer writes: the builder makes it from your key with the
+installer's own `PIDGen.dll` (`scripts/product-id.sh`; needs Homebrew `wine-stable` and `winetricks`)
+and puts it in your app only. The first build also needs CrossOver for the 1.10 update.
+
+The same builder is HaloPad's [PadMint](https://github.com/chrissotraidis/padmint) recipe
+([padmint.json](padmint.json), experimental on Apple silicon Macs): your game files, key, translated
+code and signing never leave your Mac.
 
 The [HaloPad icon](assets/Assets.xcassets/AppIcon.appiconset/AppIcon.png) is an original orbital-arc design;
 the alternatives considered are in [assets/icon-concepts](assets/icon-concepts).
