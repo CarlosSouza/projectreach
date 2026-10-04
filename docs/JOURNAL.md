@@ -5396,3 +5396,17 @@ proved. Next sound lifecycle reproduction and separate safe diagnostics fix.
 Real saves/preferences/PC registry exact; ordinary Original picker7879 restored,
 listeners/helpers stopped. No source/runtime/pin changes or unit rerun. Simulator
 only, no IPA/publication; stability gate explicitly failed, goal still active.
+
+## 2026-10-04 — Product ID provisioned from Chris's key on the physical iPad
+
+- Chris directed use of his Halo PC product key for his own iPad. The key and the
+  derived product ID are not stored in the repository, docs or logs.
+- The Custom Edition installer's own `mgspid.dll` calls `PIDGen.dll` as
+  `PIDGenSimpA(key, MPC "69771", SKU "Z08-00030", OEM "", retail)` and writes `PID` and
+  `DigitalProductID` (164 bytes, version 3) under `HKLM\Software\Microsoft\Microsoft Games\Halo CE`.
+  A small console caller ran that installer DLL under Wine (private prefix with the Visual C++ 6
+  runtime from winetricks; ignored `generated/license-probe.*/`). PIDGen accepted the key.
+- The two values were added to the iPad's HaloPad registry state (app Library, not the app
+  bundle) and read back byte-identical. The Windows edition then passed the product-ID check:
+  Direct3D 800x600, Halo's main menu, controller assigned to player 1, process live.
+  In-place updates keep this state; a fresh install or the Simulator needs the same step.
