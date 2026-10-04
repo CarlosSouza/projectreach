@@ -8,6 +8,11 @@ HASHES = {
     INPUT: 'c923599871b14b6f2ba05e3ee5c5412e61147ae09c063d4d975259ba91309c8b',
     IMPORTS: 'd0e34312ca324e6fda257f9844eba6b460938fff787c90e0c3d5ec210c81e4f0',
 }
+# Later reviewed inputs. Kept out of HASHES so historical recipe identities stay
+# byte-identical. Build85 adds host_sdl_scancode_name/_from_name only (2026-10-04).
+REVIEWED = {
+    IMPORTS: {'3ce5174d36d3c4e26d5a21005de093fc76de583b732aaf4adf6783de57bb7c6e'},
+}
 ANCHOR = b'void input_frame_begin(\n\tvoid)\n{\n'
 HEADERS = b'#include "interface/player_ui.h"\n'
 INSERT = b'''#ifdef HALO_ANDROID
@@ -38,7 +43,8 @@ def recipe():
 
 
 def adapt(path, original):
-    if hashlib.sha256(original).hexdigest() != HASHES[path]:
+    digest = hashlib.sha256(original).hexdigest()
+    if digest != HASHES[path] and digest not in REVIEWED.get(path, ()):
         raise ValueError('Input bridge source changed; review upstream first')
     if path == IMPORTS:
         return original + IMPORT

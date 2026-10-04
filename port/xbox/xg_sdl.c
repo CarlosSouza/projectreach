@@ -114,6 +114,16 @@ void xh_host_sdl_get_clipboard_text(uint32_t buffer, uint32_t size)
 	copy_out(buffer, size, "");
 }
 
+/* keyboard binding names (upstream build 85, xinput_sdl.c) */
+void xh_host_sdl_scancode_name(int scancode, uint32_t buffer, uint32_t size)
+{
+	copy_out(buffer, size, SDL_GetScancodeName((SDL_Scancode)scancode));
+}
+int xh_host_sdl_scancode_from_name(uint32_t name)
+{
+	return name ? (int)SDL_GetScancodeFromName(G(const char *, name)) : 0;
+}
+
 int xh_host_sdl_show_toast(uint32_t message, int duration, int gravity, int x, int y)
 {
 	(void)duration; (void)gravity; (void)x; (void)y;

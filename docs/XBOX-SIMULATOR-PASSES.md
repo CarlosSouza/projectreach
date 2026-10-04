@@ -1,5 +1,25 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Build 85 accepted (2026-10-04)
+
+Private `ref/xbox-build/passes/2026-10-04/update85.4ho9KP/` (outgoing Simulator app
+6bea0684… and output cloned first). Upstream 74 `80d30410` -> 85 `c3adcfe5`: 13
+commits (PC-style menus with Profiles/Quit, internet server browser and p2p lobby,
+big-game slot reuse, kills to 500, weapon options). Two new host imports
+(`host_sdl_scancode_name/_from_name`) were missing, so the first candidate failed
+to link; added to the Mac host (SDL) and iOS host (`xg_scancode_names.h`, HID
+usage names). `update-pin.sh` dry run and `--accept` both pass Mac and Simulator
+menu/a10/match; lock now `c3adcfe5`. Screens inspected.
+
+Adaptation review: every renderer, border and input anchor still occurs once;
+`nv2a_psh.c` and `input_xbox.c` are unchanged. Renderer diff only adds
+`platform_menus_set_active`; reviewed hash ff150104… recorded for 85. The import
+list adds the two names only; reviewed hash 3ce5174d… accepted without changing
+historical recipe identities. 211 Xbox tests pass. Adapted Simulator build
+(render-present-v1) executable f7c5ece1…, guest dcc13747…: smoke menu/a10/match
+and 40/40 launch/save checks pass. Not yet run: copied build 74 checkpoint load,
+hands-on controls and system link (Computer Use clicks unavailable this session).
+
 ## Release candidate installed on the physical iPad (2026-10-03)
 
 Chris asked for the latest build on his iPad. Private `ipad-release.JMTgJE/`.

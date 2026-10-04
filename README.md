@@ -72,7 +72,7 @@ Each edition keeps its own saves and multiplayer, and both share HaloPad's touch
 close HaloPad and open it again. The Xbox card has **Original** and **Sharper** graphics.
 
 The Xbox engine is never part of this repository. Your Mac downloads the pinned upstream release
-(currently build 74, the latest) and builds it from source. Upstream notes that parts of the
+(currently build 85) and builds it from source. Upstream notes that parts of the
 decompilation were reconstructed with help from leaked Bungie material, which is why the Xbox edition
 is only ever a personal build; see [Xbox engine](docs/XBOX-ENGINE.md).
 

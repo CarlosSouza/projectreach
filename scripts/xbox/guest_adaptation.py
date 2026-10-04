@@ -30,6 +30,10 @@ SOURCE_SHA256 = '5c8c132048b1efaa57d322b9c8a0ef65df07c1755df653c0f1a178ce96831cc
 REVIEWED_RENDERERS = {
     '80d30410c8db28f4008b92f4e012a1b046ece14e':
         'ad03056fbbce7162e044622fdd17ee0b307706c26844ca5605aed803bdb77ab8',
+    # Build85 only adds platform_menus_set_active() in halo_ui_pointer_update;
+    # every insertion anchor is unchanged and still unique (reviewed 2026-10-04).
+    'c3adcfe5bf917922d732f2551341b1ad00977867':
+        'ff150104be97062027b6a65939218bff1b10e202f1b65e4a5a7504c12b5dd99d',
 }
 ENGINE_LOCK = pathlib.Path(__file__).resolve().parents[2] / 'config/xbox-engine.lock.json'
 ANCHOR = b'\tscale[0] = scale[1] = 1.0f;\n#else\n'

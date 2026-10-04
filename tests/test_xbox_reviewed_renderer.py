@@ -13,6 +13,7 @@ sys.path.insert(0, str(ROOT / 'scripts/xbox'))
 import guest_adaptation as guest
 
 REV74 = '80d30410c8db28f4008b92f4e012a1b046ece14e'
+REV85 = 'c3adcfe5bf917922d732f2551341b1ad00977867'
 REV73 = 'd1c7243cb20eab4488efa1266e259b1f4d5240f6'
 REV66 = 'f2ba71d9af4c6fc65d7419cc22e8f4899b16da88'
 
@@ -29,6 +30,15 @@ class ReviewedRendererTests(unittest.TestCase):
         self.assertNotEqual(new['upstream_renderer_sha256'], old['upstream_renderer_sha256'])
         self.assertEqual(new['recipe_sha256'], old['recipe_sha256'])
         self.assertEqual(guest.identity('none', REV74), {'name': 'none'})
+
+    def test_build85_has_its_own_reviewed_renderer_and_same_recipe(self):
+        rev74 = guest.identity('render-present-v1', REV74)
+        rev85 = guest.identity('render-present-v1', REV85)
+        self.assertEqual(rev74['upstream_renderer_sha256'],
+                         'ad03056fbbce7162e044622fdd17ee0b307706c26844ca5605aed803bdb77ab8')
+        self.assertEqual(rev85['upstream_renderer_sha256'],
+                         'ff150104be97062027b6a65939218bff1b10e202f1b65e4a5a7504c12b5dd99d')
+        self.assertEqual(rev85['recipe_sha256'], rev74['recipe_sha256'])
 
     def test_environment_and_default_pin_select_same_identity(self):
         with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {}, clear=True):

@@ -36,6 +36,7 @@
 #include "xg_ios.h"
 #if TARGET_OS_SIMULATOR
 #include "xg_audio_capture.h"
+#include "xg_scancode_names.h"
 static void audio_capture_flush(void);
 #endif
 
@@ -572,6 +573,13 @@ int xh_host_sdl_gl_swap_window(uint32_t window)
 
 int xh_host_sdl_set_clipboard_text(uint32_t text) { (void)text; return 1; }
 void xh_host_sdl_get_clipboard_text(uint32_t buffer, uint32_t size) { copy_out(buffer, size, ""); }
+
+/* keyboard binding names (upstream build 85, xinput_sdl.c) */
+void xh_host_sdl_scancode_name(int scancode, uint32_t buffer, uint32_t size)
+{
+	copy_out(buffer, size, xg_scancode_name(scancode));
+}
+int xh_host_sdl_scancode_from_name(uint32_t name) { return xg_scancode_from_name(name ? G(const char *, name) : NULL); }
 
 int xh_host_sdl_show_toast(uint32_t message, int duration, int gravity, int x, int y)
 {

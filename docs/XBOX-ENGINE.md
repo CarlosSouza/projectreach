@@ -2,7 +2,7 @@
 
 Status, 2026-10-03: **HaloPad offers Windows Custom Edition or Xbox Combat Evolved at launch.**
 The accepted **experimental development pin** in `config/xbox-engine.lock.json`
-is upstream **build 74, `80d30410`**. Newer releases are tested separately before
+is upstream **build 85, `c3adcfe5`** (accepted 2026-10-04; build 74 `80d30410` before). Newer releases are tested separately before
 promotion. Build 64 expanded the high-resolution HUD/scopes and fixed meter
 alpha and flat menu fills; the following paragraphs retain that earlier evidence.
 Save-backed candidate and acceptance Mac/ANGLE iPad Simulator menu/a10/scripted-match
@@ -179,7 +179,7 @@ switching means closing HaloPad and opening it again; the picker appears at ever
 ## Ideas from other ports (reviewed 2026-10-03)
 
 Read-only review of the most-starred forks of the upstream engine. All trail upstream
-(build 74 is the latest release and `main`), so none is a newer engine. No code was copied;
+(build 74 was then the latest release; HaloPad now pins build 85), so none is a newer engine. No code was copied;
 each idea needs its own design and test in HaloPad's shared overlay.
 
 | Idea | Seen in | HaloPad today | Worth doing |
