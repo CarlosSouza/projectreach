@@ -87,6 +87,8 @@ fi
 $PY scripts/extract-reference-components.py
 
 step "translating Halo and its DLLs"
+runs() { find generated/srw/custom-en-1.0.10.0621 -mindepth 1 -maxdepth 3 -type d -name 'run-*' -prune 2>/dev/null | sort; }
+RUNS_BEFORE=$(runs)                                   # this build's translation runs are the new ones
 for module in haloce keystone ksimeui controls msxml4; do
 	scripts/srw-pipeline.sh "$BUILD" --module "$module"
 done
@@ -119,4 +121,6 @@ trap 'rm -rf "$STAGE"' EXIT
 mkdir "$STAGE/Payload"
 cp -R "$APP" "$STAGE/Payload/"
 (cd "$STAGE" && zip -qry "$IPA" Payload)
+# the IPA and game package hold everything; drop this build's translation runs (gigabytes each)
+comm -13 <(printf '%s\n' "$RUNS_BEFORE") <(runs) | while IFS= read -r run; do rm -rf "$run"; done
 printf '\nDone.\n  App (unsigned): %s\n  Game package:   %s\nInstall the IPA with your own signing, open HaloPad and choose the game package.\nBoth are yours alone: never share them.\n' "$IPA" "$OUT/Halo-CE.halopad.zip"
