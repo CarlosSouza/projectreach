@@ -121,6 +121,11 @@ trap 'rm -rf "$STAGE"' EXIT
 mkdir "$STAGE/Payload"
 cp -R "$APP" "$STAGE/Payload/"
 (cd "$STAGE" && zip -qry "$IPA" Payload)
-# the IPA and game package hold everything; drop this build's translation runs (gigabytes each)
-comm -13 <(printf '%s\n' "$RUNS_BEFORE") <(runs) | while IFS= read -r run; do rm -rf "$run"; done
+# keep this build's finished translation (adding the Xbox edition reuses it) and drop its
+# intermediate runs and the previous builder's translation (gigabytes each); other runs stay
+NEW_RUNS=$(comm -13 <(printf '%s\n' "$RUNS_BEFORE") <(runs))
+for run in $RUNS_BEFORE; do [ ! -f "$run/.builder" ] || rm -rf "$run"; done
+for run in $NEW_RUNS; do
+	if ls "$run"/*.ll >/dev/null 2>&1; then touch "$run/.builder"; else rm -rf "$run"; fi
+done
 printf '\nDone.\n  App (unsigned): %s\n  Game package:   %s\nInstall the IPA with your own signing, open HaloPad and choose the game package.\nBoth are yours alone: never share them.\n' "$IPA" "$OUT/Halo-CE.halopad.zip"
