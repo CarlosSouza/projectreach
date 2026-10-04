@@ -84,7 +84,7 @@ installer; that private provisioning path is being tested.
 
 | Area | Where it stands |
 | --- | --- |
-| **iPad** | Physical iPad Pro 12.9" (6th gen) imports its game package, plays local Slayer matches at about 30 FPS and has joined online games. A crash in busy scenes (a shader needing more than eight texture setups) is fixed. First-time loading of new effects still stutters |
+| **iPad** | Physical iPad Pro 12.9" (6th gen) imports its game package, plays local Slayer matches and has joined online games. Halo's own 30 FPS throttle made frames uneven on iOS; HaloPad no longer applies it (about 110 FPS in the iPad Simulator; physical rates are being re-measured). A crash in busy scenes (a shader needing more than eight texture setups) is fixed. First-time loading of new effects still stutters |
 | **iPhone** | Physical iPhone 14 imports, creates a profile and plays a local LAN match, including 1280 × 720 widescreen. About 30 FPS in a static scene; loading and busy play are still slow |
 | **Multiplayer** | Halo's own LAN and Internet menus work. Development builds joined public Custom Edition servers from the Mac and iPad Simulator; online play on physical phones is still to be tested |
 | **Controls** | Movable, resizable touch overlay, look-speed settings, iOS keyboard for names and chat, Xbox-style controllers (including connecting after launch) and iPad trackpad/mouse in menus |
@@ -101,8 +101,10 @@ Details, measurements and open gates live in [docs/STATUS.md](docs/STATUS.md) an
 On first launch, choose your prepared `.halopad.zip` game package. Create a Halo profile, then use the
 game's own **Multiplayer** menus to host or join.
 
-- **⋯ menu:** touch settings, keyboard and chat, join a server by address, display options,
-  custom-map import, controller guide, **Report a Problem** and **Share Diagnostic Log**
+- **⋯ menu:** the same in both editions: touch settings, controller guide, display options,
+  **Report a Problem**, **Share Diagnostic Log** and **Switch Edition** (closes HaloPad; the edition
+  picker appears when you open it again). Windows adds keyboard and chat, join a server by address and
+  custom-map import; Xbox adds System Link
 - **Touch:** move and resize the overlay; tune look speed under **Controls › Look Speed & Touch Settings**
 - **Controllers:** connect before opening HaloPad for the most reliable result; connecting later is
   supported (tested in the Simulator so far). In Halo's menus the D-pad or left stick
@@ -110,8 +112,10 @@ game's own **Multiplayer** menus to host or join.
   (chat, console, a profile name), **A** sends Enter and **B** cancels. Halo's "Button 6" pickup
   prompt is **RB** on an Xbox controller
 - **Leaving a match:** **⋯ › Open Leave Game Menu…** opens Halo's pause menu; choose **Leave Game** there
-- **Resolution:** Halo renders at 800 × 600 by default in its original 4:3 shape. Halo's 1280 × 720 mode
-  gives a true widescreen view, or use **Fill** to stretch 4:3
+- **Resolution:** Halo renders at 800 × 600 by default in its original 4:3 shape; Halo's **Settings ›
+  Video** offers sharper modes up to the screen's own size (on a 12.9-inch iPad Pro, 4:3 modes such as
+  1600 × 1200 and 2048 × 1536). Halo's 1280 × 720 mode gives a true widescreen view, or use **Fill**
+  to stretch 4:3
 - **Smoother recording:** the first time a map, weapon or effect appears, its graphics are prepared and
   play can hitch for up to about a second. Later appearances are much faster, so play a warm-up
   match on the same map before recording
@@ -158,8 +162,9 @@ up its `Documents` and `Library` first if you ever need to change signing.
 
 ## Known issues
 
-- **Loading and frame pacing.** First-time graphics preparation causes hitches; play runs at about 30 FPS
-  on iPad and slower on iPhone.
+- **Loading and frame pacing.** First-time graphics preparation causes hitches. Halo's 30 FPS throttle
+  is no longer applied (Halo's Video menu may still show it); physical-device frame rates are being
+  re-measured, and iPhone play has been slower.
 - **Controller dropouts.** Some players have seen a controller stop responding after reconnecting it or
   switching from touch; in one report it came back after starting a new game. If it happens, please
   share the diagnostic log (below).

@@ -163,7 +163,8 @@ HaloPad now opens with a choice:
 | Campaign | Not yet | Original Xbox campaign; experimental. Split-screen is upstream functionality, unverified in HaloPad |
 
 The two cannot play online together. One engine runs per launch (both use the same guest memory), so
-switching means closing HaloPad and opening it again; the picker appears at every launch.
+switching means closing HaloPad and opening it again (**⋯ › Switch Edition…** does the closing); the
+picker appears at every launch.
 
 ## Personal-build boundary (Chris's decision, 2026-09-30)
 

@@ -91,7 +91,9 @@ outside this test.
 
 ## Current display and performance limits
 
-The verified internal mode is 800 × 600 at 30 FPS. The app's Original aspect
+The verified internal mode is 800 × 600. Halo's own "30 FPS" Framerate Throttle
+(the default for new profiles) made frames uneven on iOS, so HaloPad no longer
+applies it; Halo's Video menu may still show it. The app's Original aspect
 setting preserves 4:3 geometry with side bars on iPhone. Fill stretches the
 image and distorts it. Halo's 1280 × 720 mode passed a short local match on the
 physical iPhone 14. To retain it, accept Halo's video-test prompt, then press

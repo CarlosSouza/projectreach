@@ -27,7 +27,7 @@ def main():
                '-fobjc-arc', '-O1', '-Wall', '-Wextra', '-Werror', '-Wno-unused-parameter',
                '-Wno-deprecated-declarations', '-Wno-nonnull', '-I/opt/homebrew/include', '-I', str(ROOT / 'port/xbox'), str(source),
                '-framework', 'UIKit', '-framework', 'Foundation', '-framework', 'UniformTypeIdentifiers',
-               '-framework', 'GameController',
+               '-framework', 'GameController', '-framework', 'QuartzCore',
                '-o', str(binary)]
     build = subprocess.run(command, capture_output=True, text=True)
     (evidence / 'build.txt').write_text(build.stdout + build.stderr)

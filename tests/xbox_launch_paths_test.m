@@ -22,10 +22,12 @@ static NSArray *fixture_search_paths(NSSearchPathDirectory directory, NSSearchPa
 @interface HPFixtureBundle : NSObject
 + (instancetype)mainBundle;
 - (NSString *)bundlePath;
+- (id)objectForInfoDictionaryKey:(NSString *)key;
 @end
 @implementation HPFixtureBundle
 + (instancetype)mainBundle { return [self new]; }
 - (NSString *)bundlePath { return [fixture_root stringByAppendingPathComponent:@"Bundle"]; }
+- (id)objectForInfoDictionaryKey:(NSString *)key { (void)key; return nil; }
 @end
 @interface HPFixtureDefaults : NSObject
 + (NSUserDefaults *)standardUserDefaults;
@@ -70,7 +72,15 @@ static NSArray *fixture_search_paths(NSSearchPathDirectory directory, NSSearchPa
 @implementation HPOverlay
 + (instancetype)alloc { abort(); }
 @end
+@implementation HPSettings
++ (instancetype)shared { abort(); }
+@end
 #pragma clang diagnostic pop
+/* Engine and app logging the launch helpers may reference but never reach here. */
+void (*xg_log_sink)(const char *line);
+void halopad_log(const char *fmt, ...) { (void)fmt; }
+const char *halopad_log_path(void) { return NULL; }
+int xg_ios_frames_presented(void) { return 0; }
 void xg_ios_set_touch_pad(const struct xg_touch_pad *state) { (void)state; abort(); }
 void xg_ios_clear_touch_pad(void) { abort(); }
 void xg_ios_add_touch_look(float dx, float dy) { (void)dx; (void)dy; abort(); }

@@ -27,7 +27,9 @@ def main():
     exe = evidence / 'overlay-test'
     cmd = ['xcrun', 'clang', '-target', 'arm64-apple-ios17.0-simulator', '-isysroot', sdk,
            '-fobjc-arc', '-O1', '-I/opt/homebrew/include', *map(str, sources), '-framework', 'UIKit', '-framework', 'Foundation',
-           '-framework', 'GameController', '-framework', 'QuartzCore', '-framework', 'CoreGraphics', '-o', str(exe)]
+           '-framework', 'GameController', '-framework', 'QuartzCore', '-framework', 'CoreGraphics',
+           # the overlay logs through the app's weak halopad_log (HP_LOG); this harness has none
+           '-Wl,-U,_halopad_log', '-o', str(exe)]
     build = subprocess.run(cmd, capture_output=True, text=True)
     (evidence / 'build.txt').write_text(build.stdout + build.stderr)
     build.check_returncode()
