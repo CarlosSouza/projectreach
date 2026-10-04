@@ -64,7 +64,7 @@ When a personal build includes the Xbox engine, HaloPad asks which edition to op
 | --- | --- | --- |
 | Engine | Your own `haloce.exe` 1.10, translated ahead of time | [halo-ce-universal](https://github.com/cybersecurity/halo-ce-universal), a port of the Xbox decompilation, fetched and built on your Mac |
 | Game files | Your Custom Edition package | Your own Xbox disc image, imported in the app |
-| Online | Custom Edition servers and LAN | System link with other copies of that port |
+| Online | Custom Edition servers and LAN | System link and internet games with other halo-ce-universal players (PC, Linux, Android), up to 128 per match, on the same build |
 | Campaign | No | The original Xbox campaign (preview) |
 | Status | Developer preview | Experimental preview |
 
@@ -76,21 +76,25 @@ The Xbox engine is never part of this repository. Your Mac downloads the pinned 
 decompilation were reconstructed with help from leaked Bungie material, which is why the Xbox edition
 is only ever a personal build; see [Xbox engine](docs/XBOX-ENGINE.md).
 
+**Playing together on the Xbox edition:** everyone in a match needs the same upstream build. HaloPad
+shows yours on the Xbox card and in **⋯ › About** (for example *build 85*); rebuild after HaloPad
+moves its pin to pick up a newer one. Its internet game browser finds games through public STUN and
+MQTT relay servers, as upstream does; no HaloPad server is involved.
+
 ## Current status
 
-The physical gameplay builds use a development scene to enter Halo's menu. Full
-original startup still needs the product ID written by an original Halo PC
-installer; that private provisioning path is being tested.
+Builds start Halo normally. The one-command builder turns your product key into the product ID Halo's
+installer would write, on your Mac and into your app only.
 
 | Area | Where it stands |
 | --- | --- |
 | **iPad** | Physical iPad Pro 12.9" (6th gen) imports its game package, plays local Slayer matches and has joined online games. Halo's own 30 FPS throttle made frames uneven on iOS; HaloPad no longer applies it (about 110 FPS in the iPad Simulator; physical rates are being re-measured). A crash in busy scenes (a shader needing more than eight texture setups) is fixed. First-time loading of new effects still stutters |
 | **iPhone** | Physical iPhone 14 imports, creates a profile and plays a local LAN match, including 1280 × 720 widescreen. About 30 FPS in a static scene; loading and busy play are still slow |
-| **Multiplayer** | Halo's own LAN and Internet menus work. Development builds joined public Custom Edition servers from the Mac and iPad Simulator; online play on physical phones is still to be tested |
+| **Multiplayer** | Windows edition: Halo's own LAN and Internet menus work, and a physical iPad has joined public Custom Edition servers. Xbox edition: a physical iPad Pro has joined internet games through the decompilation's game browser. iPhone online play has not had a full test |
 | **Controls** | Movable, resizable touch overlay, look-speed settings, iOS keyboard for names and chat, Xbox-style controllers (including connecting after launch) and iPad trackpad/mouse in menus |
 | **Custom maps** | Import `.map` files from the app menu. Client DLL mods (Chimera, OpenSauce, HAC2) do not load |
 | **Campaign** | Through the Xbox edition: menus, campaign, controls, Save and Quit and reload pass in the iPad Simulator; a physical iPad has run a preview build. Custom Edition has no campaign |
-| **Xbox edition** | Experimental. Simulator checks pass for campaign, a 12 minute system-link match and saves. Real-iPad feel and performance are not yet accepted |
+| **Xbox edition** | Preview. Campaign and internet multiplayer run on a physical iPad Pro. Some textures and effects still render differently from the original, and frame pacing is still being tuned |
 | **Distribution** | Source only for now. Build your own with your own game files |
 
 Details, measurements and open gates live in [docs/STATUS.md](docs/STATUS.md) and the
@@ -211,9 +215,9 @@ JIT. HaloPad then provides the Windows, Direct3D 9, input, audio and network pie
 
 ### Can I play with people on PC?
 
-That is the goal. HaloPad uses Custom Edition's own network protocol, and development builds have joined
-public PC servers and spawned into games. A full online session on a physical iPhone or iPad is the next
-thing to test.
+Yes. The Windows edition speaks Custom Edition's own network protocol and joins the community-run PC
+servers. The Xbox edition plays with other halo-ce-universal players on PC, Linux and Android, in
+matches of up to 128 players, when everyone has the same build. The two editions cannot play each other.
 
 ### Which version of Halo works?
 

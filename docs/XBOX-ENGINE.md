@@ -159,7 +159,7 @@ HaloPad now opens with a choice:
 |---|---|---|
 | Engine | Custom Edition 1.10, translated from the player's own `haloce.exe` | [cybersecurity/halo-ce-universal](https://github.com/cybersecurity/halo-ce-universal), a port of the Xbox decompilation |
 | Game files | Custom Edition package | The player's own Xbox disc image (maps copied into Documents/Halo Xbox) |
-| Online | Custom Edition servers | Other copies of that port (system link) |
+| Online | Custom Edition servers | Other copies of that port: system link and internet games (up to 128 players, same upstream build) |
 | Campaign | Not yet | Original Xbox campaign; experimental. Split-screen is upstream functionality, unverified in HaloPad |
 
 The two cannot play online together. One engine runs per launch (both use the same guest memory), so
