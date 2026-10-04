@@ -1186,6 +1186,10 @@ static void touch_selftest(void)
 }
 - (void)startHalo
 {
+    /* An earlier session closed without Halo's own Quit; see halopad_registry.c. */
+    int halopad_registry_reset_exit_flag(void);
+    if (halopad_registry_reset_exit_flag())
+        halopad_log("Halo: the last session closed without Halo's Quit (iOS or Switch Edition); reset Halo's exit flag so it does not offer Safe Mode");
     /* New shaders compile off Halo's thread; earlier sessions' shaders warm up now
        (HALOPAD_SYNC_SHADERS=1 restores synchronous compiles for comparisons). */
     extern int halopad_metal_async_shaders;

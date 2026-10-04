@@ -280,3 +280,23 @@ uint32_t halopad_registry_get_dword(const char *path, const char *name, uint32_t
     memcpy(value, vals[i].data, 4);
     return 1;
 }
+
+/* Halo records each start in HKCU ExitFlag ("bad 1", "bad 2", ...) and writes "clean" only
+   when the player quits through its menu. iOS closes apps without that (the app switcher,
+   memory pressure, HaloPad's Switch Edition), and after two such closes Halo stops at start-up
+   offering Safe Mode, which does nothing useful on HaloPad. Called before Halo's thread starts,
+   so nothing else is using the registry. Returns 1 when a "bad" flag was reset. */
+int halopad_registry_reset_exit_flag(void)
+{
+    static const char path[] = "HKCU\\Software\\Microsoft\\Microsoft Games\\Halo CE";
+    static const char clean[] = "clean";
+    ensure_loaded();
+    int i = find_value(path, "ExitFlag");
+    if (i < 0 || vals[i].type != 1 || vals[i].size < 3 || memcmp(vals[i].data, "bad", 3)) return 0;
+    free(vals[i].data);
+    vals[i].size = sizeof clean;           /* REG_SZ with its terminator, as Halo writes it */
+    vals[i].data = malloc(sizeof clean);
+    memcpy(vals[i].data, clean, sizeof clean);
+    save();
+    return 1;
+}

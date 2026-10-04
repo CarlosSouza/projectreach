@@ -1,5 +1,33 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Build 85 save/reload, iPad System Link, Windows exit flag (2026-10-04)
+
+- **Smoke (current app 29ccf76):** Simulator menu, a10 and System Link match pass
+  (`smoke-29ccf76/`; the stand-in machine bot1 joins Blood Gulch Slayer with Player).
+- **Campaign save/reload (Simulator, real taps):** picker Play Xbox, Campaign,
+  Continue loads the copied build 74 a30 checkpoint in build 85 (120/60, one grenade).
+  Two shots (60 to 58), Pause, three Move-down drags, A on Save and Quit, main menu;
+  both savegame.bin files rewritten by 85. Cold relaunch, Continue: same checkpoint
+  (120/60, one grenade), not the transient 58.
+- **Switch Edition (Simulator, real taps):** in a30, ⋯ shows System Link, Controls,
+  Display, Help, Switch Edition. Close HaloPad goes to the Home Screen; reopening shows the picker.
+  The picker's Graphics switch does not launch the card (gesture exclusion works).
+- **iPad:** the Windows menu tree matches the Simulator, with Switch Edition. The
+  development close path logs and exits, and the next open starts no edition (picker).
+- **System Link on the physical iPad:** the Mac (build 85, unadapted guest b58e26e5) hosts
+  Blood Gulch, and the iPad joins with `HALO_NET_BROADCAST` set to the Mac's address. Both are
+  real clients in one Slayer game, ticks in step, about 3,400 messages sent and 2,200 received,
+  0 corrected. The iPad shows 112–116 fps and 0 GL errors. Throwaway saves were removed and
+  `xbox-frame.ppm` was restored. The iPad's real Xbox saves match the pre-install backup.
+- **Windows exit flag:** Halo writes HKCU `ExitFlag` "bad N" at each start and "clean" only
+  on its own Quit; at "bad 2" start-up stops at its Safe Mode warning. On the iPad, a
+  "bad 2" launch never reached the front end. With "clean", the front end came in 4 s. Every iOS
+  close or Switch Edition counts as unclean, so `startHalo` now resets a "bad" flag before
+  Halo's thread starts and logs it. Verified in the Simulator ("bad 2" to "clean", log line;
+  registry restored afterwards). The iPad's flag was set to "clean" by hand for that check,
+  and the product ID lines were unchanged. The new build is not yet on the iPad: Chris took the
+  iPad for hands-on testing.
+
 ## Device rendering parity, shared menu, new picker, Switch Edition (2026-10-04)
 
 Private `ref/xbox-build/passes/2026-10-04/ipad-ui.dXLDtu/`. Chris asked for the
