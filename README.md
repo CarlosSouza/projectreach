@@ -196,6 +196,17 @@ to update.
 - [Runtime and networking](docs/G3-RUNTIME.md): Windows services and public-server results
 - [Rights status](docs/RIGHTS-STATUS.md): inputs, generated code and publication boundaries
 
+## Community and support
+
+[Join the Discord](https://discord.gg/xwHfUD2bxW) for help and news. It is one
+community for HaloPad and its sibling projects, such as KartPad, BlueWake and
+MeleePad: ask about setup and installing, share how it runs on your device, and
+hear about new releases first.
+
+Found a bug? [Open an
+issue](https://github.com/chrissotraidis/projectreach/issues) with your device,
+its OS version, and the steps that led to it.
+
 ## Credits
 
 HaloPad stands on a lot of other people's work. Thank you to:
