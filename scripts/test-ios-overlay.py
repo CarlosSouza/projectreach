@@ -26,8 +26,10 @@ def main():
     sources = [ROOT / 'tests/halo_overlay_test.m', ROOT / 'port/ios/HaloPadOverlay.m']
     exe = evidence / 'overlay-test'
     cmd = ['xcrun', 'clang', '-target', 'arm64-apple-ios17.0-simulator', '-isysroot', sdk,
-           '-fobjc-arc', '-O1', *map(str, sources), '-framework', 'UIKit', '-framework', 'Foundation',
-           '-framework', 'GameController', '-framework', 'QuartzCore', '-framework', 'CoreGraphics', '-o', str(exe)]
+           '-fobjc-arc', '-O1', '-I/opt/homebrew/include', *map(str, sources), '-framework', 'UIKit', '-framework', 'Foundation',
+           '-framework', 'GameController', '-framework', 'QuartzCore', '-framework', 'CoreGraphics',
+           # the overlay logs through the app's weak halopad_log (HP_LOG); this harness has none
+           '-Wl,-U,_halopad_log', '-o', str(exe)]
     build = subprocess.run(cmd, capture_output=True, text=True)
     (evidence / 'build.txt').write_text(build.stdout + build.stderr)
     build.check_returncode()
@@ -36,7 +38,8 @@ def main():
                             env=env, capture_output=True, text=True, timeout=30)
     output = result.stdout + result.stderr
     (evidence / 'run.txt').write_text(output)
-    inputs = sources + [ROOT / 'port/ios/HaloPadOverlay.h', ROOT / 'port/runtime/halopad_input.h']
+    inputs = sources + [ROOT / 'port/ios/HaloPadOverlay.h', ROOT / 'port/runtime/halopad_input.h',
+                        ROOT / 'port/xbox/xg_overlay_input.h', ROOT / 'port/xbox/xg_touch_input.h']
     (evidence / 'result.json').write_text(json.dumps({
         'device': args.device, 'exit': result.returncode, 'build_command': cmd,
         'sha256': {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest() for p in inputs},

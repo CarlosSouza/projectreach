@@ -1,10 +1,890 @@
 # HaloPad status
 
-Updated 2026-09-29. **ACTIVE — phase 3 device-readiness loop.** G2's Mac/Simulator rows passed earlier; physical acceptance remains open.
+**PAUSED by Chris on 2026-10-03.** No further goal execution in this chat.
+Replacement-bot instructions and bounded priorities:
+[focused handoff](HaloPad-NEXT-BOT-HANDOFF-2026-10-03.md).
+The chronology below is evidence, not permission to resume or repeat old passes.
 
-Operating loop: [HaloPad-GOAL-LOOP-PHASE3.md](HaloPad-GOAL-LOOP-PHASE3.md). Earlier engineering history remains in [phase 2](HaloPad-GOAL-LOOP-PHASE2.md).
+Updated 2026-10-03. **Simulator-only work: shared controls, texture compatibility and upstream updates.** The full goal is incomplete. Physical-device testing remains out of scope until Chris makes the iPad available again.
 
-## Latest physical-device result
+Operating loop: [HaloPad-GOAL-LOOP-PHASE4.md](HaloPad-GOAL-LOOP-PHASE4.md). Earlier device work remains in [phase 3](HaloPad-GOAL-LOOP-PHASE3.md).
+
+**Battle Creek reference agrees; longer run exposes a sound crash (2026-10-03).**
+Same-revision official Windows74/Mesa and unchanged Simulator `4e42dc6d…11175`
+show matching water appearance, rock shading and foliage over22 usable stepped
+camera poses. This is not continuous-motion or all-scene fidelity acceptance.
+Simulator later crashes at about184s: stale looping-sound datum -> null dereference
+in inlined sound-channel update; crash reporter recursively faults on guest FP.
+Stationary final-pose control survives240s, so trigger remains unresolved. Preserve
+the failed capture; next reproduce/isolate sound lifecycle and harden diagnostic
+unwinding, not another speculative shader edit. Real saves/preferences/PC registry
+exact, Original picker restored. No runtime/pin change or hardware access.
+[Evidence](XBOX-SIMULATOR-PASSES.md#build74-battle-creek-reference-and-late-sound-fault-2026-10-03).
+
+**Build74 normal multiplayer menu route verified (2026-10-03).**
+Unchanged adapted `4e42dc6d…11175`: copied New001/Green Thumb profile -> System
+Link -> Create Game -> Battle Creek/Slayer -> lobby -> rendered match -> Leave
+Game -> main menu. Shared Fire, Melee, Throw and Pause work; raw A/Y menu actions
+remain independent of the gameplay preset. One local stand-in peer, not another
+full game client, so real multiplayer compatibility is not accepted. Real saves,
+preferences and PC registry preserved; ordinary Original picker restored.
+Next compare a moving Battle Creek water/foliage view with the pinned desktop
+reference before treating its appearance as a new renderer defect. No runtime
+change; broad graphics, held-score/multi-touch and hardware gates remain open.
+[Evidence](XBOX-SIMULATOR-PASSES.md#build74-normal-multiplayer-menu-route-2026-10-03).
+
+**Build74 is the accepted development pin (2026-10-03).**
+Actual update-pin --accept workflow verifies save backups, passes Mac and ANGLE
+Simulator menu/campaign/match gates, then advances66->74/80d30410. Preserved the
+unadapted result and restored exact shared-controls preview `4e42dc6d…11175` in
+place. Real saves/preferences/PC registry exact; Original picker restored.
+206 Xbox tests pass both with explicit74 and the new default lock after isolating
+synthetic fixtures from the production pin. No graphics/runtime change or public
+release. Next normal-menu multiplayer profile/lobby/shared-control check; scripted
+combat does not cover that route. Broad fidelity/human multi-touch/hardware open.
+[Evidence](XBOX-SIMULATOR-PASSES.md#build74-accepted-update-workflow-2026-10-03).
+
+**Build74 retains material fixes in both graphics modes (2026-10-03).**
+Exact `4e42dc6d…11175` passes four100s a10/b30 captures: Original640x480/1x
+and picker-selected Sharper1280x960/4x retain detailed water, corrected bridge
+shadows and translucent displays. All four starts report read1/draw0/error0.
+Real saves/preferences/PC registry exact; Original picker restored. No source
+change or broad-fidelity claim. Next exercise the real reviewed74 pin-update
+workflow with outgoing app/output/data protected, then restore/rebuild the adapted
+preview as needed. Accepted66 is still unchanged; do not chase another release
+mid-acceptance or repeat these same graphics checks without a changed input.
+[Evidence](XBOX-SIMULATOR-PASSES.md#build74-both-quality-material-regression-2026-10-03).
+
+**Adapted upstream74 passes smoke and copied-save controls (2026-10-03).**
+Installed candidate `4e42dc6d…11175` carries the unchanged cumulative
+render-present-v1 recipe against the reviewed74 renderer hash. Historical66/73
+identities remain intact;206 Xbox tests pass. Menu/a10/match smoke and normal
+Green Thumb Melee/Zoom/Swap/Fire/Reload/Pause, Save and Quit and cold checkpoint
+reload pass. Frame0 is read1/draw0/error0. Real saves/preferences/PC registry
+remain exact; ordinary Original picker restored. Accepted66 is unchanged.
+Next exact74 Original/Sharper water/shadow regression, not pin promotion or a
+claim that all graphics and sustained multi-touch are fixed.
+[Evidence](XBOX-SIMULATOR-PASSES.md#adapted74-controls-and-save-regression-2026-10-03).
+
+**Unadapted upstream74 passes Mac and Simulator smoke (2026-10-03).**
+Live release/main now resolve to74/80d30410. Fresh Mac and ANGLE Simulator builds
+pass menu/a10/scripted-match checks. This is not adapted-preview or save-compatibility
+acceptance: the renderer-source guard rejects74, and the unmodified guest retains
+startup blit0x502. Build73 presentation preview restored exactly; accepted66
+unchanged. Fixed update helper to retain normal PC startup/device-local state,
+with a reproduced failing regression and203 passing Xbox tests. Next extend the
+reviewed adaptation identity for74 without weakening source checks or changing
+historical identities, then verify the adapted candidate and copied saves.
+[Evidence](XBOX-SIMULATOR-PASSES.md#upstream74-unadapted-update-gates-2026-10-03).
+
+**Night landing compared with independent desktop73 (2026-10-03).**
+Unchanged `ed257ad5…af30b` and official Windows73/Mesa both show a50's bright
+landing transition, exhaust and spotlight pools. Selected settled terrain/tree
+regions differ by about0.2–0.3 RGB levels out of255; spotlit cliff by0.72. This
+rejects missing night lighting or a Simulator-only white transition in this
+scene, not all material/temporal defects. Real state preserved, Original picker
+restored. Next upstream-update acceptance: Mac output is still66 and unadapted73
+Mac/Simulator gates remain open; preserve this adapted preview before building.
+[Evidence](XBOX-SIMULATOR-PASSES.md#night-landing-desktop-reference-2026-10-03).
+
+**Green Thumb shared-touch runtime check passed (2026-10-03).**
+Unchanged presentation candidate `ed257ad5…af30b` correctly separates Melee and
+Zoom despite their native Green Thumb swap. Swap, Fire, Reload, Pause and menu
+selection also work; Save and Quit plus cold checkpoint reload retain the mapping.
+Only copied Xbox state changed; real saves/preferences/PC registry preserved.
+Original picker restored. Next investigate a different reproducible graphics
+discrepancy against the independent desktop reference. Broad fidelity and human
+multi-touch feel remain open; no new renderer or upstream-pin change.
+[Evidence](XBOX-SIMULATOR-PASSES.md#green-thumb-shared-touch-runtime-2026-10-03).
+
+**Boxer shared-touch runtime check passed (2026-10-03).**
+Unchanged presentation candidate `ed257ad5…af30b` keeps Melee/Throw separate
+under the genuine Boxer profile; Fire, Swap, Zoom, Pause and menu selection also
+work. Save and Quit followed by cold checkpoint load retains the Boxer mapping.
+Only copied Xbox state changed; real saves/preferences/PC registry preserved.
+Original picker restored. Green Thumb is next, not yet runtime accepted; human
+multi-touch feel and broad graphics fidelity remain open.
+[Evidence](XBOX-SIMULATOR-PASSES.md#boxer-shared-touch-runtime-2026-10-03).
+
+**Cyan beam reproduced in independent desktop reference (2026-10-03).**
+The same debug-camera inputs show the narrow cyan beam and bright pulse in both
+desktop73 and unchanged Simulator `ed257ad5…af30b`. Its presence is not a
+HaloPad-only artifact; do not remove it or alter HUD sampling to hide it. Effect
+timing is not synchronized, so exact temporal/color parity remains unproved.
+Real state preserved, Original picker restored, diagnostic listeners closed.
+Next exercise still-unaccepted Boxer/Green Thumb touch mappings on copied state;
+broad material fidelity and sustained human multi-touch remain open.
+[Evidence](XBOX-SIMULATOR-PASSES.md#cyan-beam-desktop-reference-2026-10-03).
+
+**Presentation candidate retains water/shadow fixes in both modes (2026-10-03).**
+Exact `ed257ad5…af30b` passes four bounded a10/b30 captures: Original640x480/1x
+and UI-selected Sharper1280x960/4x. Detailed water and the bridge-band fix remain;
+the bridge display remains translucent. All four cold starts report read1/draw0/
+error0. Real saves/preferences/PC registry preserved; Original picker restored.
+Live upstream still build73/d1c7243c; accepted66 unchanged. Next matched desktop
+comparison of another unresolved world effect, not another identical regression.
+Broad fidelity and human multi-touch remain open.
+[Evidence](XBOX-SIMULATOR-PASSES.md#presentation-candidate-both-quality-regression-2026-10-03).
+
+**First-blit fix built and verified in Simulator (2026-10-03).**
+Installed `ed257ad5…af30b` / guest `4ac7e842…b60`, cumulative
+`render-present-v1`, passes cold menu/campaign/local-match smoke with frame0
+read1/draw0/error0. Normal shared Fire/Swap/swipe Look/Pause, Save and Quit and
+cold checkpoint reload also pass on an isolated save copy.202 Xbox tests pass.
+Exact-candidate Original/Sharper water and border regression is next; broad
+texture/lighting fidelity and human multi-touch remain open. Accepted66/upstream73
+pins unchanged. [Evidence](XBOX-SIMULATOR-PASSES.md#first-blit-fixed-build-validation-2026-10-03).
+
+**Earlier first-blit diagnosis, superseded by the installed result above (2026-10-03).**
+Debugger trace proves cold framebuffer creation overwrites the selected draw
+target. A one-process draw-target correction removes startup0x502. New guarded
+`render-present-v1` moves read-FBO resolution before draw-target selection;
+old identities remain stable.202 Xbox tests and40 native launch/save/quality
+checks pass. Installed app stays `48f118f3…213e`; no fixed-build acceptance yet.
+Only1.2GiB disk space remains, so full rebuild/install is deferred. Real state
+preserved, Original picker restored; pins unchanged.
+[Evidence and next gate](XBOX-SIMULATOR-PASSES.md#first-blit-ordering-confirmed-2026-10-03).
+
+**Exact shared-input candidate retains fixes in Sharper (2026-10-03).**
+UI-selected Sharper runs at1280x960/effective4x on `48f118f3…213e`. Bounded b30
+and a10 captures retain detailed water, the bridge-band fix and engine glow.
+No new runtime change or full fidelity claim. Startup blit0x502 persists; source
+inspection identifies a cold framebuffer-creation ordering hypothesis for the
+next targeted check. Real state preserved, Original picker restored. Free disk
+is1.8GiB: avoid large captures/rebuilds without checking available space. Pins
+unchanged. [Evidence](XBOX-SIMULATOR-PASSES.md#shared-input-sharper-regression-2026-10-03).
+
+**Southpaw thumbstick routing verified; sustained feel still open (2026-10-03).**
+Genuine saved Southpaw sticks/Default buttons reload on the unchanged
+`48f118f3…213e` candidate. Shared swipe Look and Fire work; trace proves Move
+reaches the expected right-stick axes. Automated Move/LOOK drags last only0–1ms,
+so they do not establish held movement/aiming. Added repeated-poll, short-drag
+and preset-transition regression assertions;199 Xbox tests pass. Real state
+preserved, ordinary Original picker restored. Next exact-build Sharper graphics,
+not another identical short-gesture attempt. No runtime or pin change.
+[Evidence](XBOX-SIMULATOR-PASSES.md#southpaw-thumbsticks-and-gesture-duration-2026-10-03).
+
+**Shared-input graphics regression passed at Original quality (2026-10-03).**
+Exact `48f118f3…213e` candidate retains detailed b30 water and the bridge shadow
+fix; 65-second scripted local match passes. 199 Xbox tests pass. Smoke tests now
+explicitly disable upstream update prompts. Live upstream main still resolves to
+build73's `d1c7243c`; accepted66 is unchanged. Real saves/preferences/PC registry
+preserved, Original picker restored. Next alternate-thumbstick runtime checks;
+Sharper on this candidate, broader fidelity and human multi-touch remain open.
+[Evidence](XBOX-SIMULATOR-PASSES.md#shared-input-original-rendering-regression-2026-10-03).
+
+**Jumpy and Default runtime checks passed (2026-10-03).** The unchanged
+`48f118f3…213e` shared-input candidate keeps Jump/Throw semantics under Jumpy's
+alternate A/trigger mapping. Default Fire/Throw/Swap/Look/Pause also respond
+correctly. These are bounded Simulator checks, not sustained touch-feel or
+all-preset acceptance. Real saves/preferences/PC registry remain unchanged;
+ordinary Original picker restored. Next exact-build water/border/local-match
+regression, without promoting the accepted pin.
+[Evidence](XBOX-SIMULATOR-PASSES.md#jumpy-and-default-runtime-regression-2026-10-03).
+
+**Southpaw touch mismatch fixed in Simulator candidate (2026-10-03).** New
+`shared-input-v1` exposes versioned guest mapping/menu context and adapts only
+HaloPad's touch pad, without resetting profiles or remapping physical controllers.
+On the same copied Southpaw profile, Fire now fires and Throw throws; normal
+menus, Save and Quit and cold checkpoint reload pass. 198 Xbox tests, 153 native
+overlay assertions and 39 launch/save/quality checks pass. Installed app
+`48f118f3…213e`, guest `652fbebb…de17`; upstream73/accepted66 unchanged. Original
+picker restored; real saves/preferences/PC registry preserved. Other runtime
+presets, sustained multi-touch and exact-new-build graphics regression remain
+open. [Implementation and evidence](XBOX-SIMULATOR-PASSES.md#southpaw-touch-mapping-bridge-2026-10-03).
+
+**Earlier non-default touch mismatch reproduced (2026-10-03).** On an isolated copy,
+selecting Xbox's Southpaw button preset makes shared Fire throw a grenade and
+shared Throw fire the rifle (60->59). Real profile/saves/preferences/PC registry
+remain intact; ordinary Original picker restored. Same `dc469db1…5997d` candidate,
+no runtime change. Next implement a guarded mapping/menu-state bridge that adapts
+touch only, preserves hardware preferences and clears held inputs on transitions.
+The source boundary is identified but not yet implemented or runtime accepted.
+[Reproduction and implementation gates](XBOX-SIMULATOR-PASSES.md#southpaw-touch-mismatch-reproduced-2026-10-03).
+
+**Border candidate regression checks passed (2026-10-03).** Exact installed
+`dc469db1…5997d` passes normal picker/menu checkpoint loading, shared Fire/Look/
+Swap/Zoom/Pause, Save and Quit, and cold reload. UI-selected Sharper persists into
+fresh b30 and a10 captures at 1280x960/effective4x: detailed water remains and the
+bridge bands stay absent. Real saves/preferences/PC registry preserved, Original
+picker restored. No rebuild, pin change or hardware. Next reproduce the known
+non-default Xbox profile mismatch on a copied profile and design its adapter
+boundary; sustained human multi-touch and broad fidelity remain open.
+[Evidence](XBOX-SIMULATOR-PASSES.md#border-candidate-controls-saves-and-sharper-2026-10-03).
+
+**Bridge shadow bands fixed in Simulator candidate (2026-10-03).** New opt-in
+`render-border-v1` restores border-color sampling for the single-level 2D textures
+implicated by the preceding draw trace. Matched bridge views lose the black floor
+bands while a nearby view retains the character shadow. Water reflections and
+exterior engine glow remain visible; 30-second menu and 65-second local-match smoke
+pass. 194 Xbox tests and 38 native launch/save/quality checks pass. Candidate app
+`dc469db1…5997d`, guest `2d03ab18…b6b6`; accepted66/upstream73 unchanged. Real saves,
+preferences and PC registry preserved; ordinary Original-quality picker restored.
+Next exact-candidate normal-menu controls/save/cold reload and Sharper regression.
+Full mip/cube border support, broad fidelity and human multi-touch remain open.
+[Evidence and limits](XBOX-SIMULATOR-PASSES.md#bridge-border-sampling-fix-2026-10-03).
+
+**Bridge shadow bands localized (2026-10-03).** New paired a10 opening capture
+finds long black floor bands on Simulator, absent in the corresponding pinned
+desktop view. Native before/after draws identify shadow projection, not the floor
+lightmap. Its128x128 shadow has bright edge texels and actual linear/CLAMP_TO_EDGE
+sampling, while upstream requests BORDER; ANGLE Metal advertises no border-clamp
+support. This is a concrete next fix target, not a completed fix: implement and
+A/B-test faithful border sampling, including shadow convolution, without disabling
+shadows or changing depth. Real state preserved; same candidate/accepted pin.
+[Evidence](XBOX-SIMULATOR-PASSES.md#bridge-shadow-band-localization-2026-10-03).
+
+**Shared settings regression coverage (2026-10-03).** Native overlay suite now
+passes153 assertions, including12 new checks for settings/editor cancellation,
+handedness, shared look sensitivity and PC/Xbox layout persistence with separate
+phone/tablet keys. Actual Simulator UI mirrors controls; left-side Fire and
+background swipe aiming work. Short automated LOOK-stick drag has no observable
+rotation, so sustained mirrored-stick behavior is not newly accepted. Original
+preferences/saves/PC state restored; same water candidate and accepted66 pin.
+Next investigate a different moving material/effect against desktop, not another
+unchanged checkpoint/settings repeat. [Evidence](XBOX-SIMULATOR-PASSES.md#shared-settings-and-layout-contracts-2026-10-03).
+
+**Water candidate regression checks passed (2026-10-03).** The exact installed
+`aa0c46d8…7077d` build passes ordinary picker/menu checkpoint loading, shared
+Fire/Look/Swap/Zoom/Pause, Save and Quit, and cold checkpoint reload. Sharper
+selected through the actual UI persists into a fresh b30 run: 1280x960 source,
+effective4x world filtering, detailed water and ordinary foreground occlusion
+visible in composited screenshots. This is bounded regression evidence, not all
+depth/fidelity, new progression or sustained multi-touch acceptance. Original
+quality restored; all real saves/preferences/PC registry preserved. No runtime,
+pin or hardware change. Next compare a different moving material/effect against
+the independent desktop reference. [Evidence](XBOX-SIMULATOR-PASSES.md#water-candidate-controls-saves-and-sharper-2026-10-03).
+
+**Missing water reflections fixed in Simulator candidate (2026-10-03).** Moving
+b30 reference views reveal a real difference: the prior candidate draws flat
+green water where upstream desktop draws reflections/ripples. The ES mip-copy
+fallback changes the framebuffer during preparation of that same draw. New
+opt-in `render-water-v1` restores read/draw framebuffer and scissor state; actual
+before/after frames and ordinary Simulator screen captures show restored water.
+188 Xbox tests, 37 launch/save checks and menu/a10/local-match smoke pass.
+Candidate executable `aa0c46d8…7077d`, guest `83dd49b6…45c5`; upstream73 and
+accepted lock66 unchanged. Broader graphics, controls and hardware acceptance
+remain open. [Fix, provenance and limits](XBOX-SIMULATOR-PASSES.md#water-mip-copy-state-fix-2026-10-03).
+
+**Independent desktop reference (2026-10-03).** Upstream build73's unmodified
+Windows executable runs locally under isolated Wine9/Mesa26.2.3 llvmpipe, reaches
+menu and Silent Cartographer, and produces real OpenGL4.6 frames. This is the
+Xbox port's desktop build, **not the HaloPad PC engine**, and does not use our
+guest translation or ANGLE. Its beach landing view and the unchanged Simulator
+candidate show the same broad terrain softness and blocky distant waterfall.
+Regional differences remain; this is not pixel parity or overall fidelity
+acceptance. The 180-second Simulator campaign pass succeeds, original state is
+preserved, and Original-quality picker is restored. Next use this reference for
+a corresponding moving water/effect view, not another HUD-toggle or static
+landing repeat. [Evidence and provenance](XBOX-SIMULATOR-PASSES.md#independent-desktop-reference-2026-10-03).
+
+**Cyan streak isolated (2026-10-03).** The suspected shield-HUD line reproduces
+with high-res HUD on and off, and moves with the world when the camera turns.
+Guest readback confirms the off setting. Map metadata contains the a30 beam
+emitter and its effects: a plausible source, not yet exact draw attribution.
+Retire the HUD-replacement hypothesis; do not hide the effect or modify HUD
+shaders. Recorded comparison and preserved state in the
+[Simulator ledger](XBOX-SIMULATOR-PASSES.md#cyan-streak-isolation-2026-10-03).
+This is diagnostic progress, not a texture fix. Next use a matched upstream
+desktop reference for material/effects fidelity; accepted lock stays66 and the
+unchanged73 candidate is back at the ordinary picker.
+
+**Scoreboard observation (2026-10-02).** Read-only guest observation narrows the
+previous negative video result: real automated drag reaches guest Back and opens
+the scoreboard path, but only for one rendered sample. Fade peaks at 0.0814
+(about 0.85% opacity with upstream's curve), then closes. No evidence here of a
+lost Back input or failed font/layout entry. This does not verify final pixels or
+overflow paging. No runtime/pin change; original state preserved and ordinary
+picker restored. Return next to the captured cyan HUD/material defect; do not
+change hold semantics solely to accommodate the short automation gesture.
+[Probe evidence](XBOX-SIMULATOR-PASSES.md#build-73-scoreboard-read-only-observation-2026-10-02).
+
+**Scoreboard input bridge (2026-10-02).** Xbox Scoreboard now supports held
+vertical drag via paired Page Up/Down inputs; shared PC controls stay unchanged.
+185 Xbox tests and 141 native overlay assertions pass. Installed build-73
+candidate `39f06f77…7198e` produces four paired page events from an actual drag;
+camera/weapon stay unchanged and subsequent Fire works. Captured frames do not
+establish visible scoreboard response, and the local roster has only two players.
+The follow-up probe above narrows hold consumption; paging acceptance remains open.
+Saves/preferences/PC registry preserved; ordinary picker restored; pin stays 66.
+[Evidence and limits](XBOX-SIMULATOR-PASSES.md#build-73-scoreboard-touch-bridge-2026-10-02).
+
+**Build 73 candidate (2026-10-02).** Frozen upstream `d1c7243c` builds with the
+existing counted ANGLE adaptation and is installed on the dedicated Simulator.
+Menu/a10/scripted-match smoke passes; copied build-66 checkpoint loads, shared
+Fire/Look/Pause and Save and Quit work, and cold normal-menu reload succeeds.
+Accepted lock stays build 66: unadapted acceptance and the new scoreboard remain
+open. Source review finds no touch route for its wheel/Page Up/Down pagination;
+network protocol changes from 9 to 10. A cyan vertical HUD artifact is captured,
+not fixed or attributed to this upgrade. Original saves/preferences/PC registry
+preserved. Candidate and rollback copies remain private; ordinary picker restored.
+[Evidence and next gates](XBOX-SIMULATOR-PASSES.md#build-73-candidate-upgrade-2026-10-02).
+
+**Normal-menu save/reload (2026-10-02).** Current counted build-66 candidate
+loads a copied build-64 New001 checkpoint through the picker and normal menus.
+Shared fire/look/pause/menu controls work; Save and Quit completes and a cold
+process restores the outside-pod checkpoint. This closes that bounded existing-
+profile gate, not fresh-profile creation, new progression or all-version save
+compatibility. Original saves/PC state preserved; no runtime changes. Graphics
+fidelity remains open. The misleading profile summary is explained by upstream's
+deliberate unlock-all flags, not an unexplained save failure; see the earlier
+[profile analysis](XBOX-SIMULATOR-PASSES.md#upstream-profile-summary-and-xbox-touch-focus-loss-2026-10-02).
+[Evidence](XBOX-SIMULATOR-PASSES.md#counted-candidate-normal-menu-savereload-2026-10-02).
+
+**Water reflection trace (2026-10-02).** Actual b30 trace identifies the water
+reflection draw, four-level ripple target, -0.6 LOD bias and stage-3 cubemap.
+Generated reflection-vector math agrees with the NVIDIA specification; no
+justified shader fix yet. Ninety-second diagnostic run passes. Next is a matched
+material/reference comparison, not more mip/expression existence checks.
+[Evidence and limits](XBOX-SIMULATOR-PASSES.md#water-reflection-consumer-trace-2026-10-02).
+
+**Water mip readback (2026-10-02).** New bounded, opt-in diagnostic finds a
+complete changing 128/64/32/16 mip chain consistent with the water ripple
+composite. Two-frame readback restores checked GL state and reports zero errors.
+This rejects missing/frozen levels in those samples, not incorrect shader use
+or appearance. 184 tests, full app build, two-minute b30 and observer-off menu
+smoke pass. Next inspect the consuming shader/material or matched reference;
+no new rendering fix or upstream pin change.
+[Evidence](XBOX-SIMULATOR-PASSES.md#water-mip-chain-readback-2026-10-02).
+
+**Beach material route (2026-10-02).** Harness now supports Silent Cartographer;
+actual three-minute b30 run passes and reaches beach/ocean views. Water, shoreline
+bands and translucent exhaust are visible, not fidelity-accepted. Source review
+points the next focused check at generated water ripple mip levels, not another
+terrain-filtering change. 181 Xbox tests pass; original saves, preferences and PC
+registry preserved. Runtime/pins unchanged; no new graphics fix claimed.
+[Evidence](XBOX-SIMULATOR-PASSES.md#beach-material-reproduction-route-2026-10-02).
+
+**Geometry and night-scene follow-up (2026-10-02).** Six-minute stationary
+Blood Gulch run verifies a fully in-viewport light hidden by the foreground
+weapon (0/36 samples) and revealed again (25/25). This extends coverage evidence
+beyond viewport clipping, not to BSP-wall or overall graphics acceptance.
+a50 campaign smoke passes 120 and 300 seconds; manual shared controls verify
+2x/10x/unscoped cycling and night vision on/off. Normal-menu resume from debug
+saves remains unverified because they lack a named player profile. No runtime
+change this pass. Original-quality picker restored; saves, Library, preferences
+and PC registry preserved except the known Documents log. Next inspect another
+material or wall-occlusion case; broader texture fidelity and sustained touch
+feel remain open. [Evidence](XBOX-SIMULATOR-PASSES.md#in-viewport-light-occlusion-and-night-scene-follow-up-2026-10-02).
+
+**Counted guest integrated (2026-10-02).** Explicit Simulator-only
+`render-visibility-v1` pairs the guest with the counted backend and preserves
+ordinary GLES boolean results. In-game Blood Gulch sun tests now return full,
+partial and zero coverage: 2601 / 406 / 0 samples at Original; a corresponding
+narrow edge slice returns 1624 at Sharper (2x dimensions). Reflections fade and
+return at the viewport edge. 181 Xbox tests and 36 native launch/save/quality
+checks pass; this is a specific coverage fix, not overall graphics acceptance.
+Broader texture/shading issues, matched reference images, BSP-wall occlusion and
+physical touch feel remain open. Upstream pin/default policy unchanged.
+[Integration evidence](XBOX-SIMULATOR-PASSES.md#counted-guest-integration-2026-10-02).
+
+**Counted backend candidate (2026-10-02).** An isolated ANGLE candidate now
+returns exact visible-pixel counts through a private bridge, while ordinary
+GLES queries remain boolean. 56 actual Simulator GPU cases pass across both
+verified render-pass accumulation paths, including the measured sun-edge
+rectangle (928 pixels), depth occlusion, query reuse and 2x target dimensions.
+177 Xbox Python tests pass. This is not yet connected to the Xbox guest or
+installed in HaloPad at that stage, so no in-game graphics fix was claimed. Next was to wire an
+explicit, separately identified guest/backend capability and validate scale
+normalization plus the same Blood Gulch view.
+[Evidence](XBOX-SIMULATOR-PASSES.md#counted-metal-backend-candidate-2026-10-02).
+
+**Measured flare coverage loss (2026-10-02).** Opt-in rectangle/result observer
+correlates the Blood Gulch sun with an actual test rectangle: at most 27.6% lies
+inside the viewport, but the ES boolean fallback still drives full target
+visibility. Fully outside returns zero. This establishes a specific fidelity
+limitation, not the cause of all shading/texture defects and not a fix. 174 tests,
+full combined build and five-minute Simulator smoke pass. Next is a separately
+identified counted-visibility candidate, not further aggregate tracing.
+[Measured evidence and limits](XBOX-SIMULATOR-PASSES.md#sun-visibility-rectangle-measured-2026-10-02).
+
+**Blood Gulch visual follow-up (2026-10-02).** Three- and five-minute isolated
+match smoke checks pass. Manual background free-look reveals a sun flare and
+reversibly moves it across the viewport edge without firing. This establishes
+a specific visual test route, not incorrect brightness or a fix for texture
+popping. Capture its actual query rectangle/result or a matched reference next.
+No runtime/pin change. Returned to Original-quality picker; original saves,
+PC registry and preferences unchanged. [Evidence](XBOX-SIMULATOR-PASSES.md#blood-gulch-sun-flare-reproduction-route-2026-10-02).
+
+**Visibility-path investigation (2026-10-02).** New bounded, disabled-by-default
+query observer confirms boolean visibility results during the copied a30 run:
+11,866 zero and 103 one result reads, none above one, across 180 summaries.
+These are API reads, not pixel counts or individual-flare attribution. Source
+review confirms ANGLE Metal uses boolean visibility and Halo maps positive
+results to a saturated flare target. This is a narrower fidelity limitation,
+not a demonstrated cause of general texture/shading defects. No rendering
+behavior changed. 172 tests pass; installed executable `5a677b38…2d73201e`,
+Original selected, trace disabled after the pass. Saves/PC registry/settings
+preserved except last-engine choice. [Evidence](XBOX-SIMULATOR-PASSES.md#boolean-visibility-observation-2026-10-02).
+
+**Xbox graphics choice (2026-10-02).** Quality-adapted personal builds now offer
+Original or Sharper (Preview) below the edition cards. Original stays default;
+Sharper selects 2x resolution and 4x world filtering only for Xbox. Actual
+Simulator UI verifies Cancel, About/Done, both cold-persisted choices and copied
+a30 launches: 640x480/1x versus 1280x960/4x, without development quality overrides.
+Windows routing reaches its license screen, left unaccepted; no PC gameplay
+claim. 170 Xbox tests and 35 Simulator launch/save/quality assertions pass.
+Original saves and PC registry preserved; only the intended quality preference,
+last-engine selection, logs and OS snapshots differ. Preview app remains installed
+at the picker with Original selected (`92db1be7…88e8a7e`); upstream pin unchanged.
+[Evidence and remaining gates](XBOX-SIMULATOR-PASSES.md#player-facing-xbox-graphics-choice-2026-10-02).
+
+**World filtering candidate (2026-10-02).** New opt-in `render-quality-v1`
+adds bounded world anisotropy to the reproducible resolution experiment, without
+changing the accepted upstream pin. Fixed-view a30 comparisons at 1x/4x/16x
+filtering, all at 1280x960, show more ground detail at 4x/16x but continued
+softness on some slopes. Shared fire/drag, swap, scope, grenade and pause respond.
+170 tests pass, including compiled filtering exclusions and GPU-limit checks.
+Not a shading/popping or hardware-performance acceptance; defaults stay unchanged.
+Default app restored and signed/installed hash verified (`eb1e2fb0…af1f66f`);
+original saves, preferences and PC registry preserved.
+[Evidence](XBOX-SIMULATOR-PASSES.md#world-filtering-on-the-accepted-guest-2026-10-02).
+
+**Reproducible guest adaptation (2026-10-02).** The private 2x experiment is now
+an explicit `render-scale-v1` build option, separately identified from the
+upstream pin. Exact renderer-input checks reject upstream drift; packaging
+rejects unrequested/stale adaptations and pin promotion requires an unadapted
+guest. Actual adapted and default builds reproduce their previous guest hashes,
+leaving the upstream checkout clean. Copied a30 campaign at 1280x960 verifies
+menus, drag-fire, swap, scope and pause. 167 Xbox tests and 26 actual Simulator
+launch/save-helper assertions pass, including backups on same-pin guest changes
+and rollback. Default guest/app restored (`c54e09c6…cf5e608`), real saves, PC
+registry and preferences preserved. Effects/material fidelity remains open;
+2x is not a default. [Evidence](XBOX-SIMULATOR-PASSES.md#reproducible-guest-adaptation-and-exact-save-identity-2026-10-02).
+
+**Scaled depth gate (2026-10-02).** The opt-in depth observer now verifies actual
+attachment dimensions and supports bounded scaled targets. Real 2x and 1x
+Blood Gulch captures pass calibrated readback, same-frame geometry/projection
+and state-restoration checks; EQUAL draws correctly leave depth unchanged.
+151 Xbox tests pass. Native color/raster replay remains explicitly 640x480-only.
+This validates selected draw pairs, not all graphics. Accepted build 66 restored;
+2x stays private/experimental pending a reproducible adaptation and effects checks.
+[Evidence](XBOX-SIMULATOR-PASSES.md#scaled-depth-observation-verified-in-game-2026-10-02).
+
+**Resolution experiment (2026-10-02).** Private 2x guest experiment proves
+1280x960 source targets/viewport against 640x480 baseline, on the same copied
+a30 view. Geometry/HUD are sharper; sloped ground remains soft. Matching scopes
+stay centered; pause and touch actions respond. Not promoted: depth diagnostics
+still assume 640x480 and Android visibility counting needs separate review.
+Accepted build 66 restored, original data audited intact; executable now
+`2d563e96…734cd8d`. Experimental app/source identity and comparisons are preserved
+privately. [Evidence and next gate](XBOX-SIMULATOR-PASSES.md#actual-2x-render-target-experiment-2026-10-02).
+
+**Xbox menu clarity (2026-10-02).** Shared gameplay buttons now carry A/B/X/Y
+badges and accessibility hints; an Xbox Controls guide explains menu navigation
+and the required Default guest profile. PC presentation and all input mappings
+stay unchanged. 134 native assertions (including 270 layout combinations) and
+145 Xbox tests pass. Simulator verifies guide/Done, A/B navigation, copied a30
+gameplay, fire/drag, swap, scope, save/quit and cold picker. Original saves,
+PC registry and preferences preserved. Installed executable `077ca7c9…9f57c52`.
+No texture fix claimed; higher render resolution is the next graphics experiment.
+[Evidence](XBOX-SIMULATOR-PASSES.md#xbox-menu-labels-on-the-shared-overlay-2026-10-02).
+
+**Build 66 and texture investigation (2026-10-02).** Accepted guest pin advances
+to `f2ba71d9` after all six Mac/Simulator cases pass. A rejected intermediate
+run exposed a single-frame cinematic-fade false negative; the campaign check now
+retains late complete frames and requires two visible samples. 145 Xbox tests
+pass. Full combined app, not the PC scene fixture, reloads the copied a30
+checkpoint through normal picker/menus; fire-and-drag, swap, 2x zoom, pause and
+Save and Quit work. Executable `e47cd803…dd4fb31` matches the installed app.
+ANGLE still makes this a preview; accepted guest does not mean fidelity accepted.
+An isolated unmerged PR35 comparison at 1x/16x filtering shows more ground detail
+at 16x, but substantial 640x480 softness remains. No shading/popping fix claimed;
+the experiment is preserved separately, not included in the accepted pin.
+[Update evidence](XBOX-SIMULATOR-PASSES.md#build-66-repeatability-and-campaign-capture-2026-10-02).
+
+**Shared controls, Simulator (2026-10-02).** Combined Xbox now uses the existing
+PC `HPOverlay`, including sticks, fire-and-drag aim, layout and touch settings.
+A small Xbox adapter preserves independent Use/Reload ownership and cancels
+input on interruption. 128 native overlay checks and 143 Xbox tests pass. Actual
+normal-menu a30 gameplay verifies drag aim/fire (rifle 60 to 59), movement, swap,
+zoom, pause, settings/Done, Save and Quit, cold chooser and checkpoint reload.
+Real Documents game/save files, PC registry and preference values remain unchanged.
+Guest build 64 and ANGLE preview remain unchanged for this control baseline.
+Xbox menu-aware labels, remapped Xbox profiles, sustained multi-touch and texture
+fidelity remain open; internal rendering still reports 640x480. No hardware work.
+[Pass evidence](XBOX-SIMULATOR-PASSES.md#shared-pc-and-xbox-overlay-2026-10-02).
+
+**Physical hardware follow-up (2026-10-02).** Chris authorized the shared iPad.
+The current-source ANGLE preview is provisioned for the exact M2 iPad Pro and
+installed in place after complete Documents/Library backup and independent
+byte-identical readback (320 files, 3,348,625,943 bytes). Source ad-hoc app is
+preserved; signed staged executable is `90437ca6…06362e`, installed metadata
+verified. Actual picker/About → Xbox → fresh isolated profile → Normal → a10
+cinematic/cryo bay works. The physical log confirms 4 GiB guest allocation,
+Apple M2 ANGLE/Metal automatic features and 48 kHz stereo output setup.
+Sampled cryo floor/walls lack the earlier Simulator's large black floor polygons;
+this is not a matched hardware/reference comparison or a shading/focus fix.
+A short capture with explicit iPad audio has non-silent stereo, not speaker/
+audio-quality acceptance. Sustained/direct-finger/controller play remains open.
+Original Xbox saves are not opened; launch uses a fresh isolated save root.
+Post-run readback preserves all 151 protected original Documents files, PC
+registry and preference dictionary; reviewed config/log/test-save/cache changes
+only. Physical app remains at the cryo-bay look tutorial for direct-finger testing.
+No PC gameplay, upstream promotion, Xbox IPA, pairing, push or publication.
+[Hardware evidence](XBOX-SIMULATOR-PASSES.md#physical-ipad-angle-preview-2026-10-02).
+
+**Historical blocked audit (2026-10-02; hardware authorization now resolved).** After the current-source device rebuild, three
+consecutive audits cannot advance the remaining physical requirements without
+confirmation that the shared iPad is available. No live build/job is being
+waited on. Checkout remains clean before this record; prepared device executable
+still hashes to `af1be628…0dc436`. Prior audit verifies unchanged Simulator
+executable and all 121 retained save-backup checksums, not new gameplay.
+Repeated Simulator checks cannot close physical graphics/audio/controller or
+reported shading/focus acceptance. Resume with a coordinated hardware window;
+identify the affected edition/map, validate real provisioning, preserve and
+read back Documents/Library, install in place, then test the exact candidate.
+No physical action, IPA, publication or claim that the full goal is achieved.
+
+**Earlier device-SDK readiness (2026-10-02; installed in the follow-up above).** Rebuilt the experimental combined
+iPhoneOS app from `68cb779`, including the touch-owner fix. Executable
+`af1be628…0dc436`, device Xbox archive `341f6c0d…134702`: actual SDK, source,
+guest identity, automatic hardware features, iOS 17.0 load command and strict
+ad-hoc signature checks pass. No profile, IPA or installation. The old device
+archive is preserved and correctly rejected as stale before the rebuild.
+Simulator app remains unchanged. The picker starts only the chosen engine.
+Physical acceptance still requires a coordinated window, matching provisioning,
+full data backup/readback, and observed graphics/audio/controller behavior.
+The existing install helper does not perform that backup. Reported physical
+shading/focus remains unresolved; edition/map clarification is still needed.
+[Readiness evidence](XBOX-SIMULATOR-PASSES.md#current-source-device-readiness-2026-10-02).
+
+**Touch-owner fix (2026-10-02).** Two fingers sharing RT or A previously lost
+the held action when either finger released. Actual UIKit-handler fixture fails
+two of 24 checks before the minimal last-owner release fix; all 24 pass after,
+including independent move/look, cancellation and controller hiding. All 143
+Xbox Python tests pass. Rebuilt combined app `3a933fea…95e8a` is installed in
+place on the dedicated Simulator after app/full-data backup and byte comparison.
+Actual normal-menu copied outdoor checkpoint and single RT 60→59 verified;
+ordinary picker restored PID 74408. Real Xbox/PC files and registry preserved;
+only last-edition preference/log/system snapshots change. This is not OS-level
+simultaneous gesture, physical-controller or graphics acceptance. Device preview
+was stale at that pass; the readiness pass above rebuilds it. No
+physical operation, pin move or Xbox IPA. [Evidence](XBOX-SIMULATOR-PASSES.md#shared-touch-button-ownership-2026-10-02).
+
+**Latest-source Simulator integration (2026-10-02).** After the device-SDK
+build pass, rebuild the normal one-picker app from `84547a5` and install in place
+only on the dedicated Simulator, after full app/data backup and byte comparison.
+Installed executable is `96e8c317…fa652`. Actual picker/About/Done, Xbox normal
+menus, copied outdoor a30 checkpoint, finite touch look, weapon swap, 2x scope
+and Save and Quit work. Retain a 62-second video, not sustained-control or
+moving-image fidelity acceptance. Ordinary Windows route verifies its existing
+installation and stops at the original EULA, left unaccepted. Final ordinary
+picker PID 67405. All real game/save/package files and PC registry remain
+unchanged; final preferences match, ordinary caches/snapshots/logs differ.
+No physical operation, new pin, rendering-fix claim, IPA or publication. Goal
+active; [integrated evidence](XBOX-SIMULATOR-PASSES.md#latest-source-integrated-simulator-runtime-2026-10-02).
+
+**Device-SDK renderer preview (2026-10-02).** The independently pinned ANGLE
+preview now builds separately for iPhoneOS and Simulator. Actual SDK identity
+and per-platform feature overrides are checked before packaging; physical builds
+use automatic features, never the Simulator-only swizzle override. The first
+device build fails on a Simulator diagnostic call, now guarded correctly.
+Standalone host and combined app target iOS 17.0. Combined personal device app
+`259fb98f…f90cd` passes ad-hoc signature, IOS load-command, bundled guest/manifest
+and no-new-IPA checks. It is **not installed or provisioned for device acceptance**.
+The Simulator library is rebuilt separately; its asset-free equal-depth/blit/
+swizzle checks pass, as do 143 Xbox Python, 16 UIKit and 20 launch-helper checks.
+Installed Simulator app `e594a1f9…15feed` remains unchanged; game files/saves,
+preferences and PC registry survive. Upstream/renderer pins unchanged. No
+physical operation, graphics-fix claim, IPA, push, publication or cleanup.
+Next properly provisioned, backed-up hardware validation under a coordinated
+window, plus matched affected/reference rendering; broader goal remains active.
+Evidence: [device-SDK pass](XBOX-SIMULATOR-PASSES.md#device-sdk-angle-preview-build-without-installation-2026-10-02).
+
+**Update-backup follow-up (2026-10-02).** The maintenance routine no longer
+ignores checksum failure, reuses a second-resolution backup folder, trusts an
+uncompared save copy or assumes an unreadable Simulator container has no saves.
+Each attempt gets a unique folder; Mac/Simulator copies must match their source,
+and checksum creation/readback must succeed before a candidate build. Frozen
+baseline fails five of nine controlled shell tests; fixed source passes all
+nine, including empty saves, refusal before candidate actions and gated pin
+acceptance/rollback. Git/build/device boundaries are inert, not real promotion.
+A backup-only execution against the actual Mac/dedicated Simulator saves verifies
+121 file checksums. Final ordinary app PID 25509 shows both cards; app/guest/
+library/pin unchanged. Game/disc/package bytes, preferences and PC registry remain
+preserved; only ordinary log/system snapshots change against the retained backup.
+All 137 Xbox Python tests pass. No upstream promotion, app build/install,
+physical operation, visual fix, IPA, push, publication or cleanup. Backups do not
+establish upstream save compatibility or atomic copies of a running game.
+Evidence: [maintenance backup pass](XBOX-SIMULATOR-PASSES.md#update-routine-save-backup-failure-gates-2026-10-02).
+
+**Launch-path follow-up (2026-10-02).** Empty `XG_DATA`/`XG_SAVE` no longer
+select an empty development path or skip revision-change save backups. Nonempty
+development paths remain supported. New asset-free native helper fixture
+reproduces the baseline failure, then passes 20 checks after the three-condition
+fix: exact synthetic save-copy bytes, same-pin no-op, isolated marker behavior,
+failed-copy refusal and retry. These are real Foundation helper operations,
+not gameplay or OS failure coverage. Integrated app rebuilt and installed in
+place only on the dedicated Simulator; executable `e594a1f9…15feed`.
+Actual empty-variable launch shows Play Xbox; About/Done and ordinary Windows
+route work, the latter stopping at the unchanged unaccepted EULA. Final ordinary
+launch shows both cards. No Xbox runtime opens real saves. Full audit preserves
+all game/disc/package bytes, preference dictionaries and PC registry; normal
+log/system snapshots change. 128 Xbox Python, five input-guard, 13 package,
+20 launch-helper and 16 UIKit checks pass (16 package checks skipped). Frozen
+build 64 and renderer unchanged. Physical shading/focus remains unresolved;
+no physical operation, IPA, push, publication or cleanup.
+Evidence: [launch-path pass](XBOX-SIMULATOR-PASSES.md#empty-launch-overrides-and-revision-backup-regression-2026-10-02).
+
+**PC live material arithmetic (2026-10-02).** A private Simulator component
+probe replays the exact Battle Creek ground draw into independent float targets,
+capturing actual texture samples/interpolated inputs and the unmodified pixel
+shader output. An independent original-bytecode interpreter matches all
+1,396,060 covered pixel observations across three frames exactly. Actual coverage
+has base alpha one and fog off; other blend/fog paths are not gameplay-tested by
+this sample. The grain remains visible, including in the detail samples. This
+weakens color-arithmetic failure for this particular material, not sampling,
+geometry/depth or the unresolved physical shading/focus report. First linked
+run spawns indoors and fails the exact-material capture gate; preserve it.
+Successful run passes 24 assertions and retains all 30 motion frames. Analyzer
+calibration and five malformed-capture controls pass. No tracked runtime edit,
+app installation, pin change or physical operation. Ordinary app resumes at
+the same PID; installed executable, real Xbox/PC game files, preferences and
+PC registry remain unchanged. Next obtain a matched original-driver/affected
+scene comparison rather than add a speculative filtering workaround.
+Evidence: [live material pass](XBOX-SIMULATOR-PASSES.md#pc-live-ground-material-arithmetic-2026-10-02).
+
+**Xbox focus-loss follow-up (2026-10-02).** Upstream build 64 deliberately
+sets all ten new-profile level flags to `0x0f`; its summary interprets these as
+The Maw/Legendary. The isolated New001 bytes and creation log match that code.
+No profile rewrite or retail progression claim. A separate UIKit handler test
+reproduces six focus-loss failures before the fix. The Xbox pad now clears live
+and unread touch input on deactivation/activation, refuses inactive or hidden
+presses and requires fresh touches after resume. Sixteen handler checks pass,
+including ordinary short Start taps. Rebuilt integrated executable
+`58111bcb…29f093` loads the copied outdoor a30 checkpoint through normal menus;
+actual Home/resume retains PID 91997 and logs both resets. Fresh RT, Y, Zoom,
+finite look/move and pause/Save and Quit work. This is not OS-held multi-touch,
+hardware controller interruption or physical graphics proof. All 114 real Xbox
+files and PC installation/package/disc bytes remain unchanged; preferences and
+PC registry match the backup. Normal logs/caches change. The ordinary app is
+left at both edition cards; PC still reopens its unaccepted EULA. Frozen build
+64 and ANGLE PREVIEW remain unchanged. 128 Xbox tests, five input guards and
+13 package checks pass (16 package checks skipped), plus 16 native UIKit checks.
+No physical iPad operation, visual fix, IPA, push or publication.
+Evidence: [profile and lifecycle pass](XBOX-SIMULATOR-PASSES.md#upstream-profile-summary-and-xbox-touch-focus-loss-2026-10-02).
+
+**Disc-import follow-up (2026-10-02).** The actual native extractor now bounds
+directory/map sizes and extents, rejects unsafe names/cycles/aliases and invalid
+map headers before copying, and uses unique staging plus exclusive publication.
+Existing maps/saves and failed stages are never overwritten. The first UI test
+exposed an older linked Xbox archive; the app builder now rejects missing or
+changed local runtime-source hashes. Rebuild the library, not its manifest.
+Corrected integrated Simulator executable `5ea1369d…5768df9` rejects the malformed
+image, returns to Editions, imports Chris's USA disc through Files, and produces
+24 maps byte-identical to the reference. Fresh New001 creation, Normal a10 opening
+cinematic and cold menu/profile recognition work in isolated folders. The fresh
+profile summary says The Maw/Legendary; the follow-up above explains the deliberate
+upstream unlock flags, not retail completion. Windows reopens the original unaccepted EULA. Ordinary
+launch is left at both edition cards. All 114 existing Xbox files and existing
+PC files are unchanged; normal logs/caches/preferences change. 128 Xbox tests,
+five input guards and 13 package checks pass (16 package checks skipped).
+ASan/UBSan finds no error in the real-disc copy or 104 bounded synthetic cases.
+No physical iPad operation or rendering fix, pin update, IPA, push or publication.
+Detailed evidence and limits: [disc-import pass](XBOX-SIMULATOR-PASSES.md#native-disc-import-validation-and-stale-library-gate-2026-10-02).
+
+**Renderer comparison at build 61 (2026-10-01).** A correctly source-built,
+separately pinned ANGLE/Metal Simulator preview now runs the same Xbox build 61.
+Its first scenes remove the pronounced horizontal wall bands but reverse red
+and blue. An asset-free sampling test reproduces that: ANGLE's Simulator default
+ignores the guest-required texture swizzle; its native-feature override passes
+sampling, equal-depth and blit controls on this Mac/iPadOS 26.5. The candidate
+alone enables that feature. The rebuilt campaign and Blood Gulch images have
+restored colors and no pronounced cliff bands in the reviewed views. Normal
+menu/campaign/scripted-match checks pass (1,530 ticks, 12 shots), not full visual
+acceptance or a matched-camera driver diagnosis. Apple remains the default;
+that comparison held the Xbox guest fixed; physical Windows/Metal rendering is unchanged. The
+physical iPad's reported shading/focus instability is still open. A follow-up
+loads identical copied cryo-bay checkpoints through normal menus: Apple shows
+large black floor polygons; the preview draws that floor in the untouched view.
+Both use 640x480 guest rendering; NPC/prompt timing differs, so this is not a
+frame-synchronized driver diagnosis. Preview four-direction look, tube exit,
+short forward input, Save and Quit and fresh-process checkpoint reload work
+with isolated saves. Reload returns to the last checkpoint inside the tube,
+not the unsaved exit position. A later normal-menu pass now loads Halo/a30 into
+the escape pod: two RT taps reduce rifle ammo 60→58, Y swaps to the pistol, and
+Save and Quit completes. A fresh process identifies Halo as in progress and
+restores its pod checkpoint (rifle 60, not the unsaved shots/pistol). A separate
+90-second, explicitly scripted a30 rendering diagnostic reaches the outdoor
+valley, changes the viewpoint and fires; reviewed terrain/tree/ring images lack
+the pronounced bands. These are sampled views, not temporal or physical visual
+acceptance. The smoke tool now supports a10/a30 and fails closed on accidental
+scripted campaign inputs. Continue sustained human motion, simultaneous controls,
+new checkpoint progression and moving-image checks before adopting the
+candidate more broadly. See the pass ledger for failed first attempts and
+source/probe provenance. No physical install, IPA or publication.
+
+**Accepted experimental upstream update (2026-10-02): build 64, `c55e4e2b`.**
+Frozen four-commit update adds expanded HUD/scopes, meter alpha and widescreen
+flat menu fills. Candidate and guarded acceptance rerun both pass source-built
+Mac and ANGLE Simulator menu/a10/scripted-match gates (acceptance 1,530 match
+ticks, 12 shots). A copied build-61 a30 checkpoint loads through normal menus;
+RT fire, Y pistol swap, circular 2x Zoom and pause/Save and Quit work. A fresh
+process recognizes Halo in progress and restores the pod checkpoint with rifle
+60. Real saves remain separate, and the outgoing app/save backups are retained.
+The unreviewed texture-cache byte diagnostic remains rejected by an explicit
+build-64 test. Menu/pod `top` snapshots are 145M/172M, not physical footprint,
+build-61 memory comparison or iPad acceptance; `vmmap` failed. ANGLE remains an
+independently pinned opt-in PREVIEW; Apple remains default. Sniper fringe/meter
+coverage beyond the sampled scopes, sustained human motion, new checkpoint progression, temporal fidelity
+and physical Windows shading/focus remain open. No physical install or IPA.
+
+**Night/sniper follow-up (2026-10-02).** Build 64 remains frozen; a live remote
+HEAD check still matches `c55e4e2b`. The runner now also accepts a50. A bounded
+90-second scripted a50 rendering diagnostic passes with ANGLE identity,
+presentation captures and all 69 HUD replacements. Video retained; sparse and
+12 fps contact-sheet samples show weapon/reload and shield-damage effects, not
+full continuous-motion acceptance. Actual normal-menu a50 play separately
+verifies 2x/10x scope and night vision. Scope ladder/border have no obvious
+missing sections in the reviewed views, largely aimed at the ground. Save and
+Quit completes; a fresh process recognizes Truth and Reconciliation in progress
+and reloads its opening checkpoint, not a newly reached later checkpoint.
+103 Xbox tests pass; real saves still match both backups. The physical iPad
+shading/focus report remains unresolved; no renderer fix or device install here.
+
+**Audio signal coverage (2026-10-02).** The previous Simulator videos have no
+audio track. A new opt-in Simulator-only callback capture skips ten seconds and
+retains four seconds of HaloPad's own output. Source-built one-app build 64/ANGLE
+menu and normal-input a50 launch both deliver finite, non-silent 48 kHz stereo:
+RMS 0.1805/0.1066, peak 0.8450/0.6093, no sample starvation or excursions outside
+±1 in these windows. It does not record other apps, establish audible quality,
+callback deadlines or sync. Native bounded-buffer and invalid/silent-capture
+tests bring the Xbox suite to 109 passing tests. No physical app was changed.
+The physical shading/focus report remains open; a separate PC source inspection
+finds explicitly ignored mipmap LOD bias, not evidence that this caused the report.
+
+**PC focus lead checked (2026-10-02).** The fresh-state macOS PC Blood Gulch
+component run renders first-person play and exits normally. New sampler fields
+in the existing bounded draw trace show zero LOD bias in all 932 bound-sampler
+observations across 248 draw requests in frames 300–301. Thus the ignored-bias
+gap is not active in this sample; it is not the established cause of the iPad
+report. No sampling/depth/shader workaround adopted. The baseline first failed
+to link because shared touch cancellation references a missing Mac input API;
+restored synchronous AppKit/Halo-main-thread delivery (iOS queue unchanged).
+All 264 native input checks pass through that actual host API. No physical or
+Simulator install in this pass; moving views and the affected edition/scene
+still need matching evidence.
+
+## Latest engineering and device results
+
+**Earlier frozen Apple-backend passes (2026-10-01).** The launch picker clearly separates
+Windows Custom Edition 1.10 from Xbox Combat Evolved, with edition-specific
+multiplayer descriptions, an installed-build panel, accessible text and a safe
+return from disc import. Short Xbox touch taps are latched until the engine polls
+them; short analog swipes and triggers are now retained for one poll as well.
+Upstream build 61 (`f8937c61`) is the accepted experimental development pin after
+save-backed Mac and Simulator menu/campaign/scripted-match gates. It adds the
+upstream high-resolution HUD after build 60's menu-glyph edge fix. The earlier build-59 real touch pass reached
+cryo-bay training and exited the tube; Save and Quit followed by a cold relaunch
+reloaded its checkpoint. A copied build-59 checkpoint also loads in build 60
+through the normal menus; a copy of that fixture also reloads the cryo-bay in
+61, without modifying real Simulator saves. Campaign's black presentation was narrowed to the
+software blitter inheriting texture-unit/sampler state: neutralizing unit 0 during
+the final blit restores the picture. The normal build now shows the opening
+cinematic; physical rendering and internal texture copies are unchanged. An A/B
+pass reproduced the original failure on the older pin, so it was not newly
+introduced by build 57/58. Full campaign progression, visual artifacts, audio,
+split-screen, human system link and hardware acceptance remain open. Artifact
+captures locate the remaining defect before final presentation; uniform-array
+and synchronized-buffer experiments did not resolve it. Disabling anisotropy
+and changing equal-depth passes to LEQUAL also leave stripes. An ALWAYS-depth
+diagnostic changes artifacts but draws hidden surfaces; it is not adopted for
+normal rendering. New stationary diagnostic runs stop scripted movement/shooting,
+but different spawns prevent a matched cross-launch comparison. A same-process
+EQUAL → ALWAYS → EQUAL test now removes and restores the stripes at a fixed
+camera position. Basic asset-free EQUAL redraws pass all 6,728 pixels within and
+across programs; the precise converted-shader/depth-state cause remains open.
+A read-only VS17/VS41 snapshot now proves identical indexed position inputs and
+projection constants for a 144-index terrain pair. Replaying those shaders with
+transform feedback produces bit-identical clip coordinates for all 144 vertices.
+Replay changes linkage and omits pixel/texture state, so this does not prove
+original-program invariance or establish a driver bug. The stripes remain in the
+capture run. A larger 1,257-index pair also has exact position/projection identity.
+Unmodified shader sources and original indexed layouts now pass isolated depth
+rasterization: all 145,994 pixels survive EQUAL on texture-backed targets, with
+passing same-program and ALWAYS controls. Full scene state/intervening depth
+writes remain a target; a fixed-view stencil bypass did not resolve stripes.
+Expanded live captures verify the same framebuffer/color/depth objects for both
+draws. Opt-in level-0 readbacks now match the CPU upload bytes for every captured
+2D texture with a supported upload reference (1,755-index pair, GL error 0).
+This excludes upload/storage corruption for those textures, not incorrect Xbox
+decoding, UVs, mipmaps, cube sampling or intervening depth writes. Raw texture
+previews do not apply texture swizzles; atlas padding/bands alone are not proof
+of corruption. A follow-up independent decode of the original Xbox bytes now
+matches all 32,768 pixels of the same previously banded 256x128 RGB565 texture.
+This validates its unswizzle/conversion stage, not the game's production of those
+bytes or final sampling. The build-60 calibrated, same-frame depth observer measures
+54,517 intervening depth changes; 21,611 base-changed pixels become closer.
+All four observations restore without GL errors. This is not proof of bad
+writes: legitimate occlusion remains possible, and the scene still has stripes.
+Build-61 full native pixel replay now retains the original program/VAO, uniforms,
+textures, blending and stencil state on private texture-backed targets. A
+calibrated 1,944-index pair matches both its repeated replay and the real draw
+byte-for-byte; copied live depth also matches. All 24,262 base-written pixels
+with ALWAYS-only color response have later closer depth; none have unchanged
+depth. This pair does not establish missing visible terrain. Next target the
+later material draw that introduces a visible stripe. A same-frame before/after
+timeline now identifies it: frame 120, draw 119, program 84, VS7 / pixel shader
+`ps_0c014f79`, 402 indices, EQUAL. The wall is unstriped before and striped after
+that draw. All 211 observed indexed/immediate draw pairs validate with GL
+error 0. The diagnostic capture can now select VS7 rather than the default
+VS41, with an explicit two-name whitelist. Three VS17/VS7 captures have exact
+indexed position/projection identity and calibrated same-frame depth. However,
+228- and 531-index samples have no measurable native color response, and a
+1,686-index sample differs at 43 pixels in its native repeat/live checks. All
+three full-pixel diagnostics are rejected. Transform-feedback replay of the
+1,686 vertices is bit-identical, but changes linkage and does not establish
+original-program invariance. Next select the visibly stripe-producing material,
+correlating original before/after color with its texture/alpha inputs; a matching
+shader name alone is not sufficient. No rendering fix is claimed.
+The new one-frame material observer captures the exact VS7/`ps_0c014f79`
+combination before and after its original draws. In a 211-draw trace, all 17
+material pairs have unchanged sampled uniforms and level-0 texture bytes.
+Draw 117 (402 indices) visibly introduces the wall bands; its two 16x16 linear,
+clamp-to-edge textures also match CPU uploads. This excludes in-draw changes
+and upload/storage corruption for those samples, not UV/sampling/depth faults.
+An exact-count follow-up has a different spawn and no 402-index batch: its
+paired/native depth test is failed, not passed. Independently, its 294-draw
+trace validates 22 unchanged material pairs; draw 176 (1,377 indices) again
+introduces wall bands. Attach the next native probe to the visible draw in its
+own trace frame rather than assuming counts or spawns repeat. Runtime identifies
+the Simulator backend as Apple Software Renderer; an independently built
+Simulator ANGLE/Metal candidate remains a possible backend comparison, not an
+established driver fix. Do not extrapolate this Xbox Simulator defect to the
+physical Windows/Metal route.
+A later 984-index VS41 native replay fails exact repeat/live-color checks and
+remains rejected; it does not invalidate the independent read-only timeline.
+Chris's reported physical
+iPad shading/focus instability remains open and was not directly observed here.
+These diagnostics have not changed
+normal depth semantics; the upstream HUD update is a separate change.
+Mac smoke runs now
+reject mismatched executable/guest hashes. Candidates
+are labeled **PREVIEW**; the accepted Xbox baseline still says **EXPERIMENTAL**.
+No physical iPad changes in this pass. See [XBOX-SIMULATOR-PASSES.md](XBOX-SIMULATOR-PASSES.md).
+
+[Build 61](https://github.com/cybersecurity/halo-ce-universal/releases/tag/build-61)
+(`f8937c61`, published 09:40 UTC) passed candidate and acceptance runs before
+promotion: all six cases each run, final acceptance Mac 2,130 ticks / 17 shots,
+Simulator 1,358 ticks / 11 shots. Final accepted-app normal Simulator gates also
+pass (1,348 ticks / nine shots). Frames and copied checkpoint reviewed; terrain
+defects remain. Upstream cache/HUD/renderer changes now appear in the update
+dependency report. The optional original-byte reader refuses 61's unreviewed
+cache ABI; normal gameplay/update gates are unaffected. 123 tests pass with 16
+skips, and both SDK syntax checks pass. No physical install, IPA or publication.
+Final About/Done verifies accepted `f8937c61` and returns to the normal picker;
+Windows card reaches its existing missing-data setup, not new Windows gameplay
+acceptance. Real Xbox saves remain byte-identical to the acceptance backup.
+
+**Second engine: Halo Xbox (2026-09-30).** HaloPad now opens with a choice of
+Halo PC or Halo Xbox. The Xbox engine is upstream's decompilation port, pinned
+and built on this Mac only as a personal build, translated to base-relative
+ARM64 and run on a native iOS host. On the physical iPad it reaches its menu
+and loads The Pillar of Autumn; on the Mac it also plays a system link match.
+An iPad match remains unverified; missing packets did not establish its cause. Details, evidence
+and the update routine: [XBOX-ENGINE.md](XBOX-ENGINE.md). The iPad now runs this
+build (development scene for Halo PC, as before).
 
 **Icon, stability and loading (2026-09-30).** New orbital-arc app icon (Chris's
 pick). Renderer traps other than unknown texture formats now degrade and log

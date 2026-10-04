@@ -82,11 +82,15 @@ static int unhex(const char *s, uint8_t *out, size_t max)
     return (int)n;
 }
 
-static void load_file(const char *file, int required)
+/* only_missing: skip values that already exist (the player's own product ID added to an
+   existing installation must not duplicate or replace what Halo already has). Returns the
+   number of values added. */
+static int load_file(const char *file, int required, int only_missing)
 {
     FILE *f = fopen(file, "r");
-    if (!f) { if (required) hp_unsupported("registry", "cannot read %s", file); return; }
+    if (!f) { if (required) hp_unsupported("registry", "cannot read %s", file); return 0; }
     char line[8192];
+    int added = 0;
     while (fgets(line, sizeof line, f)) {
         line[strcspn(line, "\r\n")] = 0;
         if (!line[0] || line[0] == '#') continue;
@@ -107,16 +111,19 @@ static void load_file(const char *file, int required)
             int dn = strcmp(datahex, "-") ? unhex(datahex, data, sizeof data) : 0;
             if (nn < 0 || dn < 0) hp_unsupported("registry", "malformed line in %s: %s", file, line);
             name[nn] = 0;
+            if (only_missing && find_value(path, (char *)name) >= 0) continue;
             add_key(path);
             vals = realloc(vals, (nvals + 1) * sizeof *vals);
             vals[nvals] = (rvalue){strdup(path), strdup((char *)name), type, (uint32_t)dn, malloc((size_t)dn + 1)};
             memcpy(vals[nvals].data, data, (size_t)dn);
             nvals++;
+            added++;
             continue;
         }
         hp_unsupported("registry", "malformed line in %s: %s", file, line);
     }
     fclose(f);
+    return added;
 }
 
 static void save(void)
@@ -148,11 +155,21 @@ static void ensure_loaded(void)
     const char *root = getenv("HALOPAD_REPO_ROOT");
     if (s) snprintf(state_path, sizeof state_path, "%s", s);
     else snprintf(state_path, sizeof state_path, "%s/generated/runtime-state/registry.txt", root ? root : ".");
+    /* the product ID Halo's installer would write, from scripts/product-id.sh for this player's
+       personal build (build-ios-app.py --product-id); added only where missing */
+    char product[1100];
+    snprintf(product, sizeof product, "%s/config/runtime/product-id.txt", root ? root : ".");
     FILE *f = fopen(state_path, "r");
-    if (f) { fclose(f); load_file(state_path, 1); return; }
+    if (f) {
+        fclose(f);
+        load_file(state_path, 1, 0);
+        if (load_file(product, 0, 1)) save();
+        return;
+    }
     char seed[1100];
     snprintf(seed, sizeof seed, "%s/config/runtime/registry-machine.txt", root ? root : ".");
-    load_file(seed, 1);
+    load_file(seed, 1, 0);
+    load_file(product, 0, 1);
     save();
 }
 
@@ -278,5 +295,25 @@ uint32_t halopad_registry_get_dword(const char *path, const char *name, uint32_t
     int i = find_value(path, name);
     if (i < 0 || vals[i].type != 4 || vals[i].size != 4) return 0;
     memcpy(value, vals[i].data, 4);
+    return 1;
+}
+
+/* Halo records each start in HKCU ExitFlag ("bad 1", "bad 2", ...) and writes "clean" only
+   when the player quits through its menu. iOS closes apps without that (the app switcher,
+   memory pressure, HaloPad's Switch Edition), and after two such closes Halo stops at start-up
+   offering Safe Mode, which does nothing useful on HaloPad. Called before Halo's thread starts,
+   so nothing else is using the registry. Returns 1 when a "bad" flag was reset. */
+int halopad_registry_reset_exit_flag(void)
+{
+    static const char path[] = "HKCU\\Software\\Microsoft\\Microsoft Games\\Halo CE";
+    static const char clean[] = "clean";
+    ensure_loaded();
+    int i = find_value(path, "ExitFlag");
+    if (i < 0 || vals[i].type != 1 || vals[i].size < 3 || memcmp(vals[i].data, "bad", 3)) return 0;
+    free(vals[i].data);
+    vals[i].size = sizeof clean;           /* REG_SZ with its terminator, as Halo writes it */
+    vals[i].data = malloc(sizeof clean);
+    memcpy(vals[i].data, clean, sizeof clean);
+    save();
     return 1;
 }

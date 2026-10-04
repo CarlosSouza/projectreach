@@ -334,6 +334,20 @@ uint32_t hpcom_IDirect3DDevice9_Present_c(uint32_t g, uint32_t src, uint32_t dst
     if (src || dst || (window && window != d->window) || dirty)
         hp_unsupported("IDirect3DDevice9::Present", "source/destination rectangles, another window or a dirty region");
     if (halopad_d3d9_present_hook) halopad_d3d9_present_hook(g);
+    /* Halo's "30 FPS" Framerate Throttle (the default for new profiles; flag 0x624a9e in 1.10)
+       waits in Sleep(10)/Sleep(0) loops. On iOS those sleeps overshoot, so frames land unevenly
+       at 26-30 fps. HaloPad paces presentation itself (halopad_metal.m), so the flag is cleared
+       each frame. HALOPAD_FRAME_THROTTLE=on keeps Halo's own limiter for comparisons. */
+    {
+        static int keep = -1;
+        if (keep < 0) { const char *v = getenv("HALOPAD_FRAME_THROTTLE"); keep = v && !strcmp(v, "on"); }
+        uint8_t *throttle = G(0x624a9e);
+        if (!keep && *throttle) {
+            static int logged;
+            if (!logged++) HP_LOG("Frame pacing: the display paces Halo (its 30 FPS throttle is not used)");
+            *throttle = 0;
+        }
+    }
     halopad_metal_present(d->target);
     halopad_d3d9_frame++;
     return D3D_OK;

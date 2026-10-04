@@ -662,7 +662,7 @@ static uint32_t shader_length(uint32_t addr, uint32_t major_min, uint32_t prefix
     return 0;
 }
 
-static void dump_shader(const char *kind, const uint32_t *tokens, uint32_t n)
+static void dump_shader(const char *kind, const uint32_t *tokens, uint32_t n, uint32_t guest)
 {
     const char *dir = getenv("HALOPAD_SHADER_DUMP");
     if (!dir) return;
@@ -671,7 +671,9 @@ static void dump_shader(const char *kind, const uint32_t *tokens, uint32_t n)
     char path[1024];
     snprintf(path, sizeof path, "%s/%s_%02x%02x%02x%02x%02x%02x.bin", dir, kind, md[0], md[1], md[2], md[3], md[4], md[5]);
     FILE *f = fopen(path, "wb");
-    if (f) { fwrite(tokens, 4, n, f); fclose(f); }
+    int saved = f && fwrite(tokens, 4, n, f) == n;
+    if (f && fclose(f)) saved = 0;
+    if (saved) fprintf(stderr, "HALOPAD SHADER %s %08x tokens %u file %s\n", kind, guest, n, path);
 }
 
 static uint32_t new_shader(const char *iface, int kind, uint32_t dev, uint32_t fn, uint32_t out)
@@ -687,8 +689,8 @@ static uint32_t new_shader(const char *iface, int kind, uint32_t dev, uint32_t f
     r->kind = kind; r->device = dev; r->count = n;
     r->tokens = malloc(4 * n);
     memcpy(r->tokens, G(fn), 4 * n);
-    dump_shader(kind == R_VS ? "vs" : "ps", r->tokens, n);
     r->guest = halopad_com_new(iface, 4, r, res_destroy);
+    dump_shader(kind == R_VS ? "vs" : "ps", r->tokens, n, r->guest);
     wr32(out, r->guest);
     return D3D_OK;
 }

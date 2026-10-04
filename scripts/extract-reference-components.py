@@ -35,6 +35,9 @@ def sha(p):
 def main():
     if sha(INSTALLER) != INSTALLER_SHA256:
         sys.exit('FAIL: ref/HaloCESetup.exe is not the accepted installer')
+    if all((OUT / name).is_file() and sha(OUT / name) == want for _, name, want in FILES):
+        print('already extracted (pinned hashes match):', OUT.relative_to(ROOT))
+        return 0
     zz = shutil.which('7zz') or shutil.which('7z')
     if not zz:
         sys.exit('FAIL: 7-Zip (7zz) is needed')

@@ -1,5 +1,12 @@
 # Review: bnunu/halo-1 and the halo-ce-universal ports (2026-09-27)
 
+> **Superseded for the Xbox engine (2026-09-30).** Chris chose to offer the
+> halo-ce-universal port as a second engine, strictly as a personal build: it
+> is fetched and built on the player's own Mac and never committed or
+> published. The port no longer needs the Xbox SDK or the PAL pre-release data
+> (any retail disc works). See [XBOX-ENGINE.md](XBOX-ENGINE.md). The provenance
+> notes below still apply, and the PC engine still uses nothing from it.
+
 Chris asked whether [bnunu/halo-1](https://github.com/bnunu/halo-1) can advance HaloPad. It can't replace the HaloPad route, but it is useful as a reference for the engine code the two builds share. Both repositories are pinned read-only under the ignored `ref/decomp/` and nothing from them is linked into HaloPad.
 
 | Repository | Pinned commit | What it is |

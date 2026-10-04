@@ -33,3 +33,13 @@ Implementation: `port/runtime/halopad_d3d9.c`. The fields Halo reads are listed 
 - **Textures.** `A8R8G8B8`, `X8R8G8B8`, `R5G6B5`, `X1R5G5B5`, `A1R5G5B5`, `A4R4G4B4`, `A8`, `L8`, `A8L8`, `V8U8`, `Q8W8V8U8`, `DXT1` to `DXT5`.
 - **Multisampling.** Only `D3DMULTISAMPLE_NONE` until the Metal layer resolves multisampled targets.
 - **Everything else** is reported not available.
+
+## CPU-backed texture draw ordering
+
+Changing a texture before `Present` must not change an earlier encoded draw.
+Dirty CPU-backed textures receive a new Metal texture, with the complete mip/face
+chain uploaded from their retained CPU data. Pending command buffers retain the
+previous version. Clean textures reuse their existing object; render-target
+textures continue through the GPU attachment/view path.
+`halo_d3d9_test.c` checks the old/new draw colours and unchanged mip levels,
+as well as derivative-based point/linear mip selection and `MAXMIPLEVEL`.

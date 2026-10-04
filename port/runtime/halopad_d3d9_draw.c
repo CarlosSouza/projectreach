@@ -316,9 +316,17 @@ static void *upload_texture(res *t)
     texture_format(t->format, &mtl, sw, &convert);
     int type = t->ttype ? (int)t->ttype : 2;
     uint32_t faces = type == 3 ? 6 : 1;
-    if (!t->native) t->native = halopad_metal_texture(type, mtl, t->width, t->height, type == 4 ? t->depth : 1, t->levels, sw);
+    int changed = !t->native;
+    for (uint32_t l = 0; l < t->levels; l++) changed |= t->dirty[l];
+    if (!changed) return t->native;
+    /* CPU replaceRegion is immediate, while this frame's encoded draws execute
+       at Present. Keep their old texture immutable, as upload_buffer does.
+       The command buffer retains it. Reupload the complete CPU-backed chain so
+       unchanged levels/faces remain valid in the replacement. */
+    void *old = t->native;
+    t->native = halopad_metal_texture(type, mtl, t->width, t->height, type == 4 ? t->depth : 1, t->levels, sw);
+    halopad_metal_release(old);
     for (uint32_t l = 0; l < t->levels; l++) {
-        if (!t->dirty[l]) continue;
         double upload_t0 = halopad_trace_now();
         if (!t->mem[l]) hp_unsupported("draw", "a texture whose contents live only on the GPU (render target or default pool)");
         uint32_t depth = type == 4 ? t->ld[l] : 1, slice = type == 4 ? t->slice[l] : t->size[l];
@@ -438,26 +446,48 @@ static uint8_t metal_prim(uint32_t type)
 
 /* Encode one draw. up: vertex data (guest address) and stride for *UP draws, or 0.
    Indices: ib (resource) or up_indices (guest address), or neither. */
+/* Native test hook only; normal apps leave this NULL. Readbacks in a hook
+   interrupt submission and must not be used as frame-order/performance proof. */
+void (*halopad_d3d9_draw_hook)(uint32_t device, uint32_t request);
+/* Exact encoded draw descriptors for bounded native raster diagnostics. Borrowed
+   objects/constants are valid only during this call; normal apps leave it NULL. */
+void (*halopad_d3d9_native_draw_hook)(uint32_t device, uint32_t request,
+                                    const hp_pipeline_desc *pipeline, const hp_draw_desc *draw);
 static uint32_t draw(device *d, uint32_t type, uint32_t prims, uint32_t start, int32_t base, uint32_t up, uint32_t up_stride,
                      res *ib, uint32_t up_indices, uint32_t up_index32, uint32_t first_index)
 {
     if (!d->in_scene) return D3DERR_INVALIDCALL;
     if (type < 1 || type > 6 || !prims) return D3DERR_INVALIDCALL;
     if (type == 1) { degraded("point lists: those draws are skipped"); return D3D_OK; }
-    if (halopad_d3d9_tracing()) {
+    uint32_t request = 0;
+    int tracing = halopad_d3d9_tracing();
+    if (tracing || halopad_d3d9_draw_hook || halopad_d3d9_native_draw_hook) {
         static uint32_t n, last_frame;
         if (last_frame != halopad_d3d9_frame) { last_frame = halopad_d3d9_frame; n = 0; }
+        request = n++;
+    }
+    if (tracing) {
         char callers[64];
         halopad_d3d9_trace_callers(callers, sizeof callers);
         const uint32_t *rs = d->rs;
         fprintf(stderr, "HALOPAD DRAW f%u #%u type %u prims %u%s%s vs %08x ps %08x fvf %x rt %08x blend %u %u/%u op %u z %u/%u func %u atest %u/%u ref %u cw %x"
                 " tex %08x %08x %08x %08x vp %u,%u %ux%u from%s\n",
-                halopad_d3d9_frame, n++, type, prims, up ? " UP" : "", ib ? " indexed" : "", d->vs, d->ps, d->fvf, d->rt,
+                halopad_d3d9_frame, request, type, prims, up ? " UP" : "", ib ? " indexed" : "", d->vs, d->ps, d->fvf, d->rt,
                 rs[27], rs[19], rs[20], rs[171], rs[7], rs[14], rs[23], rs[15], rs[25], rs[24] & 0xFF, rs[168],
                 d->texture[0], d->texture[1], d->texture[2], d->texture[3],
                 d->viewport[0], d->viewport[1], d->viewport[2], d->viewport[3], callers);
         fprintf(stderr, "HALOPAD DRAW   depth %g..%g bias %g slope %g stencil %u fog %u/%08x/%u scissor %u clip %u\n", f32(d->viewport[4]), f32(d->viewport[5]),
                 f32(rs[195]), f32(rs[175]), rs[52], rs[28], rs[34], rs[35], rs[174], rs[136]);
+        for (int s = 0; s < 16; s++) if (d->texture[s]) {
+            const uint32_t *v = d->ss[s];
+            res *t = halopad_com_state(halopad_com_interface(d->texture[s]), d->texture[s]);
+            uint32_t dirty = 0;
+            for (uint32_t l = 0; l < t->levels; l++) if (t->dirty[l]) dirty |= 1u << l;
+            fprintf(stderr, "HALOPAD DRAW   sampler %d texture %08x filters %u/%u/%u lod-bias %g/%08x min-lod %u anisotropy %u\n",
+                    s, d->texture[s], v[5], v[6], v[7], f32(v[8]), v[8], v[9], v[10]);
+            fprintf(stderr, "HALOPAD DRAW   texture %d type %u format %08x size %ux%ux%u levels %u pool %u resource-lod %u dirty %04x native %u\n",
+                    s, t->ttype, t->format, t->width, t->height, t->depth, t->levels, t->pool, t->lod, dirty, t->native != NULL);
+        }
         if (up) {
             for (uint32_t i = 0; i < (prims <= 2 ? prims + 2 : 1); i++) {
                 const uint32_t *w = (const uint32_t *)G(up + i * up_stride);
@@ -662,6 +692,8 @@ static uint32_t draw(device *d, uint32_t type, uint32_t prims, uint32_t start, i
         dd.count = nverts;
     }
     halopad_metal_draw(d->target, &dd);
+    if (halopad_d3d9_native_draw_hook) halopad_d3d9_native_draw_hook(d->guest, request, &pd, &dd);
+    if (halopad_d3d9_draw_hook) halopad_d3d9_draw_hook(d->guest, request);
     return D3D_OK;
 }
 

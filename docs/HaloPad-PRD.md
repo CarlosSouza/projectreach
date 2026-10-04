@@ -16,6 +16,16 @@ Build **HaloPad** (`halopad`, working name): a native ARM64 implementation of th
 
 ### 1.1 Selected editions
 
+**Product amendment, 2026-10-01:** the current personal build opens with two
+explicit choices: **Halo Custom Edition (Windows)** for PC community servers,
+and **Halo: Combat Evolved (Xbox)** using the locally built
+`cybersecurity/halo-ce-universal` engine. This is a deliberate second engine,
+not a silent substitution for the proposed retail Windows profile below.
+One engine runs per launch; saves and multiplayer remain separate. The Xbox
+engine is pinned after validation, never downloaded as executable code by the
+app, and is not packaged as an IPA. Current acceptance and update policy:
+[XBOX-ENGINE.md](XBOX-ENGINE.md), [XBOX-SIMULATOR-PASSES.md](XBOX-SIMULATOR-PASSES.md).
+
 **Online-first profile:** English **Halo Custom Edition 1.0.10.0621**, input `haloce.exe`. This is the first CPU, runtime, graphics and multiplayer target.
 
 **Full-campaign profile:** English **2003 Halo: Combat Evolved for Windows, updated to 1.0.10.0621**, input `halo.exe`, with the user's original retail campaign data. This is a separate versioned core/profile sharing the platform runtime. It preserves the original campaign objective without assuming that Custom Edition includes it or that two game formats are interchangeable. [S14–S17]

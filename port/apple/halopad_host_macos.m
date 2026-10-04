@@ -35,6 +35,13 @@ void halopad_host_screen_size(int32_t *w, int32_t *h)
 int halopad_host_input_off;                        /* tests drive input themselves */
 static NSWindow *input_windows[8];
 
+/* Unlike UIKit, AppKit and Halo run on the same main thread. Shared runtime
+ * cancellation can use the same delivery path as native AppKit input. */
+void halopad_host_post_input(const hp_input *e)
+{
+    halopad_input_event(e);
+}
+
 @interface HPWindowDelegate : NSObject <NSWindowDelegate>
 @end
 @implementation HPWindowDelegate

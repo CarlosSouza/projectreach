@@ -843,7 +843,10 @@ void halopad_metal_read_texture(void *p, void *tex, uint32_t level, uint32_t x, 
         t->cb = nil;
         [cb commit];
         [cb waitUntilCompleted];
-        [(__bridge id<MTLTexture>)tex getBytes:out bytesPerRow:bytes_per_row fromRegion:MTLRegionMake2D(x, y, w, h) mipmapLevel:level];
+        /* The short selector ignores nonzero mip levels on this iPad Simulator.
+           The full selector is calibrated against per-level shader sampling. */
+        [(__bridge id<MTLTexture>)tex getBytes:out bytesPerRow:bytes_per_row bytesPerImage:bytes_per_row * h
+                                  fromRegion:MTLRegionMake3D(x, y, 0, w, h, 1) mipmapLevel:level slice:0];
     }
 }
 

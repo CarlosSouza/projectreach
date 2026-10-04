@@ -7,6 +7,7 @@
  * Halo's console and an on-screen keyboard, display options, touch-control settings and a problem
  * report. */
 #import <UIKit/UIKit.h>
+#include "../runtime/halopad_input.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -25,6 +26,9 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)overlayRequestsCustomMaps:(HPOverlay *)overlay;
 /* Version, game data and file locations for About HaloPad. */
 - (NSString *)overlayAbout:(HPOverlay *)overlay;
+/* Switch Edition: what stays saved when HaloPad closes so the player can choose the
+   other edition on the next open (iOS apps cannot relaunch themselves). Nil hides it. */
+- (nullable NSString *)overlayEditionSwitchNote:(HPOverlay *)overlay;
 @end
 
 typedef NS_ENUM(NSInteger, HPAspectMode) { HPAspectOriginal = 0, HPAspectFill = 1 };
@@ -45,6 +49,21 @@ typedef NS_ENUM(NSInteger, HPAspectMode) { HPAspectOriginal = 0, HPAspectFill = 
 @end
 
 @interface HPOverlay : UIView
+/* The shared presentation owns layout/settings. An optional engine adapter
+   receives semantic actions, analog movement and relative look counts. */
+- (instancetype)initWithFrame:(CGRect)frame inputHandler:(nullable void (^)(const hp_input *event))handler;
+@property(nonatomic, copy, nullable) BOOL (^controllerConnected)(void);
+@property(nonatomic, copy) NSArray<UIMenuElement *> *engineMenuItems;
+/* Optional engine Controller Guide in the shared layout: @[heading, @[button, action], ...]
+   per section, with an optional note above and below. Nil shows the PC guide. */
+@property(nonatomic, copy, nullable) NSArray<NSArray *> *controllerGuideSections;
+@property(nonatomic, copy, nullable) NSString *controllerGuideIntro;
+@property(nonatomic, copy, nullable) NSString *controllerGuideFootnote;
+/* Optional roster scrolling: hold Scoreboard and drag vertically (points).
+   Nil keeps the ordinary PC hold-only action and never redirects aiming. */
+@property(nonatomic, copy, nullable) void (^scoreboardScroll)(CGFloat dy);
+/* Optional engine labels; presentation only, never rewires an action or target. */
+- (void)setControllerLabel:(nullable NSString *)label hint:(nullable NSString *)hint forControl:(NSString *)identifier;
 @property(nonatomic, weak, nullable) id<HPOverlayDelegate> delegate;
 /* A gameplay map is loaded; Halo may also have its pause/child menu open. */
 @property(nonatomic) BOOL inGame;

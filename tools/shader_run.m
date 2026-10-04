@@ -71,18 +71,20 @@ int main(int argc, char **argv)
             uint32_t ostride = kind ? 2 : 12;
             id<MTLBuffer> bin = [gpu newBufferWithBytes:ins length:16 * ncases * stride options:MTLResourceStorageModeShared];
             id<MTLBuffer> bout = [gpu newBufferWithLength:16 * ncases * ostride options:MTLResourceStorageModeShared];
+            /* The VS constant block is 4432 bytes: larger than setBytes' 4 KiB limit. */
+            id<MTLBuffer> bconst = [gpu newBufferWithBytes:consts length:cbytes options:MTLResourceStorageModeShared];
             id<MTLCommandBuffer> cb = [q commandBuffer];
             id<MTLComputeCommandEncoder> enc = [cb computeCommandEncoder];
             [enc setComputePipelineState:ps];
             if (kind) {
-                [enc setBytes:consts length:cbytes atIndex:0];
+                [enc setBuffer:bconst offset:0 atIndex:0];
                 [enc setBuffer:bin offset:0 atIndex:1];
                 [enc setBuffer:bout offset:0 atIndex:2];
                 for (int s = 0; s < 16; s++) if (tex[s]) { [enc setTexture:tex[s] atIndex:s]; [enc setSamplerState:smp atIndex:s]; }
             } else {
                 [enc setBuffer:bin offset:0 atIndex:0];
                 [enc setBuffer:bout offset:0 atIndex:1];
-                [enc setBytes:consts length:cbytes atIndex:16];
+                [enc setBuffer:bconst offset:0 atIndex:16];
             }
             [enc dispatchThreads:MTLSizeMake(ncases, 1, 1) threadsPerThreadgroup:MTLSizeMake(64, 1, 1)];
             [enc endEncoding];

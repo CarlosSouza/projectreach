@@ -2,6 +2,7 @@
    sent to the host; it does not claim actual multi-touch routing or game acceptance. */
 #import "../port/ios/HaloPadOverlay.h"
 #include "../port/runtime/halopad_input.h"
+#include "../port/xbox/xg_overlay_input.h"
 #include <stdio.h>
 
 static hp_input events[512];
@@ -10,6 +11,100 @@ static BOOL held[256], actions[29];
 static void check(const char *name, BOOL ok);
 static void run_for(double seconds);
 static BOOL all_released(void);
+
+static void check_xbox_adapter(void)
+{
+    __block struct xg_overlay_input adapter = {0};
+    __block struct xg_touch_input buffer = {0};
+    __block int lookX = 0, lookY = 0;
+    int pcCount = count;
+    HPOverlay *view = [[HPOverlay alloc] initWithFrame:CGRectMake(0, 0, 1024, 768)
+        inputHandler:^(const hp_input *event) {
+            xg_overlay_event(&adapter, event);
+            if (event->kind == HPI_CANCEL_TOUCH) { xg_touch_clear(&buffer); lookX = lookY = 0; }
+            else if (event->kind == HPI_MOUSEMOVE) { lookX += event->dx; lookY += event->dy; }
+            else xg_touch_publish(&buffer, &adapter.pad);
+        }];
+    view.inGame = YES; view.analogMoveReady = YES;
+    [view setControllerLabel:@"A" hint:@"Xbox A. Select in menus." forControl:@"jump"];
+    [view setControllerLabel:@"B" hint:@"Xbox B. Back in menus." forControl:@"melee"];
+    [view setControllerLabel:@"X" hint:@"Xbox X" forControl:@"action"];
+    [view setControllerLabel:@"X" hint:@"Xbox X" forControl:@"reload"];
+    [view setControllerLabel:@"Y" hint:@"Xbox Y" forControl:@"switch"];
+    [view layoutIfNeeded];
+    UIView *jump = nil;
+    for (UIView *button in view.subviews)
+        if ([button.accessibilityIdentifier isEqualToString:@"jump"]) jump = button;
+    UILabel *badge = [jump valueForKey:@"controllerLabel"];
+    check("Xbox A badge explains Select without changing Jump's action label",
+          [badge.text isEqualToString:@"A"] && !badge.hidden &&
+          [jump.accessibilityLabel isEqualToString:@"Jump"] &&
+          [jump.accessibilityHint isEqualToString:@"Xbox A. Select in menus."]);
+    BOOL captions = HPSettings.shared.showCaptions;
+    HPSettings.shared.showCaptions = NO;
+    [jump setNeedsLayout]; [jump layoutIfNeeded];
+    check("Xbox letter remains visible with captions off and inside the original target",
+          !badge.hidden && [(UILabel *)[jump valueForKey:@"label"] isHidden] && CGRectContainsRect(jump.bounds, badge.frame));
+    HPSettings.shared.showCaptions = captions;
+    [jump setNeedsLayout]; [jump layoutIfNeeded];
+    const char *renderPath = getenv("HALOPAD_OVERLAY_RENDER_DIR");
+    if (renderPath) {
+        UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:view.bounds.size];
+        UIImage *image = [renderer imageWithActions:^(UIGraphicsImageRendererContext *context) {
+            [UIColor.blackColor setFill]; UIRectFill(view.bounds);
+            [view.layer renderInContext:context.CGContext];
+        }];
+        check("shared Xbox label preview written", [UIImagePNGRepresentation(image) writeToFile:
+            [@(renderPath) stringByAppendingPathComponent:@"xbox-labels.png"] atomically:YES]);
+    }
+    [view driveMoveX:.5 y:1];
+    [view driveControl:@"fire" down:YES];
+    [view driveLookX:20 y:-10];
+    check("shared Xbox controls hold movement/fire and accumulate independent look",
+          buffer.current.axes[0] == .5f && buffer.current.axes[1] == -1 &&
+          buffer.current.axes[5] == 1 && lookX > 0 && lookY < 0);
+    [view driveControl:@"action" down:YES]; [view driveControl:@"reload" down:YES];
+    (void)xg_touch_button(&buffer, SDL_GAMEPAD_BUTTON_WEST);
+    [view driveControl:@"action" down:NO];
+    check("Xbox USE/RELOAD alias preserves X until both controls release",
+          xg_touch_button(&buffer, SDL_GAMEPAD_BUTTON_WEST) && xg_touch_button(&buffer, SDL_GAMEPAD_BUTTON_WEST));
+    [view driveControl:@"reload" down:NO];
+    check("last Xbox X owner releases", !xg_touch_button(&buffer, SDL_GAMEPAD_BUTTON_WEST));
+    [view driveControl:@"jump" down:YES]; [view driveControl:@"jump" down:NO];
+    check("shared Jump reaches Xbox A for one poll after a short tap",
+          xg_touch_button(&buffer, SDL_GAMEPAD_BUTTON_SOUTH) && !xg_touch_button(&buffer, SDL_GAMEPAD_BUTTON_SOUTH));
+    [view driveControl:@"menu" down:YES]; [view driveControl:@"menu" down:NO];
+    check("shared pause reaches Xbox Start", xg_touch_button(&buffer, SDL_GAMEPAD_BUTTON_START));
+    [NSNotificationCenter.defaultCenter postNotificationName:UIApplicationWillResignActiveNotification object:nil];
+    struct xg_touch_input zero = {0};
+    check("shared Xbox focus loss clears held/unread controls and look",
+          !memcmp(&buffer, &zero, sizeof(zero)) && !lookX && !lookY);
+    [view driveControl:@"fire" down:YES]; [view driveMoveX:1 y:1]; [view driveLookX:20 y:30];
+    check("inactive engine adapter refuses input", !memcmp(&buffer, &zero, sizeof(zero)) && !lookX);
+    [NSNotificationCenter.defaultCenter postNotificationName:UIApplicationDidBecomeActiveNotification object:nil];
+    [view driveControl:@"fire" down:YES];
+    check("fresh Xbox fire works after activation", xg_touch_axis(&buffer, 5) == 1);
+    [view clearTouchInput];
+    check("Xbox routing never posts into PC input", count == pcCount);
+    UIButton *menu = [view valueForKey:@"menuButton"];
+    check("Xbox menu contains shared settings and excludes PC join/chat commands", menu.menu.children.count == 2);
+    HPOverlay *pc = [[HPOverlay alloc] initWithFrame:view.frame]; pc.inGame = YES;
+    [pc layoutIfNeeded];
+    BOOL same = YES;
+    for (UIView *a in view.subviews) for (UIView *b in pc.subviews)
+        if (a.accessibilityIdentifier.length && [a.accessibilityIdentifier isEqualToString:b.accessibilityIdentifier])
+            same &= CGRectEqualToRect(a.frame, b.frame);
+    check("PC and Xbox share identical layout geometry and preference keys", same);
+    BOOL pcUnchanged = YES;
+    for (UIView *button in [pc valueForKey:@"buttons"])
+        pcUnchanged &= [(UILabel *)[button valueForKey:@"controllerLabel"] isHidden];
+    check("PC controls do not acquire Xbox badges", pcUnchanged);
+    int beforeLabelChange = count;
+    [view setControllerLabel:nil hint:nil forControl:@"jump"];
+    [view setControllerLabel:@"?" hint:@"Unused" forControl:@"unknown"];
+    check("clearing or unknown presentation labels never deliver input",
+          badge.hidden && jump.accessibilityHint == nil && count == beforeLabelChange);
+}
 
 @interface HPTestOverlay : HPOverlay
 @property(nonatomic) BOOL simulatedPhone;
@@ -24,6 +119,13 @@ static BOOL all_released(void);
 - (CGPoint)alignedCenter:(CGPoint)center forView:(UIView *)view;
 - (void)place:(UIView *)view frame:(CGRect)frame;
 - (NSString *)key:(NSString *)what;
+- (void)beginEditing;
+- (void)endEditing;
+- (void)select:(UIView *)view;
+- (void)togglePanel;
+- (void)leftChanged:(UISwitch *)sender;
+- (void)lookChanged:(UISlider *)sender;
+- (void)selectedSizeChanged:(UISlider *)sender;
 @end
 
 static void check_editor_alignment(void)
@@ -53,6 +155,103 @@ static void check_editor_alignment(void)
           move.bounds.size.width == 44 && move.bounds.size.height == 44);
     if (saved) [NSUserDefaults.standardUserDefaults setObject:saved forKey:key];
     else [NSUserDefaults.standardUserDefaults removeObjectForKey:key];
+}
+
+/* Real settings/editor handlers, with separate PC/Xbox destinations. This checks
+   persisted presentation and cancellation contracts, not physical multitouch. */
+static void check_shared_settings(void)
+{
+    NSUserDefaults *defaults = NSUserDefaults.standardUserDefaults;
+    NSArray *keys = @[@"HaloPad.lookSensitivity", @"HaloPad.leftHanded",
+                      @"HaloPad.tablet.v3.origins", @"HaloPad.tablet.v3.scales",
+                      @"HaloPad.phone.v3.origins", @"HaloPad.phone.v3.scales"];
+    NSMutableDictionary *saved = [NSMutableDictionary dictionary];
+    for (NSString *key in keys) {
+        id value = [defaults objectForKey:key];
+        if (value) saved[key] = value;
+    }
+    __block struct xg_overlay_input adapter = {0};
+    __block int xboxLook = 0;
+    HPTestOverlay *xbox = [[HPTestOverlay alloc] initWithFrame:CGRectMake(0, 0, 1024, 768)
+        inputHandler:^(const hp_input *event) {
+            xg_overlay_event(&adapter, event);
+            if (event->kind == HPI_MOUSEMOVE) xboxLook += event->dx;
+        }];
+    xbox.inGame = YES; xbox.analogMoveReady = YES;
+    [defaults removeObjectForKey:[xbox key:@"origins"]];
+    [defaults removeObjectForKey:[xbox key:@"scales"]];
+    HPSettings.shared.leftHanded = NO;
+    [xbox layoutIfNeeded];
+    UIView *move = [xbox valueForKey:@"move"], *aim = [xbox valueForKey:@"aim"];
+    CGPoint moveBefore = move.center, aimBefore = aim.center;
+    [xbox driveMoveX:1 y:1]; [xbox driveControl:@"fire" down:YES];
+    [xbox togglePanel];
+    check("opening shared settings cancels Xbox movement and fire", !adapter.actions &&
+          adapter.pad.axes[0] == 0 && adapter.pad.axes[1] == 0 && adapter.pad.axes[5] == 0);
+    UISwitch *hand = [xbox valueForKey:@"leftSwitch"];
+    check("shared settings retain the registered value-change targets",
+          [[hand actionsForTarget:xbox forControlEvent:UIControlEventValueChanged] containsObject:@"leftChanged:"]);
+    /* This helper has no UIApplication event loop. Invoke the registered handler
+       directly; real UI dispatch is covered separately on the installed app. */
+    hand.on = YES; [xbox leftChanged:hand];
+    [xbox layoutIfNeeded];
+    check("left-handed handler mirrors both sticks without changing their identities",
+          hypot(move.center.x - aimBefore.x, move.center.y - aimBefore.y) < .01 &&
+          hypot(aim.center.x - moveBefore.x, aim.center.y - moveBefore.y) < .01);
+    UISlider *look = [xbox valueForKey:@"look"];
+    check("Look Speed slider keeps its handler", [[look actionsForTarget:xbox
+          forControlEvent:UIControlEventValueChanged] containsObject:@"lookChanged:"]);
+    look.value = 2; [xbox lookChanged:look];
+    [xbox driveLookX:10 y:0];
+    /* UISlider returns a float near 2, not necessarily exactly 2. The overlay
+       intentionally retains sub-count fractions for the next drag segment. */
+    check("shared Look Speed handler changes Xbox mouse counts",
+          fabs(HPSettings.shared.lookSensitivity - 2) < .00001 &&
+          xboxLook == (int)(10 * 2.2 * HPSettings.shared.lookSensitivity));
+    [xbox togglePanel];
+    [xbox driveControl:@"fire" down:YES];
+    [xbox beginEditing];
+    check("entering editor releases gameplay input", !adapter.actions && adapter.pad.axes[5] == 0);
+    [xbox driveMoveX:1 y:1];
+    [xbox select:move];
+    CGFloat baseWidth = move.bounds.size.width;
+    UISlider *resize = [xbox valueForKey:@"selectedSize"];
+    check("editor resize slider keeps its handler", [[resize actionsForTarget:xbox
+          forControlEvent:UIControlEventValueChanged] containsObject:@"selectedSizeChanged:"]);
+    resize.value = 1.2; [xbox selectedSizeChanged:resize];
+    check("editor selection and resizing do not fire or move the player", !adapter.actions &&
+          adapter.pad.axes[0] == 0 && adapter.pad.axes[1] == 0 && adapter.pad.axes[5] == 0);
+    /* The saved normalized position is the editor's persistence contract. Actual
+       drag delivery is a separate UI test; do not synthesize it here. */
+    [defaults setObject:@{@"move": NSStringFromCGPoint(CGPointMake(.7, .65))}
+                forKey:[xbox key:@"origins"]];
+    [xbox endEditing]; [xbox layoutIfNeeded];
+    HPTestOverlay *pc = [[HPTestOverlay alloc] initWithFrame:xbox.frame];
+    pc.inGame = YES; [pc layoutIfNeeded];
+    UIView *pcMove = [pc valueForKey:@"move"];
+    check("fresh PC overlay restores Xbox-edited position and size",
+          CGRectEqualToRect(move.frame, pcMove.frame) && fabs(move.center.x - 716.8) < .01 &&
+          fabs(move.center.y - 499.2) < .01 && fabs(move.bounds.size.width - baseWidth * 1.2) < .01);
+    int before = count;
+    [pc driveLookX:10 y:0];
+    check("fresh PC overlay uses the same saved Look Speed", count == before + 1 &&
+          events[before].kind == HPI_MOUSEMOVE && events[before].dx == xboxLook);
+    HPTestOverlay *phone = [[HPTestOverlay alloc] initWithFrame:CGRectMake(0, 0, 844, 390)];
+    phone.simulatedPhone = YES;
+    [defaults setObject:@{@"move": NSStringFromCGPoint(CGPointMake(.2, .6))}
+                forKey:[phone key:@"origins"]];
+    [phone setNeedsLayout]; [phone layoutIfNeeded];
+    [xbox setNeedsLayout]; [xbox layoutIfNeeded];
+    check("phone layout changes do not overwrite shared tablet layout",
+          ![[phone key:@"origins"] isEqualToString:[xbox key:@"origins"]] &&
+          CGRectEqualToRect(move.frame, pcMove.frame));
+    [xbox driveControl:@"fire" down:YES];
+    check("fresh fire works after leaving editor", adapter.pad.axes[5] == 1);
+    [xbox clearTouchInput]; [pc clearTouchInput]; [phone clearTouchInput];
+    for (NSString *key in keys) {
+        if (saved[key]) [defaults setObject:saved[key] forKey:key];
+        else [defaults removeObjectForKey:key];
+    }
 }
 
 @interface HPLookDrag : NSObject
@@ -95,7 +294,8 @@ static void check_drag_tracking(void)
     [drag move:a to:CGPointMake(50, 50)]; [drag end:a at:CGPointMake(80, 80) cancelled:NO];
     check("cleared drag ignores late move and end callbacks", x == 3 && y == 12 && deltas == 3);
 
-    HPOverlay *overlay = [[HPOverlay alloc] initWithFrame:CGRectMake(0, 0, 1024, 768)];
+    HPOverlay *overlay = [[HPOverlay alloc] initWithFrame:CGRectMake(0, 0, 1024, 768)
+        inputHandler:^(const hp_input *event) { halopad_host_post_input(event); }];
     HPLookDrag *surface = [overlay valueForKey:@"lookDrag"];
     count = 0;
     [surface begin:a at:CGPointZero]; [surface end:a at:CGPointMake(20, 0) cancelled:NO];
@@ -111,6 +311,34 @@ static void check_drag_tracking(void)
     [overlay clearTouchInput];
     [surface end:a at:CGPointMake(20, 0) cancelled:NO]; [fireDrag end:b at:CGPointMake(0, 20) cancelled:NO];
     check("overlay interruption clears both surface and FIRE drag endpoints", count == 0);
+
+    UIView *scores = nil;
+    for (UIView *v in overlay.subviews) if ([v.accessibilityIdentifier isEqualToString:@"scores"]) scores = v;
+    HPLookDrag *scoreDrag = [scores valueForKey:@"drag"];
+    check("PC scoreboard defaults to hold only", ![[scores valueForKey:@"looks"] boolValue]);
+    __block CGFloat scroll = 0;
+    overlay.scoreboardScroll = ^(CGFloat dy) { scroll += dy; };
+    check("optional roster scrolling enables only the scoreboard drag", [[scores valueForKey:@"looks"] boolValue]);
+    count = 0;
+    [overlay driveControl:@"scores" down:YES];
+    [scoreDrag begin:a at:CGPointZero];
+    [scoreDrag move:a to:CGPointMake(100, 80)];
+    check("scoreboard drag preserves held action and does not aim", scroll == 80 && count == 1 &&
+          events[0].kind == HPI_ACTION && events[0].action == 12 && events[0].down);
+    [scoreDrag end:a at:CGPointMake(100, 100) cancelled:NO];
+    [overlay driveControl:@"scores" down:NO];
+    check("final roster displacement and release delivered once", scroll == 100 && count == 2 && !events[1].down);
+    [scoreDrag begin:a at:CGPointZero];
+    [overlay clearTouchInput];
+    [scoreDrag end:a at:CGPointMake(0, 80) cancelled:NO];
+    check("cancel drops unread scoreboard drag endpoint", scroll == 100);
+    [NSNotificationCenter.defaultCenter postNotificationName:UIApplicationWillResignActiveNotification object:nil];
+    [scoreDrag begin:a at:CGPointZero]; [scoreDrag move:a to:CGPointMake(0, 80)];
+    check("inactive overlay refuses roster scrolling", scroll == 100);
+    [NSNotificationCenter.defaultCenter postNotificationName:UIApplicationDidBecomeActiveNotification object:nil];
+    overlay.scoreboardScroll = nil;
+    [scoreDrag begin:a at:CGPointZero]; [scoreDrag end:a at:CGPointMake(0, 80) cancelled:NO];
+    check("removing roster adapter restores hold-only and no aim", ![[scores valueForKey:@"looks"] boolValue] && scroll == 100);
 }
 
 /* Exercise the real stick geometry without fabricating UIKit touch objects. */
@@ -223,7 +451,7 @@ static void check_layouts(void)
     NSInteger savedSpacing = settings.ringSpacing;
     CGSize screens[] = {{667, 375}, {760, 354}, {844, 390}, {1024, 768}, {1376, 1032}};
     CGFloat sizes[] = {0.7, 1, 1.35};
-    int cases = 0, bad = 0, badReach = 0, badGrid = 0;
+    int cases = 0, bad = 0, badReach = 0, badGrid = 0, badBadge = 0;
     for (int form = 0; form < 5; form++) for (int hand = 0; hand < 2; hand++)
     for (int size = 0; size < 3; size++) for (int gap = 0; gap < 3; gap++) {
         settings.controlSize = sizes[size]; settings.leftHanded = hand; settings.ringSpacing = gap;
@@ -311,6 +539,14 @@ static void check_layouts(void)
             for (UIView *v in controls) reachable &= !CGRectIntersectsRect(v.frame, radar);
         }
         if (!reachable) badReach++;
+        CGRect targetBeforeBadge = jump.frame;
+        [view setControllerLabel:@"A" hint:@"Select" forControl:@"jump"];
+        [jump layoutIfNeeded];
+        UILabel *badge = [jump valueForKey:@"controllerLabel"];
+        CGPoint badgePoint = [jump convertPoint:badge.center toView:view];
+        if (badge.hidden || !CGRectContainsRect(jump.bounds, badge.frame) ||
+            !CGRectEqualToRect(jump.frame, targetBeforeBadge) || [view hitTest:badgePoint withEvent:nil] != jump)
+            badBadge++;
         cases++;
         if (!valid) { bad++; fprintf(stderr, "layout failed: %.0fx%.0f hand %d size %.2f gap %d controls %lu\n",
                                     screens[form].width, screens[form].height, hand, sizes[size], gap, (unsigned long)controls.count); }
@@ -320,6 +556,7 @@ static void check_layouts(void)
     check("phone/tablet defaults have separate targets, safe bounds and two reachable sticks", bad == 0);
     check("sticks have equal reach, aligned fire, movement-side crouch and tablet radar clearance", badReach == 0);
     check("action columns retain equal spacing and align around the aiming thumb", badGrid == 0);
+    check("Xbox label stays in its original tappable target across all phone/tablet layouts", badBadge == 0);
 }
 
 void halopad_host_post_input(const hp_input *e)
@@ -603,6 +840,8 @@ int main(void)
         check_stick_ownership();
         check_layouts();
         check_editor_alignment();
+        check_xbox_adapter();
+        check_shared_settings();
 
         fprintf(stderr, "OVERLAY INPUT: %s (%d failures)\n", failures ? "FAIL" : "PASS", failures);
         return failures ? 1 : 0;

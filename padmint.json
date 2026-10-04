@@ -1,34 +1,38 @@
 {
   "schema_version": 1,
-  "id": "halopad",
+  "id": "projectreach",
   "name": "HaloPad",
   "game": "Halo: Custom Edition 1.10 (PC)",
   "kind": "disc-translation",
-  "status": "draft-untested",
+  "status": "experimental",
   "inputs": [
     {
-      "type": "pc-game-install",
-      "formats": [],
+      "type": "pc-game-installer",
+      "formats": ["exe"],
       "when": "build",
-      "description": "Your own Halo Custom Edition 1.10 installation. A public input verifier and packaging format are still being defined."
+      "description": "Your own Halo Custom Edition installer (HaloCESetup.exe). Put the official 1.10 update (haloce-patch-1.0.10.exe, needed for the first build only) and, optionally, product-key.txt with your Halo PC product key in the same folder. Both files are checked by hash."
     }
   ],
   "targets": {
     "ios": {
-      "hosts": {"macos-arm64": "planned"},
+      "hosts": {"macos-arm64": "experimental"},
       "output": "ipa",
-      "check": "ipa"
+      "check": "ipa",
+      "command": ["{repo}/scripts/builder/build.sh", "{disc}", "--out", "{work}", "--ipa", "{output}", "--jobs", "{jobs}"]
     }
   },
   "requirements": {
     "disk_gb": 25,
     "tools": [
       {"name": "python3", "version_args": ["--version"]},
-      {"name": "xcodebuild", "version_args": ["-version"]}
+      {"name": "xcodebuild", "version_args": ["-version"]},
+      {"name": "7zz", "version_args": [], "player": true, "note": "brew install sevenzip"},
+      {"name": "wine", "version_args": ["--version"], "player": true, "note": "brew install --cask wine-stable (your product ID)"},
+      {"name": "winetricks", "version_args": ["--version"], "player": true, "note": "brew install winetricks (your product ID)"}
     ]
   },
   "publication": {
     "public_binaries": false,
-    "reason": "Personal builds contain translated game code and may contain the player's game files."
+    "reason": "Personal builds contain translated game code, the player's game files and their product ID."
   }
 }
