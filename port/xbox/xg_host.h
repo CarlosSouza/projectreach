@@ -66,6 +66,9 @@ void xg_fatal(const char *format, ...) __attribute__((format(printf, 1, 2), nore
 /* Optional host sink for finished log lines (HaloPad's shareable diagnostic
  * log). Set once before the game starts; called from any thread. */
 extern void (*xg_log_sink)(const char *line);
+/* time spent in GL calls that can stall a frame (xg_gl.c) */
+struct xg_gl_cost { unsigned count; double seconds; };
+extern struct xg_gl_cost xg_gl_costs[4];   /* compiles/links, textures, buffers, draws */
 
 /* the platform (xg_main_*.c): data and save folders, display width */
 struct xg_paths

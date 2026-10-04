@@ -5420,3 +5420,10 @@ only, no IPA/publication; stability gate explicitly failed, goal still active.
 - Both editions share one three-dot menu; Switch Edition closes HaloPad to the picker.
 - New edition picker with versions, status, graphics choice and the Project Reach link.
   Details: XBOX-SIMULATOR-PASSES.md, "Device rendering parity…".
+
+## 2026-10-04 — Stutter pass
+
+- Windows edition: Halo's own "30 FPS" Framerate Throttle (default for new profiles) caused uneven
+  26–30 fps on iOS; HaloPad clears it each frame. Simulator Blood Gulch went from 26–30 fps to about 112.
+- Xbox edition: `render-camera-v1` turns the first-person view with the finger instead of
+  1–2 ticks later. GL hitch attribution added to HaloPad.log.

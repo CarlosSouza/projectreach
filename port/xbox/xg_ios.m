@@ -546,8 +546,16 @@ static void render_health(int frame)
 {
 	static double window_start, last, worst;
 	static int window_frames, slow, errors, reported_errors, hitches;
+	static struct xg_gl_cost frame_start[4], window_base[4];
+	struct xg_gl_cost in_frame[4];
 	double now = CACurrentMediaTime();
 	GLenum error;
+	for (int kind = 0; kind < 4; kind++)
+	{
+		in_frame[kind].count = xg_gl_costs[kind].count - frame_start[kind].count;
+		in_frame[kind].seconds = xg_gl_costs[kind].seconds - frame_start[kind].seconds;
+		frame_start[kind] = xg_gl_costs[kind];
+	}
 	for (int guard = 0; guard < 8 && (error = glGetError()) != GL_NO_ERROR; guard++)
 	{
 		errors++;
@@ -560,16 +568,26 @@ static void render_health(int frame)
 		double ms = (now - last) * 1000;
 		if (ms > worst) worst = ms;
 		if (ms > 50) slow++;
-		if (ms > 250 && hitches < 30 && ++hitches)
-			xg_log("render: frame %d took %.0f ms%s", frame, ms, hitches == 30 ? " (later hitches are only counted)" : "");
+		/* what a slow frame spent in GL calls that can stall (shaders, textures, buffers) */
+		if (ms > 50 && hitches < 60 && ++hitches)
+			xg_log("render: frame %d took %.0f ms; %u draws (%.0f ms), %u shader compiles/links (%.0f ms), "
+				"%u texture uploads (%.0f ms), %u buffer uploads (%.0f ms)%s", frame, ms,
+				in_frame[3].count, in_frame[3].seconds * 1000, in_frame[0].count, in_frame[0].seconds * 1000,
+				in_frame[1].count, in_frame[1].seconds * 1000, in_frame[2].count, in_frame[2].seconds * 1000,
+				hitches == 60 ? " (later slow frames are only counted)" : "");
 	}
 	if (window_start == 0) window_start = now;
 	window_frames++;
 	last = now;
 	if (now - window_start >= 30)
 	{
-		xg_log("render: %.1f fps over %.0f s, worst frame %.0f ms, %d frames over 50 ms, %d GL errors, drawable %dx%d",
-			window_frames / (now - window_start), now - window_start, worst, slow, errors, drawable_width, drawable_height);
+		xg_log("render: %.1f fps over %.0f s, worst frame %.0f ms, %d frames over 50 ms, %d GL errors, drawable %dx%d; "
+			"%u shader compiles/links (%.0f ms), %u texture uploads (%.0f ms), %u buffer uploads (%.0f ms)",
+			window_frames / (now - window_start), now - window_start, worst, slow, errors, drawable_width, drawable_height,
+			xg_gl_costs[0].count - window_base[0].count, (xg_gl_costs[0].seconds - window_base[0].seconds) * 1000,
+			xg_gl_costs[1].count - window_base[1].count, (xg_gl_costs[1].seconds - window_base[1].seconds) * 1000,
+			xg_gl_costs[2].count - window_base[2].count, (xg_gl_costs[2].seconds - window_base[2].seconds) * 1000);
+		for (int kind = 0; kind < 4; kind++) window_base[kind] = xg_gl_costs[kind];
 		window_start = now;
 		window_frames = slow = errors = 0;
 		worst = 0;

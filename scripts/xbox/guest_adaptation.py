@@ -113,7 +113,21 @@ PRESENT_ANCHOR = b'''\t\tglBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 \t\tglClear(GL_COLOR_BUFFER_BIT);
 ''' + PRESENT_READ
 PRESENT_REPLACE = PRESENT_READ + PRESENT_ANCHOR[:-len(PRESENT_READ)]
-INPUT_ADAPTATIONS = ('shared-input-v1', 'render-present-v1')
+# Direct first-person camera on iOS: upstream compiles display.direct_camera out of
+# Android builds (it is not an Android setting), so the view was drawn from the
+# tick-blended camera, one to two ticks (33-66 ms) behind the player's look input.
+# player_control_update turns facing every frame on every platform; only the guard
+# changes. Vehicles, cinematics and third person keep the blended camera upstream.
+CAMERA_SOURCE = pathlib.Path('port/linux/game/render_interpolation.c')
+REVIEWED_CAMERA = {
+    'c3adcfe5bf917922d732f2551341b1ad00977867':
+        'fac7667e391ace1ea83d114797dfdcd749646c42a88963462418deacb7e121de',
+}
+CAMERA_ANCHOR = b'#ifdef HALO_ANDROID\n\t(void)local_player_index;\n\treturn observer;\n#else\n'
+CAMERA_REPLACE = (b'#if 0 /* HaloPad: the view turns the frame the finger moves (display.direct_camera) */\n'
+                  b'\t(void)local_player_index;\n\treturn observer;\n#else\n')
+PRESENT_ADAPTATIONS = ('render-present-v1', 'render-camera-v1')
+INPUT_ADAPTATIONS = ('shared-input-v1', *PRESENT_ADAPTATIONS)
 BORDER_ADAPTATIONS = ('render-border-v1', *INPUT_ADAPTATIONS)
 QUALITY_ADAPTATIONS = ('render-quality-v1', 'render-visibility-v1', 'render-water-v1', *BORDER_ADAPTATIONS)
 COUNTED_ADAPTATIONS = ('render-visibility-v1', 'render-water-v1', *BORDER_ADAPTATIONS)
@@ -139,10 +153,24 @@ def identity(name=None, revision=None):
         recipe += border_sampling.recipe()
     if name in INPUT_ADAPTATIONS:
         recipe += profile_input.recipe()
-    if name == 'render-present-v1':
+    if name in PRESENT_ADAPTATIONS:
         recipe += PRESENT_ANCHOR + PRESENT_REPLACE
-    return {'name': name, 'upstream_renderer_sha256': REVIEWED_RENDERERS.get(revision, SOURCE_SHA256),
-            'recipe_sha256': hashlib.sha256(recipe).hexdigest()}
+    result = {'name': name, 'upstream_renderer_sha256': REVIEWED_RENDERERS.get(revision, SOURCE_SHA256)}
+    if name == 'render-camera-v1':
+        if revision not in REVIEWED_CAMERA:
+            raise ValueError('Direct camera is reviewed only for build 85; review render_interpolation.c first')
+        recipe += CAMERA_ANCHOR + CAMERA_REPLACE
+        result['upstream_camera_sha256'] = REVIEWED_CAMERA[revision]
+    result['recipe_sha256'] = hashlib.sha256(recipe).hexdigest()
+    return result
+
+
+def adapted_camera(original, revision=None):
+    """render_interpolation.c with the direct camera allowed on the Android/iOS guest."""
+    expected = identity('render-camera-v1', revision)['upstream_camera_sha256']
+    if hashlib.sha256(original).hexdigest() != expected or original.count(CAMERA_ANCHOR) != 1:
+        raise ValueError('Camera adaptation input changed; review upstream first')
+    return original.replace(CAMERA_ANCHOR, CAMERA_REPLACE)
 
 
 def adapted_source(original, name='render-scale-v1'):
@@ -166,7 +194,7 @@ def adapted_source(original, name='render-scale-v1'):
         modified = modified.replace(WATER_RESTORE_ANCHOR, WATER_RESTORE)
     if name in BORDER_ADAPTATIONS:
         modified = border_sampling.apply_edits(modified, border_sampling.RENDERER_EDITS)
-    if name == 'render-present-v1':
+    if name in PRESENT_ADAPTATIONS:
         if original.count(PRESENT_ANCHOR) != 1:
             raise ValueError('Renderer presentation input changed; review upstream first')
         modified = modified.replace(PRESENT_ANCHOR, PRESENT_REPLACE)
@@ -190,6 +218,10 @@ def renderer_adaptation(engine, adaptation):
         changes.append((shader_path, shader, border_sampling.adapt_shader(shader)))
     if adaptation['name'] in INPUT_ADAPTATIONS:
         changes.extend(profile_input.changes(engine))
+    if adaptation['name'] == 'render-camera-v1':
+        camera_path = engine / CAMERA_SOURCE
+        camera = camera_path.read_bytes()
+        changes.append((camera_path, camera, adapted_camera(camera)))
     try:
         for path, original, modified in changes:
             path.write_bytes(modified)

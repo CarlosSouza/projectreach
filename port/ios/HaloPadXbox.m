@@ -320,7 +320,8 @@ static BOOL xbox_backup_saves(NSError **error)
 - (void)configureControllerGuide
 {
 	NSString *adaptation = xbox_build()[@"guest_adaptation"][@"name"];
-	BOOL profileBridge = [adaptation isEqual:@"shared-input-v1"] || [adaptation isEqual:@"render-present-v1"];
+	BOOL profileBridge = [adaptation isEqual:@"shared-input-v1"] || [adaptation isEqual:@"render-present-v1"] ||
+		[adaptation isEqual:@"render-camera-v1"];
 	pad.controllerGuideIntro = @"Touch: MOVE highlights menu items, A (Jump) selects and B (Melee) goes back. In play, drag the screen to aim or drag FIRE while shooting. Hold Scoreboard and drag to scroll its roster.";
 	pad.controllerGuideSections = @[
 		@[@"Movement & View", @[@"Left stick", @"Move"], @[@"Right stick", @"Look"],

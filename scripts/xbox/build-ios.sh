@@ -30,7 +30,7 @@ fi
 RENDERER=${HALOPAD_XBOX_RENDERER:-apple-gles}
 COUNTED=OFF
 case "${HALOPAD_XBOX_GUEST_ADAPTATION:-none}" in
-render-visibility-v1|render-water-v1|render-border-v1|shared-input-v1|render-present-v1)
+render-visibility-v1|render-water-v1|render-border-v1|shared-input-v1|render-present-v1|render-camera-v1)
     [ "$RENDERER" = angle-metal ] || {
         echo "Counted visibility requires the ANGLE renderer" >&2; exit 2;
     }

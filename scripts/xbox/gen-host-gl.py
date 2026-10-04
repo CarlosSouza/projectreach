@@ -16,6 +16,14 @@ DECL = re.compile(r"^(.+?)\s*\bhostgl_(gl\w+)\((.*)\);$")
 OFFSETS = {("glVertexAttribPointer", 5), ("glVertexAttribIPointer", 4),
            ("glDrawElements", 3), ("glDrawElementsBaseVertex", 3)}
 C_WORDS = {"long", "int", "char", "void", "unsigned", "short", "float", "double", "const", "signed"}
+# Calls that can stall a frame, timed for the renderer health log (xg_ios.m):
+# 0 shader compiles and program links, 1 texture uploads, 2 buffer uploads,
+# 3 draws (where ANGLE builds Metal pipelines the first time a state is drawn).
+TIMED = {"glCompileShader": 0, "glLinkProgram": 0, "glTexImage2D": 1, "glTexSubImage2D": 1,
+         "glTexImage3D": 1, "glTexSubImage3D": 1, "glCompressedTexImage2D": 1,
+         "glCompressedTexSubImage2D": 1, "glGenerateMipmap": 1, "glBufferData": 2, "glBufferSubData": 2,
+         "glDrawArrays": 3, "glDrawElements": 3, "glDrawElementsBaseVertex": 3,
+         "glDrawArraysInstanced": 3, "glDrawElementsInstanced": 3, "glDrawRangeElements": 3}
 
 
 def param_type(text):
@@ -57,6 +65,8 @@ def main():
              "void xg_gl_trace_query_end(GLenum target);",
              "void xg_gl_trace_query_draw(GLenum mode, GLint first, GLsizei count);", "",
              "void xg_gl_query_samples(GLuint id, GLuint *result);", "",
+             "double xg_gl_cost_begin(void);",
+             "void xg_gl_cost_end(int kind, double started);", "",
              "/* XG_GL_CHECK=1: log the first OpenGL ES errors, naming the call */",
              "static int check_errors = -1;",
              "static GLenum (*check_get_error)(void);",
@@ -116,7 +126,11 @@ def main():
         if ret == "void":
             if name == "glBlitFramebuffer":
                 lines.append("\txg_gl_trace_blit(0, a0, a1, a2, a3);")
+            if name in TIMED:
+                lines.append("\tdouble started = xg_gl_cost_begin();")
             lines.append("\tp_%s(%s);" % (name, ", ".join(args)))
+            if name in TIMED:
+                lines.append("\txg_gl_cost_end(%d, started);" % TIMED[name])
             if name == "glBlitFramebuffer":
                 lines.append("\txg_gl_trace_blit(1, a4, a5, a6, a7);")
             if name == "glBeginQuery":

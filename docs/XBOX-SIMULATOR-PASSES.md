@@ -1,5 +1,37 @@
 # Xbox / edition-picker passes, 2026-10-01
 
+## Stutter pass: Windows 30 FPS throttle, Xbox direct camera, hitch attribution (2026-10-04)
+
+Chris reported stutter and texture issues in both editions. Simulator only; the iPad was in
+Chris's hands. Timings are noisy because another project was compiling on this Mac.
+
+- **Windows edition, cause found.** Blood Gulch traced 26–30 fps with gaps up to 61 ms and no
+  shader, pipeline or decode work. A sample showed the Halo thread 68% in `Sleep`. In haloce.exe
+  1.10, `0x4cd3a0` is a QueryPerformanceCounter limiter to 1/30 s (`0x612460`) using
+  `Sleep(10)`/`Sleep(0)`. It is active while `0x624a9e` is set, and that flag comes from profile
+  byte `+0xA6F` (Framerate Throttle: 2 is "30 FPS", the default for new profiles because the flag
+  starts at 1). Clearing it gave 108–113 fps with the longest gap 13–22 ms. HaloPad now clears it
+  each Present and logs "Frame pacing" once (`HALOPAD_FRAME_THROTTLE=on` keeps Halo's limiter).
+  An even 60 Hz `afterMinimumDuration` present was tried and dropped: the iOS 27 SDK removed it,
+  and `presentAtTime` would queue frames and add input lag. The screenshot at 112 fps is correct.
+  The display modes add 2048x1536 (4:3 under the 12.9-inch panel) next to 1600x1200; Halo's own
+  Settings > Video picks the resolution (profiles start at 800x600).
+- **Xbox edition, look lag.** The guest is upstream's Android target, which compiles
+  `display.direct_camera` out, so the first-person view was the tick-blended camera, 33–66 ms behind
+  look input. `player_control_update` turns facing every frame on all platforms. New cumulative
+  adaptation `render-camera-v1` (render-present-v1 plus one guard in `render_interpolation.c`,
+  reviewed source fac7667e… for build 85 only). Vehicles, cinematics and third person keep the
+  blend. Smoke menu/a10/match passes on it, with the upstream checkout restored clean.
+- **Hitch attribution.** `gen-host-gl.py` times compiles/links, texture and buffer uploads, and
+  draws (where ANGLE builds Metal pipelines on first use). Slow frames over 50 ms and the 30 s summary
+  in HaloPad.log now say where the time went. In Simulator a10, load frames spend 80–90 ms in first
+  draws plus about 33 ms in uploads. Effect hitches mid-play (60–90 ms) are about 20–27 ms of first
+  draws, about 11 ms of uploads, and game-side work. A warm second run did not change them. ANGLE's
+  parallel Metal library compilation and in-memory library cache are already on. Periodic ~100 ms
+  frames with little GL time are the smoke's frame dumps.
+- Windows `Sleep` trace (`HALOPAD_TRACE_FRAMES`) added; full suite 275 pass (16 skipped).
+  Device numbers for all of this await the next iPad install.
+
 ## Build 85 save/reload, iPad System Link, Windows exit flag (2026-10-04)
 
 - **Smoke (current app 29ccf76):** Simulator menu, a10 and System Link match pass

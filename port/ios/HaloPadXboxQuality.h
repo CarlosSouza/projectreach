@@ -13,7 +13,8 @@ static inline BOOL HPXboxSupportsQuality(NSDictionary *build)
          [adaptation[@"name"] isEqual:@"render-water-v1"] ||
          [adaptation[@"name"] isEqual:@"render-border-v1"] ||
          [adaptation[@"name"] isEqual:@"shared-input-v1"] ||
-         [adaptation[@"name"] isEqual:@"render-present-v1"]);
+         [adaptation[@"name"] isEqual:@"render-present-v1"] ||
+         [adaptation[@"name"] isEqual:@"render-camera-v1"]);
 }
 
 static inline BOOL HPXboxSharperSelected(NSUserDefaults *settings)

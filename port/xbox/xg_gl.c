@@ -15,6 +15,24 @@
 void *xg_gl_proc(const char *name);
 GLuint xg_gl_framebuffer(GLuint framebuffer);
 
+/* GL calls that can stall a frame (xg_gl_gen.c), read by the renderer health
+ * log: 0 shader compiles and links, 1 texture uploads, 2 buffer uploads,
+ * 3 draws. Only the game's render thread makes GL calls. */
+struct xg_gl_cost xg_gl_costs[4];
+
+double xg_gl_cost_begin(void)
+{
+	struct timespec now;
+	clock_gettime(CLOCK_MONOTONIC, &now);
+	return now.tv_sec + now.tv_nsec / 1e9;
+}
+
+void xg_gl_cost_end(int kind, double started)
+{
+	xg_gl_costs[kind].count++;
+	xg_gl_costs[kind].seconds += xg_gl_cost_begin() - started;
+}
+
 /* Private guest bridge, not a GL query pname exposed to other clients. */
 void xg_gl_query_samples(GLuint id, GLuint *result)
 {

@@ -23,6 +23,7 @@ class XboxProfileInputTests(unittest.TestCase):
             border.SHADER: b'\n'.join(a for a, _ in border.SHADER_EDITS),
             bridge.INPUT: bridge.HEADERS + bridge.ANCHOR + b'input_get_device_states();\n}\n',
             bridge.IMPORTS: b'host_sdl_init\n',
+            guest.CAMERA_SOURCE: guest.CAMERA_ANCHOR,
         }
         # guest_adaptation loads its own module object; patch that exact boundary.
         recipe = guest.profile_input
@@ -30,6 +31,7 @@ class XboxProfileInputTests(unittest.TestCase):
              patch.dict('os.environ', {'XBOX_REV': 'synthetic-fixture'}), \
              patch.object(guest, 'SOURCE_SHA256', hashlib.sha256(fixtures[guest.RENDERER]).hexdigest()), \
              patch.object(border, 'SHADER_SHA256', hashlib.sha256(fixtures[border.SHADER]).hexdigest()), \
+             patch.dict(guest.REVIEWED_CAMERA, {'synthetic-fixture': hashlib.sha256(fixtures[guest.CAMERA_SOURCE]).hexdigest()}), \
              patch.dict(recipe.HASHES, {p: hashlib.sha256(fixtures[p]).hexdigest() for p in recipe.HASHES}):
             root = pathlib.Path(tmp)
             for adaptation, concurrent in ((a, c) for a in guest.INPUT_ADAPTATIONS
@@ -40,6 +42,8 @@ class XboxProfileInputTests(unittest.TestCase):
                 with self.assertRaises(RuntimeError):
                     with guest.renderer_adaptation(root, guest.identity(adaptation)):
                         for path, content in fixtures.items():
+                            if path == guest.CAMERA_SOURCE and adaptation != 'render-camera-v1':
+                                continue
                             self.assertNotEqual((root/path).read_bytes(), content)
                         if concurrent:
                             (root/concurrent).write_bytes(b'concurrent edit')

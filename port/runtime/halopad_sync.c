@@ -209,8 +209,32 @@ uint32_t halopad_object_close(uint32_t h)
 void Sleep_c(uint32_t ms)
 {
     struct timespec t = {ms / 1000, (long)(ms % 1000) * 1000000L};
+    /* HALOPAD_TRACE_FRAMES: which sleeps Halo asks for, and how long they really take */
+    static int trace = -1;
+    static uint32_t calls[4];                       /* 0 ms, 1 ms, 2-15 ms, 16+ ms */
+    static double slept, since;
+    double start = 0;
+    if (trace < 0) trace = getenv("HALOPAD_TRACE_FRAMES") != NULL;
+    if (trace) {
+        struct timespec now;
+        clock_gettime(CLOCK_MONOTONIC, &now);
+        start = now.tv_sec + now.tv_nsec / 1e9;
+        if (!since) since = start;
+        calls[ms == 0 ? 0 : ms == 1 ? 1 : ms < 16 ? 2 : 3]++;
+    }
     if (ms == 0) { sched_yield(); return; }
     while (nanosleep(&t, &t) != 0 && errno == EINTR) {}
+    if (trace) {
+        struct timespec now;
+        clock_gettime(CLOCK_MONOTONIC, &now);
+        double end = now.tv_sec + now.tv_nsec / 1e9;
+        slept += end - start;
+        if (end - since >= 10) {
+            fprintf(stderr, "HALOPAD SLEEP: %u x 0 ms, %u x 1 ms, %u x 2-15 ms, %u x 16+ ms; %.2f s asleep in %.1f s\n",
+                    calls[0], calls[1], calls[2], calls[3], slept, end - since);
+            calls[0] = calls[1] = calls[2] = calls[3] = 0; slept = 0; since = end;
+        }
+    }
 }
 
 /* Windows yields the current thread for up to one scheduling slice.
