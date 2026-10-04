@@ -1,10 +1,10 @@
 # Install HaloPad on iPhone or iPad
 
-HaloPad is a private development build for a player who owns Halo Custom Edition
-1.10. The repository does not contain game data or the translated executable.
-The current source build starts through a development scene while the original
-installer-written product ID path remains unresolved. It is not a normal
-clean-checkout player release.
+HaloPad is a personal build for a player who owns Halo Custom Edition 1.10. The
+repository does not contain game data or the translated executable.
+`scripts/builder/build.sh` (also HaloPad's PadMint recipe) makes the app, the
+game package and your product ID from your own installer and key; see the
+README's **Build and install**. The steps below install that app on a device.
 
 ## Requirements
 
@@ -40,15 +40,15 @@ in Device Hub as a connected device.
      --device <actual-iPad-UDID>
    ```
 
-4. Build the device app from the accepted local inputs, or use a preserved
-   matching app and package. For the current development build:
+4. Build the app and its game package with `scripts/builder/build.sh`. To sign
+   it for your device directly instead of using the unsigned IPA, rebuild the app
+   from the builder's translation with your identity and profile:
 
    ```sh
    .venv/bin/python scripts/build-ios-app.py --iphoneos \
-     --work generated/srw/custom-en-1.0.10.0621/<accepted-run> \
      --identity <Apple-Development-certificate-SHA1> \
      --profile /private/path/HaloPad.mobileprovision \
-     --scene tests/halo_app_scene.c
+     --product-id generated/product-id/product-id.txt
    ```
 
 5. Install the signed `HaloPad.app` and its matching `.halopad.zip` to the exact
