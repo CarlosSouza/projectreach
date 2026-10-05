@@ -208,7 +208,9 @@ revisions and the tested Simulator feature override. This is independent of the
 Xbox guest pin. Device builds use ANGLE's automatic feature detection, not that
 override. Do not retag libraries between macOS, Simulator and iPhoneOS.
 
-Fetch the source into scratch, not another project checkout in `GitHub`:
+Without `XBOX_ANGLE_SOURCE`, `scripts/xbox/build-ios.sh` fetches this pinned source itself into the
+ignored `generated/xbox-angle/` (as `scripts/builder/build.sh --xbox` and PadMint do). To use your own
+checkout, fetch it into scratch, not another project checkout in `GitHub`:
 
 ```sh
 angle_work=$(mktemp -d /tmp/halopad-angle.XXXXXX)
