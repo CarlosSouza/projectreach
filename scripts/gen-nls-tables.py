@@ -59,7 +59,11 @@ def simple(c, f):
 def main():
     out = pathlib.Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / 'generated' / 'runtime' / 'halopad_nls1252.h'
     if not SRC.exists():
-        sys.exit(f'missing {SRC}; fetch it: curl -sSfL -o {SRC} {URL}')
+        # a fresh checkout (PadMint's): fetch Microsoft's published file, checked by hash below
+        import urllib.request
+        SRC.parent.mkdir(parents=True, exist_ok=True)
+        with urllib.request.urlopen(URL, timeout=60) as response:
+            SRC.write_bytes(response.read())
     data = SRC.read_bytes()
     if hashlib.sha256(data).hexdigest() != SHA256:
         sys.exit(f'{SRC} does not match the pinned hash')
