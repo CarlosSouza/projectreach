@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <img alt="Version 0.2" src="https://img.shields.io/badge/version-0.2-8E8E93">
+  <img alt="Version 0.2.1" src="https://img.shields.io/badge/version-0.2.1-8E8E93">
   <img alt="iOS and iPadOS 17 or later" src="https://img.shields.io/badge/iOS%20%2F%20iPadOS-17%2B-0A84FF?logo=apple">
   <img alt="Online matches of up to 128 players" src="https://img.shields.io/badge/online-up%20to%20128%20players-30D158">
   <img alt="Game data not included" src="https://img.shields.io/badge/game%20data-not%20included-FF453A">
@@ -19,7 +19,7 @@
 
 *HaloPad at Halo's own main menu. Physical iPhone 14 and iPad Pro builds play local and online matches; see [Current status](#current-status).*
 
-**[What's new](#whats-new-in-02) · [What is it](#what-is-halopad) · [Status](#current-status) · [Playing](#playing) ·
+**[What's new](#whats-new) · [What is it](#what-is-halopad) · [Status](#current-status) · [Playing](#playing) ·
 [Build it](#build-and-install) · [FAQ](#frequently-asked-questions) · [Discord](https://discord.gg/xwHfUD2bxW)**
 
 > [!IMPORTANT]
@@ -29,9 +29,9 @@
 > translated game code.
 >
 > **Built on your Mac.** There is no prebuilt IPA: every HaloPad contains code made from your own game,
-> so you build it on a Mac with one command and sign it with your own Apple profile (see
-> [Build and install](#build-and-install)). It is playable on real hardware today; frame pacing and
-> some Xbox graphics are still being tuned.
+> so you build it on a Mac, with [PadMint](https://github.com/chrissotraidis/padmint) or one command,
+> and sign it with your own Apple profile (see [Build and install](#build-and-install)). It is playable
+> on real hardware today; frame pacing and some Xbox graphics are still being tuned.
 >
 > **AI disclosure:** HaloPad is developed with substantial AI assistance for code, testing,
 > documentation and debugging. The [status log](docs/STATUS.md) records what has actually been
@@ -40,7 +40,13 @@
 **Questions, testing or bugs?** Join the [Discord](https://discord.gg/xwHfUD2bxW) or
 [open an issue](https://github.com/chrissotraidis/projectreach/issues/new/choose).
 
-## What's new in 0.2
+## What's new
+
+- **0.2.1: build with PadMint.** Pick HaloPad and your installer in
+  [PadMint](https://github.com/chrissotraidis/padmint); it downloads Bungie's 1.10 update for you,
+  and CrossOver is no longer needed. [Release notes](https://github.com/chrissotraidis/projectreach/releases/tag/v0.2.1)
+
+**0.2** ([release notes](https://github.com/chrissotraidis/projectreach/releases/tag/v0.2.0)):
 
 - **The Xbox edition.** HaloPad now runs [halo-ce-universal](https://github.com/cybersecurity/halo-ce-universal),
   the port of the Halo CE Xbox decompilation: the original campaign, and online matches of up to 128
@@ -50,8 +56,6 @@
 - **Smoother Custom Edition.** Halo's own 30 FPS throttle no longer makes frames uneven, and Halo starts
   normally with the product ID made from your own key.
 - **One-command builder** (`scripts/builder/build.sh`), which is also HaloPad's PadMint recipe.
-
-[Release notes](https://github.com/chrissotraidis/projectreach/releases/tag/v0.2.0)
 
 ## What is HaloPad?
 
@@ -151,8 +155,16 @@ You need:
 - an Apple development profile for HaloPad's bundle ID that allows **Extended Virtual Addressing** and
   **Increased Memory Limit** (the runtime reserves Halo's full 32-bit address space)
 
+**Easiest: PadMint.** Download [PadMint](https://github.com/chrissotraidis/padmint#quick-start) (0.4.1 or
+later), choose **HaloPad**, then your `HaloCESetup.exe`, with a `product-key.txt` holding your Halo PC key
+in the same folder. PadMint lists the Homebrew tools to install, builds HaloPad and gives you the IPA
+plus a **HaloPad game data** folder with `Halo-CE.halopad.zip`. It builds the Custom Edition; add the
+Xbox edition by hand (below).
+
+**Or in Terminal:**
+
 Install the tools once with `brew install sevenzip winetricks llvm lld && brew install --cask wine-stable`
-and check with `scripts/doctor.sh`. Then put your own `HaloCESetup.exe` and a `product-key.txt` with
+(the builder checks for them first). Then put your own `HaloCESetup.exe` and a `product-key.txt` with
 your Halo PC key in one folder and run:
 
 ```sh
@@ -165,11 +177,8 @@ everything by hash, applies the update, translates Halo, builds the app and writ
 [Installing on iPhone or iPad](docs/INSTALL-IPHONE.md)), open HaloPad and choose the game package.
 Halo needs the product ID its installer writes: the builder makes it from your key with the
 installer's own `PIDGen.dll` (`scripts/product-id.sh`) and puts it in your app only. A first build
-takes about an hour on an Apple silicon Mac.
-
-The same builder is HaloPad's [PadMint](https://github.com/chrissotraidis/padmint) recipe
-([padmint.json](padmint.json)), so PadMint will be able to run it for you from an app instead of
-Terminal. That listing is in progress. Either way, your game files, key, translated code and signing
+fetches its tools and sources and takes longer; later builds are quicker. PadMint runs this same
+builder ([padmint.json](padmint.json)). Either way, your game files, key, translated code and signing
 never leave your Mac.
 
 **An app you build contains code translated from your game: it is yours alone. Never share or upload it.**
@@ -238,8 +247,8 @@ up its `Documents` and `Library` first if you ever need to change signing.
 
 No, and that is deliberate. A working HaloPad contains code translated from your copy of Halo, and the
 Xbox edition contains an engine built from a decompilation, so neither can be handed out as a download.
-Instead you build your own on a Mac, with one command; PadMint support is on the way to make that a few
-clicks.
+Instead you build your own on a Mac, in a few clicks with [PadMint](https://github.com/chrissotraidis/padmint)
+or with one command.
 
 ### Is this an emulator?
 
