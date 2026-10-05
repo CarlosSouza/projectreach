@@ -1,0 +1,4 @@
+# what scripts/builder/build.sh runs (the developer tools in requirements-tools.txt add more)
+pefile==2024.8.26
+scons==4.8.1
+capstone==5.0.6
