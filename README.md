@@ -2,8 +2,8 @@
 
 <p align="center">
   <strong>Halo: Combat Evolved on iPhone and iPad.</strong><br>
-  The Xbox edition with online matches of up to 128 players, the original campaign, and Halo Custom Edition
-  with its community servers. Touch controls, controllers and real networking.
+  The Xbox edition with the original campaign and online matches of up to 128 players, plus Halo Custom
+  Edition on its community servers. Touch controls, controllers and real networking.
 </p>
 
 <p align="center">
@@ -17,176 +17,106 @@
 
 ![HaloPad at Halo's main menu in the iPad Simulator, with the HaloPad three-dot menu button in the corner](docs/images/halopad-menu.jpg)
 
-*HaloPad at Halo's own main menu. Physical iPhone 14 and iPad Pro builds play local and online matches; see [Current status](#current-status).*
+*HaloPad at Halo's own main menu. Physical iPhone 14 and iPad Pro builds play local and online matches.*
 
-**[What's new](#whats-new) · [What is it](#what-is-halopad) · [Status](#current-status) · [Playing](#playing) ·
-[Build it](#build-and-install) · [FAQ](#frequently-asked-questions) · [Discord](https://discord.gg/xwHfUD2bxW)**
+**[What is it](#what-is-halopad) · [Status](#current-status) · [Get it](#build-and-install) ·
+[Playing](#playing) · [FAQ](#frequently-asked-questions) · [Discord](https://discord.gg/xwHfUD2bxW)**
 
 > [!IMPORTANT]
-> **Bring your own game.** HaloPad needs your own legitimate copy of Halo: Custom Edition 1.10 for PC,
-> and for the Xbox edition your own Halo: Combat Evolved Xbox disc image.
-> This repository contains no Halo executable, maps, sounds, saves, product key, engine source or
-> translated game code.
+> **Bring your own game.** You need your own Halo: Custom Edition 1.10 for PC and, for the Xbox
+> edition, your own Halo: Combat Evolved Xbox disc image. This repository contains no Halo files,
+> product key, engine source or translated game code.
 >
-> **Built on your Mac.** There is no prebuilt IPA: every HaloPad contains code made from your own game,
-> so you build it on a Mac, with [PadMint](https://github.com/chrissotraidis/padmint) or one command,
-> and sign it with your own Apple profile (see [Build and install](#build-and-install)). It is playable
-> on real hardware today; frame pacing and some Xbox graphics are still being tuned.
+> **Built on your Mac.** There is no prebuilt IPA. You build HaloPad from your own game with
+> [PadMint](https://github.com/chrissotraidis/padmint) or one command, then sign it with your own Apple
+> profile. It is a preview: playable on real hardware, with frame pacing and some Xbox graphics still
+> being tuned.
 >
-> **AI disclosure:** HaloPad is developed with substantial AI assistance for code, testing,
-> documentation and debugging. The [status log](docs/STATUS.md) records what has actually been
-> checked, and on which device.
-
-**Questions, testing or bugs?** Join the [Discord](https://discord.gg/xwHfUD2bxW) or
-[open an issue](https://github.com/chrissotraidis/projectreach/issues/new/choose).
+> **AI disclosure:** HaloPad is developed with substantial AI assistance. The
+> [status log](docs/STATUS.md) records what has actually been checked, and on which device.
 
 ## What's new
 
-- **0.2.1: build with PadMint.** Pick HaloPad and your installer in
-  [PadMint](https://github.com/chrissotraidis/padmint); it downloads Bungie's 1.10 update for you,
-  and CrossOver is no longer needed. [Release notes](https://github.com/chrissotraidis/projectreach/releases/tag/v0.2.1)
-
-**0.2** ([release notes](https://github.com/chrissotraidis/projectreach/releases/tag/v0.2.0)):
-
-- **The Xbox edition.** HaloPad now runs [halo-ce-universal](https://github.com/cybersecurity/halo-ce-universal),
-  the port of the Halo CE Xbox decompilation: the original campaign, and online matches of up to 128
-  players with people on PC, Linux and Android through its game browser.
-- **Two editions, one app.** Pick Xbox or Custom Edition at launch; the ⋯ menu is the same in both and
-  **Switch Edition** moves between them.
-- **Smoother Custom Edition.** Halo's own 30 FPS throttle no longer makes frames uneven, and Halo starts
-  normally with the product ID made from your own key.
-- **One-command builder** (`scripts/builder/build.sh`), which is also HaloPad's PadMint recipe.
+- **0.2.1:** build HaloPad with [PadMint](https://github.com/chrissotraidis/padmint) in a few clicks.
+  Bungie's 1.10 update is downloaded for you and CrossOver is no longer needed
+  ([notes](https://github.com/chrissotraidis/projectreach/releases/tag/v0.2.1)).
+- **0.2:** the Xbox edition, with the original campaign and online play of up to 128 players; an
+  edition picker and one shared ⋯ menu; smoother Custom Edition frames; normal startup with the
+  product ID from your own key ([notes](https://github.com/chrissotraidis/projectreach/releases/tag/v0.2.0)).
 
 ## What is HaloPad?
 
 HaloPad (the codebase is Project Reach) brings two versions of Halo: Combat Evolved to iPhone and iPad.
+When your build includes both, it asks which one to open at launch.
 
-For **Halo: Custom Edition**, it takes the game's 32-bit Windows code and translates it to native ARM64
-ahead of time, on your Mac. Nothing is compiled on the device while you play, so it needs no JIT.
-
-Around that code, HaloPad supplies the Windows services the game expects: Direct3D 9 rendered through
-Metal, DirectInput mapped to touch and game controllers, audio, files, the registry and Winsock
-networking. Every one of Halo's 804 shader programs is translated to Metal and checked against a
-reference interpreter. It is a compatibility runtime built for one game, not a general Windows emulator,
-and it is not a streaming client.
-
-Because it speaks Custom Edition's own network protocol, HaloPad joins the community-run servers in
-Halo's in-game lobby, alongside PC players.
-
-For the **Xbox edition**, your Mac downloads and builds the halo-ce-universal engine from source and
-HaloPad runs it with Metal graphics (through ANGLE), touch controls and the same ⋯ menu. Its new
-netcode lets one player host and everyone else join over the internet, up to 128 players per match.
-
-## Two editions
-
-When a personal build includes the Xbox engine, HaloPad asks which edition to open at every launch:
-
-| | Halo Custom Edition (Windows, left) | Halo: Combat Evolved (Xbox, right) |
+| | Halo Custom Edition (PC) | Halo: Combat Evolved (Xbox) |
 | --- | --- | --- |
-| Engine | Your own `haloce.exe` 1.10, translated ahead of time | [halo-ce-universal](https://github.com/cybersecurity/halo-ce-universal), a port of the Xbox decompilation, fetched and built on your Mac |
-| Game files | Your Custom Edition package | Your own Xbox disc image, imported in the app |
-| Online | Custom Edition servers and LAN | System link and internet games with other halo-ce-universal players (PC, Linux, Android), up to 128 per match, on the same build |
-| Campaign | No | The original Xbox campaign (preview) |
-| Status | Developer preview | Experimental preview |
+| How it runs | Your own `haloce.exe` 1.10, translated from x86 to native ARM64 ahead of time | [halo-ce-universal](https://github.com/cybersecurity/halo-ce-universal), the port of the Xbox decompilation, built on your Mac |
+| Your files | Your Custom Edition installer and product key | Your own Xbox disc image, imported in the app |
+| Online | Community-run Custom Edition servers and LAN, alongside PC players | Internet and system link games of up to 128 players with PC, Linux and Android players on the same build |
+| Campaign | No | The original Xbox campaign |
+| Build with | PadMint or one command | A few extra commands ([below](#adding-the-xbox-edition)) |
 
-Each edition keeps its own saves and multiplayer, and both share HaloPad's touch controls. To switch,
-close HaloPad and open it again. The Xbox card has **Original** and **Sharper** graphics.
-
-The Xbox engine is never part of this repository. Your Mac downloads the pinned upstream release
-(currently build 85) and builds it from source. Upstream notes that parts of the
-decompilation were reconstructed with help from leaked Bungie material, which is why the Xbox edition
-is only ever a personal build; see [Xbox engine](docs/XBOX-ENGINE.md).
-
-**Playing together on the Xbox edition:** everyone in a match needs the same upstream build. HaloPad
-shows yours on the Xbox card and in **⋯ › About** (for example *build 85*); rebuild after HaloPad
-moves its pin to pick up a newer one. Its internet game browser finds games through public STUN and
-MQTT relay servers, as upstream does; no HaloPad server is involved.
+For Custom Edition, HaloPad supplies the Windows services the game expects: Direct3D 9 rendered through
+Metal, DirectInput mapped to touch and controllers, audio, files, the registry and Winsock networking.
+Nothing is compiled on the device, so it needs no JIT. The Xbox edition draws with Metal through ANGLE.
+Both editions share the touch controls and the ⋯ menu, and keep their own saves.
 
 ## Current status
 
-Builds start Halo normally. The one-command builder turns your product key into the product ID Halo's
-installer would write, on your Mac and into your app only.
-
 | Area | Where it stands |
 | --- | --- |
-| **iPad** | Physical iPad Pro 12.9" (6th gen) imports its game package, plays local Slayer matches and has joined online games. Halo's own 30 FPS throttle made frames uneven on iOS; HaloPad no longer applies it (about 110 FPS in the iPad Simulator; physical rates are being re-measured). A crash in busy scenes (a shader needing more than eight texture setups) is fixed. First-time loading of new effects still stutters |
-| **iPhone** | Physical iPhone 14 imports, creates a profile and plays a local LAN match, including 1280 × 720 widescreen. About 30 FPS in a static scene; loading and busy play are still slow |
-| **Multiplayer** | Windows edition: Halo's own LAN and Internet menus work, and a physical iPad has joined public Custom Edition servers. Xbox edition: a physical iPad Pro has joined internet games through the decompilation's game browser. iPhone online play has not had a full test |
-| **Controls** | Movable, resizable touch overlay, look-speed settings, iOS keyboard for names and chat, Xbox-style controllers (including connecting after launch) and iPad trackpad/mouse in menus |
-| **Custom maps** | Import `.map` files from the app menu. Client DLL mods (Chimera, OpenSauce, HAC2) do not load |
-| **Campaign** | Through the Xbox edition: menus, campaign, controls, Save and Quit and reload pass in the iPad Simulator; a physical iPad has run a preview build. Custom Edition has no campaign |
-| **Xbox edition** | Preview. Campaign and internet multiplayer run on a physical iPad Pro. Some textures and effects still render differently from the original, and frame pacing is still being tuned |
-| **Distribution** | Source only. Build your own on a Mac with one command and your own game files |
+| **iPad** | iPad Pro 12.9" (6th gen) plays both editions, local and online |
+| **iPhone** | iPhone 14 plays local matches, including 1280 × 720 widescreen; slower in loading and busy scenes. Online play not fully tested |
+| **Online** | Custom Edition joins public PC servers; the Xbox edition joins internet games through the decompilation's game browser |
+| **Controls** | Movable, resizable touch overlay, look-speed settings, iOS keyboard for chat and names, Xbox-style controllers, trackpad and mouse in menus |
+| **Custom maps** | `.map` files import from the ⋯ menu. DLL mods (Chimera, OpenSauce, HAC2) do not load |
+| **Xbox edition** | Preview: campaign and multiplayer run on a physical iPad; some textures and effects differ from the original |
 
-Details, measurements and open gates live in [docs/STATUS.md](docs/STATUS.md) and the
-[device-readiness loop](docs/HaloPad-GOAL-LOOP-PHASE3.md).
-
-## Playing
-
-On first launch, choose your prepared `.halopad.zip` game package. Create a Halo profile, then use the
-game's own **Multiplayer** menus to host or join.
-
-- **⋯ menu:** the same in both editions: touch settings, controller guide, display options,
-  **Report a Problem**, **Share Diagnostic Log** and **Switch Edition** (closes HaloPad; the edition
-  picker appears when you open it again). Windows adds keyboard and chat, join a server by address and
-  custom-map import; Xbox adds System Link
-- **Touch:** move and resize the overlay; tune look speed under **Controls › Look Speed & Touch Settings**
-- **Controllers:** connect before opening HaloPad for the most reliable result; connecting later is
-  supported (tested in the Simulator so far). In Halo's menus the D-pad or left stick
-  moves, **A** selects and **B** goes back; **Menu** pauses. While the on-screen keyboard is open
-  (chat, console, a profile name), **A** sends Enter and **B** cancels. Halo's "Button 6" pickup
-  prompt is **RB** on an Xbox controller
-- **Leaving a match:** **⋯ › Open Leave Game Menu…** opens Halo's pause menu; choose **Leave Game** there
-- **Resolution:** Halo renders at 800 × 600 by default in its original 4:3 shape; Halo's **Settings ›
-  Video** offers sharper modes up to the screen's own size (on a 12.9-inch iPad Pro, 4:3 modes such as
-  1600 × 1200 and 2048 × 1536). Halo's 1280 × 720 mode gives a true widescreen view, or use **Fill**
-  to stretch 4:3
-- **Smoother recording:** the first time a map, weapon or effect appears, its graphics are prepared and
-  play can hitch for up to about a second. Later appearances are much faster, so play a warm-up
-  match on the same map before recording
+**Known issues:** the first time a map, weapon or effect appears, play can hitch for up to a second.
+Some Xbox textures look softer or different from the original. A few players have seen a controller
+stop responding after reconnecting it; if that happens, please share the diagnostic log. Changing
+Halo's resolution is tested on iPhone, not yet on iPad, so 800 × 600 is the safest choice there.
+Measurements and open checks are in [docs/STATUS.md](docs/STATUS.md).
 
 ## Build and install
 
 You need:
 
 - a Mac with Apple silicon and Xcode
-- your own Halo: Custom Edition 1.10 files
+- your own Halo: Custom Edition installer (`HaloCESetup.exe`) and its product key
 - an iPhone or iPad on iOS/iPadOS 17 or later, with Developer Mode on
-- an Apple development profile for HaloPad's bundle ID that allows **Extended Virtual Addressing** and
-  **Increased Memory Limit** (the runtime reserves Halo's full 32-bit address space)
+- an Apple development profile that allows **Extended Virtual Addressing** and **Increased Memory Limit**
 
-**Easiest: PadMint.** Download [PadMint](https://github.com/chrissotraidis/padmint#quick-start) (0.4.1 or
-later), choose **HaloPad**, then your `HaloCESetup.exe`, with a `product-key.txt` holding your Halo PC key
-in the same folder. PadMint lists the Homebrew tools to install, builds HaloPad and gives you the IPA
-plus a **HaloPad game data** folder with `Halo-CE.halopad.zip`. It builds the Custom Edition; add the
-Xbox edition by hand (below).
+Put `HaloCESetup.exe` and a `product-key.txt` holding your Halo PC key in one folder. Then either:
 
-**Or in Terminal:**
+- **PadMint (easiest):** download [PadMint](https://github.com/chrissotraidis/padmint#quick-start) 0.4.1
+  or later, choose **HaloPad**, then your installer. It lists the tools to install, builds HaloPad and
+  gives you the IPA plus a **HaloPad game data** folder.
+- **Terminal:** install the tools once, then run the builder:
 
-Install the tools once with `brew install sevenzip winetricks llvm lld && brew install --cask wine-stable`
-(the builder checks for them first). Then put your own `HaloCESetup.exe` and a `product-key.txt` with
-your Halo PC key in one folder and run:
+  ```sh
+  brew install sevenzip winetricks llvm lld && brew install --cask wine-stable
+  scripts/builder/build.sh /path/to/that/folder --ipa HaloPad.ipa
+  ```
 
-```sh
-scripts/builder/build.sh /path/to/that/folder --ipa HaloPad.ipa
-```
-
-It downloads Bungie's free 1.10 update (or uses `haloce-patch-1.0.10.exe` beside the installer), checks
-everything by hash, applies the update, translates Halo, builds the app and writes an unsigned IPA plus
-`HaloPad.ipa.data/Halo-CE.halopad.zip`. Install the IPA with your own signing (see
-[Installing on iPhone or iPad](docs/INSTALL-IPHONE.md)), open HaloPad and choose the game package.
-Halo needs the product ID its installer writes: the builder makes it from your key with the
-installer's own `PIDGen.dll` (`scripts/product-id.sh`) and puts it in your app only. A first build
-fetches its tools and sources and takes longer; later builds are quicker. PadMint runs this same
-builder ([padmint.json](padmint.json)). Either way, your game files, key, translated code and signing
-never leave your Mac.
+Both download Bungie's free 1.10 update, check every file by hash, translate Halo and make your product
+ID on your Mac, then write an unsigned IPA and `Halo-CE.halopad.zip`. Install the IPA with your own
+signing ([install guide](docs/INSTALL-IPHONE.md)), open HaloPad, tap **Choose Prepared Package…** and
+pick the zip. Your game files, key and translated code never leave your Mac.
 
 **An app you build contains code translated from your game: it is yours alone. Never share or upload it.**
 
+To update, install over the existing app. Deleting HaloPad deletes your profiles and imported files.
+
 ### Adding the Xbox edition
 
-The Xbox edition is optional. After the builder above has run once, build the engine and then the app
-with both editions, signed with your own identity and profile:
+The Xbox edition is a manual build on top of the one above. It needs Homebrew `llvm` and about 40 GB
+free, and ends with a signed `HaloPad.app` (never an IPA) that you install with
+`xcrun devicectl device install app`. Then choose your disc image in the app.
+
+<details>
+<summary><strong>Xbox edition build commands</strong></summary>
 
 ```sh
 # the pinned ANGLE renderer source (a small sparse checkout of WebKit), outside this repository
@@ -197,117 +127,127 @@ git -C "$angle_work/WebKit" sparse-checkout set --cone Source/ThirdParty/ANGLE
 git -C "$angle_work/WebKit" checkout --detach a1fb7ce122d0cd99f7d6cc82775f02565e266ece
 export XBOX_ANGLE_SOURCE="$angle_work/WebKit/Source/ThirdParty/ANGLE"
 
+# the Metal renderer and the camera and graphics fixes the tested iPad build uses
 export HALOPAD_XBOX_RENDERER=angle-metal HALOPAD_XBOX_GUEST_ADAPTATION=render-camera-v1
 scripts/xbox/build-ios.sh --device      # fetches and builds the pinned engine on your Mac
 .venv/bin/python scripts/build-ios-app.py --iphoneos --identity "Apple Development: …" \
     --profile your.mobileprovision --product-id generated/product-id/product-id.txt
 ```
 
-The two `HALOPAD_XBOX_*` settings select the Metal renderer and the camera and graphics fixes the
-tested iPad build uses. The engine build also needs Homebrew `llvm` and about 40 GB free.
-A build that includes the Xbox engine stops at a signed `HaloPad.app` and never creates an IPA; install
-it with `xcrun devicectl device install app`, then pick your disc image in the app.
-[Xbox engine](docs/XBOX-ENGINE.md) covers requirements, updates to newer upstream releases and the
+[Xbox engine](docs/XBOX-ENGINE.md) covers requirements, updating to newer upstream builds and the
 tested disc (NTSC-US, maps build `01.10.12.2276`).
 
-Install updates over the existing app. Deleting HaloPad deletes your profiles and imported files, so back
-up its `Documents` and `Library` first if you ever need to change signing.
+</details>
 
-## Known issues
+## Playing
 
-- **Loading and frame pacing.** First-time graphics preparation causes hitches. Halo's 30 FPS throttle
-  is no longer applied (Halo's Video menu may still show it); physical-device frame rates are being
-  re-measured, and iPhone play has been slower.
-- **Controller dropouts.** Some players have seen a controller stop responding after reconnecting it or
-  switching from touch; in one report it came back after starting a new game. If it happens, please
-  share the diagnostic log (below).
-- **Video mode changes on iPad.** Changing Halo's resolution in its Video settings is tested on iPhone,
-  not yet on iPad. The default 800 × 600 is the safest choice.
-- **Touch ergonomics.** Two-thumb feel is still being tuned on real phones.
-- **Online on physical phones.** Online games have been joined from a physical iPad; iPhone online play
-  has not had a full test.
-- **Xbox edition preview.** Some textures and effects still look softer or different from the original,
-  and play can stutter. Online, everyone needs the same upstream build (shown in **⋯ › About**). One
-  rare crash during a long Battle Creek camera test was seen once in the Simulator; crash reports now
-  identify the exact fault if it happens again.
+Create a Halo profile, then use the game's own **Multiplayer** menus to host or join.
 
-## Getting help
-
-- **Discord:** [discord.gg/xwHfUD2bxW](https://discord.gg/xwHfUD2bxW) for questions, testing and updates
-- **Bug reports:** use **⋯ › Report a Problem** or [open an issue](https://github.com/chrissotraidis/projectreach/issues/new/choose).
-  Include your device, iOS version, build, map, what you tapped and whether a controller was connected.
-  Please never attach game files, maps or app packages.
-- **Diagnostic log:** HaloPad keeps a small log of controller, display, stall and crash events in
-  **Files › On My iPad/iPhone › HaloPad › HaloPad Logs**, or share it from **⋯ › Help › Share Diagnostic
-  Log…**. It contains no typed text, names, chat or server addresses. Attach it to bug reports
+- **⋯ menu:** the same in both editions: touch settings, controller guide, display options,
+  **Report a Problem**, **Share Diagnostic Log** and **Switch Edition**. Custom Edition adds keyboard
+  and chat, join by address and custom maps; Xbox adds System Link
+- **Touch:** move and resize the overlay; tune look speed in **Controls › Look Speed & Touch Settings**
+- **Controllers:** connect before opening HaloPad for the most reliable result. In menus the D-pad
+  moves, **A** selects, **B** goes back and **Menu** pauses. Halo's "Button 6" pickup is **RB**
+- **Leaving a match:** **⋯ › Open Leave Game Menu…**, then **Leave Game**
+- **Resolution:** 800 × 600 (4:3) by default. Halo's **Settings › Video** goes up to the screen's own
+  size; 1280 × 720 is true widescreen, or use **Fill** to stretch 4:3
+- **Recording:** play a warm-up match on the same map first, so new effects don't hitch on camera
 
 ## Frequently asked questions
 
-### Can I download an IPA?
+<details>
+<summary><strong>Can I download an IPA?</strong></summary>
 
 No, and that is deliberate. A working HaloPad contains code translated from your copy of Halo, and the
-Xbox edition contains an engine built from a decompilation, so neither can be handed out as a download.
-Instead you build your own on a Mac, in a few clicks with [PadMint](https://github.com/chrissotraidis/padmint)
-or with one command.
+Xbox edition contains an engine built from a decompilation, so neither can be handed out. You build your
+own in a few clicks with [PadMint](https://github.com/chrissotraidis/padmint), or with one command.
 
-### Is this an emulator?
+</details>
 
-Not in the usual sense. Halo's x86 code is translated to ARM64 ahead of time and runs natively, with no
-JIT. HaloPad then provides the Windows, Direct3D 9, input, audio and network pieces the game calls into.
+<details>
+<summary><strong>Can I play online with people on PC?</strong></summary>
 
-### Can I play with people on PC?
+Yes. Custom Edition joins the community-run PC servers in Halo's own lobby. The Xbox edition plays with
+other halo-ce-universal players on PC, Linux and Android, up to 128 per match. The two editions cannot
+play each other.
 
-Yes. The Windows edition speaks Custom Edition's own network protocol and joins the community-run PC
-servers. The Xbox edition plays with other halo-ce-universal players on PC, Linux and Android, in
-matches of up to 128 players, when everyone has the same build. The two editions cannot play each other.
+</details>
 
-### Which version of Halo works?
+<details>
+<summary><strong>Why can't I join someone's Xbox game?</strong></summary>
 
-For the Windows edition, Halo: Custom Edition 1.10 only; the build checks your files against that exact
-version. For the Xbox edition, an original Xbox Halo: Combat Evolved disc image; the NTSC-US release is
-the tested one. The PC retail `halo.exe` and the Master Chief Collection are not supported.
+Everyone in a match needs the same upstream build. HaloPad shows yours on the Xbox card and in
+**⋯ › About** (for example *build 85*). When HaloPad moves to a newer build, rebuild to match. The game
+browser finds games through public relay servers, as upstream does; there is no HaloPad server.
 
-### Does it run on iPhone?
+</details>
 
-Yes. An iPhone 14 has imported the game and played a local match, including in widescreen. Loading
-and busy scenes are slow there for now.
+<details>
+<summary><strong>Which version of Halo works?</strong></summary>
 
-### Do controllers work?
+Halo: Custom Edition 1.10 for the PC edition (the builder starts from the original installer and
+applies the official update). An original Xbox Halo: Combat Evolved disc image for the Xbox edition;
+NTSC-US is the tested one. The retail PC `halo.exe` and the Master Chief Collection are not supported.
 
-Yes, iOS-supported controllers work. Connecting before HaloPad opens is the most tested path.
-**⋯ › Controller Guide** shows the mapping.
+</details>
 
-### Can I use mods and custom maps?
+<details>
+<summary><strong>Does it run on iPhone?</strong></summary>
 
-Custom `.map` files, yes: **⋯ › Add Custom Maps…**. Windows DLL mods such as Chimera, OpenSauce and
-HAC2 cannot load into a translated game.
+Yes. An iPhone 14 has imported the game and played local matches, including in widescreen. Loading and
+busy scenes are slower than on iPad for now.
 
-### Will updates keep my profile?
+</details>
 
-In-place updates have preserved app data in testing. Install over the existing app and never delete it
-to update.
+<details>
+<summary><strong>Do I need a paid Apple developer account?</strong></summary>
+
+HaloPad needs the **Extended Virtual Addressing** and **Increased Memory Limit** capabilities, because it
+reserves Halo's full 32-bit address space. Sign with an Apple development profile that allows both. Free
+signing through AltStore, SideStore or Sideloadly has not been tested.
+
+</details>
+
+<details>
+<summary><strong>Is this an emulator?</strong></summary>
+
+Not in the usual sense. Custom Edition's x86 code is translated to ARM64 ahead of time and runs
+natively, with no JIT; HaloPad provides the Windows, Direct3D 9, input, audio and network pieces it
+calls into. The Xbox edition is a native port of the decompiled game.
+
+</details>
+
+<details>
+<summary><strong>Can I use mods and custom maps?</strong></summary>
+
+Custom `.map` files, yes: **⋯ › Add Custom Maps…**. Windows DLL mods such as Chimera, OpenSauce and HAC2
+cannot load into a translated game.
+
+</details>
+
+<details>
+<summary><strong>Will updates keep my profile and saves?</strong></summary>
+
+Yes, when you install over the existing app with the same signing. Never delete HaloPad to update.
+
+</details>
+
+## Help and community
+
+- **Discord:** [discord.gg/xwHfUD2bxW](https://discord.gg/xwHfUD2bxW) for setup help, testing and news,
+  shared with HaloPad's sibling projects such as KartPad, BlueWake and MeleePad
+- **Bugs:** **⋯ › Report a Problem** or [open an issue](https://github.com/chrissotraidis/projectreach/issues/new/choose)
+  with your device, iOS version, build and what you did. Never attach game files, maps or app packages
+- **Diagnostic log:** **⋯ › Help › Share Diagnostic Log…**, or **Files › HaloPad › HaloPad Logs**. It
+  records controller, display, stall and crash events, never typed text, names, chat or server addresses
 
 ## Documentation
 
-- [Install guide](docs/INSTALL-IPHONE.md): signing, packaging and device setup
-- [Xbox engine](docs/XBOX-ENGINE.md): the optional Xbox edition, its build, updates and boundaries
-- [Status](docs/STATUS.md) and [journal](docs/JOURNAL.md): tested builds and observations
-- [Device-readiness loop](docs/HaloPad-GOAL-LOOP-PHASE3.md): the iPhone and iPad acceptance plan
-- [Execution model](docs/EXECUTION-MODEL.md): translation coverage and guest dispatch
-- [Graphics contract](docs/GRAPHICS-CONTRACT.md) and [D3D9 inventory](docs/D3D9-INVENTORY.md): Direct3D 9 on Metal
-- [Runtime and networking](docs/G3-RUNTIME.md): Windows services and public-server results
-- [Rights status](docs/RIGHTS-STATUS.md): inputs, generated code and publication boundaries
-
-## Community and support
-
-[Join the Discord](https://discord.gg/xwHfUD2bxW) for help and news. It is one
-community for HaloPad and its sibling projects, such as KartPad, BlueWake and
-MeleePad: ask about setup and installing, share how it runs on your device, and
-hear about new releases first.
-
-Found a bug? [Open an
-issue](https://github.com/chrissotraidis/projectreach/issues) with your device,
-its OS version, and the steps that led to it.
+[Install guide](docs/INSTALL-IPHONE.md) · [Xbox engine](docs/XBOX-ENGINE.md) ·
+[Status](docs/STATUS.md) · [Journal](docs/JOURNAL.md) · [Execution model](docs/EXECUTION-MODEL.md) ·
+[Graphics contract](docs/GRAPHICS-CONTRACT.md) · [D3D9 inventory](docs/D3D9-INVENTORY.md) ·
+[Runtime and networking](docs/G3-RUNTIME.md) · [Rights status](docs/RIGHTS-STATUS.md)
 
 ## Credits
 
@@ -331,4 +271,6 @@ upstream work or Halo content.
 HaloPad is an independent fan project. It is not affiliated with or endorsed by Microsoft, Xbox or
 Halo Studios. Halo and Halo: Custom Edition are trademarks of their respective owners. HaloPad grants
 no rights to Halo content: you need your own legitimate copy and are responsible for the laws that apply
-to it. No project-wide license has been chosen yet; see [rights status](docs/RIGHTS-STATUS.md).
+to it. Upstream notes that parts of the Xbox decompilation were reconstructed with help from leaked
+Bungie material, which is why the Xbox edition is only ever a personal build. No project-wide license
+has been chosen yet; see [rights status](docs/RIGHTS-STATUS.md).
