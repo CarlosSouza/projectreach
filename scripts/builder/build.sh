@@ -45,10 +45,10 @@ sha() { shasum -a 256 "$1" | cut -d' ' -f1; }
 
 step "checking tools"
 for tool in xcodebuild 7zz; do command -v "$tool" >/dev/null || { echo "missing $tool (Xcode; brew install sevenzip)" >&2; exit 2; }; done
-if [ ! -x "$PY" ]; then                               # a fresh checkout (PadMint's worktree)
+if ! "$PY" -c 'import pefile, capstone, SCons' 2>/dev/null; then   # a fresh checkout (PadMint's)
 	step "setting up HaloPad's Python tools (.venv)"
-	python3 -m venv .venv
-	$PY -m pip install -q -r scripts/requirements-tools.txt
+	[ -x "$PY" ] || python3 -m venv .venv
+	$PY -m pip install -q -r scripts/requirements-builder.txt
 fi
 
 step "finding your installer and the 1.10 update by hash"
