@@ -38,6 +38,7 @@ typedef NS_ENUM(NSInteger, HPAspectMode) { HPAspectOriginal = 0, HPAspectFill = 
 @property(nonatomic) CGFloat controlOpacity;        /* 0.25..1 */
 @property(nonatomic) CGFloat controlSize;           /* 0.70..1.35 */
 @property(nonatomic) CGFloat lookSensitivity;       /* 0.25..6 */
+@property(nonatomic) CGFloat mouseSpeed;            /* 0.25..4: a Mac mouse's aim, both editions */
 @property(nonatomic) BOOL hideWithController;
 @property(nonatomic) BOOL hideTouchControls;
 @property(nonatomic) BOOL showFPS;

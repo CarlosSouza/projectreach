@@ -6,6 +6,9 @@
 #
 # --mac makes HaloPad.app for Apple silicon Macs instead (the same app, zipped; it runs
 # as built, with no Apple account), with its own game package in <zip>.data/.
+# --xbox adds the Xbox edition: your Mac fetches the pinned halo-ce-universal engine and
+# ANGLE renderer from their own repositories and builds them into the same app (none of
+# it is part of HaloPad). You add your Xbox disc image in the app.
 #
 # The folder (or the installer's own folder) holds your Halo Custom Edition installer
 # (HaloCESetup.exe) and product-key.txt; the official 1.10 update (haloce-patch-1.0.10.exe)
@@ -25,12 +28,13 @@ ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 cd "$ROOT"
 PY=.venv/bin/python
 export HALOPAD_BUILDER=1                              # steps leave tracked repository files unchanged
-INPUT=""; OUT="$ROOT/generated/builder"; IPA=""; KEY_FILE=""; MAC=0
+INPUT=""; OUT="$ROOT/generated/builder"; IPA=""; KEY_FILE=""; MAC=0; XBOX=0
 while [ $# -gt 0 ]; do
 	case "$1" in
 	--out) OUT=$2; shift ;;
 	--ipa|--zip) IPA=$2; shift ;;                     # the output: an IPA, or the Mac app's zip
 	--mac) MAC=1 ;;
+	--xbox) XBOX=1 ;;
 	--product-key-file) KEY_FILE=$2; shift ;;
 	--jobs) shift ;;                                  # accepted for PadMint; the steps size themselves
 	-*) echo "unknown option $1" >&2; exit 2 ;;
@@ -52,6 +56,11 @@ step "checking tools"
 for tool in xcodebuild 7zz wine winetricks lld-link /opt/homebrew/opt/llvm/bin/clang; do
 	command -v "$tool" >/dev/null || { echo "missing $tool: install Xcode, then brew install sevenzip winetricks llvm lld && brew install --cask wine-stable" >&2; exit 2; }
 done
+if [ $XBOX = 1 ]; then
+	for tool in cmake ninja ld.lld git curl; do
+		command -v "$tool" >/dev/null || { echo "missing $tool for the Xbox edition: brew install cmake ninja lld" >&2; exit 2; }
+	done
+fi
 if ! "$PY" -c 'import pefile, capstone, SCons' 2>/dev/null; then   # a fresh checkout (PadMint's)
 	step "setting up HaloPad's Python tools (.venv)"
 	[ -x "$PY" ] || python3 -m venv .venv
@@ -123,10 +132,18 @@ else
 	echo "warning: no product key given; Halo will stop with 'Your product key is invalid' until you add one" >&2
 fi
 
+if [ $XBOX = 1 ]; then
+	step "fetching and building the Xbox engine (halo-ce-universal) for this app"
+	export HALOPAD_XBOX_RENDERER=angle-metal HALOPAD_XBOX_GUEST_ADAPTATION=render-camera-v1   # the tested iPad build
+	if [ $MAC = 1 ]; then scripts/xbox/build-ios.sh --mac; else scripts/xbox/build-ios.sh --device; fi
+	XBOX_SETTING=on
+else
+	XBOX_SETTING=off                                  # the Windows edition alone
+fi
 if [ $MAC = 1 ]; then step "building HaloPad for your Mac"; TARGET=(--mac); else step "building HaloPad for iPhone and iPad"; TARGET=(--iphoneos); fi
 APP_LOG="$OUT/build-app.log"
-# the Windows edition; the optional Xbox edition is a separate local engine build (README)
-HALOPAD_XBOX=off $PY scripts/build-ios-app.py "${TARGET[@]}" --work "$WORK" ${PRODUCT_ID[@]+"${PRODUCT_ID[@]}"} | tee "$APP_LOG"
+HALOPAD_XBOX=$XBOX_SETTING $PY scripts/build-ios-app.py "${TARGET[@]}" --work "$WORK" ${PRODUCT_ID[@]+"${PRODUCT_ID[@]}"} | tee "$APP_LOG"
+[ $XBOX = 0 ] || hdiutil detach "$ROOT/ref/xbox-build/vol" -quiet 2>/dev/null || true   # the engine's volume (after its release tag is read)
 APP=$(sed -n 's/^built //p' "$APP_LOG" | tail -n 1)
 [ -d "$APP" ] || { echo "app build failed" >&2; exit 5; }
 

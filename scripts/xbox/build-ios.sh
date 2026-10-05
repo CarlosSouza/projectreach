@@ -53,8 +53,20 @@ esac
 case "$RENDERER" in
 apple-gles) ;;
 angle-metal)
-    [ -n "${XBOX_ANGLE_SOURCE:-}" ] || { echo "XBOX_ANGLE_SOURCE is required for ANGLE" >&2; exit 2; }
     ANGLE_REV=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['revision'])" "$ROOT/config/xbox-angle.lock.json")
+    if [ -z "${XBOX_ANGLE_SOURCE:-}" ]; then
+        # the pinned ANGLE from WebKit (a sparse checkout, fetched once into the ignored generated/)
+        ANGLE_WEBKIT="$ROOT/generated/xbox-angle/WebKit"
+        if [ "$(git -C "$ANGLE_WEBKIT" rev-parse HEAD 2>/dev/null)" != "$ANGLE_REV" ]; then
+            echo "fetching the pinned ANGLE renderer source from WebKit" >&2
+            mkdir -p "$ROOT/generated/xbox-angle"
+            [ -d "$ANGLE_WEBKIT/.git" ] || git clone -q --filter=blob:none --depth=1 --no-checkout https://github.com/WebKit/WebKit.git "$ANGLE_WEBKIT"
+            git -C "$ANGLE_WEBKIT" fetch -q --depth=1 origin "$ANGLE_REV"
+            git -C "$ANGLE_WEBKIT" sparse-checkout set --cone Source/ThirdParty/ANGLE
+            git -C "$ANGLE_WEBKIT" checkout -q --detach "$ANGLE_REV"
+        fi
+        XBOX_ANGLE_SOURCE="$ANGLE_WEBKIT/Source/ThirdParty/ANGLE"
+    fi
     [ "$(git -C "$XBOX_ANGLE_SOURCE" rev-parse HEAD)" = "$ANGLE_REV" ] || { echo "ANGLE source differs from the renderer pin" >&2; exit 2; }
     [ -z "$(git -C "$XBOX_ANGLE_SOURCE" status --porcelain --untracked-files=no)" ] || { echo "Preserve ANGLE source edits before building" >&2; exit 2; }
     ;;
