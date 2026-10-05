@@ -21,7 +21,7 @@
             @"HaloPad.controlOpacity": @0.8, @"HaloPad.controlSize": @1.0, @"HaloPad.lookSensitivity": @1.5,
             @"HaloPad.hideWithController": @YES, @"HaloPad.hideTouchControls": @NO, @"HaloPad.showFPS": @NO,
             @"HaloPad.aspect": @0, @"HaloPad.recentServers": @[], @"HaloPad.leftHanded": @NO, @"HaloPad.showCaptions": @YES,
-            @"HaloPad.ringSpacing": @1}];
+            @"HaloPad.ringSpacing": @1, @"HaloPad.mouseSpeed": @1.0}];
     });
     return s;
 }
@@ -31,6 +31,7 @@
 HP_SETTING(CGFloat, controlOpacity, setControlOpacity, @"HaloPad.controlOpacity", @(fmin(1, fmax(0.25, v))), doubleValue)
 HP_SETTING(CGFloat, controlSize, setControlSize, @"HaloPad.controlSize", @(fmin(1.35, fmax(0.7, v))), doubleValue)
 HP_SETTING(CGFloat, lookSensitivity, setLookSensitivity, @"HaloPad.lookSensitivity", @(fmin(6, fmax(0.25, v))), doubleValue)
+HP_SETTING(CGFloat, mouseSpeed, setMouseSpeed, @"HaloPad.mouseSpeed", @(fmin(4, fmax(0.25, v))), doubleValue)
 HP_SETTING(BOOL, hideWithController, setHideWithController, @"HaloPad.hideWithController", @(v), boolValue)
 HP_SETTING(BOOL, hideTouchControls, setHideTouchControls, @"HaloPad.hideTouchControls", @(v), boolValue)
 HP_SETTING(BOOL, showFPS, setShowFPS, @"HaloPad.showFPS", @(v), boolValue)
@@ -1002,6 +1003,18 @@ static NSString * const HPRepositoryURL = @"https://github.com/chrissotraidis/pr
         [play addObject:leave];
     }
 
+#if TARGET_OS_MACCATALYST
+    /* a Mac has no touch controls: the mouse's speed (both editions) and the controller guide */
+    NSMutableArray<UIMenuElement *> *speeds = [NSMutableArray array];
+    for (NSNumber *speed in @[@0.5, @0.75, @1.0, @1.5, @2.0, @3.0]) {
+        NSString *title = [NSString stringWithFormat:@"%g×%@", speed.doubleValue, speed.doubleValue == 1.0 ? @" (default)" : @""];
+        [speeds addObject:[self check:title on:fabs(s.mouseSpeed - speed.doubleValue) < 0.01 handler:^{
+            HPSettings.shared.mouseSpeed = speed.doubleValue; [weak rebuildMenu]; }]];
+    }
+    UIMenu *controls = [UIMenu menuWithTitle:@"Controls" image:icon(@"gamecontroller") identifier:nil options:0 children:@[
+        [UIMenu menuWithTitle:@"Mouse Speed" image:icon(@"computermouse") identifier:nil options:0 children:speeds],
+        [UIAction actionWithTitle:@"Controller Guide" image:icon(@"gamecontroller.fill") identifier:nil handler:^(__kindof UIAction *a) { [weak showControllerLayout]; }]]];
+#else
     UIMenu *controls = [UIMenu menuWithTitle:@"Controls" image:icon(@"gamecontroller") identifier:nil options:0 children:@[
         [UIAction actionWithTitle:@"Look Speed & Touch Settings…" image:icon(@"slider.horizontal.3") identifier:nil handler:^(__kindof UIAction *a) { [weak togglePanel]; }],
         [UIAction actionWithTitle:@"Edit Touch Layout" image:icon(@"hand.draw") identifier:nil handler:^(__kindof UIAction *a) { [weak beginEditing]; }],
@@ -1010,6 +1023,7 @@ static NSString * const HPRepositoryURL = @"https://github.com/chrissotraidis/pr
         [self check:@"Hide Touch Controls with a Controller" on:s.hideWithController handler:^{
             HPSettings.shared.hideWithController = !HPSettings.shared.hideWithController; [weak refreshControllerVisibility]; [weak rebuildMenu]; }],
         [UIAction actionWithTitle:@"Controller Guide" image:icon(@"gamecontroller.fill") identifier:nil handler:^(__kindof UIAction *a) { [weak showControllerLayout]; }]]];
+#endif
 
     UIMenu *chat = !pc ? nil : [UIMenu menuWithTitle:@"Keyboard & Chat" image:icon(@"keyboard") identifier:nil options:0 children:@[
         [UIAction actionWithTitle:@"All Chat" image:icon(@"bubble.left.and.bubble.right") identifier:nil

@@ -64,7 +64,11 @@ STATE = ROOT / 'generated' / 'halopad-disk-ios'
 XBOX_OUT = ROOT / 'ref' / 'xbox-build' / 'out'
 
 def xbox_release_tag(revision):
-    """Upstream's release tag (build-85) for the picker and About; None when untagged or unavailable."""
+    """Upstream's release tag (build-85) for the picker and About; None when untagged or unavailable.
+    Upstream deletes old release tags, so the pin records the name it had (config/xbox-engine.lock.json)."""
+    lock = json.loads((ROOT / 'config' / 'xbox-engine.lock.json').read_text())
+    if lock.get('revision') == revision and str(lock.get('release', '')).startswith('build-'):
+        return lock['release']
     try:
         tags = subprocess.run(['git', '-C', str(ROOT / 'ref/xbox-build/vol/engine'), 'tag', '--points-at', revision],
                               capture_output=True, text=True, timeout=10).stdout.split()
@@ -259,7 +263,8 @@ def package(exe, out, work, target=TARGET, identity=None, provisioning=None, pro
     subprocess.run(['codesign', '--force', '--sign', identity or '-', '--entitlements', str(ent), '--timestamp=none', str(app)],
                    check=True, capture_output=True)
     if xbox_parts(target):
-        print('personal Xbox build: signed app only; no IPA created')
+        # the builder (scripts/builder/build.sh) packages its own IPA from this app
+        print('personal Xbox build: signed app' + ('' if os.environ.get('HALOPAD_BUILDER') else ' only; no IPA created'))
         return app
     ipa = out / 'HaloPad.ipa'
     payload = out / 'Payload'

@@ -39,7 +39,8 @@ static void xbox_attach_mouse(GCMouse *mouse)
 {
 	GCMouseInput *m = mouse.mouseInput;
 	m.mouseMovedHandler = ^(GCMouseInput *input, float dx, float dy) {
-		if (xbox_pointer_locked()) xg_ios_add_touch_look(dx, -dy);       /* Game Controller's y points up */
+		double speed = HPSettings.shared.mouseSpeed;                    /* ⋯ › Controls › Mouse Speed */
+		if (xbox_pointer_locked()) xg_ios_add_touch_look(dx * speed, -dy * speed);  /* Game Controller's y points up */
 	};
 	m.leftButton.pressedChangedHandler = ^(GCControllerButtonInput *b, float v, BOOL p) { if (xbox_pointer_locked()) xg_ios_mouse_button(1, p); };
 	m.middleButton.pressedChangedHandler = ^(GCControllerButtonInput *b, float v, BOOL p) { if (xbox_pointer_locked()) xg_ios_mouse_button(2, p); };

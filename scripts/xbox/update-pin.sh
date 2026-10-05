@@ -136,11 +136,17 @@ if [ $RESULT -eq 0 ] && [ -n "$SIMULATOR" ]; then
 	fi
 fi
 if [ $RESULT -eq 0 ] && [ $ACCEPT -eq 1 ]; then
-	python3 - "$LOCK" "$TARGET" <<'EOF'
+	# upstream later deletes old release tags: keep this one's name with the pin
+	RELEASE=$(git -C "$ENGINE" tag --points-at "$TARGET" 2>/dev/null | grep '^build-' | head -n 1 || true)
+	python3 - "$LOCK" "$TARGET" "$RELEASE" <<'EOF'
 import datetime, json, sys
-path, revision = sys.argv[1], sys.argv[2]
+path, revision, release = sys.argv[1], sys.argv[2], sys.argv[3]
 lock = json.load(open(path))
 lock["revision"] = revision
+if release:
+    lock["release"] = release
+else:
+    lock.pop("release", None)
 lock["pinned"] = datetime.date.today().isoformat()
 open(path, "w").write(json.dumps(lock, indent=2) + "\n")
 EOF

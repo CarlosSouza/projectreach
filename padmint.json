@@ -18,17 +18,17 @@
       "hosts": {"macos-arm64": "experimental"},
       "output": "ipa",
       "check": "ipa",
-      "command": ["{repo}/scripts/builder/build.sh", "{disc}", "--out", "{work}", "--ipa", "{output}", "--jobs", "{jobs}"]
+      "command": ["{repo}/scripts/builder/build.sh", "{disc}", "--xbox", "--out", "{work}", "--ipa", "{output}", "--jobs", "{jobs}"]
     },
     "macos": {
       "hosts": {"macos-arm64": "experimental"},
       "output": "zip",
       "check": "none",
-      "command": ["{repo}/scripts/builder/build.sh", "{disc}", "--mac", "--out", "{work}", "--zip", "{output}", "--jobs", "{jobs}"]
+      "command": ["{repo}/scripts/builder/build.sh", "{disc}", "--mac", "--xbox", "--out", "{work}", "--zip", "{output}", "--jobs", "{jobs}"]
     }
   },
   "requirements": {
-    "disk_gb": 25,
+    "disk_gb": 35,
     "tools": [
       {"name": "python3", "version_args": ["--version"]},
       {"name": "xcodebuild", "version_args": ["-version"]},
@@ -37,6 +37,9 @@
       {"name": "winetricks", "version_args": ["--version"], "player": true, "note": "brew install winetricks (your product ID)"},
       {"name": "/opt/homebrew/opt/llvm/bin/clang", "version_args": ["--version"], "player": true, "note": "brew install llvm (your product ID)"},
       {"name": "lld-link", "version_args": ["--version"], "player": true, "note": "brew install lld (your product ID)"}
+      ,
+      {"name": "cmake", "version_args": ["--version"], "player": true, "note": "brew install cmake (the Xbox edition)"},
+      {"name": "ninja", "version_args": ["--version"], "player": true, "note": "brew install ninja (the Xbox edition)"}
     ]
   },
   "publication": {

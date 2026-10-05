@@ -59,7 +59,8 @@ static void hp_mac_attach_mouse(GCMouse *mouse)
     m.mouseMovedHandler = ^(GCMouseInput *input, float dx, float dy) {
         if (!hp_mac_pointer_locked()) return;
         static float rx, ry;                              /* fractions kept */
-        rx += dx; ry -= dy;                               /* Game Controller's y points up */
+        double speed = HPSettings.shared.mouseSpeed;      /* ⋯ › Controls › Mouse Speed */
+        rx += dx * speed; ry -= dy * speed;               /* Game Controller's y points up */
         hp_input in = {.kind = HPI_MOUSEMOVE, .dx = (int32_t)rx, .dy = (int32_t)ry};
         rx -= in.dx; ry -= in.dy;
         if (in.dx || in.dy) halopad_host_post_input(&in);
