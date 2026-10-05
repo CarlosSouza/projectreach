@@ -2,6 +2,10 @@
 # HaloPad's one-command personal build (PadMint's entry point; padmint.json).
 #
 #   scripts/builder/build.sh <folder or HaloCESetup.exe> --ipa HaloPad.ipa [--out DIR] [--product-key-file FILE]
+#   scripts/builder/build.sh <folder or HaloCESetup.exe> --mac --zip HaloPad-mac.zip [...]
+#
+# --mac makes HaloPad.app for Apple silicon Macs instead (the same app, zipped; it runs
+# as built, with no Apple account), with its own game package in <zip>.data/.
 #
 # The folder (or the installer's own folder) holds your Halo Custom Edition installer
 # (HaloCESetup.exe) and product-key.txt; the official 1.10 update (haloce-patch-1.0.10.exe)
@@ -21,11 +25,12 @@ ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 cd "$ROOT"
 PY=.venv/bin/python
 export HALOPAD_BUILDER=1                              # steps leave tracked repository files unchanged
-INPUT=""; OUT="$ROOT/generated/builder"; IPA=""; KEY_FILE=""
+INPUT=""; OUT="$ROOT/generated/builder"; IPA=""; KEY_FILE=""; MAC=0
 while [ $# -gt 0 ]; do
 	case "$1" in
 	--out) OUT=$2; shift ;;
-	--ipa) IPA=$2; shift ;;
+	--ipa|--zip) IPA=$2; shift ;;                     # the output: an IPA, or the Mac app's zip
+	--mac) MAC=1 ;;
 	--product-key-file) KEY_FILE=$2; shift ;;
 	--jobs) shift ;;                                  # accepted for PadMint; the steps size themselves
 	-*) echo "unknown option $1" >&2; exit 2 ;;
@@ -35,7 +40,7 @@ while [ $# -gt 0 ]; do
 done
 [ -f "$INPUT" ] && INPUT=$(dirname "$INPUT")          # PadMint passes the installer itself
 [ -d "$INPUT" ] || { echo "usage: scripts/builder/build.sh <HaloCESetup.exe, beside haloce-patch-1.0.10.exe> --ipa FILE" >&2; exit 2; }
-[ -n "$IPA" ] || IPA="$OUT/HaloPad.ipa"
+[ -n "$IPA" ] || { [ $MAC = 1 ] && IPA="$OUT/HaloPad-mac.zip" || IPA="$OUT/HaloPad.ipa"; }
 mkdir -p "$OUT"
 mkdir -p "$(dirname "$IPA")"
 IPA="$(cd "$(dirname "$IPA")" && pwd)/$(basename "$IPA")"
@@ -118,23 +123,28 @@ else
 	echo "warning: no product key given; Halo will stop with 'Your product key is invalid' until you add one" >&2
 fi
 
-step "building HaloPad for iPhone and iPad"
+if [ $MAC = 1 ]; then step "building HaloPad for your Mac"; TARGET=(--mac); else step "building HaloPad for iPhone and iPad"; TARGET=(--iphoneos); fi
 APP_LOG="$OUT/build-app.log"
 # the Windows edition; the optional Xbox edition is a separate local engine build (README)
-HALOPAD_XBOX=off $PY scripts/build-ios-app.py --iphoneos --work "$WORK" ${PRODUCT_ID[@]+"${PRODUCT_ID[@]}"} | tee "$APP_LOG"
+HALOPAD_XBOX=off $PY scripts/build-ios-app.py "${TARGET[@]}" --work "$WORK" ${PRODUCT_ID[@]+"${PRODUCT_ID[@]}"} | tee "$APP_LOG"
 APP=$(sed -n 's/^built //p' "$APP_LOG" | tail -n 1)
 [ -d "$APP" ] || { echo "app build failed" >&2; exit 5; }
 
-step "packaging your game files and the IPA"
+step "packaging your game files and the app"
 PACKAGE="$IPA.data/Halo-CE.halopad.zip"               # PadMint copies <IPA>.data/ out to the player
 rm -f "$PACKAGE" "$IPA"                               # this builder's own earlier outputs
 mkdir -p "$IPA.data"
-$PY scripts/prepare-game-data.py --app-data "$APP/data" --game ref/inputs/custom-original --output "$PACKAGE"
-STAGE=$(mktemp -d "$OUT/ipa.XXXXXX")
-trap 'rm -rf "$STAGE"' EXIT
-mkdir "$STAGE/Payload"
-cp -R "$APP" "$STAGE/Payload/"
-(cd "$STAGE" && zip -qry "$IPA" Payload)
+if [ $MAC = 1 ]; then
+	$PY scripts/prepare-game-data.py --app-data "$APP/Contents/Resources/data" --game ref/inputs/custom-original --output "$PACKAGE"
+	ditto -c -k --keepParent "$APP" "$IPA"
+else
+	$PY scripts/prepare-game-data.py --app-data "$APP/data" --game ref/inputs/custom-original --output "$PACKAGE"
+	STAGE=$(mktemp -d "$OUT/ipa.XXXXXX")
+	trap 'rm -rf "$STAGE"' EXIT
+	mkdir "$STAGE/Payload"
+	cp -R "$APP" "$STAGE/Payload/"
+	(cd "$STAGE" && zip -qry "$IPA" Payload)
+fi
 # keep this build's finished translation (adding the Xbox edition reuses it) and drop its
 # intermediate runs and the previous builder's translation (gigabytes each); other runs stay
 NEW_RUNS=$(comm -13 <(printf '%s\n' "$RUNS_BEFORE") <(runs))
@@ -142,4 +152,8 @@ for run in $RUNS_BEFORE; do [ ! -f "$run/.builder" ] || rm -rf "$run"; done
 for run in $NEW_RUNS; do
 	if ls "$run"/*.ll >/dev/null 2>&1; then touch "$run/.builder"; else rm -rf "$run"; fi
 done
-printf '\nDone.\n  App (unsigned): %s\n  Game package:   %s\nInstall the IPA with your own signing, open HaloPad and choose the game package.\nBoth are yours alone: never share them.\n' "$IPA" "$PACKAGE"
+if [ $MAC = 1 ]; then
+	printf '\nDone.\n  App:          %s\n  Game package: %s\nUnzip HaloPad, open it and choose the game package.\nBoth are yours alone: never share them.\n' "$IPA" "$PACKAGE"
+else
+	printf '\nDone.\n  App (unsigned): %s\n  Game package:   %s\nInstall the IPA with your own signing, open HaloPad and choose the game package.\nBoth are yours alone: never share them.\n' "$IPA" "$PACKAGE"
+fi

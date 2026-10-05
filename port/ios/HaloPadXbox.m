@@ -89,7 +89,7 @@ static BOOL xbox_has_maps(void)
 
 static NSDictionary *xbox_build(void)
 {
-	NSData *data = [NSData dataWithContentsOfFile:[NSBundle.mainBundle.bundlePath stringByAppendingPathComponent:@"data/xbox/build.json"]];
+	NSData *data = [NSData dataWithContentsOfFile:[NSBundle.mainBundle.resourcePath stringByAppendingPathComponent:@"data/xbox/build.json"]];
 	return data ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : @{};
 }
 
@@ -233,7 +233,7 @@ static BOOL xbox_backup_saves(NSError **error)
 
 - (void)startGame
 {
-	NSString *image = [NSBundle.mainBundle.bundlePath stringByAppendingPathComponent:@"data/xbox/halo_guest.elf"];
+	NSString *image = [NSBundle.mainBundle.resourcePath stringByAppendingPathComponent:@"data/xbox/halo_guest.elf"];
 	NSError *error = nil;
 	if (!xbox_backup_saves(&error))
 	{

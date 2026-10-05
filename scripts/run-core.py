@@ -64,7 +64,10 @@ def build(work, target, main_src, extra=()):
     exe = out / ('halopad-core' if main_src.name == 'halopad_core_main.c' else main_src.stem)
     ios = 'ios' in target
     sdk = sdk_path(target)
-    cmd = ['clang', '-target', target, *(['-isysroot', sdk] if sdk else []), '-O2', '-fno-fast-math', '-ffp-contract=off', '-w', '-DPTROFS_64BIT=1', '-std=c2x',
+    # Mac Catalyst: UIKit and its iOS frameworks live in the macOS SDK's iOSSupport tree
+    catalyst = ['-iframework', f'{sdk}/System/iOSSupport/System/Library/Frameworks', '-isystem', f'{sdk}/System/iOSSupport/usr/include',
+                '-L', f'{sdk}/System/iOSSupport/usr/lib'] if 'macabi' in target else []
+    cmd = ['clang', '-target', target, *(['-isysroot', sdk] if sdk else []), *catalyst, '-O2', '-fno-fast-math', '-ffp-contract=off', '-w', '-DPTROFS_64BIT=1', '-std=c2x',
            '-Wno-override-module', '-I', str(SUPPORT), '-I', str(ROOT / 'generated' / 'runtime'), *xiph.include_flags(),
            str(main_src), *map(str, extra), *map(str, sorted((ROOT / 'port/runtime').glob('*.c'))),
            *map(str, sorted(SUPPORT.glob('llasm_*.c'))), str(va / 'dispatch.ll'), *map(str, runtime_ll),

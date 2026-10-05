@@ -44,11 +44,19 @@ spec.loader.exec_module(xbox_runtime_manifest)
 
 TARGET = 'arm64-apple-ios17.0-simulator'
 DEVICE_TARGET = 'arm64-apple-ios17.0'
+MAC_TARGET = 'arm64-apple-ios17.0-macabi'           # the same UIKit app on Apple silicon Macs (Mac Catalyst)
 ENTITLEMENTS = {
     # one 4 GiB PROT_NONE reservation for Halo's 32-bit address space
     'com.apple.developer.kernel.extended-virtual-addressing': True,
     # Halo's maps and tag memory; the default memory limit is tight on older phones
     'com.apple.developer.kernel.increased-memory-limit': True,
+}
+# a Mac app needs no Apple account: ad-hoc signed and sandboxed, so its files stay in its own container
+MAC_ENTITLEMENTS = {
+    'com.apple.security.app-sandbox': True,
+    'com.apple.security.network.client': True,
+    'com.apple.security.network.server': True,
+    'com.apple.security.files.user-selected.read-write': True,
 }
 BUNDLE_ID = 'dev.halopad.HaloPad'
 STATE = ROOT / 'generated' / 'halopad-disk-ios'
@@ -127,11 +135,14 @@ def xbox_parts(target):
 
 def compile_icon(app, out, target):
     partial = out / 'icon-info.plist'
+    if 'macabi' in target:
+        platform = ['--platform', 'macosx', '--minimum-deployment-target', '14.0', '--target-device', 'mac',
+                    '--ui-framework-family', 'uikit']
+    else:
+        platform = ['--platform', 'iphonesimulator' if 'simulator' in target else 'iphoneos',
+                    '--minimum-deployment-target', '17.0', '--target-device', 'iphone', '--target-device', 'ipad']
     subprocess.run([
-        'xcrun', 'actool', '--compile', str(app),
-        '--platform', 'iphonesimulator' if 'simulator' in target else 'iphoneos',
-        '--minimum-deployment-target', '17.0',
-        '--target-device', 'iphone', '--target-device', 'ipad',
+        'xcrun', 'actool', '--compile', str(app), *platform,
         '--app-icon', 'AppIcon', '--output-partial-info-plist', str(partial),
         str(ROOT / 'assets' / 'Assets.xcassets'),
     ], check=True, capture_output=True)
@@ -162,11 +173,16 @@ def package(exe, out, work, target=TARGET, identity=None, provisioning=None, pro
     if app.exists():
         shutil.rmtree(app)
     app.mkdir(parents=True)
-    shutil.copy2(exe, app / 'HaloPad')
+    mac = 'macabi' in target
+    res = app / 'Contents' / 'Resources' if mac else app         # a Mac bundle: Contents/MacOS, Contents/Resources
+    res.mkdir(parents=True, exist_ok=True)
+    if mac:
+        (app / 'Contents' / 'MacOS').mkdir()
+    shutil.copy2(exe, app / 'Contents' / 'MacOS' / 'HaloPad' if mac else app / 'HaloPad')
     info = {
         'CFBundleIdentifier': BUNDLE_ID, 'CFBundleExecutable': 'HaloPad', 'CFBundleName': 'HaloPad',
         'CFBundleDisplayName': 'HaloPad', 'CFBundlePackageType': 'APPL', 'CFBundleVersion': '1',
-        'CFBundleShortVersionString': '0.2', 'CFBundleSupportedPlatforms': ['iPhoneSimulator' if 'simulator' in target else 'iPhoneOS'],
+        'CFBundleShortVersionString': '0.3', 'CFBundleSupportedPlatforms': ['iPhoneSimulator' if 'simulator' in target else 'iPhoneOS'],
         'MinimumOSVersion': '17.0', 'UIDeviceFamily': [1, 2], 'UIRequiresFullScreen': True, 'UILaunchScreen': {},
         'UIStatusBarHidden': True,
         'UISupportedInterfaceOrientations': ['UIInterfaceOrientationLandscapeLeft', 'UIInterfaceOrientationLandscapeRight'],
@@ -179,12 +195,16 @@ def package(exe, out, work, target=TARGET, identity=None, provisioning=None, pro
     }
     if 'simulator' not in target:
         info['UIRequiredDeviceCapabilities'] = ['arm64', 'metal']
-    info.update(compile_icon(app, out, target))
-    with open(app / 'Info.plist', 'wb') as f:
+    if mac:
+        del info['MinimumOSVersion'], info['UIRequiredDeviceCapabilities']
+        info.update({'CFBundleSupportedPlatforms': ['MacOSX'], 'LSMinimumSystemVersion': '14.0', 'UIDeviceFamily': [2],
+                     'LSApplicationCategoryType': 'public.app-category.action-games'})
+    info.update(compile_icon(res, out, target))
+    with open((app / 'Contents' if mac else app) / 'Info.plist', 'wb') as f:
         plistlib.dump(info, f)
     # the app's own data: the translated image and modules, the reference machine's files, the
     # registry seed and the input profile (the game files are the player's, imported on the device)
-    data = app / 'data'
+    data = res / 'data'
     (data / 'modules').mkdir(parents=True)
     shutil.copy2(run_core.IMAGE, data / 'image.bin')
     guest = XBOX_OUT / 'halo_guest.elf'
@@ -218,6 +238,13 @@ def package(exe, out, work, target=TARGET, identity=None, provisioning=None, pro
     (data / 'core-identity.json').write_text(json.dumps(core, sort_keys=True, indent=2) + '\n')
     if 'simulator' in target:
         subprocess.run(['codesign', '--force', '--sign', '-', '--timestamp=none', str(app)], check=True, capture_output=True)
+        return app
+    if mac:
+        ent = out / 'entitlements.plist'
+        with open(ent, 'wb') as f:
+            plistlib.dump(MAC_ENTITLEMENTS, f)
+        subprocess.run(['codesign', '--force', '--sign', identity or '-', '--entitlements', str(ent), '--timestamp=none', str(app)],
+                       check=True, capture_output=True)
         return app
     entitlements = dict(ENTITLEMENTS)
     if provisioning:
@@ -257,6 +284,7 @@ def main():
     ap.add_argument('--scene', type=pathlib.Path,
                     help='development only: a C file whose halopad_app_entry replaces the core start (evidence scenes in tests/)')
     ap.add_argument('--iphoneos', action='store_true', help='build for a physical iPhone/iPad (Xbox personal builds produce an app only)')
+    ap.add_argument('--mac', action='store_true', help='build HaloPad.app for Apple silicon Macs (Mac Catalyst; ad-hoc signed)')
     ap.add_argument('--identity', help='codesign identity for --iphoneos, e.g. "Apple Development: Name (TEAMID)"')
     ap.add_argument('--profile', type=pathlib.Path, help='provisioning profile for --iphoneos')
     ap.add_argument('--product-id', type=pathlib.Path,
@@ -266,6 +294,9 @@ def main():
         ap.error('--profile requires --identity')
     if a.iphoneos and a.profile:
         check_device_profile(a.profile, BUNDLE_ID, a.identity)
+    if a.mac:                                               # every compile step uses the macOS SDK
+        os.environ['SDKROOT'] = subprocess.run(['xcrun', '--sdk', 'macosx', '--show-sdk-path'], check=True,
+                                               capture_output=True, text=True).stdout.strip()
     work = (a.work or max(run_core.PROFILE.glob('run-*/va/haloce.va.ll'), key=lambda p: p.stat().st_mtime).parent.parent).resolve()
     # The Apple link consumes generated VA runtime IR, not the llasm source directly.
     # A stale VA run can silently link an old missing-import trap into a new app.
@@ -276,12 +307,12 @@ def main():
         ap.error(f'VA runtime is stale ({", ".join(sorted(stale))}); rerun scripts/va-model.py --work {work} --llasm <built-llasm> before building')
     extra = [ROOT / 'port' / 'ios' / name for name in ('HaloPadOverlay.m', 'HaloPadImport.m', 'HaloPadPackage.m', 'HaloPadDataIdentity.m')] + ([a.scene.resolve()] if a.scene else [])
     # the launch picker is a weak reference: builds without the Xbox engine leave it undefined
-    extra += ['-Wl,-U,_HPEngineChooserMake', *xbox_parts(DEVICE_TARGET if a.iphoneos else TARGET)]
-    target = DEVICE_TARGET if a.iphoneos else TARGET
+    target = MAC_TARGET if a.mac else DEVICE_TARGET if a.iphoneos else TARGET
+    extra += ['-Wl,-U,_HPEngineChooserMake', *xbox_parts(target)]
     exe, _ = run_core.build(work, target, ROOT / 'port' / 'ios' / 'HaloPadApp.m', extra=extra)
     app = package(exe, work / f'ios-app-{target}', work, target, a.identity, a.profile, a.product_id)
     print('built', app.relative_to(ROOT))
-    if a.iphoneos:
+    if a.iphoneos or a.mac:
         return 0
     if not a.launch:
         return 0
