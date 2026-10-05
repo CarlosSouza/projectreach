@@ -2,7 +2,9 @@
 # Builds the Xbox engine's iOS test app (port/xbox/xg_app_ios.m) and, for the
 # Simulator, installs and launches it with the Mac's extracted game data.
 #
-#   scripts/xbox/build-ios.sh [--device] [--launch UDID] [--identity NAME --profile FILE]
+#   scripts/xbox/build-ios.sh [--device | --mac] [--launch UDID] [--identity NAME --profile FILE]
+#
+# --mac builds the engine library for HaloPad on Apple silicon Macs (Mac Catalyst).
 #
 # A personal build: the app bundles the translated engine and must never be
 # shared (docs/XBOX-ENGINE.md).
@@ -16,6 +18,7 @@ PROFILE=""
 while [ $# -gt 0 ]; do
 	case "$1" in
 	--device) TARGET=arm64-apple-ios17.0; SDK=iphoneos ;;
+	--mac) TARGET=arm64-apple-ios17.0-macabi; SDK=maccatalyst ;;
 	--launch) LAUNCH=$2; shift ;;
 	--identity) IDENTITY=$2; shift ;;
 	--profile) PROFILE=$2; shift ;;
@@ -27,6 +30,16 @@ if [ -n "$LAUNCH" ] && [ "$SDK" != iphonesimulator ]; then
     echo "--launch is Simulator-only; device builds are not installed by this script" >&2
     exit 2
 fi
+XSDK=$SDK                                         # xcrun's SDK; Mac Catalyst builds with the macOS SDK and UIKit
+CATALYST=""
+if [ "$SDK" = maccatalyst ]; then
+    XSDK=macosx
+    MSDK=$(xcrun --sdk macosx --show-sdk-path)
+    CATALYST="-iframework $MSDK/System/iOSSupport/System/Library/Frameworks -isystem $MSDK/System/iOSSupport/usr/include -L$MSDK/System/iOSSupport/usr/lib"
+fi
+ANGLE_NAME=simulator                              # the ANGLE build folders: angle[-counted]-<name>
+[ "$SDK" != iphoneos ] || ANGLE_NAME=iphoneos
+[ "$SDK" != maccatalyst ] || ANGLE_NAME=maccatalyst
 RENDERER=${HALOPAD_XBOX_RENDERER:-apple-gles}
 COUNTED=OFF
 case "${HALOPAD_XBOX_GUEST_ADAPTATION:-none}" in
@@ -61,29 +74,35 @@ if [ "$RENDERER" = angle-metal ]; then
     BUILD_SDK=$SDK-angle
     OBJ="$OUT/obj-$BUILD_SDK"
     APP="$OUT/$BUILD_SDK/HaloPadXbox.app"
-    ANGLE_BUILD="$OUT/angle-simulator"
-    [ "$SDK" != iphoneos ] || ANGLE_BUILD="$OUT/angle-iphoneos"
+    ANGLE_BUILD="$OUT/angle-$ANGLE_NAME"
     # The counted backend has its own ANGLE build per SDK (same reviewed recipe).
-    COUNTED_BUILD="$OUT/angle-counted-simulator"
-    [ "$SDK" != iphoneos ] || COUNTED_BUILD="$OUT/angle-counted-iphoneos"
+    COUNTED_BUILD="$OUT/angle-counted-$ANGLE_NAME"
     if [ "$COUNTED" = ON ]; then
         BUILD_SDK=$SDK-angle-counted
         OBJ="$OUT/obj-$BUILD_SDK"
         APP="$OUT/$BUILD_SDK/HaloPadXbox.app"
         ANGLE_BUILD="$COUNTED_BUILD"
     fi
-    cmake -S "$ROOT/scripts/xbox/angle" -B "$ANGLE_BUILD" -G Ninja \
-        -DHALOPAD_ANGLE_COUNTED_VISIBILITY=$COUNTED \
-        -DANGLE_SOURCE_DIR="$XBOX_ANGLE_SOURCE" -DCMAKE_SYSTEM_NAME=iOS \
-        -DCMAKE_OSX_SYSROOT=$SDK -DCMAKE_OSX_ARCHITECTURES=arm64 \
-        -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 -DCMAKE_BUILD_TYPE=Release
+    if [ "$SDK" = maccatalyst ]; then
+        cmake -S "$ROOT/scripts/xbox/angle" -B "$ANGLE_BUILD" -G Ninja \
+            -DHALOPAD_ANGLE_COUNTED_VISIBILITY=$COUNTED -DANGLE_SOURCE_DIR="$XBOX_ANGLE_SOURCE" \
+            -DHALOPAD_ANGLE_CATALYST=ON -DCMAKE_OSX_SYSROOT=macosx -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            "-DCMAKE_C_FLAGS=-target $TARGET $CATALYST" "-DCMAKE_CXX_FLAGS=-target $TARGET $CATALYST" \
+            "-DCMAKE_OBJCXX_FLAGS=-target $TARGET $CATALYST" -DCMAKE_BUILD_TYPE=Release
+    else
+        cmake -S "$ROOT/scripts/xbox/angle" -B "$ANGLE_BUILD" -G Ninja \
+            -DHALOPAD_ANGLE_COUNTED_VISIBILITY=$COUNTED \
+            -DANGLE_SOURCE_DIR="$XBOX_ANGLE_SOURCE" -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_SYSROOT=$SDK -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 -DCMAKE_BUILD_TYPE=Release
+    fi
     cmake --build "$ANGLE_BUILD" --parallel 12
     ANGLE_LIB="$ANGLE_BUILD/libhalopad-angle.a"
     ANGLE_FLAGS="-DXG_USE_ANGLE=1 -I$XBOX_ANGLE_SOURCE/include"
     [ "$COUNTED" != ON ] || ANGLE_FLAGS="$ANGLE_FLAGS -DXG_COUNTED_VISIBILITY=1"
 fi
-SYSROOT=$(xcrun --sdk $SDK --show-sdk-path)
-CC="xcrun --sdk $SDK clang -target $TARGET -isysroot $SYSROOT"
+SYSROOT=$(xcrun --sdk $XSDK --show-sdk-path)
+CC="xcrun --sdk $XSDK clang -target $TARGET -isysroot $SYSROOT $CATALYST"
 CFLAGS="-O2 -g -Wall -Wno-unused-function -DGLES_SILENCE_DEPRECATION -fobjc-arc -I$ROOT/port/xbox -I$OUT -I/opt/homebrew/include $ANGLE_FLAGS"
 mkdir -p "$OBJ" "$APP"
 for f in xg_memory xg_thread xg_syscall xg_gl xg_posix xg_xiso; do
@@ -123,10 +142,14 @@ if sys.argv[4] == 'angle-metal':
     manifest['angle_source'] = json.loads(pathlib.Path(sys.argv[5]).read_text())
     manifest['angle_feature_overrides'] = ['hasTextureSwizzle'] if manifest['sdk'] == 'iphonesimulator' else []
 if manifest['guest_adaptation']['name'] in guest_adaptation.COUNTED_ADAPTATIONS:
-    counted = 'angle-counted-iphoneos' if manifest['sdk'] == 'iphoneos' else 'angle-counted-simulator'
+    counted = 'angle-counted-' + {'iphoneos': 'iphoneos', 'maccatalyst': 'maccatalyst'}.get(manifest['sdk'], 'simulator')
     manifest['visibility_backend'] = json.loads((out / counted / 'counted-visibility-v1/identity.json').read_text())
 (out / sdk / 'build.json').write_text(json.dumps(manifest, indent=2) + '\n')
 PY
+if [ "$SDK" = maccatalyst ]; then                 # the Mac has no standalone test app: HaloPad links the library
+	echo "built $LIB"
+	exit 0
+fi
 GL_LINK="-framework OpenGLES"
 [ "$RENDERER" != angle-metal ] || GL_LINK="-lc++ -lz -framework Metal -framework IOSurface"
 $CC -o "$APP/HaloPadXbox" "$OBJ"/*.o $ANGLE_LIB -framework UIKit -framework QuartzCore $GL_LINK \

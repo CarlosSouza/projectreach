@@ -77,7 +77,7 @@ def xbox_build_folder(target):
     renderer = os.environ.get('HALOPAD_XBOX_RENDERER', 'apple-gles')
     if renderer not in ('apple-gles', 'angle-metal'):
         raise ValueError('Unknown HALOPAD_XBOX_RENDERER')
-    sdk = 'iphonesimulator' if 'simulator' in target else 'iphoneos'
+    sdk = 'maccatalyst' if 'macabi' in target else 'iphonesimulator' if 'simulator' in target else 'iphoneos'
     if xbox_runtime_manifest.guest_adaptation.identity()['name'] in xbox_runtime_manifest.guest_adaptation.COUNTED_ADAPTATIONS:
         if renderer != 'angle-metal':
             raise ValueError('Counted visibility requires the ANGLE renderer')
@@ -100,7 +100,7 @@ def xbox_parts(target):
     if not (lib.parent / 'build.json').exists():
         raise ValueError('Xbox library has no build manifest; run scripts/xbox/build-ios.sh')
     manifest = json.loads((lib.parent / 'build.json').read_text())
-    sdk = 'iphonesimulator' if 'simulator' in target else 'iphoneos'
+    sdk = 'maccatalyst' if 'macabi' in target else 'iphonesimulator' if 'simulator' in target else 'iphoneos'
     if manifest.get('sdk') != sdk:
         raise ValueError('Xbox library SDK differs or is unrecorded; rebuild for the intended platform')
     renderer = os.environ.get('HALOPAD_XBOX_RENDERER', 'apple-gles')
@@ -117,7 +117,7 @@ def xbox_parts(target):
     if manifest.get('guest_adaptation') != adaptation:
         raise ValueError('Xbox guest adaptation differs or is unrecorded; rebuild with the intended adaptation')
     if adaptation['name'] in xbox_runtime_manifest.guest_adaptation.COUNTED_ADAPTATIONS:
-        counted = 'angle-counted-simulator' if sdk == 'iphonesimulator' else 'angle-counted-iphoneos'
+        counted = 'angle-counted-' + {'iphoneos': 'iphoneos', 'maccatalyst': 'maccatalyst'}.get(sdk, 'simulator')
         expected_visibility = json.loads((XBOX_OUT / counted / 'counted-visibility-v1/identity.json').read_text())
         if expected_visibility.get('name') != 'counted-visibility-v1' or manifest.get('visibility_backend') != expected_visibility:
             raise ValueError('Xbox counted guest/backend identity mismatch')
@@ -129,6 +129,8 @@ def xbox_parts(target):
     if manifest.get('runtime_sources') != xbox_runtime_manifest.sources():
         raise ValueError('Xbox library local sources changed or are unrecorded; run scripts/xbox/build-ios.sh')
     graphics = ['-lc++', '-lz', '-framework', 'Metal', '-framework', 'IOSurface'] if renderer == 'angle-metal' else ['-framework', 'OpenGLES']
+    if 'macabi' in target:
+        graphics += ['-framework', 'IOKit']
     return [ROOT / 'port' / 'ios' / 'HaloPadXbox.m', lib, '-I', str(ROOT / 'port' / 'xbox'), '-I', '/opt/homebrew/include',
             *graphics, '-DGLES_SILENCE_DEPRECATION']
 

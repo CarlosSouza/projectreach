@@ -1,10 +1,15 @@
 cmake_minimum_required(VERSION 3.24)
 project(HaloPadAngle LANGUAGES C CXX OBJCXX)
 
-# A bounded iOS build using WebKit's maintained ANGLE source lists.
+# A bounded iOS (and Mac Catalyst) build using WebKit's maintained ANGLE source lists.
 # Source is fetched separately into scratch; no third-party source is vendored.
 string(TOLOWER "${CMAKE_OSX_SYSROOT}" angle_sdk)
-if(NOT CMAKE_SYSTEM_NAME STREQUAL "iOS" OR NOT angle_sdk MATCHES "(^|/)(iphoneos|iphonesimulator)([0-9.]+\\.sdk)?$")
+option(HALOPAD_ANGLE_CATALYST "Build for Mac Catalyst (the macOS SDK with UIKit), as iOS" OFF)
+if(HALOPAD_ANGLE_CATALYST)
+    if(NOT angle_sdk MATCHES "(^|/)macosx([0-9.]+\\.sdk)?$")
+        message(FATAL_ERROR "The Mac Catalyst build requires the macOS SDK")
+    endif()
+elseif(NOT CMAKE_SYSTEM_NAME STREQUAL "iOS" OR NOT angle_sdk MATCHES "(^|/)(iphoneos|iphonesimulator)([0-9.]+\\.sdk)?$")
     message(FATAL_ERROR "This experimental build requires the iOS device or Simulator SDK")
 endif()
 if(NOT EXISTS "${ANGLE_SOURCE_DIR}/PlatformCocoa.cmake")
@@ -35,6 +40,10 @@ set(ANGLE_SOURCES
 )
 set(ANGLE_DEFINITIONS ANGLE_ENABLE_ESSL ANGLE_ENABLE_GLSL)
 include("${ANGLE_SOURCE_DIR}/PlatformCocoa.cmake")
+if(HALOPAD_ANGLE_CATALYST)                         # ANGLE's Metal backend asks a Mac for its GPU (IOKit)
+    list(REMOVE_ITEM ANGLE_SOURCES src/gpu_info_util/SystemInfo_ios.cpp)
+    list(APPEND ANGLE_SOURCES src/gpu_info_util/SystemInfo_macos.mm)
+endif()
 list(REMOVE_DUPLICATES ANGLE_SOURCES)
 list(TRANSFORM ANGLE_SOURCES PREPEND "${ANGLE_SOURCE_DIR}/")
 option(HALOPAD_ANGLE_COUNTED_VISIBILITY "Private counted-visibility candidate (not a game default)" OFF)

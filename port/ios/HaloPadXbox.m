@@ -25,6 +25,31 @@
 #include "xg_overlay_input.h"
 #include "../runtime/halopad_log.h"
 
+#if TARGET_OS_MACCATALYST
+/* On a Mac the keyboard and mouse play the Xbox edition as on a PC: keys go to the engine,
+   and while the game runs the pointer is locked so the mouse aims. F12 frees or recaptures
+   the pointer (as upstream's PC version), to reach the ⋯ menu or other apps. */
+static __weak UIViewController *xbox_pointer_owner;
+static BOOL xbox_pointer_free;
+static BOOL xbox_pointer_locked(void)
+{
+	return xbox_pointer_owner.view.window.windowScene.pointerLockState.isLocked;
+}
+static void xbox_attach_mouse(GCMouse *mouse)
+{
+	GCMouseInput *m = mouse.mouseInput;
+	m.mouseMovedHandler = ^(GCMouseInput *input, float dx, float dy) {
+		if (xbox_pointer_locked()) xg_ios_add_touch_look(dx, -dy);       /* Game Controller's y points up */
+	};
+	m.leftButton.pressedChangedHandler = ^(GCControllerButtonInput *b, float v, BOOL p) { if (xbox_pointer_locked()) xg_ios_mouse_button(1, p); };
+	m.middleButton.pressedChangedHandler = ^(GCControllerButtonInput *b, float v, BOOL p) { if (xbox_pointer_locked()) xg_ios_mouse_button(2, p); };
+	m.rightButton.pressedChangedHandler = ^(GCControllerButtonInput *b, float v, BOOL p) { if (xbox_pointer_locked()) xg_ios_mouse_button(3, p); };
+	m.scroll.valueChangedHandler = ^(GCControllerDirectionPad *pad, float x, float y) {
+		if (xbox_pointer_locked() && y) xg_ios_mouse_wheel(y > 0 ? 1 : -1);
+	};
+}
+#endif
+
 /* the engine's log lines, also written to HaloPad's shareable log (xg_syscall.c) */
 extern void (*xg_log_sink)(const char *line);
 
@@ -218,6 +243,16 @@ static BOOL xbox_backup_saves(NSError **error)
 - (void)viewDidAppear:(BOOL)animated
 {
 	[super viewDidAppear:animated];
+#if TARGET_OS_MACCATALYST
+	xbox_pointer_owner = self;
+	[self becomeFirstResponder];
+	static dispatch_once_t mice;
+	dispatch_once(&mice, ^{
+		for (GCMouse *mouse in GCMouse.mice) xbox_attach_mouse(mouse);
+		[NSNotificationCenter.defaultCenter addObserverForName:GCMouseDidConnectNotification object:nil
+			queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *n) { xbox_attach_mouse(n.object); }];
+	});
+#endif
 	if (started)
 		return;
 	if (xbox_has_maps())
@@ -241,6 +276,9 @@ static BOOL xbox_backup_saves(NSError **error)
 		return;
 	}
 	started = YES;
+#if TARGET_OS_MACCATALYST
+	[self setNeedsUpdateOfPrefersPointerLocked];
+#endif
 	back_button.hidden = YES;
 	link_button.hidden = NO;
 	import_panel.hidden = YES;
@@ -511,6 +549,30 @@ static void import_progress_update(double fraction, void *context)
 
 - (BOOL)prefersStatusBarHidden { return YES; }
 - (BOOL)prefersHomeIndicatorAutoHidden { return YES; }
+#if TARGET_OS_MACCATALYST
+- (BOOL)prefersPointerLocked { return started && !xbox_pointer_free && !self.presentedViewController; }
+- (BOOL)canBecomeFirstResponder { return YES; }
+- (void)xboxKeys:(NSSet<UIPress *> *)presses down:(int)down
+{
+	for (UIPress *press in presses)
+	{
+		if (!press.key) continue;
+		if (press.key.keyCode == UIKeyboardHIDUsageKeyboardF12)
+		{
+			if (down) { xbox_pointer_free = !xbox_pointer_free; [self setNeedsUpdateOfPrefersPointerLocked]; }
+			continue;
+		}
+		xg_ios_key((int)press.key.keyCode, down);
+	}
+}
+- (void)pressesBegan:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event
+{
+	if (self.presentedViewController || !started) { [super pressesBegan:presses withEvent:event]; return; }
+	[self xboxKeys:presses down:1];
+}
+- (void)pressesEnded:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event { [self xboxKeys:presses down:0]; }
+- (void)pressesCancelled:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event { [self xboxKeys:presses down:0]; }
+#endif
 - (UIInterfaceOrientationMask)supportedInterfaceOrientations { return UIInterfaceOrientationMaskLandscape; }
 @end
 

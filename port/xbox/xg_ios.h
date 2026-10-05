@@ -19,6 +19,11 @@ void xg_ios_clear_touch_pad(void);
 /* Relative touch look is delivered through upstream's SDL mouse path. */
 void xg_ios_add_touch_look(float dx, float dy);
 void xg_ios_scroll_scoreboard(float points);
+/* A hardware keyboard and mouse (the Mac): an SDL scancode (the USB HID usage), an SDL mouse
+ * button (1 left, 2 middle, 3 right) and wheel steps, as the engine's PC input reads them. */
+void xg_ios_key(int scancode, int down);
+void xg_ios_mouse_button(int button, int down);
+void xg_ios_mouse_wheel(float steps);
 /* nonzero while a game controller is player 1's */
 int xg_ios_controller_connected(void);
 /* frames presented since the game started (any thread) */
