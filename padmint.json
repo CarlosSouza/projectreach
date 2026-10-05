@@ -10,7 +10,7 @@
       "type": "pc-game-installer",
       "formats": ["exe"],
       "when": "build",
-      "description": "Your own Halo Custom Edition installer (HaloCESetup.exe). Put the official 1.10 update (haloce-patch-1.0.10.exe, needed for the first build only) and, optionally, product-key.txt with your Halo PC product key in the same folder. Both files are checked by hash."
+      "description": "Your own Halo Custom Edition installer (HaloCESetup.exe), with product-key.txt holding your Halo PC product key in the same folder. Bungie's free 1.10 update is downloaded and checked by hash (or put haloce-patch-1.0.10.exe beside the installer)."
     }
   ],
   "targets": {
@@ -28,7 +28,9 @@
       {"name": "xcodebuild", "version_args": ["-version"]},
       {"name": "7zz", "version_args": [], "player": true, "note": "brew install sevenzip"},
       {"name": "wine", "version_args": ["--version"], "player": true, "note": "brew install --cask wine-stable (your product ID)"},
-      {"name": "winetricks", "version_args": ["--version"], "player": true, "note": "brew install winetricks (your product ID)"}
+      {"name": "winetricks", "version_args": ["--version"], "player": true, "note": "brew install winetricks (your product ID)"},
+      {"name": "/opt/homebrew/opt/llvm/bin/clang", "version_args": ["--version"], "player": true, "note": "brew install llvm (your product ID)"},
+      {"name": "lld-link", "version_args": ["--version"], "player": true, "note": "brew install lld (your product ID)"}
     ]
   },
   "publication": {

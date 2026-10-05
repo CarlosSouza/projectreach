@@ -151,20 +151,21 @@ You need:
 - an Apple development profile for HaloPad's bundle ID that allows **Extended Virtual Addressing** and
   **Increased Memory Limit** (the runtime reserves Halo's full 32-bit address space)
 
-Start with `scripts/doctor.sh`. Then put your own `HaloCESetup.exe`, the official
-`haloce-patch-1.0.10.exe` update and, optionally, a `product-key.txt` with your Halo PC key in one
-folder and run:
+Install the tools once with `brew install sevenzip winetricks llvm lld && brew install --cask wine-stable`
+and check with `scripts/doctor.sh`. Then put your own `HaloCESetup.exe` and a `product-key.txt` with
+your Halo PC key in one folder and run:
 
 ```sh
 scripts/builder/build.sh /path/to/that/folder --ipa HaloPad.ipa
 ```
 
-It checks both files by hash, applies the 1.10 update, translates Halo, builds the app and writes an
-unsigned IPA plus `Halo-CE.halopad.zip`. Install the IPA with your own signing (see
+It downloads Bungie's free 1.10 update (or uses `haloce-patch-1.0.10.exe` beside the installer), checks
+everything by hash, applies the update, translates Halo, builds the app and writes an unsigned IPA plus
+`HaloPad.ipa.data/Halo-CE.halopad.zip`. Install the IPA with your own signing (see
 [Installing on iPhone or iPad](docs/INSTALL-IPHONE.md)), open HaloPad and choose the game package.
 Halo needs the product ID its installer writes: the builder makes it from your key with the
-installer's own `PIDGen.dll` (`scripts/product-id.sh`; needs Homebrew `wine-stable` and `winetricks`)
-and puts it in your app only. The first build also needs CrossOver for the 1.10 update.
+installer's own `PIDGen.dll` (`scripts/product-id.sh`) and puts it in your app only. A first build
+takes about an hour on an Apple silicon Mac.
 
 The same builder is HaloPad's [PadMint](https://github.com/chrissotraidis/padmint) recipe
 ([padmint.json](padmint.json)), so PadMint will be able to run it for you from an app instead of
@@ -179,13 +180,22 @@ The Xbox edition is optional. After the builder above has run once, build the en
 with both editions, signed with your own identity and profile:
 
 ```sh
+# the pinned ANGLE renderer source (a small sparse checkout of WebKit), outside this repository
+angle_work=$(mktemp -d /tmp/halopad-angle.XXXXXX)
+git clone --filter=blob:none --depth=1 --no-checkout https://github.com/WebKit/WebKit.git "$angle_work/WebKit"
+git -C "$angle_work/WebKit" fetch --depth=1 origin a1fb7ce122d0cd99f7d6cc82775f02565e266ece
+git -C "$angle_work/WebKit" sparse-checkout set --cone Source/ThirdParty/ANGLE
+git -C "$angle_work/WebKit" checkout --detach a1fb7ce122d0cd99f7d6cc82775f02565e266ece
+export XBOX_ANGLE_SOURCE="$angle_work/WebKit/Source/ThirdParty/ANGLE"
+
 export HALOPAD_XBOX_RENDERER=angle-metal HALOPAD_XBOX_GUEST_ADAPTATION=render-camera-v1
 scripts/xbox/build-ios.sh --device      # fetches and builds the pinned engine on your Mac
 .venv/bin/python scripts/build-ios-app.py --iphoneos --identity "Apple Development: …" \
     --profile your.mobileprovision --product-id generated/product-id/product-id.txt
 ```
 
-The two settings select the Metal renderer and the camera and graphics fixes the tested iPad build uses.
+The two `HALOPAD_XBOX_*` settings select the Metal renderer and the camera and graphics fixes the
+tested iPad build uses. The engine build also needs Homebrew `llvm` and about 40 GB free.
 A build that includes the Xbox engine stops at a signed `HaloPad.app` and never creates an IPA; install
 it with `xcrun devicectl device install app`, then pick your disc image in the app.
 [Xbox engine](docs/XBOX-ENGINE.md) covers requirements, updates to newer upstream releases and the

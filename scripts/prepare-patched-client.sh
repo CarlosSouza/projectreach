@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Reproduce the Halo Custom Edition 1.10 client files from the supplied CE 1.00
-# installer and Bungie's official CE 1.10 update, using a fresh project-owned
-# CrossOver bottle. Nothing is installed and no product key is involved.
+# installer and Bungie's official CE 1.10 update, using a fresh throwaway Wine
+# prefix (Homebrew wine-stable). Nothing is installed and no product key is involved.
 #
 # Usage: scripts/prepare-patched-client.sh [--keep-bottle]
 # Prints the run directory (generated/patchwork/run-*) and writes evidence to
@@ -14,7 +14,6 @@ INSTALLER="$ROOT/ref/HaloCESetup.exe"
 PATCH="$ROOT/ref/inputs/patches/haloce-patch-1.0.10.exe"
 INSTALLER_SHA=150e430dc54ffb265cbe96605ef8909c9ba0065fa11bdbf170bfd88391cf98ba
 PATCH_SHA=33818f3f56b7dddc8c61d654af6567c9c5b9220ca75d6ac23a52611038257508
-CX=/Applications/CrossOver.app/Contents/SharedSupport/CrossOver/bin
 TARGETS=(haloce.exe haloceded.exe Strings.dll binkw32.dll config.txt patchw32.dll msvcr71.dll)
 TIMEOUT_S=${HALOPAD_PATCH_TIMEOUT:-240}
 KEEP_BOTTLE=0
@@ -23,7 +22,7 @@ KEEP_BOTTLE=0
 die() { echo "FAIL: $*" >&2; exit 1; }
 sha() { shasum -a 256 "$1" | cut -d' ' -f1; }
 
-[[ -x "$CX/wine" && -x "$CX/cxbottle" ]] || die "CrossOver command-line tools not found at $CX"
+command -v wine >/dev/null || die "wine is required (brew install --cask wine-stable)"
 command -v 7zz >/dev/null || die "7zz (7-Zip) is required"
 [[ -f "$INSTALLER" ]] || die "missing $INSTALLER"
 [[ -f "$PATCH" ]] || die "missing $PATCH"
@@ -33,8 +32,7 @@ command -v 7zz >/dev/null || die "7zz (7-Zip) is required"
 RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)-$$"
 WORK="$ROOT/generated/patchwork/run-$RUN_ID"
 EVID="$ROOT/docs/artifacts/$(date +%Y-%m-%d)/G1a/prepare-$RUN_ID"
-BOTTLE="halopad-patch-$RUN_ID"
-BOTTLE_DIR="$HOME/Library/Application Support/CrossOver/Bottles/$BOTTLE"
+BOTTLE_DIR="$WORK/prefix"
 UPDATER_PID=""
 mkdir -p "$WORK/files" "$WORK/patch" "$EVID"
 
@@ -56,10 +54,10 @@ for f in haloupdate.exe patch.rtp; do
 done
 (cd "$WORK/patch" && shasum -a 256 haloupdate.exe patch.rtp) > "$EVID/patch-contents.sha256"
 
-# CrossOver's wineserver has no --bottle option; select the bottle by prefix.
+export WINEPREFIX="$BOTTLE_DIR" WINEDEBUG=-all WINEDLLOVERRIDES="mscoree,mshtml=;winedbg=d"
 stop_bottle() {
   if [[ -d "$BOTTLE_DIR" ]]; then
-    WINEPREFIX="$BOTTLE_DIR" "$CX/wineserver" -k >/dev/null 2>&1 || true
+    wineserver -k >/dev/null 2>&1 || true
   fi
   if [[ -n "$UPDATER_PID" ]]; then
     for _ in 1 2 3 4 5 6 7 8 9 10; do
@@ -78,16 +76,14 @@ stop_bottle() {
 cleanup() {
   stop_bottle
   if [[ $KEEP_BOTTLE -eq 0 && -d "$BOTTLE_DIR" ]]; then
-    "$CX/cxbottle" --bottle "$BOTTLE" --delete --force >/dev/null 2>&1 || true
+    rm -rf "$BOTTLE_DIR"
   fi
 }
 trap cleanup EXIT
 
-"$CX/cxbottle" --bottle "$BOTTLE" --create --template win10_64 \
-  --description "HaloPad G1a patch reproduction $RUN_ID" > "$EVID/cxbottle-create.log" 2>&1 \
-  || die "could not create CrossOver bottle $BOTTLE (see $EVID/cxbottle-create.log)"
+wineboot -i > "$EVID/wineboot.log" 2>&1 || die "could not create the Wine prefix (see $EVID/wineboot.log)"
 
-(cd "$WORK/files" && WINEDEBUG=-all "$CX/wine" --bottle "$BOTTLE" --no-gui \
+(cd "$WORK/files" && wine \
   haloupdate.exe processrtp=patch.rtp updateversion=01.00.10.0621 > "$EVID/haloupdate.log" 2>&1) &
 UPDATER_PID=$!
 
@@ -114,9 +110,9 @@ pgrep -f "haloupdate.exe processrtp" >/dev/null && die "updater still running af
 
 (cd "$WORK/files" && find . -type f ! -name haloupdate.exe ! -name patch.rtp | sed 's|^\./||' | sort -f \
   | while IFS= read -r f; do shasum -a 256 "$f"; done) > "$EVID/after.sha256"
-"$PY" - "$WORK/files" "$EVID" "$RUN_ID" "$INSTALLER_SHA" "$PATCH_SHA" "$BOTTLE" <<'EOF'
+"$PY" - "$WORK/files" "$EVID" "$RUN_ID" "$INSTALLER_SHA" "$PATCH_SHA" <<'EOF'
 import hashlib, json, pathlib, subprocess, sys
-files, evid, run, inst, patch, bottle = sys.argv[1:]
+files, evid, run, inst, patch = sys.argv[1:]
 files = pathlib.Path(files); before = {}
 for line in (pathlib.Path(evid) / 'before.sha256').read_text().split('\n'):
     if line.strip():
@@ -129,11 +125,10 @@ for p in sorted((q for q in files.rglob('*') if q.is_file()), key=lambda q: str(
     h = hashlib.sha256(p.read_bytes()).hexdigest()
     out.append({'path': rel, 'size': p.stat().st_size, 'sha256': h,
                 'origin': 'installer' if before.get(rel.lower()) == h else 'patch'})
-cx = subprocess.run(['defaults', 'read', '/Applications/CrossOver.app/Contents/Info.plist',
-                     'CFBundleShortVersionString'], capture_output=True, text=True).stdout.strip()
+wine = subprocess.run(['wine', '--version'], capture_output=True, text=True).stdout.strip()
 manifest = {'schema': 1, 'run': run, 'installer_sha256': inst, 'patch_sha256': patch,
             'method': 'haloupdate.exe processrtp=patch.rtp updateversion=01.00.10.0621',
-            'crossover_version': cx, 'bottle': bottle, 'files': out}
+            'wine_version': wine, 'files': out}
 (pathlib.Path(evid) / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
 for f in out:
     print(f"{f['origin']:9} {f['sha256']}  {f['path']}")

@@ -4,11 +4,12 @@
 #   scripts/builder/build.sh <folder or HaloCESetup.exe> --ipa HaloPad.ipa [--out DIR] [--product-key-file FILE]
 #
 # The folder (or the installer's own folder) holds your Halo Custom Edition installer
-# (HaloCESetup.exe) and the official 1.10 update (haloce-patch-1.0.10.exe); both are checked
-# against the recorded hashes. It
-# runs HaloPad's existing steps in order: tool build, 1.10 patch (CrossOver), translation of
-# Halo and its four DLLs, the app, its game package and an unsigned IPA. Install the IPA with
-# your own signing, then import the game package in HaloPad (Files).
+# (HaloCESetup.exe) and product-key.txt; the official 1.10 update (haloce-patch-1.0.10.exe)
+# is used from there or downloaded. All are checked against the recorded hashes. It
+# runs HaloPad's existing steps in order: tool build, 1.10 patch (Wine), translation of
+# Halo and its four DLLs, the app, an unsigned IPA and its game package in <IPA>.data/
+# (where PadMint picks it up). Install the IPA with your own signing, then choose the game
+# package in HaloPad.
 #
 # Halo refuses to start without the product ID its installer writes. With
 # product-key.txt beside the installer (or --product-key-file, or a hidden prompt when run
@@ -61,15 +62,26 @@ while IFS= read -r -d '' f; do
 	esac
 done < <(find "$INPUT" -maxdepth 2 -iname '*.exe' -print0)
 [ -n "$INSTALLER" ] || { echo "no Halo Custom Edition 1.00 installer (HaloCESetup.exe) with the expected hash in $INPUT" >&2; exit 3; }
+# Halo refuses to start without the product ID, so ask for the key before the long steps
+[ -n "$KEY_FILE" ] || [ ! -f "$INPUT/product-key.txt" ] || KEY_FILE="$INPUT/product-key.txt"
+[ -n "$KEY_FILE" ] || [ -t 0 ] || { echo "put product-key.txt (your Halo PC product key) beside HaloCESetup.exe; Halo will not start without it" >&2; exit 3; }
 # 1.10 files assembled by an earlier build are reused; the update is needed only the first time
 ACCEPTED=$($PY -c "import json;print(json.load(open('config/profiles/custom-en-1.0.10.0621.json'))['accepted_sha256'])")
 ASSEMBLED=0
 [ -f ref/inputs/custom-original/haloce.exe ] && [ "$(sha ref/inputs/custom-original/haloce.exe)" = "$ACCEPTED" ] && ASSEMBLED=1
-[ -n "$PATCH" ] || [ $ASSEMBLED = 1 ] || { echo "no official 1.10 update (haloce-patch-1.0.10.exe) with the expected hash in $INPUT" >&2; exit 3; }
 # the steps read them from these ignored paths
 mkdir -p ref/inputs/patches
 [ -f ref/HaloCESetup.exe ] && [ "$(sha ref/HaloCESetup.exe)" = "$INSTALLER_SHA" ] || cp "$INSTALLER" ref/HaloCESetup.exe
-[ -z "$PATCH" ] || [ -f ref/inputs/patches/haloce-patch-1.0.10.exe ] || cp "$PATCH" ref/inputs/patches/haloce-patch-1.0.10.exe
+SAVED_PATCH=ref/inputs/patches/haloce-patch-1.0.10.exe
+if [ $ASSEMBLED = 0 ] && ! { [ -f "$SAVED_PATCH" ] && [ "$(sha "$SAVED_PATCH")" = "$PATCH_SHA" ]; }; then
+	if [ -n "$PATCH" ]; then cp "$PATCH" "$SAVED_PATCH"
+	else
+		step "downloading Bungie's free 1.10 update"           # checked by hash below
+		curl -fsSL --retry 2 -o "$SAVED_PATCH" https://ftp.zx.net.nz/pub/Game-Files/Halo/Patches/haloce-patch-1.0.10.exe || true
+		[ -f "$SAVED_PATCH" ] && [ "$(sha "$SAVED_PATCH")" = "$PATCH_SHA" ] \
+			|| { echo "could not download haloce-patch-1.0.10.exe; put it beside HaloCESetup.exe" >&2; exit 3; }
+	fi
+fi
 
 step "fetching pinned sources and building the translator"
 scripts/bootstrap-sources.sh
@@ -80,7 +92,6 @@ if [ $ASSEMBLED = 1 ]; then
 	step "reusing your assembled 1.10 game files"
 else
 	step "applying the 1.10 update and assembling the game files"
-	[ -x /Applications/CrossOver.app/Contents/SharedSupport/CrossOver/bin/wine ] || { echo "CrossOver is needed for Halo's 1.10 update" >&2; exit 2; }
 	PATCHED=$(scripts/prepare-patched-client.sh | sed -n 's/^RUN_DIR=//p')
 	$PY scripts/assemble-custom-original.py --patched-run "$PATCHED"
 fi
@@ -96,7 +107,6 @@ WORK=$(ls -dt generated/srw/custom-en-1.0.10.0621/run-*/ | head -n 1)
 $PY scripts/va-model.py --work "$WORK" --llasm "$BUILD/llasm/llasm"
 
 PRODUCT_ID=()
-[ -n "$KEY_FILE" ] || [ ! -f "$INPUT/product-key.txt" ] || KEY_FILE="$INPUT/product-key.txt"
 if [ -n "$KEY_FILE" ] || [ -t 0 ]; then
 	step "your product ID (Halo's installer step)"
 	if [ -n "$KEY_FILE" ]; then scripts/product-id.sh --installer "$INSTALLER" < "$KEY_FILE"
@@ -114,8 +124,10 @@ APP=$(sed -n 's/^built //p' "$APP_LOG" | tail -n 1)
 [ -d "$APP" ] || { echo "app build failed" >&2; exit 5; }
 
 step "packaging your game files and the IPA"
-rm -f "$OUT/Halo-CE.halopad.zip" "$IPA"                # this builder's own earlier outputs
-$PY scripts/prepare-game-data.py --app-data "$APP/data" --game ref/inputs/custom-original --output "$OUT/Halo-CE.halopad.zip"
+PACKAGE="$IPA.data/Halo-CE.halopad.zip"               # PadMint copies <IPA>.data/ out to the player
+rm -f "$PACKAGE" "$IPA"                               # this builder's own earlier outputs
+mkdir -p "$IPA.data"
+$PY scripts/prepare-game-data.py --app-data "$APP/data" --game ref/inputs/custom-original --output "$PACKAGE"
 STAGE=$(mktemp -d "$OUT/ipa.XXXXXX")
 trap 'rm -rf "$STAGE"' EXIT
 mkdir "$STAGE/Payload"
@@ -128,4 +140,4 @@ for run in $RUNS_BEFORE; do [ ! -f "$run/.builder" ] || rm -rf "$run"; done
 for run in $NEW_RUNS; do
 	if ls "$run"/*.ll >/dev/null 2>&1; then touch "$run/.builder"; else rm -rf "$run"; fi
 done
-printf '\nDone.\n  App (unsigned): %s\n  Game package:   %s\nInstall the IPA with your own signing, open HaloPad and choose the game package.\nBoth are yours alone: never share them.\n' "$IPA" "$OUT/Halo-CE.halopad.zip"
+printf '\nDone.\n  App (unsigned): %s\n  Game package:   %s\nInstall the IPA with your own signing, open HaloPad and choose the game package.\nBoth are yours alone: never share them.\n' "$IPA" "$PACKAGE"
