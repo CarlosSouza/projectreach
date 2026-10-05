@@ -263,7 +263,8 @@ def package(exe, out, work, target=TARGET, identity=None, provisioning=None, pro
     subprocess.run(['codesign', '--force', '--sign', identity or '-', '--entitlements', str(ent), '--timestamp=none', str(app)],
                    check=True, capture_output=True)
     if xbox_parts(target):
-        print('personal Xbox build: signed app only; no IPA created')
+        # the builder (scripts/builder/build.sh) packages its own IPA from this app
+        print('personal Xbox build: signed app' + ('' if os.environ.get('HALOPAD_BUILDER') else ' only; no IPA created'))
         return app
     ipa = out / 'HaloPad.ipa'
     payload = out / 'Payload'
