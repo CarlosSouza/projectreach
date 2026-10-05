@@ -19,6 +19,12 @@
       "output": "ipa",
       "check": "ipa",
       "command": ["{repo}/scripts/builder/build.sh", "{disc}", "--out", "{work}", "--ipa", "{output}", "--jobs", "{jobs}"]
+    },
+    "macos": {
+      "hosts": {"macos-arm64": "experimental"},
+      "output": "zip",
+      "check": "none",
+      "command": ["{repo}/scripts/builder/build.sh", "{disc}", "--mac", "--out", "{work}", "--zip", "{output}", "--jobs", "{jobs}"]
     }
   },
   "requirements": {

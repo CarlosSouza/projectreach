@@ -778,7 +778,7 @@ static const hp_control_def CONTROLS[] = {
     for (UITouch *t in touches) [_lookDrag end:t at:CGPointZero cancelled:YES];
 }
 
-- (BOOL)controlsHidden { return HPSettings.shared.hideTouchControls || _controllerHidden || _softwareKeyboardVisible || _haloMenuVisible; }
+- (BOOL)controlsHidden { return TARGET_OS_MACCATALYST || HPSettings.shared.hideTouchControls || _controllerHidden || _softwareKeyboardVisible || _haloMenuVisible; }
 - (void)setSoftwareKeyboardVisible:(BOOL)visible
 {
     if (_softwareKeyboardVisible == visible) return;

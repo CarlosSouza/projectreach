@@ -32,6 +32,52 @@ int halopad_dinput_has_live_gamepad(void);
 static atomic_int controller_gameplay_ready;
 int halopad_app_controller_ready(void) { return atomic_load(&controller_gameplay_ready); }
 
+#if TARGET_OS_MACCATALYST
+/* On a Mac the pointer is locked while you play (not in Halo's menus or HaloPad's sheets),
+   and the mouse's raw movement, buttons and wheel go to Halo, as a PC mouse would. */
+static __weak UIViewController *pointer_owner;
+static BOOL pointer_lock_wanted;
+static BOOL hp_mac_pointer_locked(void)
+{
+    return pointer_owner.view.window.windowScene.pointerLockState.isLocked;
+}
+static void hp_mac_pointer_lock(BOOL want)
+{
+    if (pointer_lock_wanted == want) return;
+    pointer_lock_wanted = want;
+    [pointer_owner setNeedsUpdateOfPrefersPointerLocked];
+}
+static void hp_mac_mouse_button(int button, BOOL pressed)
+{
+    if (!hp_mac_pointer_locked()) return;                 /* unlocked: UIKit's own clicks */
+    hp_input in = {.kind = HPI_BUTTON, .down = pressed, .button = button};
+    halopad_host_post_input(&in);
+}
+static void hp_mac_attach_mouse(GCMouse *mouse)
+{
+    GCMouseInput *m = mouse.mouseInput;
+    m.mouseMovedHandler = ^(GCMouseInput *input, float dx, float dy) {
+        if (!hp_mac_pointer_locked()) return;
+        static float rx, ry;                              /* fractions kept */
+        rx += dx; ry -= dy;                               /* Game Controller's y points up */
+        hp_input in = {.kind = HPI_MOUSEMOVE, .dx = (int32_t)rx, .dy = (int32_t)ry};
+        rx -= in.dx; ry -= in.dy;
+        if (in.dx || in.dy) halopad_host_post_input(&in);
+    };
+    m.leftButton.pressedChangedHandler = ^(GCControllerButtonInput *b, float v, BOOL p) { hp_mac_mouse_button(0, p); };
+    m.rightButton.pressedChangedHandler = ^(GCControllerButtonInput *b, float v, BOOL p) { hp_mac_mouse_button(1, p); };
+    m.middleButton.pressedChangedHandler = ^(GCControllerButtonInput *b, float v, BOOL p) { hp_mac_mouse_button(2, p); };
+    m.scroll.valueChangedHandler = ^(GCControllerDirectionPad *pad, float x, float y) {
+        if (!hp_mac_pointer_locked() || !y) return;
+        hp_input in = {.kind = HPI_WHEEL, .wheel = y > 0 ? 120 : -120};
+        halopad_host_post_input(&in);
+    };
+}
+#define HP_MAC_LOCKED() hp_mac_pointer_locked()
+#else
+#define HP_MAC_LOCKED() 0
+#endif
+
 /* A game controller also drives what Halo reads from the keyboard: Menu pauses
    (Escape) everywhere; in Halo's menus the D-pad moves, A selects and B goes
    back, as Halo's own keyboard navigation does. In play, A/B/D-pad stay game
@@ -231,6 +277,9 @@ static void update_overlay_game_state(void)
         previous_logged_state = state;
     }
     dispatch_async(dispatch_get_main_queue(), ^{
+#if TARGET_OS_MACCATALYST
+        hp_mac_pointer_lock(inGame && !menuVisible);
+#endif
         overlay.haloMenuVisible = menuVisible;
         overlay.inGame = inGame;
         controller_in_menus = !inGame || menuVisible;
@@ -345,7 +394,7 @@ static NSString *documents_game_dir(void)
 
 static NSDictionary *game_core_identity(void)
 {
-    NSString *path = [NSBundle.mainBundle.bundlePath stringByAppendingPathComponent:@"data/core-identity.json"];
+    NSString *path = [NSBundle.mainBundle.resourcePath stringByAppendingPathComponent:@"data/core-identity.json"];
     id identity = [NSJSONSerialization JSONObjectWithData:[NSData dataWithContentsOfFile:path] ?: NSData.data options:0 error:nil];
     return [identity isKindOfClass:NSDictionary.class] ? identity : nil;
 }
@@ -360,7 +409,7 @@ static void resolve_device_paths(void)
 {
     if (getenv("HALOPAD_IMAGE")) return; /* Explicit development data paths. */
     unsetenv("HALOPAD_GAME_ROOT"); /* Device startup always waits for full validation. */
-    NSString *data = [NSBundle.mainBundle.bundlePath stringByAppendingPathComponent:@"data"];
+    NSString *data = [NSBundle.mainBundle.resourcePath stringByAppendingPathComponent:@"data"];
     NSString *support = [NSFileManager.defaultManager URLsForDirectory:NSApplicationSupportDirectory inDomains:NSUserDomainMask].firstObject.path;
     NSString *state = [support stringByAppendingPathComponent:@"HaloPad/state"];
     [NSFileManager.defaultManager createDirectoryAtPath:state withIntermediateDirectories:YES attributes:nil error:nil];
@@ -1102,6 +1151,13 @@ static void touch_selftest(void)
     scroll.allowedTouchTypes = @[];                     /* trackpad and mouse-wheel scrolling only */
     [v addGestureRecognizer:scroll];
     self.view = v;
+#if TARGET_OS_MACCATALYST
+    pointer_owner = self;
+    for (GCMouse *mouse in GCMouse.mice) hp_mac_attach_mouse(mouse);
+    [NSNotificationCenter.defaultCenter addObserverForName:GCMouseDidConnectNotification object:nil
+                                                     queue:NSOperationQueue.mainQueue
+                                                usingBlock:^(NSNotification *n) { hp_mac_attach_mouse(n.object); }];
+#endif
     /* Keep the console/chat prompt above a docked software keyboard. The input view stays
        full size; only the guest's render host follows the keyboard. */
     game_view = [UIView new];
@@ -1418,6 +1474,7 @@ extern UIViewController *HPEngineChooserMake(UIViewController *(^makePC)(void)) 
 }
 - (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
 {
+    if (HP_MAC_LOCKED()) return;                        /* a locked Mac mouse goes through GCMouse */
     UITouch *t = touches.anyObject;
     self.trackingMenuTouch = overlay.haloMenuVisible &&
         (t.type == UITouchTypeDirect ||
@@ -1429,6 +1486,7 @@ extern UIViewController *HPEngineChooserMake(UIViewController *(^makePC)(void)) 
 - (void)touchesMoved:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
 {
     if (self.trackingMenuTouch) { [self menuTouch:touches.anyObject begin:NO ended:NO]; return; }
+    if (HP_MAC_LOCKED()) return;
     [self pointer:touches.anyObject event:event kind:HPI_MOUSEMOVE down:0];
 }
 - (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
@@ -1436,15 +1494,18 @@ extern UIViewController *HPEngineChooserMake(UIViewController *(^makePC)(void)) 
     if (self.trackingMenuTouch) {
         [self menuTouch:touches.anyObject begin:NO ended:YES]; self.trackingMenuTouch = NO; return;
     }
+    if (HP_MAC_LOCKED()) return;
     [self pointer:touches.anyObject event:event kind:HPI_BUTTON down:0];
 }
 - (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
 {
     if (self.trackingMenuTouch) { cancel_menu_touch(); self.trackingMenuTouch = NO; return; }
+    if (HP_MAC_LOCKED()) return;
     [self pointer:touches.anyObject event:event kind:HPI_BUTTON down:0];
 }
 - (void)hover:(UIHoverGestureRecognizer *)g
 {
+    if (HP_MAC_LOCKED()) return;
     hp_input in = {.kind = HPI_MOUSEMOVE};
     double s;
     static CGPoint last;
@@ -1467,6 +1528,7 @@ extern UIViewController *HPEngineChooserMake(UIViewController *(^makePC)(void)) 
 }
 - (void)scroll:(UIPanGestureRecognizer *)g
 {
+    if (HP_MAC_LOCKED()) return;
     static double rest;                                 /* WHEEL_DELTA (120) per 10 points, fractions kept */
     CGPoint d = [g translationInView:self.view];
     [g setTranslation:CGPointZero inView:self.view];
@@ -1480,6 +1542,9 @@ extern UIViewController *HPEngineChooserMake(UIViewController *(^makePC)(void)) 
 
 - (BOOL)prefersStatusBarHidden { return YES; }
 - (BOOL)prefersHomeIndicatorAutoHidden { return YES; }
+#if TARGET_OS_MACCATALYST
+- (BOOL)prefersPointerLocked { return pointer_lock_wanted && !self.presentedViewController; }
+#endif
 @end
 
 /* ---- the first-run license, shown to the player ---- */
