@@ -99,7 +99,7 @@ You need:
 
 Put `HaloCESetup.exe` and a `product-key.txt` holding your Halo PC key in one folder. Then either:
 
-- **PadMint (easiest):** download [PadMint](https://github.com/chrissotraidis/padmint#quick-start) 0.4.6
+- **PadMint (easiest):** download [PadMint](https://github.com/chrissotraidis/padmint#quick-start) 0.4.8
   or later, choose **HaloPad**, then **iPhone / iPad** or **This Mac**, then your installer. It lists the tools
   to install, builds HaloPad with both editions and gives you the app plus a **HaloPad game data** folder.
 - **Terminal:** install the tools once, then run the builder:
