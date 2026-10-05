@@ -703,6 +703,77 @@ void xg_ios_add_touch_look(float dx, float dy)
 	pthread_mutex_unlock(&pad_lock);
 }
 
+/* ---------- a hardware keyboard and mouse, queued as SDL events for poll_event */
+
+#define HW_EVENTS 128
+static SDL_Event hw_events[HW_EVENTS];
+static unsigned hw_head, hw_tail;
+
+static void hw_push(const SDL_Event *e)
+{
+	pthread_mutex_lock(&pad_lock);
+	if (hw_tail - hw_head < HW_EVENTS) hw_events[hw_tail++ % HW_EVENTS] = *e;
+	pthread_mutex_unlock(&pad_lock);
+}
+
+static SDL_Keycode hw_keycode(int scancode)
+{
+	if (scancode >= SDL_SCANCODE_A && scancode <= SDL_SCANCODE_Z) return 'a' + (scancode - SDL_SCANCODE_A);
+	if (scancode >= SDL_SCANCODE_1 && scancode <= SDL_SCANCODE_9) return '1' + (scancode - SDL_SCANCODE_1);
+	switch (scancode)
+	{
+	case SDL_SCANCODE_0: return '0';
+	case SDL_SCANCODE_RETURN: return SDLK_RETURN;
+	case SDL_SCANCODE_ESCAPE: return SDLK_ESCAPE;
+	case SDL_SCANCODE_BACKSPACE: return SDLK_BACKSPACE;
+	case SDL_SCANCODE_TAB: return SDLK_TAB;
+	case SDL_SCANCODE_SPACE: return SDLK_SPACE;
+	case SDL_SCANCODE_MINUS: return SDLK_MINUS;
+	case SDL_SCANCODE_EQUALS: return SDLK_EQUALS;
+	case SDL_SCANCODE_PERIOD: return SDLK_PERIOD;
+	case SDL_SCANCODE_COMMA: return SDLK_COMMA;
+	case SDL_SCANCODE_SLASH: return SDLK_SLASH;
+	default: return SDL_SCANCODE_TO_KEYCODE(scancode);
+	}
+}
+
+void xg_ios_key(int scancode, int down)
+{
+	if (scancode <= 0 || scancode >= SDL_SCANCODE_COUNT) return;
+	SDL_Event e;
+	memset(&e, 0, sizeof(e));
+	e.key.type = down ? SDL_EVENT_KEY_DOWN : SDL_EVENT_KEY_UP;
+	e.key.windowID = 1;
+	e.key.scancode = (SDL_Scancode)scancode;
+	e.key.key = hw_keycode(scancode);
+	e.key.down = down;
+	hw_push(&e);
+}
+
+void xg_ios_mouse_button(int button, int down)
+{
+	SDL_Event e;
+	memset(&e, 0, sizeof(e));
+	e.button.type = down ? SDL_EVENT_MOUSE_BUTTON_DOWN : SDL_EVENT_MOUSE_BUTTON_UP;
+	e.button.windowID = 1;
+	e.button.button = (Uint8)button;
+	e.button.down = down;
+	e.button.clicks = 1;
+	hw_push(&e);
+}
+
+void xg_ios_mouse_wheel(float steps)
+{
+	if (!steps || !isfinite(steps)) return;
+	SDL_Event e;
+	memset(&e, 0, sizeof(e));
+	e.wheel.type = SDL_EVENT_MOUSE_WHEEL;
+	e.wheel.windowID = 1;
+	e.wheel.y = steps;
+	e.wheel.integer_y = steps > 0 ? 1 : -1;
+	hw_push(&e);
+}
+
 /* Opt-in touch diagnostics: input values only, no player/profile data. */
 static int touch_trace;
 
@@ -872,6 +943,13 @@ int xh_host_sdl_poll_event(uint32_t event)
 	SDL_Event *out = G(SDL_Event *, event);
 	int index;
 	pthread_mutex_lock(&pad_lock);
+	if (hw_head != hw_tail)
+	{
+		*out = hw_events[hw_head++ % HW_EVENTS];
+		out->common.timestamp = (Uint64)xh_host_sdl_ticks() * 1000000ull;
+		pthread_mutex_unlock(&pad_lock);
+		return 1;
+	}
 	int down = 0;
 	int page = xg_scoreboard_next(&touch_scoreboard, &down);
 	if (page)

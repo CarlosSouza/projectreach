@@ -38,9 +38,9 @@
 
 ## What's new
 
-- **0.3: HaloPad for Mac.** The same app, ⋯ menu and icon on Apple silicon Macs, with keyboard and
-  mouse: the pointer locks while you play and Esc opens Halo's menu. PadMint builds it, and it needs no
-  Apple account. The Mac app runs Custom Edition; the Xbox edition is iPhone and iPad only for now.
+- **0.3: HaloPad for Mac.** The same app, edition picker, ⋯ menu and icon on Apple silicon Macs, with
+  keyboard and mouse, and no Apple account needed. PadMint builds it with Custom Edition; add the Xbox
+  edition with the same few commands as on iPad ([below](#adding-the-xbox-edition)).
 - **0.2.1:** build HaloPad with [PadMint](https://github.com/chrissotraidis/padmint) in a few clicks.
   Bungie's 1.10 update is downloaded for you and CrossOver is no longer needed
   ([notes](https://github.com/chrissotraidis/projectreach/releases/tag/v0.2.1)).
@@ -60,7 +60,7 @@ When your build includes both, it asks which one to open at launch.
 | Your files | Your Custom Edition installer and product key | Your own Xbox disc image, imported in the app |
 | Online | Community-run Custom Edition servers and LAN, alongside PC players | Internet and system link games of up to 128 players with PC, Linux and Android players on the same build |
 | Campaign | No | The original Xbox campaign |
-| Runs on | iPhone, iPad and Mac | iPhone and iPad |
+| Runs on | iPhone, iPad and Mac | iPhone, iPad and Mac |
 | Build with | PadMint or one command | A few extra commands ([below](#adding-the-xbox-edition)) |
 
 For Custom Edition, HaloPad supplies the Windows services the game expects: Direct3D 9 rendered through
@@ -74,7 +74,7 @@ Both editions share the touch controls and the ⋯ menu, and keep their own save
 | --- | --- |
 | **iPad** | iPad Pro 12.9" (6th gen) plays both editions, local and online |
 | **iPhone** | iPhone 14 plays local matches, including 1280 × 720 widescreen; slower in loading and busy scenes. Online play not fully tested |
-| **Mac** | Custom Edition runs on Apple silicon Macs (macOS 14+): imports your package, plays with keyboard and mouse, lists public servers |
+| **Mac** | Both editions run on Apple silicon Macs (macOS 14+) with keyboard and mouse: Custom Edition lists public servers; the Xbox edition imports your disc and plays the campaign |
 | **Online** | Custom Edition joins public PC servers; the Xbox edition joins internet games through the decompilation's game browser |
 | **Controls** | Movable, resizable touch overlay, look-speed settings, iOS keyboard for chat and names, Xbox-style controllers, trackpad and mouse in menus |
 | **Custom maps** | `.map` files import from the ⋯ menu. DLL mods (Chimera, OpenSauce, HAC2) do not load |
@@ -121,8 +121,9 @@ To update, install over the existing app. Deleting HaloPad deletes your profiles
 ### Adding the Xbox edition
 
 The Xbox edition is a manual build on top of the one above. It needs Homebrew `llvm` and about 40 GB
-free, and ends with a signed `HaloPad.app` (never an IPA) that you install with
-`xcrun devicectl device install app`. Then choose your disc image in the app.
+free, and ends with a `HaloPad.app` holding both editions (never an IPA): on iPhone or iPad you install
+it with `xcrun devicectl device install app`; on a Mac you move it to Applications. Then choose your
+disc image in the app.
 
 <details>
 <summary><strong>Xbox edition build commands</strong></summary>
@@ -138,9 +139,15 @@ export XBOX_ANGLE_SOURCE="$angle_work/WebKit/Source/ThirdParty/ANGLE"
 
 # the Metal renderer and the camera and graphics fixes the tested iPad build uses
 export HALOPAD_XBOX_RENDERER=angle-metal HALOPAD_XBOX_GUEST_ADAPTATION=render-camera-v1
+
+# iPhone or iPad
 scripts/xbox/build-ios.sh --device      # fetches and builds the pinned engine on your Mac
 .venv/bin/python scripts/build-ios-app.py --iphoneos --identity "Apple Development: …" \
     --profile your.mobileprovision --product-id generated/product-id/product-id.txt
+
+# Mac (the app appears under generated/srw/…/ios-app-arm64-apple-ios17.0-macabi/)
+scripts/xbox/build-ios.sh --mac
+.venv/bin/python scripts/build-ios-app.py --mac --product-id generated/product-id/product-id.txt
 ```
 
 [Xbox engine](docs/XBOX-ENGINE.md) covers requirements, updating to newer upstream builds and the
@@ -156,8 +163,9 @@ Create a Halo profile, then use the game's own **Multiplayer** menus to host or 
   **Report a Problem**, **Share Diagnostic Log** and **Switch Edition**. Custom Edition adds keyboard
   and chat, join by address and custom maps; Xbox adds System Link
 - **Touch:** move and resize the overlay; tune look speed in **Controls › Look Speed & Touch Settings**
-- **Mac:** keyboard and mouse as on a PC. The pointer locks while you play; **Esc** opens Halo's menu
-  and frees it, so you can reach the ⋯ menu or other apps
+- **Mac:** keyboard and mouse as on a PC. The pointer locks while you play. In Custom Edition **Esc**
+  opens Halo's menu and frees it; in the Xbox edition **F12** frees or recaptures it, as on PC. Then
+  click ⋯ for the menu, including **Switch Edition**
 - **Controllers:** connect before opening HaloPad for the most reliable result. In menus the D-pad
   moves, **A** selects, **B** goes back and **Menu** pauses. Halo's "Button 6" pickup is **RB**
 - **Leaving a match:** **⋯ › Open Leave Game Menu…**, then **Leave Game**
@@ -215,8 +223,8 @@ busy scenes are slower than on iPad for now.
 <summary><strong>Does it run on Mac?</strong></summary>
 
 Yes, on Apple silicon Macs with macOS 14 or later. It is the same app as on iPad, built for the Mac, with
-the same ⋯ menu, and it needs no Apple account. It runs Custom Edition, including online play; the Xbox
-edition is iPhone and iPad only for now.
+the same edition picker and ⋯ menu, and it needs no Apple account. PadMint builds it with Custom
+Edition; the Xbox edition is added with a few commands, as on iPad.
 
 </details>
 
