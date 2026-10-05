@@ -182,7 +182,7 @@ def package(exe, out, work, target=TARGET, identity=None, provisioning=None, pro
     info = {
         'CFBundleIdentifier': BUNDLE_ID, 'CFBundleExecutable': 'HaloPad', 'CFBundleName': 'HaloPad',
         'CFBundleDisplayName': 'HaloPad', 'CFBundlePackageType': 'APPL', 'CFBundleVersion': '1',
-        'CFBundleShortVersionString': '0.2', 'CFBundleSupportedPlatforms': ['iPhoneSimulator' if 'simulator' in target else 'iPhoneOS'],
+        'CFBundleShortVersionString': '0.3', 'CFBundleSupportedPlatforms': ['iPhoneSimulator' if 'simulator' in target else 'iPhoneOS'],
         'MinimumOSVersion': '17.0', 'UIDeviceFamily': [1, 2], 'UIRequiresFullScreen': True, 'UILaunchScreen': {},
         'UIStatusBarHidden': True,
         'UISupportedInterfaceOrientations': ['UIInterfaceOrientationLandscapeLeft', 'UIInterfaceOrientationLandscapeRight'],

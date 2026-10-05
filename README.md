@@ -1,14 +1,15 @@
 # HaloPad
 
 <p align="center">
-  <strong>Halo: Combat Evolved on iPhone and iPad.</strong><br>
+  <strong>Halo: Combat Evolved on iPhone, iPad and Mac.</strong><br>
   The Xbox edition with the original campaign and online matches of up to 128 players, plus Halo Custom
-  Edition on its community servers. Touch controls, controllers and real networking.
+  Edition on its community servers. Touch, keyboard and mouse, controllers and real networking.
 </p>
 
 <p align="center">
-  <img alt="Version 0.2.1" src="https://img.shields.io/badge/version-0.2.1-8E8E93">
+  <img alt="Version 0.3" src="https://img.shields.io/badge/version-0.3-8E8E93">
   <img alt="iOS and iPadOS 17 or later" src="https://img.shields.io/badge/iOS%20%2F%20iPadOS-17%2B-0A84FF?logo=apple">
+  <img alt="macOS 14 or later on Apple silicon" src="https://img.shields.io/badge/macOS-14%2B%20Apple%20silicon-0A84FF?logo=apple">
   <img alt="Online matches of up to 128 players" src="https://img.shields.io/badge/online-up%20to%20128%20players-30D158">
   <img alt="Game data not included" src="https://img.shields.io/badge/game%20data-not%20included-FF453A">
   <img alt="Status: preview" src="https://img.shields.io/badge/status-preview-FFD60A">
@@ -17,7 +18,7 @@
 
 ![HaloPad at Halo's main menu in the iPad Simulator, with the HaloPad three-dot menu button in the corner](docs/images/halopad-menu.jpg)
 
-*HaloPad at Halo's own main menu. Physical iPhone 14 and iPad Pro builds play local and online matches.*
+*HaloPad at Halo's own main menu. iPhone 14, iPad Pro and Apple silicon Mac builds play local and online.*
 
 **[What is it](#what-is-halopad) · [Status](#current-status) · [Get it](#build-and-install) ·
 [Playing](#playing) · [FAQ](#frequently-asked-questions) · [Discord](https://discord.gg/xwHfUD2bxW)**
@@ -27,16 +28,19 @@
 > edition, your own Halo: Combat Evolved Xbox disc image. This repository contains no Halo files,
 > product key, engine source or translated game code.
 >
-> **Built on your Mac.** There is no prebuilt IPA. You build HaloPad from your own game with
-> [PadMint](https://github.com/chrissotraidis/padmint) or one command, then sign it with your own Apple
-> profile. It is a preview: playable on real hardware, with frame pacing and some Xbox graphics still
-> being tuned.
+> **Built on your Mac.** There is no prebuilt download. You build HaloPad from your own game with
+> [PadMint](https://github.com/chrissotraidis/padmint) or one command: a Mac app you open right away,
+> or an IPA you sign with your own Apple profile. It is a preview: playable on real hardware, with
+> frame pacing and some Xbox graphics still being tuned.
 >
 > **AI disclosure:** HaloPad is developed with substantial AI assistance. The
 > [status log](docs/STATUS.md) records what has actually been checked, and on which device.
 
 ## What's new
 
+- **0.3: HaloPad for Mac.** The same app, ⋯ menu and icon on Apple silicon Macs, with keyboard and
+  mouse: the pointer locks while you play and Esc opens Halo's menu. PadMint builds it, and it needs no
+  Apple account. The Mac app runs Custom Edition; the Xbox edition is iPhone and iPad only for now.
 - **0.2.1:** build HaloPad with [PadMint](https://github.com/chrissotraidis/padmint) in a few clicks.
   Bungie's 1.10 update is downloaded for you and CrossOver is no longer needed
   ([notes](https://github.com/chrissotraidis/projectreach/releases/tag/v0.2.1)).
@@ -46,7 +50,8 @@
 
 ## What is HaloPad?
 
-HaloPad (the codebase is Project Reach) brings two versions of Halo: Combat Evolved to iPhone and iPad.
+HaloPad (the codebase is Project Reach) brings two versions of Halo: Combat Evolved to iPhone, iPad and
+Apple silicon Macs.
 When your build includes both, it asks which one to open at launch.
 
 | | Halo Custom Edition (PC) | Halo: Combat Evolved (Xbox) |
@@ -55,6 +60,7 @@ When your build includes both, it asks which one to open at launch.
 | Your files | Your Custom Edition installer and product key | Your own Xbox disc image, imported in the app |
 | Online | Community-run Custom Edition servers and LAN, alongside PC players | Internet and system link games of up to 128 players with PC, Linux and Android players on the same build |
 | Campaign | No | The original Xbox campaign |
+| Runs on | iPhone, iPad and Mac | iPhone and iPad |
 | Build with | PadMint or one command | A few extra commands ([below](#adding-the-xbox-edition)) |
 
 For Custom Edition, HaloPad supplies the Windows services the game expects: Direct3D 9 rendered through
@@ -68,6 +74,7 @@ Both editions share the touch controls and the ⋯ menu, and keep their own save
 | --- | --- |
 | **iPad** | iPad Pro 12.9" (6th gen) plays both editions, local and online |
 | **iPhone** | iPhone 14 plays local matches, including 1280 × 720 widescreen; slower in loading and busy scenes. Online play not fully tested |
+| **Mac** | Custom Edition runs on Apple silicon Macs (macOS 14+): imports your package, plays with keyboard and mouse, lists public servers |
 | **Online** | Custom Edition joins public PC servers; the Xbox edition joins internet games through the decompilation's game browser |
 | **Controls** | Movable, resizable touch overlay, look-speed settings, iOS keyboard for chat and names, Xbox-style controllers, trackpad and mouse in menus |
 | **Custom maps** | `.map` files import from the ⋯ menu. DLL mods (Chimera, OpenSauce, HAC2) do not load |
@@ -85,24 +92,26 @@ You need:
 
 - a Mac with Apple silicon and Xcode
 - your own Halo: Custom Edition installer (`HaloCESetup.exe`) and its product key
-- an iPhone or iPad on iOS/iPadOS 17 or later, with Developer Mode on
-- an Apple development profile that allows **Extended Virtual Addressing** and **Increased Memory Limit**
+- for iPhone or iPad: iOS/iPadOS 17 or later with Developer Mode on, and an Apple development profile
+  that allows **Extended Virtual Addressing** and **Increased Memory Limit** (the Mac app needs neither)
 
 Put `HaloCESetup.exe` and a `product-key.txt` holding your Halo PC key in one folder. Then either:
 
-- **PadMint (easiest):** download [PadMint](https://github.com/chrissotraidis/padmint#quick-start) 0.4.1
-  or later, choose **HaloPad**, then your installer. It lists the tools to install, builds HaloPad and
-  gives you the IPA plus a **HaloPad game data** folder.
+- **PadMint (easiest):** download [PadMint](https://github.com/chrissotraidis/padmint#quick-start) 0.4.2
+  or later, choose **HaloPad**, then **iPhone/iPad** or **Mac**, then your installer. It lists the tools
+  to install, builds HaloPad and gives you the app plus a **HaloPad game data** folder.
 - **Terminal:** install the tools once, then run the builder:
 
   ```sh
   brew install sevenzip winetricks llvm lld && brew install --cask wine-stable
-  scripts/builder/build.sh /path/to/that/folder --ipa HaloPad.ipa
+  scripts/builder/build.sh /path/to/that/folder --ipa HaloPad.ipa        # iPhone and iPad
+  scripts/builder/build.sh /path/to/that/folder --mac --zip HaloPad.zip  # Mac
   ```
 
 Both download Bungie's free 1.10 update, check every file by hash, translate Halo and make your product
-ID on your Mac, then write an unsigned IPA and `Halo-CE.halopad.zip`. Install the IPA with your own
-signing ([install guide](docs/INSTALL-IPHONE.md)), open HaloPad, tap **Choose Prepared Package…** and
+ID on your Mac, then write the app and `Halo-CE.halopad.zip`. On a Mac, unzip HaloPad, move it to
+Applications and open it. On iPhone or iPad, install the IPA with your own signing
+([install guide](docs/INSTALL-IPHONE.md)). Then open HaloPad, choose **Choose Prepared Package…** and
 pick the zip. Your game files, key and translated code never leave your Mac.
 
 **An app you build contains code translated from your game: it is yours alone. Never share or upload it.**
@@ -147,6 +156,8 @@ Create a Halo profile, then use the game's own **Multiplayer** menus to host or 
   **Report a Problem**, **Share Diagnostic Log** and **Switch Edition**. Custom Edition adds keyboard
   and chat, join by address and custom maps; Xbox adds System Link
 - **Touch:** move and resize the overlay; tune look speed in **Controls › Look Speed & Touch Settings**
+- **Mac:** keyboard and mouse as on a PC. The pointer locks while you play; **Esc** opens Halo's menu
+  and frees it, so you can reach the ⋯ menu or other apps
 - **Controllers:** connect before opening HaloPad for the most reliable result. In menus the D-pad
   moves, **A** selects, **B** goes back and **Menu** pauses. Halo's "Button 6" pickup is **RB**
 - **Leaving a match:** **⋯ › Open Leave Game Menu…**, then **Leave Game**
@@ -201,11 +212,21 @@ busy scenes are slower than on iPad for now.
 </details>
 
 <details>
+<summary><strong>Does it run on Mac?</strong></summary>
+
+Yes, on Apple silicon Macs with macOS 14 or later. It is the same app as on iPad, built for the Mac, with
+the same ⋯ menu, and it needs no Apple account. It runs Custom Edition, including online play; the Xbox
+edition is iPhone and iPad only for now.
+
+</details>
+
+<details>
 <summary><strong>Do I need a paid Apple developer account?</strong></summary>
 
-HaloPad needs the **Extended Virtual Addressing** and **Increased Memory Limit** capabilities, because it
-reserves Halo's full 32-bit address space. Sign with an Apple development profile that allows both. Free
-signing through AltStore, SideStore or Sideloadly has not been tested.
+Not for the Mac app. On iPhone and iPad, HaloPad needs the **Extended Virtual Addressing** and
+**Increased Memory Limit** capabilities, because it reserves Halo's full 32-bit address space. Sign with
+an Apple development profile that allows both. Free signing through AltStore, SideStore or Sideloadly
+has not been tested.
 
 </details>
 
