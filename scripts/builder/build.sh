@@ -98,7 +98,7 @@ fi
 $PY scripts/extract-reference-components.py
 
 step "translating Halo and its DLLs"
-runs() { find generated/srw/custom-en-1.0.10.0621 -mindepth 1 -maxdepth 3 -type d -name 'run-*' -prune 2>/dev/null | sort; }
+runs() { { find generated/srw/custom-en-1.0.10.0621 -mindepth 1 -maxdepth 3 -type d -name 'run-*' -prune 2>/dev/null || true; } | sort; }
 RUNS_BEFORE=$(runs)                                   # this build's translation runs are the new ones
 for module in haloce keystone ksimeui controls msxml4; do
 	scripts/srw-pipeline.sh "$BUILD" --module "$module"
